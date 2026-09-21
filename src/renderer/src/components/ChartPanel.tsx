@@ -9,7 +9,7 @@ import { createMemo, createResource, createSignal, For, onCleanup, Show, type JS
 import type { KLinePeriod, KLineSeries, MinuteTrend } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
-import { KLINE_BARS_MAX, nextZoomLevel } from '../lib/chart-geometry'
+import { KLINE_BARS_MAX } from '../lib/chart-geometry'
 import { toneOf } from '../lib/tone'
 import { KLineChart } from './KLineChart'
 import { ChartSkeleton } from './ChartSkeleton'
@@ -48,8 +48,6 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<Tab>('minute')
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
-  /** K 线可见根数（缩放档位）。放在这里而不是 KLineChart 里，是因为头部也要显示它 */
-  const [zoom, setZoom] = createSignal<number>(KLINE_COUNT)
 
   /**
    * 用 memo 把 code 稳定下来。
@@ -94,11 +92,6 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const klineSeries = (): KLineSeries | undefined => {
     const current = data()
     return current?.kind === 'kline' ? current.series : undefined
-  }
-
-  /** 上下键换档：组件只管转发，换算交给纯函数（可单测） */
-  const zoomBy = (direction: 'in' | 'out'): void => {
-    setZoom((value) => nextZoomLevel(value, direction))
   }
 
   const isEmpty = (): boolean => {
@@ -229,7 +222,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                 {(days) => <TrendChart days={days()} onHover={setHover} />}
               </Show>
               <Show when={klineSeries()}>
-                {(series) => <KLineChart series={series()} zoom={zoom()} onZoom={zoomBy} />}
+                {(series) => <KLineChart series={series()} />}
               </Show>
             </Show>
           </Show>

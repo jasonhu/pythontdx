@@ -71,7 +71,8 @@ async function drive(window: BrowserWindow): Promise<void> {
     await wait(120)
   }
 
-  for (const keyCode of split(process.env.STOCKLENS_CAPTURE_KEYS)) {
+  for (const key of split(process.env.STOCKLENS_CAPTURE_KEYS)) {
+    const keyCode = acceleratorName(key)
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode })
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode })
     // 留一帧给 Solid 重渲染，否则截到的还是按键之前的样子
@@ -111,6 +112,26 @@ function split(value: string | undefined): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+/**
+ * DOM 风格键名 → Electron 加速器键名。
+ *
+ * 为什么需要？`sendInputEvent({ keyCode })` 收的是**加速器键名**（`Up` / `Left`），
+ * 传 DOM 的 `ArrowUp` 不会报错，只是按键**一点反应都没有** —— 最难查的那种失败
+ *（本项目的第 24 条踩坑就是这么来的）。干脆两种写法都收下，省得下次再踩。
+ */
+const KEY_ALIASES: Record<string, string> = {
+  ArrowUp: 'Up',
+  ArrowDown: 'Down',
+  ArrowLeft: 'Left',
+  ArrowRight: 'Right',
+  Escape: 'Esc',
+  Enter: 'Return'
+}
+
+function acceleratorName(key: string): string {
+  return KEY_ALIASES[key] ?? key
 }
 
 /** 在页面里求值；只把结果当字符串用，避免 any 扩散 */

@@ -16,6 +16,7 @@ import {
   buildTrendLevels,
   buildTrendSeparators,
   buildTrendTicks,
+  cursorFromX,
   downsample,
   flattenTrendPoints,
   formatMonthDay,
@@ -25,7 +26,9 @@ import {
   nextZoomLevel,
   niceStep,
   slotFromX,
-  trendBaseline
+  stepCursor,
+  trendBaseline,
+  zoomWindow
 } from './chart-geometry'
 
 /* ------------------------------------------------------------ fixture */
@@ -655,5 +658,133 @@ describe('nextZoomLevel（上下键换档）', () => {
 
   it('最大档位就是取数上限（不可能显示比拉回来的更多）', () => {
     expect(KLINE_BARS_MAX).toBe(Math.max(...KLINE_ZOOM_LEVELS))
+  })
+})
+
+describe('klineWindow 的 start 参数（窗口可以平移了）', () => {
+  it('不传 start 时仍是右对齐（默认行为不变）', () => {
+    expect(klineWindow(160, 50)).toEqual({ start: 110, count: 50 })
+  })
+
+  it('传了 start 就按它取，并钳进 [0, total - count]', () => {
+    expect(klineWindow(160, 50, 40)).toEqual({ start: 40, count: 50 })
+    expect(klineWindow(160, 50, -20)).toEqual({ start: 0, count: 50 }) // 不能滚到数据之前
+    expect(klineWindow(160, 50, 999)).toEqual({ start: 110, count: 50 }) // 不能滚过最新一根
+  })
+})
+
+describe('zoomWindow（以光标为锚点缩放）', () => {
+  const total = 160
+  // 锚点在窗口里的相对位置；容差 1 位小数是因为 start 必须是整数，
+  // 缩放后最多差不到一根 K 线的位置 —— 人眼看不出来，但「指到的 K 线换了」能看出来。
+  const fraction = (anchor: number, w: { start: number; count: number }): number =>
+    (anchor - w.start + 0.5) / w.count
+
+  it('光标在中间（两侧都有数据）时，缩放前后它在屏幕上的位置完全不变', () => {
+    const before = klineWindow(total, 80, 40) // 40..120
+    const anchor = before.start + 40 // 屏幕正中那一根
+
+    for (const nextCount of [30, 50, 120, 160]) {
+      const after = zoomWindow(before, total, nextCount, anchor)
+      expect(after.count).toBe(nextCount)
+      expect(fraction(anchor, after)).toBeCloseTo(fraction(anchor, before), 1)
+    }
+  })
+
+  it('贴着右端时位置只能钳位，但光标必须还在窗口里', () => {
+    // 「位置完全不动」与「右侧不留白」是互斥的：要完全不动，就得允许窗口滚过最新一根、
+    // 在右边空出一块（主流软件里那是 End 键切换的另一个功能）。
+    // 这里选择贴合数据，代价是贴边缩放时光标在屏幕上会挪一点 —— 但它指的仍是同一根。
+    const before = klineWindow(total, 80) // 80..160，已贴右端
+    const anchor = before.start + 20
+
+    for (const nextCount of [30, 50, 120, 160]) {
+      const after = zoomWindow(before, total, nextCount, anchor)
+      expect(after.count).toBe(nextCount)
+      // 硬性要求一：光标还在窗口里，不会跑到屏幕外
+      expect(anchor).toBeGreaterThanOrEqual(after.start)
+      expect(anchor).toBeLessThan(after.start + after.count)
+      // 硬性要求二：窗口不会滚过最新一根
+      expect(after.start + after.count).toBeLessThanOrEqual(total)
+    }
+  })
+
+  it('没有锚点时退回右对齐（贴着最新一根缩放）', () => {
+    expect(zoomWindow(klineWindow(total, 160), total, 50, null)).toEqual({ start: 110, count: 50 })
+  })
+
+  it('锚点在最右端时，放大后依然贴着右端', () => {
+    expect(zoomWindow(klineWindow(total, 160), total, 50, total - 1)).toEqual({
+      start: 110,
+      count: 50
+    })
+  })
+
+  it('锚点靠近左端时不会滚到数据之前', () => {
+    const before = klineWindow(total, 80)
+    const after = zoomWindow(before, total, 30, before.start + 1)
+    expect(after.start).toBeGreaterThanOrEqual(0)
+    expect(after.start + after.count).toBeLessThanOrEqual(total)
+  })
+})
+
+describe('stepCursor（左右键移动光标）', () => {
+  const total = 160
+
+  it('还没有光标时，第一次按键只把它放到可见区最新一根上，不移动', () => {
+    const w = klineWindow(total, 50)
+    expect(stepCursor(null, -1, w, total)).toEqual({ cursor: 159, window: w })
+    expect(stepCursor(null, 1, w, total)).toEqual({ cursor: 159, window: w })
+  })
+
+  it('窗口内逐根移动时，窗口不动', () => {
+    const w = klineWindow(total, 50)
+    expect(stepCursor(159, -1, w, total)).toEqual({ cursor: 158, window: w })
+  })
+
+  it('走到窗口左缘再按，窗口跟着平移（否则光标会卡在屏幕边上）', () => {
+    const w = klineWindow(total, 50) // 110..160
+    const moved = stepCursor(110, -1, w, total)
+    expect(moved.cursor).toBe(109)
+    expect(moved.window).toEqual({ start: 109, count: 50 })
+  })
+
+  it('一直往左能走到第一根，然后停住', () => {
+    let cursor: number | null = 159
+    let w = klineWindow(total, 30)
+    for (let i = 0; i < 500; i++) {
+      const next = stepCursor(cursor, -1, w, total)
+      cursor = next.cursor
+      w = next.window
+    }
+    expect(cursor).toBe(0)
+    expect(w).toEqual({ start: 0, count: 30 })
+  })
+
+  it('往右到最新一根后停住，不环绕', () => {
+    expect(stepCursor(159, 1, klineWindow(total, 30), total).cursor).toBe(159)
+  })
+
+  it('空数据不崩', () => {
+    expect(stepCursor(null, -1, klineWindow(0, 30), 0).cursor).toBe(0)
+  })
+})
+
+describe('cursorFromX（鼠标位置 → 光标）', () => {
+  const window = klineWindow(160, 50) // 110..160
+
+  it('映射成窗口内的绝对下标', () => {
+    expect(cursorFromX(5, window, 0, 500)).toBe(110)
+    expect(cursorFromX(495, window, 0, 500)).toBe(159)
+  })
+
+  it('越出绘图区时钳到两端，而不是返回 null —— 手抖不该让光标消失', () => {
+    expect(cursorFromX(-100, window, 0, 500)).toBe(110)
+    expect(cursorFromX(9999, window, 0, 500)).toBe(159)
+  })
+
+  it('没有数据时返回 null', () => {
+    expect(cursorFromX(10, klineWindow(0, 50), 0, 500)).toBeNull()
+    expect(cursorFromX(10, window, 0, 0)).toBeNull()
   })
 })

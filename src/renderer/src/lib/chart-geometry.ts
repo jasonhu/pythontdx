@@ -437,19 +437,112 @@ export interface KLineWindow {
 /**
  * 把「想显示多少根」换算成「取哪一段」。
  *
- * **右对齐**：永远取最后 count 根。在没有平移能力的前提下这是唯一合理的选择 ——
- * 看行情关心的是最近发生了什么，而不是最早那几根。
+ * **默认右对齐**：不传 start 时永远取最后 count 根 —— 看行情关心的是最近发生了什么。
+ * 传了 start 就被钳进 `[0, total - count]`：既不能滚到数据之前，也不能滚过最新一根。
  *
  * 两条钳位：
  *   · count 不能超过实际拥有的根数（新股、停牌、取数不足都可能不够）；
  *   · 空数组直接返回 0，交给上层显示占位，别让几何计算去处理空切片。
  */
-export function klineWindow(total: number, count: number): KLineWindow {
+export function klineWindow(total: number, count: number, start?: number): KLineWindow {
   const safeTotal = Math.max(0, Math.floor(total))
   if (safeTotal === 0) return { start: 0, count: 0 }
 
   const size = Math.max(1, Math.min(safeTotal, Math.floor(count) || 1))
-  return { start: safeTotal - size, count: size }
+  const last = safeTotal - size
+
+  const raw = start === undefined ? last : Math.floor(start)
+  const safeStart = Number.isFinite(raw) ? Math.min(last, Math.max(0, raw)) : last
+  return { start: safeStart, count: size }
+}
+
+/**
+ * 缩放窗口，并把**锚点那一根钉在屏幕上的同一处**。
+ *
+ * 为什么必须有这个函数？用户实测反馈：缩放后光标指到的 K 线「漂移」了。
+ * 根因是旧实现只存了相对下标，窗口一变，同一个下标就指向了另一根 K 线。
+ * 主流行情软件的做法是以光标为锚点缩放 —— 两边的 K 线向它聚拢或散开
+ *（见 `docs/06` 第 23 条）。
+ *
+ * anchor 传 null 时退回右对齐：没有光标时，缩放贴着最新一根走。
+ */
+export function zoomWindow(
+  window: KLineWindow,
+  total: number,
+  nextCount: number,
+  anchor: number | null
+): KLineWindow {
+  if (anchor === null || window.count === 0) return klineWindow(total, nextCount)
+
+  // 锚点在窗口里的相对位置换成比例，缩放后让它落在同一个比例上
+  const ratio = (anchor - window.start + 0.5) / window.count
+  const start = Math.round(anchor - ratio * nextCount + 0.5)
+  return klineWindow(total, nextCount, start)
+}
+
+export interface KLineCursorMove {
+  /** 移动后的光标（绝对下标） */
+  cursor: number
+  /** 可能被一起平移的窗口 */
+  window: KLineWindow
+}
+
+/**
+ * 左右键移动光标。
+ *
+ * 三个约定，都对齐主流行情软件：
+ *   1. 还没有光标时，第一次按键只把它放到**可见区最新的一根**上，不移动
+ *      （相当于主流的「进入十字光标模式」，天勤是双击进入，我们不用多开一个模式）；
+ *   2. 光标走到窗口边缘还继续按，**窗口跟着平移一格** —— 这样光标能一路走到
+ *      任意一根，而不是卡在屏幕边上；
+ *   3. 到了数据两端就停住，不环绕。
+ */
+export function stepCursor(
+  cursor: number | null,
+  delta: number,
+  window: KLineWindow,
+  total: number
+): KLineCursorMove {
+  const safeTotal = Math.max(0, Math.floor(total))
+  if (safeTotal === 0 || window.count === 0) {
+    return { cursor: 0, window }
+  }
+
+  if (cursor === null) {
+    const newestVisible = window.start + window.count - 1
+    return { cursor: Math.min(safeTotal - 1, newestVisible), window }
+  }
+
+  const next = Math.min(safeTotal - 1, Math.max(0, cursor + delta))
+
+  // 越出窗口时，把窗口平移「最少」的格数让它重新可见（不做多余滚动）
+  let start = window.start
+  if (next < start) {
+    start = next
+  } else if (next > start + window.count - 1) {
+    start = next - window.count + 1
+  }
+
+  return { cursor: next, window: klineWindow(safeTotal, window.count, start) }
+}
+
+/**
+ * 鼠标 x 坐标 → 光标（绝对下标）。
+ *
+ * 越出绘图区时钳到两端而不是返回 null：光标不该因为手抖一下就消失。
+ * 返回 null 只有一种情况 —— 还没有数据。
+ */
+export function cursorFromX(
+  x: number,
+  window: KLineWindow,
+  plotLeft: number,
+  plotW: number
+): number | null {
+  if (window.count === 0 || plotW <= 0) return null
+
+  const ratio = (x - plotLeft) / plotW
+  const index = Math.floor(ratio * window.count)
+  return window.start + Math.min(window.count - 1, Math.max(0, index))
 }
 
 /**

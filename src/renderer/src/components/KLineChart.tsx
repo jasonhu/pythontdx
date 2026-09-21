@@ -14,8 +14,13 @@ import {
   buildKLineLevels,
   buildKLineTicks,
   buildLinePath,
+  cursorFromX,
+  KLINE_BARS_MAX,
   klineWindow,
-  movingAverage
+  movingAverage,
+  nextZoomLevel,
+  stepCursor,
+  zoomWindow
 } from '../lib/chart-geometry'
 import { useElementSize } from '../lib/dom'
 
@@ -28,26 +33,42 @@ const MA_CONFIG = [
 
 export interface KLineChartProps {
   series: KLineSeries
-  /** 可见根数（缩放档位）。由 ChartPanel 持有 —— 它还要在头部显示当前档位 */
-  zoom: number
-  /** 上下键换档 */
-  onZoom(direction: 'in' | 'out'): void
 }
+
+/** 默认档位：显示全部 K 线 */
+const DEFAULT_COUNT = KLINE_BARS_MAX
 
 export function KLineChart(props: KLineChartProps): JSX.Element {
   const { size, ref } = useElementSize<HTMLDivElement>()
-  const [hoverIndex, setHoverIndex] = createSignal<number | null>(null)
+
+  /** 可见根数（缩放档位） */
+  const [count, setCount] = createSignal<number>(DEFAULT_COUNT)
+  /** 窗口左端下标；null = 贴着最新一根（右对齐） */
+  const [start, setStart] = createSignal<number | null>(null)
+  /**
+   * 光标所在的**绝对**下标。
+   * 存绝对值而不是窗口内的相对下标，是「缩放后不漂移」的关键（`docs/06` 第 23 条）。
+   */
+  const [cursor, setCursor] = createSignal<number | null>(null)
 
   /** 全量 K 线 */
   const allBars = (): KLineSeries['bars'] => props.series.bars
+  const total = (): number => allBars().length
 
-  /** 可见窗口：右对齐，永远取最后 N 根 */
-  const win = createMemo(() => klineWindow(allBars().length, props.zoom))
+  /** 可见窗口：默认右对齐，被左右键平移过就按 start 走（两端自动钳位） */
+  const win = createMemo(() => klineWindow(total(), count(), start() ?? undefined))
+
+  /** 光标下标：数据换了（切股票 / 切周期）也得钳在有效范围内 */
+  const cursorIndex = createMemo(() => {
+    const value = cursor()
+    if (value === null || total() === 0) return null
+    return Math.min(total() - 1, Math.max(0, value))
+  })
 
   /** 真正参与绘制的切片 —— 几何层拿到它之后会自动重算蜡烛宽度 */
   const bars = createMemo(() => {
-    const { start, count } = win()
-    return allBars().slice(start, start + count)
+    const view = win()
+    return allBars().slice(view.start, view.start + view.count)
   })
 
   /**
@@ -64,10 +85,10 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   /** 均线同样要切片，否则 x 坐标会和蜡烛整体错位 */
   const visibleAverages = createMemo(() => {
-    const { start, count } = win()
+    const view = win()
     return averages().map((average) => ({
       ...average,
-      values: average.values.slice(start, start + count)
+      values: average.values.slice(view.start, view.start + view.count)
     }))
   })
 
@@ -78,22 +99,24 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   })
   const dateTicks = createMemo(() => buildKLineTicks(bars()))
 
-  const hovered = createMemo(() => {
-    const index = hoverIndex()
+  /**
+   * 光标那一根的读数。鼠标悬停和键盘左右键**共用同一份状态**，
+   * 所以两者不会各指一根、也不会互相打架。
+   */
+  const cursorReadout = createMemo(() => {
+    const absolute = cursorIndex()
     const geo = geometry()
-    const list = bars()
-    if (index === null || !geo) return null
+    if (absolute === null || !geo) return null
 
-    const bar = list[index]
+    const bar = allBars()[absolute]
     if (!bar) return null
 
-    // 涨跌幅要跟前一根比。窗口最左那根的前一根不在窗口里，得回全量数组去取，
+    // 涨跌幅要跟前一根比。窗口最左边那根的前一根不在窗口里，得回全量数组去取，
     // 否则它会被算成 0（看起来像是那天没涨没跌）。
-    const absolute = win().start + index
     const previous = allBars()[absolute - 1]
     return {
       bar,
-      x: geo.x(index),
+      x: geo.x(absolute - win().start),
       y: geo.yPrice(bar.close),
       changePct: previous ? ((bar.close - previous.close) / previous.close) * 100 : 0,
       averages: averages().map((average) => ({
@@ -106,26 +129,69 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   const onPointerMove = (event: PointerEvent): void => {
     const geo = geometry()
-    const list = bars()
-    if (!geo || list.length === 0) return
+    if (!geo) return
 
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    const ratio = (event.clientX - rect.left - geo.padding.left) / geo.plotW
-    const index = Math.floor(ratio * list.length)
-    setHoverIndex(Math.min(list.length - 1, Math.max(0, index)))
+    // 用鼠标位置换算**绝对**下标：缩放或平移之后，同一个屏幕位置对应的 K 线变了，
+    // 但我们记的是「哪一根」，所以窗口动的时候光标不会跟着跑。
+    setCursor(cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW))
+  }
+
+  /** 上下键换档：以光标那一根为锚点，缩放前后它落在屏幕上的同一处 */
+  const zoomBy = (direction: 'in' | 'out'): void => {
+    const next = nextZoomLevel(count(), direction)
+    if (next === count()) return // 已经到顶 / 到底
+    const anchored = zoomWindow(win(), total(), next, cursorIndex())
+    setCount(anchored.count)
+    setStart(anchored.start)
+  }
+
+  /** 左右键移动光标；走到窗口边上时窗口跟着平移，这样能一路走到任意一根 */
+  const stepCursorBy = (delta: number): void => {
+    const moved = stepCursor(cursorIndex(), delta, win(), total())
+    setCursor(moved.cursor)
+    setStart(moved.window.start)
+  }
+
+  /** End：回到最新一根 —— 平移之后总得有条一键回来的路（主流软件都有） */
+  const goLatest = (): void => {
+    setStart(null)
+    setCursor(total() === 0 ? null : total() - 1)
   }
 
   /**
-   * 上下键缩放。
-   *
-   * 只在图表自己拿到焦点时才响应 —— 否则会和搜索框抢方向键
+   * 键盘操作。只在图表自己拿到焦点时才响应 —— 否则会和搜索框抢方向键
    *（搜索框正在用上下键在联想列表里选择）。
+   *
+   * 键位对齐主流行情软件：
+   *   ↑ / ↓  横向伸张 / 收缩（柱子变宽 / 变窄）
+   *   ← / →  移动十字光标，走到边上就平移窗口
+   *   End    回到最新一根
+   *   Esc    收起光标
    */
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
-    // 不拦下来的话，方向键会去滚动容器（默认行为）
-    event.preventDefault()
-    props.onZoom(event.key === 'ArrowUp' ? 'in' : 'out')
+    switch (event.key) {
+      case 'ArrowUp':
+      case 'ArrowDown':
+        // 不拦下来的话，方向键会去滚动容器（默认行为）
+        event.preventDefault()
+        zoomBy(event.key === 'ArrowUp' ? 'in' : 'out')
+        return
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        event.preventDefault()
+        stepCursorBy(event.key === 'ArrowLeft' ? -1 : 1)
+        return
+      case 'End':
+        event.preventDefault()
+        goLatest()
+        return
+      case 'Escape':
+        setCursor(null)
+        return
+      default:
+        return
+    }
   }
 
   return (
@@ -133,10 +199,10 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       class="chart-host"
       ref={ref}
       tabindex="0"
-      aria-label="K 线图：点击后用上下方向键缩放"
+      aria-label="K 线图：上下键缩放、左右键移动光标"
       onKeyDown={onKeyDown}
       onPointerMove={onPointerMove}
-      onPointerLeave={() => setHoverIndex(null)}
+      onPointerLeave={() => setCursor(null)}
     >
       <Show when={geometry()} fallback={<div class="chart-empty">正在加载 K 线数据…</div>}>
         {(geo) => (
@@ -263,7 +329,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             </text>
 
             {/* ---------- 十字光标 ---------- */}
-            <Show when={hovered()}>
+            <Show when={cursorReadout()}>
               {(current) => (
                 <g>
                   <line
@@ -289,7 +355,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         )}
       </Show>
 
-      <Show when={hovered()}>
+      <Show when={cursorReadout()}>
         {(current) => (
           <div
             class="chart-tooltip"

@@ -1,6 +1,6 @@
 {
   "name": "stocklens",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "StockLens · 高颜值跨平台股票行情终端（Electron + Vite + SolidJS）",
   "author": "River",

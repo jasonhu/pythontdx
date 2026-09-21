@@ -81,7 +81,7 @@ npm run build:linux          # Linux AppImage / deb
 
 |          | 单文件便携版                                 | NSIS 安装包                 |
 | -------- | -------------------------------------------- | --------------------------- |
-| 文件名   | `stocklens-0.4.0-portable.exe`               | `stocklens-0.4.0-setup.exe` |
+| 文件名   | `stocklens-0.5.0-portable.exe`               | `stocklens-0.5.0-setup.exe` |
 | 大小     | 106 MB（一个文件）                           | 安装后约 368 MB             |
 | 安装     | **不需要**，双击即用                         | 需要，可选安装目录          |
 | 快捷方式 | 无                                           | 桌面 + 开始菜单             |

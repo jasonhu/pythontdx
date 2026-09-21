@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { KLineBar, MinuteTrend } from '@shared/types'
 import {
   DAY_SLOTS,
+  KLINE_BARS_MAX,
   KLINE_PADDING,
+  KLINE_ZOOM_LEVELS,
   TREND_PADDING,
   buildKLineGeometry,
   buildKLineLevels,
@@ -17,8 +19,10 @@ import {
   downsample,
   flattenTrendPoints,
   formatMonthDay,
+  klineWindow,
   locateTrendSlot,
   movingAverage,
+  nextZoomLevel,
   niceStep,
   slotFromX,
   trendBaseline
@@ -398,6 +402,47 @@ describe('buildKLineGeometry', () => {
   })
 })
 
+/**
+ * 缩放档位带来的**视觉**后果，用数字固化下来。
+ *
+ * 为什么值得写这条？「蜡烛看起来粗细合适吗」本来只能靠肉眼，
+ * 但「宽度落在什么区间」是能算的 —— 算出来就能进回归测试，
+ * 以后谁加了离谱的档位（比如 5 根或 500 根），这里会先炸。
+ */
+describe('缩放档位对应的蜡烛宽度', () => {
+  // 中间栏的真实宽度区间：1024 最小窗口下约 420px，1280 窗口下约 700px
+  const WIDTHS = [420, 560, 700, 900]
+  const bars = makeBars(Array.from({ length: KLINE_BARS_MAX }, (_, index) => 100 + index))
+
+  const widthAt = (level: number, width: number): number => {
+    const { start, count } = klineWindow(bars.length, level)
+    const geo = buildKLineGeometry(bars.slice(start, start + count), width, 420)
+    return geo!.bodyWidth
+  }
+
+  it('根数越少蜡烛越宽，单调且肉眼可辨', () => {
+    const widths = KLINE_ZOOM_LEVELS.map((level) => widthAt(level, 700))
+    for (let i = 1; i < widths.length; i++) {
+      expect(widths[i]).toBeLessThan(widths[i - 1])
+    }
+  })
+
+  it('最密与最疏两档相差 3 倍以上，缩放才有意义', () => {
+    const ratio = widthAt(KLINE_ZOOM_LEVELS[0], 700) / widthAt(KLINE_BARS_MAX, 700)
+    expect(ratio).toBeGreaterThan(3)
+  })
+
+  it('任何档位、任何宽度下，蜡烛都既不会看不见也不会糊成一片', () => {
+    for (const width of WIDTHS) {
+      for (const level of KLINE_ZOOM_LEVELS) {
+        const body = widthAt(level, width)
+        expect(body).toBeGreaterThan(1) // 下限：最密时仍有实体
+        expect(body).toBeLessThanOrEqual(20) // 上限：再粗就不像 K 线了
+      }
+    }
+  })
+})
+
 describe('buildKLineLevels', () => {
   it('刻度递增且落在纵轴范围内', () => {
     const bars = makeBars([10, 12, 11, 13, 15, 14, 16, 18, 17, 19])
@@ -525,5 +570,90 @@ describe('downsample（迷你走势图降采样）', () => {
   it('恰好等于上限时不改动', () => {
     const values = [1, 2, 3, 4]
     expect(downsample(values, 4)).toEqual([1, 2, 3, 4])
+  })
+})
+
+describe('klineWindow（可见窗口）', () => {
+  it('右对齐：永远取最后 N 根', () => {
+    expect(klineWindow(160, 50)).toEqual({ start: 110, count: 50 })
+  })
+
+  it('start + count 恒等于总数（右对齐不变量）', () => {
+    for (const total of [1, 7, 40, 160]) {
+      for (const count of [1, 30, 160, 999]) {
+        const { start, count: size } = klineWindow(total, count)
+        expect(start + size).toBe(total)
+      }
+    }
+  })
+
+  it('要求显示全部时从 0 开始', () => {
+    expect(klineWindow(160, 160)).toEqual({ start: 0, count: 160 })
+  })
+
+  it('数据不足时钳到实际根数（新股 / 停牌 / 取数不足）', () => {
+    expect(klineWindow(40, 160)).toEqual({ start: 0, count: 40 })
+    expect(klineWindow(12, 30)).toEqual({ start: 0, count: 12 })
+  })
+
+  it('空数组返回 0，交给上层显示占位', () => {
+    expect(klineWindow(0, 50)).toEqual({ start: 0, count: 0 })
+  })
+
+  it('非法档位不会算出负数或 0 根', () => {
+    for (const bad of [0, -5, NaN, 0.4]) {
+      const { count, start } = klineWindow(160, bad)
+      expect(count).toBeGreaterThanOrEqual(1)
+      expect(start).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
+
+describe('nextZoomLevel（上下键换档）', () => {
+  it('放大时可见根数一路变少', () => {
+    let level = KLINE_BARS_MAX
+    const seen: number[] = [level]
+    for (let i = 0; i < KLINE_ZOOM_LEVELS.length - 1; i++) {
+      level = nextZoomLevel(level, 'in')
+      seen.push(level)
+    }
+    expect(seen).toEqual([160, 120, 80, 50, 30])
+  })
+
+  it('缩小时可见根数一路变多，正好是放大的逆序', () => {
+    let level: number = KLINE_ZOOM_LEVELS[0]
+    const seen: number[] = [level]
+    for (let i = 0; i < KLINE_ZOOM_LEVELS.length - 1; i++) {
+      level = nextZoomLevel(level, 'out')
+      seen.push(level)
+    }
+    expect(seen).toEqual([30, 50, 80, 120, 160])
+  })
+
+  it('到顶 / 到底后按不动，不环绕', () => {
+    expect(nextZoomLevel(30, 'in')).toBe(30)
+    expect(nextZoomLevel(KLINE_BARS_MAX, 'out')).toBe(KLINE_BARS_MAX)
+  })
+
+  it('当前值不在档位上（被数据量钳过）也能继续换档', () => {
+    // 只有 40 根时，界面上的档位其实是 40；再放大应落到 30
+    expect(nextZoomLevel(40, 'in')).toBe(30)
+    // 再缩小会给出 50，但 klineWindow 会把它钳回 40 —— 表现就是「按了没反应」
+    expect(nextZoomLevel(40, 'out')).toBe(50)
+    expect(klineWindow(40, 50).count).toBe(40)
+  })
+
+  it('档位表可以替换，且不要求有序', () => {
+    expect(nextZoomLevel(100, 'in', [200, 10, 50])).toBe(50)
+    expect(nextZoomLevel(100, 'out', [200, 10, 50])).toBe(200)
+  })
+
+  it('空档位表返回原值，不崩', () => {
+    expect(nextZoomLevel(80, 'in', [])).toBe(80)
+    expect(nextZoomLevel(80, 'out', [])).toBe(80)
+  })
+
+  it('最大档位就是取数上限（不可能显示比拉回来的更多）', () => {
+    expect(KLINE_BARS_MAX).toBe(Math.max(...KLINE_ZOOM_LEVELS))
   })
 })

@@ -411,6 +411,71 @@ export function buildKLineGeometry(
   }
 }
 
+/* ---------------------------------------------------------------- 缩放档位 */
+
+/**
+ * K 线缩放档位（可见根数），从「看清细节」到「看清趋势」。
+ *
+ * 为什么用离散档位，而不是每按一次乘一个系数？
+ *   · 键盘上每按一下应该有**确定**的结果，按几下就能到想要的尺度；
+ *   · 档位有限，就不会出现「按住不放缩到只剩 3 根」这种失控状态。
+ *
+ * 最大档位同时是**取数上限**：不可能显示比拉回来的更多的 K 线。
+ */
+export const KLINE_ZOOM_LEVELS = [30, 50, 80, 120, 160] as const
+
+/** 默认（最大）档位：显示全部 K 线，与「引入缩放之前」的行为一致 */
+export const KLINE_BARS_MAX: number = KLINE_ZOOM_LEVELS[KLINE_ZOOM_LEVELS.length - 1]
+
+export interface KLineWindow {
+  /** 在全量数组里的起始下标 */
+  start: number
+  /** 实际可见根数 */
+  count: number
+}
+
+/**
+ * 把「想显示多少根」换算成「取哪一段」。
+ *
+ * **右对齐**：永远取最后 count 根。在没有平移能力的前提下这是唯一合理的选择 ——
+ * 看行情关心的是最近发生了什么，而不是最早那几根。
+ *
+ * 两条钳位：
+ *   · count 不能超过实际拥有的根数（新股、停牌、取数不足都可能不够）；
+ *   · 空数组直接返回 0，交给上层显示占位，别让几何计算去处理空切片。
+ */
+export function klineWindow(total: number, count: number): KLineWindow {
+  const safeTotal = Math.max(0, Math.floor(total))
+  if (safeTotal === 0) return { start: 0, count: 0 }
+
+  const size = Math.max(1, Math.min(safeTotal, Math.floor(count) || 1))
+  return { start: safeTotal - size, count: size }
+}
+
+/**
+ * 上下键换档：`in` = 放大（可见根数变少、蜡烛变宽），`out` = 缩小。
+ *
+ * 已经到顶 / 到底时返回原值，**不做环绕** —— 环绕会让人按久了突然跳回另一头。
+ */
+export function nextZoomLevel(
+  current: number,
+  direction: 'in' | 'out',
+  levels: readonly number[] = KLINE_ZOOM_LEVELS
+): number {
+  const list = [...levels].sort((a, b) => a - b)
+  if (list.length === 0) return current
+
+  const candidates =
+    direction === 'in'
+      ? list.filter((level) => level < current) // 放大：比当前小的档位里取最大的
+      : list.filter((level) => level > current) // 缩小：比当前大的档位里取最小的
+
+  if (candidates.length > 0) {
+    return direction === 'in' ? candidates[candidates.length - 1] : candidates[0]
+  }
+  return direction === 'in' ? list[0] : list[list.length - 1]
+}
+
 /** K 线纵轴刻度：用「好看的数字」取步长 */
 export function buildKLineLevels(geo: KLineGeometry): number[] {
   const step = niceStep(geo.yMax - geo.yMin, 5)

@@ -14,6 +14,7 @@ import {
   buildKLineLevels,
   buildKLineTicks,
   buildLinePath,
+  klineWindow,
   movingAverage
 } from '../lib/chart-geometry'
 import { useElementSize } from '../lib/dom'
@@ -27,21 +28,48 @@ const MA_CONFIG = [
 
 export interface KLineChartProps {
   series: KLineSeries
+  /** 可见根数（缩放档位）。由 ChartPanel 持有 —— 它还要在头部显示当前档位 */
+  zoom: number
+  /** 上下键换档 */
+  onZoom(direction: 'in' | 'out'): void
 }
 
 export function KLineChart(props: KLineChartProps): JSX.Element {
   const { size, ref } = useElementSize<HTMLDivElement>()
   const [hoverIndex, setHoverIndex] = createSignal<number | null>(null)
 
-  const bars = (): KLineSeries['bars'] => props.series.bars
+  /** 全量 K 线 */
+  const allBars = (): KLineSeries['bars'] => props.series.bars
 
-  /** 各条均线：索引与 bars 对齐，前置不足周期的位置为 null */
+  /** 可见窗口：右对齐，永远取最后 N 根 */
+  const win = createMemo(() => klineWindow(allBars().length, props.zoom))
+
+  /** 真正参与绘制的切片 —— 几何层拿到它之后会自动重算蜡烛宽度 */
+  const bars = createMemo(() => {
+    const { start, count } = win()
+    return allBars().slice(start, start + count)
+  })
+
+  /**
+   * 各条均线：必须在**全量**上计算。
+   * 只拿可见切片去算的话，窗口起点那几根的 MA 会因为缺少前置数据而变成 null，
+   * 看起来就像均线在图表左边被「剪掉」了一截。
+   */
   const averages = createMemo(() =>
     MA_CONFIG.map((config) => ({
       ...config,
-      values: movingAverage(bars(), config.period)
+      values: movingAverage(allBars(), config.period)
     }))
   )
+
+  /** 均线同样要切片，否则 x 坐标会和蜡烛整体错位 */
+  const visibleAverages = createMemo(() => {
+    const { start, count } = win()
+    return averages().map((average) => ({
+      ...average,
+      values: average.values.slice(start, start + count)
+    }))
+  })
 
   const geometry = createMemo(() => buildKLineGeometry(bars(), size().width, size().height))
   const levels = createMemo(() => {
@@ -59,7 +87,10 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const bar = list[index]
     if (!bar) return null
 
-    const previous = list[index - 1]
+    // 涨跌幅要跟前一根比。窗口最左那根的前一根不在窗口里，得回全量数组去取，
+    // 否则它会被算成 0（看起来像是那天没涨没跌）。
+    const absolute = win().start + index
+    const previous = allBars()[absolute - 1]
     return {
       bar,
       x: geo.x(index),
@@ -68,7 +99,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       averages: averages().map((average) => ({
         period: average.period,
         color: average.color,
-        value: average.values[index]
+        value: average.values[absolute]
       }))
     }
   })
@@ -84,10 +115,26 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     setHoverIndex(Math.min(list.length - 1, Math.max(0, index)))
   }
 
+  /**
+   * 上下键缩放。
+   *
+   * 只在图表自己拿到焦点时才响应 —— 否则会和搜索框抢方向键
+   *（搜索框正在用上下键在联想列表里选择）。
+   */
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+    // 不拦下来的话，方向键会去滚动容器（默认行为）
+    event.preventDefault()
+    props.onZoom(event.key === 'ArrowUp' ? 'in' : 'out')
+  }
+
   return (
     <div
       class="chart-host"
       ref={ref}
+      tabindex="0"
+      aria-label="K 线图：点击后用上下方向键缩放"
+      onKeyDown={onKeyDown}
       onPointerMove={onPointerMove}
       onPointerLeave={() => setHoverIndex(null)}
     >
@@ -168,7 +215,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             </For>
 
             {/* ---------- 均线 ---------- */}
-            <For each={averages()}>
+            <For each={visibleAverages()}>
               {(average) => (
                 <path
                   d={buildLinePath(
@@ -198,6 +245,22 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                 </text>
               )}
             </For>
+
+            {/* ---------- 缩放档位 ---------- */}
+            {/*
+              写在图表自己的上边距里，而不是卡片头部：
+              头部在 1024 最小窗口下已经被 tab + 图例占满，再塞一块会把图例挤到 tab 上。
+              这里是天然的空白带，永远不会压到蜡烛和网格线。
+            */}
+            <text
+              class="chart-zoom"
+              x={geo().padding.left}
+              y="12"
+              fill="var(--text-3)"
+              font-size="10"
+            >
+              {`↑↓ 缩放 · 近 ${win().count} 根`}
+            </text>
 
             {/* ---------- 十字光标 ---------- */}
             <Show when={hovered()}>

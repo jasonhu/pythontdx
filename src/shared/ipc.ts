@@ -10,6 +10,7 @@ import type {
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
+  MultiDayTrend,
   Quote,
   QuoteUpdate,
   SearchItem,
@@ -29,6 +30,8 @@ export const IPC = {
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
+  /** 五日分时（invoke） */
+  trendFiveDay: 'trend:five-day',
   /** K 线（invoke） */
   trendKline: 'trend:kline',
 
@@ -74,6 +77,8 @@ export interface StockLensApi {
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>
+    /** 五日分时 */
+    fiveDay(code: string): Promise<MultiDayTrend>
     kline(req: KLineRequest): Promise<KLineSeries>
   }
   search: {

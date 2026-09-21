@@ -1,19 +1,33 @@
 /**
  * 腾讯行情接口门面。
  *
- * 三个上游：
+ * 四个上游：
  *   qt.gtimg.cn           实时快照（GBK 文本，支持一次请求多只）
- *   web.ifzq.gtimg.cn     分时 / K 线（UTF-8 JSON）
+ *   web.ifzq.gtimg.cn     当日分时 / 五日分时 / K 线（UTF-8 JSON）
  *   smartbox.gtimg.cn     搜索联想（GBK 文本）
  */
-import type { KLinePeriod, KLineSeries, MinuteTrend, Quote, SearchItem } from '@shared/types'
+import type {
+  KLinePeriod,
+  KLineSeries,
+  MinuteTrend,
+  MultiDayTrend,
+  Quote,
+  SearchItem
+} from '@shared/types'
 import { splitCode } from '@shared/market'
 import { requestJson, requestTextWithRetry } from '../http'
 import { TtlCache } from '../cache'
-import { parseKline, parseMinute, parseQuotePayload, parseSearch } from './parse'
+import {
+  parseKline,
+  parseMinute,
+  parseMultiDayTrend,
+  parseQuotePayload,
+  parseSearch
+} from './parse'
 
 const REALTIME_ENDPOINT = 'https://qt.gtimg.cn/q='
 const MINUTE_ENDPOINT = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query'
+const FIVE_DAY_ENDPOINT = 'https://web.ifzq.gtimg.cn/appstock/app/day/query'
 const KLINE_ENDPOINT = 'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get'
 const SEARCH_ENDPOINT = 'https://smartbox.gtimg.cn/s3/'
 
@@ -24,6 +38,7 @@ const REFERER = 'https://gu.qq.com/'
 const BATCH_SIZE = 60
 
 const minuteCache = new TtlCache<MinuteTrend>(10_000)
+const fiveDayCache = new TtlCache<MultiDayTrend>(60_000)
 const klineCache = new TtlCache<KLineSeries>(60_000)
 const searchCache = new TtlCache<SearchItem[]>(5 * 60_000)
 
@@ -80,6 +95,22 @@ export async function fetchMinuteTrend(code: string, signal?: AbortSignal): Prom
       signal
     })
     return parseMinute(code, raw, { sharesPerLot: market === 'HK' ? 1 : 100 })
+  })
+}
+
+/** 五日分时 */
+export async function fetchFiveDayTrend(
+  code: string,
+  signal?: AbortSignal
+): Promise<MultiDayTrend> {
+  return fiveDayCache.resolve(code, async () => {
+    const { market } = splitCode(code)
+    const url = `${FIVE_DAY_ENDPOINT}?code=${encodeURIComponent(code)}`
+    const raw = await requestJson<Parameters<typeof parseMultiDayTrend>[1]>(url, {
+      referer: REFERER,
+      signal
+    })
+    return parseMultiDayTrend(code, raw, { sharesPerLot: market === 'HK' ? 1 : 100 })
   })
 }
 

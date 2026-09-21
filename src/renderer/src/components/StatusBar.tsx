@@ -56,19 +56,16 @@ export function StatusBar(): JSX.Element {
 
       <Show when={quote()}>
         {(current) => (
-          <>
-            <span class="statusbar__text num">
-              行情 {timeOfDay(current().time)} · {relativeFrom(lastUpdateAt() || Date.now(), now())}
-            </span>
-            <span class="statusbar__text">延迟 {current().receivedAt ? '约 3s' : '—'}</span>
-          </>
+          <span class="statusbar__text num">
+            行情 {timeOfDay(current().time)} · {relativeFrom(lastUpdateAt() || Date.now(), now())}
+          </span>
         )}
       </Show>
 
       <div class="statusbar__spacer" />
 
       <span class="statusbar__text">
-        {SESSION_LABEL[session()]} · 自选 {appState.watchlist.length} 只
+        {SESSION_LABEL[session()]} · {appState.groups.length} 组 / {watchCodes().length} 只
       </span>
 
       <div class="statusbar__group">

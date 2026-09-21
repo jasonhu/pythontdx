@@ -5,6 +5,8 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
+import { setupCapture } from './capture'
+import { attachDiagnostics } from './diagnostics'
 import type { WindowBounds } from './services/store'
 
 const DEFAULT_WIDTH = 1280
@@ -73,6 +75,7 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
   })
 
   attachDiagnostics(window)
+  setupCapture(window)
 
   const reportBounds = debounce(() => {
     if (!window.isMaximized() && !window.isMinimized() && !window.isFullScreen()) {
@@ -111,33 +114,4 @@ function debounce<T extends (...args: never[]) => void>(fn: T, delay: number): T
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => fn(...args), delay)
   }) as T
-}
-
-/**
- * 开发期诊断：把渲染进程里发生的事搬到终端里来。
- *
- * 新手最容易踩的坑是「界面白屏但终端一片安静」——
- * 渲染层的报错默认只出现在 DevTools 里，很容易被忽略。
- */
-function attachDiagnostics(window: BrowserWindow): void {
-  const { webContents } = window
-
-  webContents.on('render-process-gone', (_event, details) => {
-    console.error('[renderer] 渲染进程异常退出：', details.reason, details.exitCode)
-  })
-
-  webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
-    console.error(`[renderer] 页面加载失败：${errorDescription} (${errorCode}) ${validatedURL}`)
-  })
-
-  if (!is.dev) return
-
-  // Solid 的报错、未捕获异常都会走这里
-  webContents.on('console-message', (details) => {
-    const tag = `[renderer:${details.level}]`
-    const location = details.sourceId ? ` (${details.sourceId}:${details.lineNumber})` : ''
-    if (details.level === 'error') console.error(`${tag} ${details.message}${location}`)
-    else if (details.level === 'warning') console.warn(`${tag} ${details.message}${location}`)
-    else console.log(`${tag} ${details.message}`)
-  })
 }

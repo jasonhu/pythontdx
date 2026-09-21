@@ -1,5 +1,5 @@
 /**
- * 全局应用状态：自选股、设置、选中项、运行时信息。
+ * 全局应用状态：自选股分组、设置、选中项、运行时信息。
  *
  * 单一数据源放在渲染进程，主进程只负责「持久化」。
  * 这样界面上任何操作都是先改本地状态（立刻响应），再异步落盘（不阻塞 UI）。
@@ -7,31 +7,64 @@
 import { createSignal } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import {
+  DEFAULT_GROUP_ID,
   DEFAULT_SETTINGS,
+  STATE_VERSION,
   type AppInfo,
   type AppSettings,
   type AppState,
   type SearchItem,
+  type WatchGroup,
   type WatchItem
 } from '@shared/types'
 import { api } from '../lib/ipc'
 
 const [state, setState] = createStore<AppState>({
-  version: 1,
-  watchlist: [],
+  version: STATE_VERSION,
+  groups: [],
+  activeGroupId: DEFAULT_GROUP_ID,
   settings: { ...DEFAULT_SETTINGS },
   activeCode: null
 })
 
 const [appInfo, setAppInfo] = createSignal<AppInfo | null>(null)
 const [ready, setReady] = createSignal(false)
+/** 正在被拖拽的股票代码，用于给落点加高亮 */
+const [draggingCode, setDraggingCode] = createSignal<string | null>(null)
 
-export { state as appState, appInfo, ready as appReady }
+export { state as appState, appInfo, ready as appReady, draggingCode, setDraggingCode }
 
-/** 自选股代码列表（给行情订阅用，保持顺序稳定） */
-export const watchCodes = (): string[] => state.watchlist.map((item) => item.code)
+/* ------------------------------------------------------------------ 派生 */
+
+export const activeGroup = (): WatchGroup | undefined =>
+  state.groups.find((group) => group.id === state.activeGroupId)
+
+export const activeItems = (): WatchItem[] => activeGroup()?.items ?? []
+
+/** 全部分组的代码合集（行情订阅用，去重） */
+export const watchCodes = (): string[] => [
+  ...new Set(state.groups.flatMap((group) => group.items.map((item) => item.code)))
+]
 
 export const activeQuoteCode = (): string | null => state.activeCode
+
+/** 跨分组查找某只股票 */
+export function watchItemOf(code: string): WatchItem | undefined {
+  for (const group of state.groups) {
+    const item = group.items.find((entry) => entry.code === code)
+    if (item) return item
+  }
+  return undefined
+}
+
+/** 把 store 代理转成纯对象，跨进程传输前必须做这一步 */
+function plainGroups(groups: readonly WatchGroup[]): WatchGroup[] {
+  return groups.map((group) => ({
+    id: group.id,
+    name: group.name,
+    items: group.items.map((item) => ({ ...item }))
+  }))
+}
 
 /* ------------------------------------------------------------------ 启动 */
 
@@ -40,9 +73,10 @@ export async function bootstrapAppState(): Promise<void> {
 
   setState({
     version: persisted.version,
-    watchlist: persisted.watchlist,
+    groups: persisted.groups.length > 0 ? persisted.groups : [],
+    activeGroupId: persisted.activeGroupId,
     settings: { ...DEFAULT_SETTINGS, ...persisted.settings },
-    activeCode: persisted.activeCode ?? persisted.watchlist[0]?.code ?? null
+    activeCode: persisted.activeCode ?? persisted.groups[0]?.items[0]?.code ?? null
   })
   setAppInfo(info)
 
@@ -51,24 +85,92 @@ export async function bootstrapAppState(): Promise<void> {
   setReady(true)
 }
 
-/* ---------------------------------------------------------------- 自选股 */
+/* ------------------------------------------------------------------ 选中 */
 
 export function setActiveCode(code: string | null): void {
   setState('activeCode', code)
   persist({ activeCode: code })
 }
 
-export function addWatchItem(item: Pick<WatchItem, 'code' | 'name' | 'market'>): void {
-  const exists = state.watchlist.some((entry) => entry.code === item.code)
-  if (exists) {
+/* ---------------------------------------------------------------- 分组 */
+
+export function setActiveGroup(id: string): void {
+  setState('activeGroupId', id)
+  persist({ activeGroupId: id })
+}
+
+export function createGroup(name?: string): void {
+  const id = `g${Date.now().toString(36)}`
+  const groups = [...plainGroups(state.groups), { id, name: name?.trim() || '新分组', items: [] }]
+  setState('groups', groups)
+  setState('activeGroupId', id)
+  persist({ groups, activeGroupId: id })
+}
+
+export function renameGroup(id: string, name: string): void {
+  const trimmed = name.trim()
+  if (!trimmed) return
+  const groups = plainGroups(state.groups).map((group) =>
+    group.id === id ? { ...group, name: trimmed } : group
+  )
+  setState('groups', groups)
+  persist({ groups })
+}
+
+/**
+ * 删除分组。至少保留一个分组；被删分组里的股票会**并入第一个分组**而不是直接丢弃，
+ * 避免误删造成数据丢失。
+ */
+export function removeGroup(id: string): void {
+  if (state.groups.length <= 1) return
+
+  const index = state.groups.findIndex((group) => group.id === id)
+  if (index < 0) return
+
+  const removed = state.groups[index]
+  const rest = state.groups.filter((group) => group.id !== id)
+  const groups = plainGroups(rest)
+  const first = groups[0]
+
+  for (const item of removed.items) {
+    if (!first.items.some((existing) => existing.code === item.code)) {
+      first.items.push({ ...item })
+    }
+  }
+
+  setState('groups', groups)
+  if (state.activeGroupId === id) {
+    setState('activeGroupId', first.id)
+  }
+  persist({ groups, activeGroupId: state.activeGroupId })
+}
+
+/* ---------------------------------------------------------------- 自选股 */
+
+export function addWatchItem(
+  item: Pick<WatchItem, 'code' | 'name' | 'market'>,
+  groupId?: string
+): void {
+  const targetId = groupId ?? state.activeGroupId
+
+  // 已经在任何一个分组里了：不重复添加，直接切过去
+  const existingGroup = state.groups.find((group) =>
+    group.items.some((entry) => entry.code === item.code)
+  )
+  if (existingGroup) {
+    if (existingGroup.id !== state.activeGroupId) setActiveGroup(existingGroup.id)
     setActiveCode(item.code)
     return
   }
 
-  const watchlist = [...state.watchlist, { ...item }]
-  setState('watchlist', watchlist)
-  persist({ watchlist })
+  const groups = plainGroups(state.groups)
+  const target = groups.find((group) => group.id === targetId) ?? groups[0]
+  if (!target) return
+  target.items.push({ ...item })
+
+  setState('groups', groups)
   setActiveCode(item.code)
+  persist({ groups })
 }
 
 export function addSearchItem(item: SearchItem): void {
@@ -76,31 +178,70 @@ export function addSearchItem(item: SearchItem): void {
 }
 
 export function removeWatchItem(code: string): void {
-  const index = state.watchlist.findIndex((entry) => entry.code === code)
-  if (index < 0) return
+  const group = state.groups.find((entry) => entry.items.some((item) => item.code === code))
+  if (!group) return
 
-  const watchlist = state.watchlist.filter((entry) => entry.code !== code)
-  setState('watchlist', watchlist)
-  persist({ watchlist })
+  const index = group.items.findIndex((item) => item.code === code)
+  const groups = plainGroups(state.groups).map((entry) =>
+    entry.id === group.id
+      ? { ...entry, items: entry.items.filter((item) => item.code !== code) }
+      : entry
+  )
+  setState('groups', groups)
+  persist({ groups })
 
   // 删掉的正好是当前选中项时，顺延到相邻的一只，避免主区突然空掉
   if (state.activeCode === code) {
-    const next = watchlist[Math.min(index, watchlist.length - 1)]
-    setActiveCode(next?.code ?? null)
+    const next = groups.find((entry) => entry.id === group.id)?.items[index]
+    setActiveCode(next?.code ?? watchCodes()[0] ?? null)
   }
 }
 
-export function moveWatchItem(code: string, offset: number): void {
-  const index = state.watchlist.findIndex((entry) => entry.code === code)
-  const target = index + offset
-  if (index < 0 || target < 0 || target >= state.watchlist.length) return
+/** 名称纠偏：从搜索结果或手输代码加入的条目，名字可能是占位符 */
+export function renameWatchItem(code: string, name: string): void {
+  if (!name) return
+  const groups = plainGroups(state.groups)
+  let changed = false
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (item.code === code && item.name !== name) {
+        item.name = name
+        changed = true
+      }
+    }
+  }
+  if (!changed) return
+  setState('groups', groups)
+  persist({ groups })
+}
 
-  const watchlist = [...state.watchlist]
-  const [moved] = watchlist.splice(index, 1)
-  watchlist.splice(target, 0, moved)
+/**
+ * 把某只股票移动到「目标分组的指定位置」。
+ * 组内排序与跨组移动都走这一个函数，逻辑只需要维护一份。
+ */
+export function moveWatchItem(code: string, targetGroupId: string, targetIndex: number): void {
+  let moved: WatchItem | undefined
 
-  setState('watchlist', watchlist)
-  persist({ watchlist })
+  const groups = plainGroups(state.groups).map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      if (item.code === code) {
+        moved = { ...item }
+        return false
+      }
+      return true
+    })
+  }))
+
+  if (!moved) return
+  const target = groups.find((group) => group.id === targetGroupId)
+  if (!target) return
+
+  const index = Math.max(0, Math.min(targetIndex, target.items.length))
+  target.items.splice(index, 0, moved)
+
+  setState('groups', groups)
+  persist({ groups })
 }
 
 /* ------------------------------------------------------------------ 设置 */

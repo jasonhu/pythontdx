@@ -1,17 +1,35 @@
 /**
- * 自选股单行：名称 / 代码 / 最新价 / 涨跌幅，价格跳变时闪一下。
+ * 自选股单行。
+ *
+ * 组成：名称/代码 + 迷你走势图 + 最新价/涨跌幅 + 删除按钮。
+ * 同时是拖拽排序的拖拽源与落点：
+ *   · 拖自己        → dataTransfer 里带上代码；
+ *   · 拖到别人身上  → 按鼠标在行内的上下半区决定插到前面还是后面；
+ *   · 拖到分组标签  → 移到那个分组（由 Sidebar 处理）。
  */
-import { type JSX } from 'solid-js'
+import { createSignal, Show, type JSX } from 'solid-js'
 import type { Quote, WatchItem } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
 import { createValueFlash } from '../lib/dom'
 import { toneOf, type Tone } from '../lib/tone'
-import { appState, removeWatchItem, setActiveCode } from '../stores/app'
+import {
+  appState,
+  draggingCode,
+  moveWatchItem,
+  removeWatchItem,
+  setActiveCode,
+  setDraggingCode
+} from '../stores/app'
 import { quoteOf } from '../stores/quotes'
+import { sparklineOf } from '../stores/sparklines'
 import { IconClose } from './Icons'
+import { Sparkline } from './Sparkline'
 
 export interface WatchRowProps {
   item: WatchItem
+  /** 在当前分组中的位置 */
+  index: number
+  groupId: string
 }
 
 export function WatchRow(props: WatchRowProps): JSX.Element {
@@ -20,17 +38,73 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
   const flash = createValueFlash(() => quote()?.price)
   const active = (): boolean => appState.activeCode === props.item.code
 
+  /** 落点位置：插到这行前面还是后面 */
+  const [dropSide, setDropSide] = createSignal<'before' | 'after' | null>(null)
+  const isDragging = (): boolean => draggingCode() === props.item.code
+
+  const onDragStart = (event: DragEvent): void => {
+    setDraggingCode(props.item.code)
+    event.dataTransfer?.setData('text/plain', props.item.code)
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+  }
+
+  const onDragOver = (event: DragEvent): void => {
+    const source = draggingCode()
+    // 拖到自己身上没有意义，也不允许把落点标记画出来
+    if (!source || source === props.item.code) return
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+
+    const rect =
+      event.currentTarget instanceof HTMLElement
+        ? event.currentTarget.getBoundingClientRect()
+        : null
+    if (!rect) return
+    setDropSide(event.clientY < rect.top + rect.height / 2 ? 'before' : 'after')
+  }
+
+  const onDrop = (event: DragEvent): void => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const code = draggingCode() ?? event.dataTransfer?.getData('text/plain')
+    const side = dropSide()
+    setDropSide(null)
+    setDraggingCode(null)
+    if (!code || code === props.item.code) return
+
+    moveWatchItem(code, props.groupId, side === 'after' ? props.index + 1 : props.index)
+  }
+
   return (
     <button
       class="watch-row"
-      classList={{ 'watch-row--active': active() }}
+      classList={{
+        'watch-row--active': active(),
+        'watch-row--dragging': isDragging(),
+        'watch-row--drop-before': dropSide() === 'before',
+        'watch-row--drop-after': dropSide() === 'after'
+      }}
+      draggable={true}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={() => setDropSide(null)}
+      onDrop={onDrop}
+      onDragEnd={() => {
+        setDraggingCode(null)
+        setDropSide(null)
+      }}
       onClick={() => setActiveCode(props.item.code)}
-      title={`${props.item.name} ${props.item.code.toUpperCase()}`}
+      title={`${props.item.name} ${props.item.code.toUpperCase()}（可拖拽排序）`}
     >
       <div class="watch-row__main">
         <div class="watch-row__name">{quote()?.name || props.item.name}</div>
         <div class="watch-row__code num">{props.item.code.toUpperCase()}</div>
       </div>
+
+      <Show when={appState.settings.showSparkline && sparklineOf(props.item.code)}>
+        {(values) => <Sparkline values={values()} width={46} height={22} />}
+      </Show>
 
       <div class="watch-row__side">
         <div class="watch-row__nums">

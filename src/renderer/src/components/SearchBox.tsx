@@ -18,6 +18,11 @@ export function SearchBox(): JSX.Element {
   const [loading, setLoading] = createSignal(false)
   const [cursor, setCursor] = createSignal(0)
 
+  /**
+   * Solid 支持 `ref={变量}` 这种写法，但它依赖编译器的隐式赋值，
+   * ESLint 无法确认变量真的被写过（no-unassigned-vars 会报错）。
+   * 用显式回调既消除了歧义，也更容易读。
+   */
   let inputElement: HTMLInputElement | undefined
   /** 请求序号：只接受最后一次请求的结果，防止旧响应覆盖新响应 */
   let sequence = 0
@@ -112,7 +117,9 @@ export function SearchBox(): JSX.Element {
       <div class="search">
         <IconSearch size={13} class="search__icon" />
         <input
-          ref={inputElement}
+          ref={(element: HTMLInputElement) => {
+            inputElement = element
+          }}
           class="search__input"
           type="text"
           spellcheck={false}

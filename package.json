@@ -17,7 +17,13 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "icon": "node scripts/generate-icon.mjs",
+    "shot": "npm run build && node scripts/screenshot.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" \"scripts/**/*.mjs\" \"docs/**/*.md\" \"*.{json,md,yml}\" \".vscode/*.json\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\"",
     "build:win": "npm run build && electron-builder --win",
@@ -28,14 +34,21 @@
     "@electron-toolkit/utils": "^4.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.9.0",
     "electron": "^44.4.3",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-solid": "^0.18.0",
+    "globals": "^17.12.0",
     "prettier": "^3.9.8",
     "solid-js": "^1.9.15",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0",
     "vite": "^7.3.6",
-    "vite-plugin-solid": "^2.11.14"
+    "vite-plugin-solid": "^2.11.14",
+    "vitest": "^5.0.1"
   }
 }

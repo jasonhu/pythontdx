@@ -6,7 +6,7 @@ import { MARKET_LABEL, type Quote } from '@shared/types'
 import { compactAmount, compactVolume, fixed, signed, signedPct, timeOfDay } from '@shared/format'
 import { createValueFlash } from '../lib/dom'
 import { toneOf, type Tone } from '../lib/tone'
-import { addWatchItem, appState, removeWatchItem } from '../stores/app'
+import { addWatchItem, removeWatchItem, watchItemOf } from '../stores/app'
 import { IconStar, IconStarFilled } from './Icons'
 
 export interface QuoteHeaderProps {
@@ -17,8 +17,7 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
   const tone = (): Tone => toneOf(props.quote.changePct)
   const flash = createValueFlash(() => props.quote.price)
 
-  const inWatchlist = (): boolean =>
-    appState.watchlist.some((item) => item.code === props.quote.code)
+  const inWatchlist = (): boolean => watchItemOf(props.quote.code) !== undefined
 
   /** 涨停 / 跌停判定（接口直接给了涨跌停价，顺手做个醒目标记） */
   const limitState = (): 'up' | 'down' | null => {

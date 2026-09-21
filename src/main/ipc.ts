@@ -11,7 +11,13 @@ import type { AppState } from '@shared/types'
 import { IPC, type KLineRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
 import type { QuotePoller } from './services/poller'
-import { fetchKline, fetchMinuteTrend, fetchQuotes, fetchSearchHint } from './services/tencent'
+import {
+  fetchFiveDayTrend,
+  fetchKline,
+  fetchMinuteTrend,
+  fetchQuotes,
+  fetchSearchHint
+} from './services/tencent'
 
 export interface IpcContext {
   store: AppStore
@@ -38,6 +44,8 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.trendMinute, (_event, code: string) => fetchMinuteTrend(code))
 
+  ipcMain.handle(IPC.trendFiveDay, (_event, code: string) => fetchFiveDayTrend(code))
+
   ipcMain.handle(IPC.trendKline, (_event, request: KLineRequest) =>
     fetchKline(request.code, request.period, request.count ?? 200)
   )
@@ -55,7 +63,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     // 刷新间隔变了要立刻让轮询器跟上
     if (patch.settings?.refreshInterval !== undefined) {
       poller.setSubscription(
-        next.watchlist.map((item) => item.code),
+        next.groups.flatMap((group) => group.items.map((item) => item.code)),
         next.settings.refreshInterval
       )
     }

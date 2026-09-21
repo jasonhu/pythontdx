@@ -9,6 +9,7 @@ import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import type { ConnectionStatus, Quote, QuoteUpdate } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
+import { renameWatchItem, watchItemOf } from './app'
 
 const [quoteMap, setQuoteMap] = createStore<Record<string, Quote>>({})
 const [connection, setConnection] = createSignal<ConnectionStatus>('idle')
@@ -26,6 +27,12 @@ export function quoteOf(code: string | null | undefined): Quote | undefined {
 export function applyQuotes(quotes: Quote[]): void {
   for (const quote of quotes) {
     setQuoteMap(quote.code, quote)
+
+    // 名称纠偏：从搜索结果或手输代码加入的条目，名字可能只是占位符
+    const known = watchItemOf(quote.code)
+    if (known && quote.name && known.name !== quote.name) {
+      renameWatchItem(quote.code, quote.name)
+    }
   }
 }
 

@@ -16,6 +16,7 @@ import type {
   Market,
   MinutePoint,
   MinuteTrend,
+  MultiDayTrend,
   OrderLevel,
   Quote,
   SearchItem
@@ -211,9 +212,19 @@ function buildHkQuote(base: QuoteBase, fields: string[]): Quote {
 /* ---------------------------------------------------------- 分时解析 */
 
 interface RawMinuteBody {
-  data?: Record<string, { data?: { data?: string[]; date?: string } }>
-  /** 冗余的快照数组，可用来取昨收与名称 */
-  qt?: Record<string, string[]>
+  data?: Record<
+    string,
+    {
+      data?: { data?: string[]; date?: string }
+      /**
+       * 冗余的实时快照，用来取昨收与名称。
+       * 注意：它在 `data.<代码>.qt` 这一层，**不在响应顶层**。
+       * 这里踩过坑——按顶层取会得到 undefined，导致昨收变成 0、
+       * 涨跌幅算出 Infinity、界面显示成「—%」。
+       */
+      qt?: Record<string, string[]>
+    }
+  >
 }
 
 export interface MinuteParseOptions {
@@ -230,14 +241,27 @@ export function parseMinute(
   raw: RawMinuteBody,
   options: MinuteParseOptions = {}
 ): MinuteTrend {
-  const { sharesPerLot = 100 } = options
   const body = raw.data?.[code]
-  const rows = body?.data?.data ?? []
-  const snapshot = raw.qt?.[code] ?? []
+  const snapshot = body?.qt?.[code] ?? []
 
-  const prevClose = Number(snapshot[4]) || 0
-  const name = (snapshot[1] ?? '').trim()
+  return {
+    code,
+    name: (snapshot[1] ?? '').trim(),
+    date: body?.data?.date ?? '',
+    prevClose: Number(snapshot[4]) || 0,
+    points: buildMinutePoints(body?.data?.data ?? [], options)
+  }
+}
 
+/**
+ * 把原始分时行转成绘图用的点。
+ *
+ * 原始行：'HHMM 价格 累计成交量 累计成交额'
+ *   · 成交量与成交额都是**当日累计值**，这里换算成每分钟增量；
+ *   · 均价 = 累计成交额 ÷ 累计成交股数（A 股成交量单位是「手」，要 ×100）。
+ */
+function buildMinutePoints(rows: string[], options: MinuteParseOptions): MinutePoint[] {
+  const { sharesPerLot = 100 } = options
   const points: MinutePoint[] = []
   let lastCumulativeVolume = 0
 
@@ -251,13 +275,11 @@ export function parseMinute(
     const cumulativeAmount = Number(amountText)
     if (!Number.isFinite(price) || price <= 0) continue
 
-    // 成交量是累计值，图表里需要的是「每分钟增量」
     const volume = Number.isFinite(cumulativeVolume)
       ? Math.max(0, cumulativeVolume - lastCumulativeVolume)
       : 0
     if (Number.isFinite(cumulativeVolume)) lastCumulativeVolume = cumulativeVolume
 
-    // 均价 = 累计成交额 / 累计成交股数
     const tradedShares = cumulativeVolume * sharesPerLot
     const avg =
       Number.isFinite(cumulativeAmount) && tradedShares > 0
@@ -267,13 +289,60 @@ export function parseMinute(
     points.push({ time, price, avg, volume })
   }
 
-  return {
-    code,
-    name,
-    date: body?.data?.date ?? '',
-    prevClose,
-    points
-  }
+  return points
+}
+
+/* ------------------------------------------------------- 五日分时解析 */
+
+interface RawDayQueryBody {
+  data?: Record<
+    string,
+    {
+      /** 注意这里是**数组**（不是按日期作键的对象），[0] 是最新的一天 */
+      data?: { date?: string; data?: string[] }[]
+      qt?: Record<string, string[]>
+    }
+  >
+}
+
+/**
+ * 解析五日分时（day/query）。
+ *
+ * 每天各自的「昨收」接口没有直接给，需要按下面的方式推导：
+ *   · 最新一天的昨收 = 快照 qt[4]（权威值）；
+ *   · 更早的那些天，其昨收 = 比它再早一天的最后成交价。
+ *     （响应里日期是倒序的，所以 day[i] 的前一交易日就是 day[i+1]）
+ *   · 最早的那一天没有更早的数据可用，退化成用它自己的首个分时价当基准，
+ *     这只会影响那一天线段的上色，不影响价格本身。
+ */
+export function parseMultiDayTrend(
+  code: string,
+  raw: RawDayQueryBody,
+  options: MinuteParseOptions = {}
+): MultiDayTrend {
+  const body = raw.data?.[code]
+  const entries = Array.isArray(body?.data) ? body.data : []
+  const snapshot = body?.qt?.[code] ?? []
+  const name = (snapshot[1] ?? '').trim()
+
+  const parsed = entries.map((entry) => ({
+    date: entry?.date ?? '',
+    points: buildMinutePoints(entry?.data ?? [], options)
+  }))
+
+  const days: MinuteTrend[] = parsed.map((day, index) => {
+    const olderDay = parsed[index + 1]
+    const olderClose = olderDay?.points[olderDay.points.length - 1]?.price
+    const prevClose =
+      index === 0
+        ? Number(snapshot[4]) || olderClose || day.points[0]?.price || 0
+        : (olderClose ?? day.points[0]?.price ?? 0)
+
+    return { code, name, date: day.date, prevClose, points: day.points }
+  })
+
+  // 统一成「从旧到新」，绘图时左旧右新
+  return { code, name, days: days.reverse() }
 }
 
 /**

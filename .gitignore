@@ -8,6 +8,9 @@ dist/
 release/
 *.tsbuildinfo
 
+# 界面截图（npm run shot 的产物，用于本地比对，不入库）
+screenshots/
+
 # 编辑器 / 系统
 .DS_Store
 Thumbs.db

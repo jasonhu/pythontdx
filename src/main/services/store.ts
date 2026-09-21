@@ -10,7 +10,16 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { DEFAULT_SETTINGS, SEED_WATCHLIST, type AppState } from '@shared/types'
+import {
+  DEFAULT_GROUP_ID,
+  DEFAULT_SETTINGS,
+  SEED_GROUPS,
+  STATE_VERSION,
+  type AppSettings,
+  type AppState,
+  type WatchGroup,
+  type WatchItem
+} from '@shared/types'
 
 /** 与界面无关、单独存放的窗口几何信息 */
 export interface WindowBounds {
@@ -20,26 +29,62 @@ export interface WindowBounds {
   height: number
 }
 
+/** v1 的旧结构：自选股是一个扁平数组，没有分组 */
+interface LegacyState {
+  watchlist?: WatchItem[]
+  settings?: Partial<AppSettings>
+  activeCode?: string | null
+}
+
 interface PersistedFile {
   version: number
-  state: AppState
+  state: AppState | (Partial<AppState> & LegacyState)
   window?: WindowBounds
 }
 
-const CURRENT_VERSION = 1
 const SAVE_DEBOUNCE_MS = 150
 
 function createDefaultState(): AppState {
   return {
-    version: CURRENT_VERSION,
-    watchlist: SEED_WATCHLIST.map((item) => ({ ...item })),
+    version: STATE_VERSION,
+    groups: SEED_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.map((item) => ({ ...item }))
+    })),
+    activeGroupId: SEED_GROUPS[0]?.id ?? DEFAULT_GROUP_ID,
     settings: { ...DEFAULT_SETTINGS },
-    activeCode: SEED_WATCHLIST[0]?.code ?? null
+    activeCode: SEED_GROUPS[0]?.items[0]?.code ?? null
   }
 }
 
+/**
+ * 把任意历史版本的持久化数据归一化成当前结构。
+ *
+ * 这是「数据结构演进」的成本最低的做法：读的时候兼容旧格式，
+ * 写的时候永远只写新格式，用户无感知完成迁移。
+ */
+function normalizeGroups(
+  raw: Partial<AppState> & LegacyState,
+  fallback: WatchGroup[]
+): WatchGroup[] {
+  if (Array.isArray(raw.groups) && raw.groups.length > 0) {
+    return raw.groups.map((group) => ({
+      id: typeof group?.id === 'string' && group.id ? group.id : DEFAULT_GROUP_ID,
+      name: typeof group?.name === 'string' && group.name ? group.name : '自选',
+      items: Array.isArray(group?.items) ? group.items : []
+    }))
+  }
+
+  // v1 → v2：旧的扁平自选股整体放进一个分组
+  if (Array.isArray(raw.watchlist)) {
+    return [{ id: DEFAULT_GROUP_ID, name: '自选', items: raw.watchlist }]
+  }
+
+  return fallback
+}
+
 export class AppStore {
-  private data: PersistedFile = { version: CURRENT_VERSION, state: createDefaultState() }
+  private data: PersistedFile = { version: STATE_VERSION, state: createDefaultState() }
   private saveTimer: NodeJS.Timeout | null = null
   private dirty = false
 
@@ -51,7 +96,7 @@ export class AppStore {
     try {
       const parsed = JSON.parse(readFileSync(this.filePath, 'utf-8')) as Partial<PersistedFile>
       this.data = {
-        version: CURRENT_VERSION,
+        version: STATE_VERSION,
         state: this.mergeState(parsed.state),
         window: parsed.window
       }
@@ -62,18 +107,18 @@ export class AppStore {
   }
 
   get state(): AppState {
-    return this.data.state
+    return this.data.state as AppState
   }
 
   get bounds(): WindowBounds | undefined {
     return this.data.window
   }
 
-  /** 增量更新状态（浅合并 settings，watchlist 整体替换） */
+  /** 增量更新状态（浅合并 settings，groups 整体替换） */
   patchState(patch: Partial<AppState>): AppState {
-    this.data.state = this.mergeState({ ...this.data.state, ...patch })
+    this.data.state = this.mergeState({ ...this.state, ...patch })
     this.scheduleSave()
-    return this.data.state
+    return this.state
   }
 
   saveBounds(bounds: WindowBounds): void {
@@ -91,13 +136,22 @@ export class AppStore {
     await this.write()
   }
 
-  private mergeState(partial?: Partial<AppState>): AppState {
+  private mergeState(raw?: (Partial<AppState> & LegacyState) | undefined): AppState {
     const fallback = createDefaultState()
+    const source = raw ?? {}
+    const groups = normalizeGroups(source, fallback.groups)
+
+    // activeGroupId 必须指向真实存在的分组，否则界面会找不到当前分组
+    const activeGroupId = groups.some((group) => group.id === source.activeGroupId)
+      ? (source.activeGroupId as string)
+      : groups[0].id
+
     return {
-      version: CURRENT_VERSION,
-      watchlist: Array.isArray(partial?.watchlist) ? partial.watchlist : fallback.watchlist,
-      settings: { ...fallback.settings, ...partial?.settings },
-      activeCode: partial?.activeCode ?? fallback.activeCode
+      version: STATE_VERSION,
+      groups,
+      activeGroupId,
+      settings: { ...fallback.settings, ...source.settings },
+      activeCode: source.activeCode ?? fallback.activeCode
     }
   }
 

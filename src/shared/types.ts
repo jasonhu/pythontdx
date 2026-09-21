@@ -118,6 +118,13 @@ export interface MinuteTrend {
   points: MinutePoint[]
 }
 
+/** 多日分时（五日分时图）：days 按时间从旧到新排列 */
+export interface MultiDayTrend {
+  code: string
+  name: string
+  days: MinuteTrend[]
+}
+
 /* ----------------------------------------------------------------- K 线 */
 
 export type KLinePeriod = 'day' | 'week' | 'month'
@@ -161,40 +168,61 @@ export interface WatchItem {
   market: Market
 }
 
+/** 自选股分组 */
+export interface WatchGroup {
+  id: string
+  name: string
+  items: WatchItem[]
+}
+
 export interface AppSettings {
   /** 行情轮询间隔（ms） */
   refreshInterval: number
   theme: ThemeMode
-  /** 是否显示五档盘口 */
-  showOrderBook: boolean
   /** 是否随窗口失焦暂停刷新 */
   pauseWhenHidden: boolean
+  /** 自选股行内是否显示迷你走势图 */
+  showSparkline: boolean
 }
 
 export interface AppState {
-  /** 数据结构版本，便于将来做迁移 */
+  /** 数据结构版本，便于做迁移（v1 = 扁平 watchlist，v2 = 分组 groups） */
   version: number
-  watchlist: WatchItem[]
+  groups: WatchGroup[]
+  /** 当前选中的分组 */
+  activeGroupId: string
   settings: AppSettings
   /** 当前选中的股票代码 */
   activeCode: string | null
 }
 
+/** 持久化数据的当前版本 */
+export const STATE_VERSION = 2
+
+export const DEFAULT_GROUP_ID = 'default'
+
 export const DEFAULT_SETTINGS: AppSettings = {
   refreshInterval: 3000,
   theme: 'dark',
-  showOrderBook: true,
-  pauseWhenHidden: true
+  pauseWhenHidden: true,
+  showSparkline: true
 }
 
 /** 首次启动时的示例自选股，让界面一打开就是「满的」 */
-export const SEED_WATCHLIST: WatchItem[] = [
+const SEED_ITEMS: WatchItem[] = [
   { code: 'sh600519', name: '贵州茅台', market: 'SH' },
   { code: 'sz300750', name: '宁德时代', market: 'SZ' },
   { code: 'sz002594', name: '比亚迪', market: 'SZ' },
   { code: 'sh601318', name: '中国平安', market: 'SH' },
   { code: 'sz000858', name: '五粮液', market: 'SZ' },
   { code: 'sz300059', name: '东方财富', market: 'SZ' }
+]
+
+/** 默认分组（老用户从 v1 迁移过来时也落到这个分组） */
+export const SEED_GROUPS: WatchGroup[] = [
+  { id: DEFAULT_GROUP_ID, name: '自选', items: SEED_ITEMS },
+  { id: 'tech', name: '科技', items: [] },
+  { id: 'hk', name: '港股', items: [{ code: 'hk00700', name: '腾讯控股', market: 'HK' }] }
 ]
 
 /* --------------------------------------------------------------- 窗口/应用 */

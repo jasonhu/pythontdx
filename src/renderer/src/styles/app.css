@@ -3,12 +3,33 @@
    ========================================================================== */
 
 /* ============================================================== 应用骨架 */
+/*
+ * 三栏一屏布局：自选股 | 图表主区 | 盘口与指标
+ *
+ *   行：标题栏 / 内容区 / 状态栏
+ *   列：侧栏   / 主区(1fr) / 右栏
+ *
+ * 核心约束是「一屏放得下、不出现滚动条」：
+ *   · 整个 .app 高度锁死 100%，任何一层都不允许撑破视口；
+ *   · 只有图表卡片用 1fr 吸收剩余高度，其余部件都是内容高度；
+ *   · 需要自适应的地方（盘口行高、指标网格）用 flex/grid 的收缩能力处理，
+ *     而不是靠 overflow: auto 兜底。
+ */
 .app {
   display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--rail-w);
   grid-template-rows: var(--titlebar-h) minmax(0, 1fr) var(--statusbar-h);
   height: 100%;
   overflow: hidden;
+}
+
+/* 没有选中股票时，右栏整列收起，把空间让给空状态插画 */
+.app--empty {
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 0;
+}
+
+.app--empty .rail {
+  display: none;
 }
 
 /* ================================================================ 标题栏 */
@@ -220,6 +241,93 @@
   text-transform: uppercase;
 }
 
+/* -------------------------------------------------------- 分组标签 */
+.group-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: none;
+  padding: 0 var(--sp-3) var(--sp-2);
+}
+
+.group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-full);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.group-chip:hover {
+  color: var(--text-1);
+  background: var(--panel-hover);
+}
+
+.group-chip[data-active='true'] {
+  color: var(--text-1);
+  background: var(--panel-active);
+  border-color: rgba(91, 140, 255, 0.36);
+}
+
+/* 拖拽悬停到分组上时的落点提示 */
+.group-chip--drop {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.group-chip__count {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.group-chip__close {
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  margin-right: -2px;
+  border-radius: 50%;
+  color: var(--text-3);
+  opacity: 0;
+  transition:
+    opacity var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+
+.group-chip:hover .group-chip__close {
+  opacity: 1;
+}
+
+.group-chip__close:hover {
+  color: #fff;
+  background: var(--up);
+}
+
+.group-chip__input {
+  width: 62px;
+  font-size: var(--fs-2xs);
+  color: var(--text-1);
+}
+
+.group-empty {
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  font-size: var(--fs-xs);
+  line-height: 1.9;
+  color: var(--text-3);
+}
+
 .sidebar__list {
   flex: 1;
   min-height: 0;
@@ -239,7 +347,7 @@
 .watch-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--sp-2);
   width: 100%;
@@ -250,7 +358,34 @@
   text-align: left;
   transition:
     background-color var(--dur-2) var(--ease),
-    border-color var(--dur-2) var(--ease);
+    border-color var(--dur-2) var(--ease),
+    opacity var(--dur-2) var(--ease);
+}
+
+/* 拖拽中的行淡出，明确指出「正在搬这一行」 */
+.watch-row--dragging {
+  opacity: 0.4;
+}
+
+/* 落点指示线：插到这一行前面 / 后面 */
+.watch-row--drop-before::after,
+.watch-row--drop-after::after {
+  content: '';
+  position: absolute;
+  left: var(--sp-2);
+  right: var(--sp-2);
+  height: 2px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(91, 140, 255, 0.8);
+}
+
+.watch-row--drop-before::after {
+  top: -1px;
+}
+
+.watch-row--drop-after::after {
+  bottom: -1px;
 }
 
 .watch-row:hover {
@@ -292,6 +427,17 @@
   font-size: var(--fs-2xs);
   color: var(--text-3);
   letter-spacing: 0.04em;
+}
+
+/* 迷你走势图：列表里只占 46px，不加任何坐标与网格 */
+.sparkline {
+  flex: none;
+  opacity: 0.9;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.watch-row:hover .sparkline {
+  opacity: 1;
 }
 
 .watch-row__side {
@@ -351,31 +497,42 @@
 /* ================================================================ 主工作区 */
 .workspace {
   grid-row: 2;
-  min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.workspace__inner {
+  grid-column: 2;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
-  min-height: 100%;
-  padding: var(--sp-5);
+  gap: var(--gutter);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--edge) var(--gutter) var(--edge) var(--edge);
+  /* 关键：不滚动。内容超出时由内部组件自己收缩，而不是长出滚动条 */
+  overflow: hidden;
+}
+
+/* ============================================================== 右侧栏 */
+.rail {
+  grid-row: 2;
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gutter);
+  min-height: 0;
+  padding: var(--edge) var(--edge) var(--edge) 0;
+  overflow: hidden;
 }
 
 /* ============================================================== 行情头部 */
 .quote-header {
   display: flex;
+  flex: none;
   flex-direction: column;
-  gap: var(--sp-4);
-  padding: var(--sp-5);
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3);
 }
 
 .quote-header__top {
   display: flex;
-  align-items: flex-start;
-  gap: var(--sp-5);
+  align-items: center;
+  gap: var(--sp-4);
 }
 
 .quote-header__identity {
@@ -441,9 +598,9 @@
 /* 头部下方的一排关键指标 */
 .quote-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: var(--sp-2) var(--sp-4);
-  padding-top: var(--sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: var(--sp-2) var(--sp-3);
+  padding-top: var(--sp-3);
   border-top: 1px solid var(--border);
 }
 
@@ -469,23 +626,25 @@
 .chart-card {
   display: flex;
   flex-direction: column;
+  /* 唯一吸收剩余高度的部件：图表永远填满主区剩下的空间 */
   flex: 1 1 auto;
-  min-height: 360px;
+  min-height: 0;
 }
 
 .chart-card__head {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
+  flex: none;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
   border-bottom: 1px solid var(--border);
 }
 
 .chart-card__body {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  padding: var(--sp-3) var(--sp-2) var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
 }
 
 .chart-legend {
@@ -495,6 +654,46 @@
   margin-left: auto;
   font-size: var(--fs-2xs);
   color: var(--text-3);
+}
+
+/* 标题区右侧容器：图例与十字光标读数共用同一块位置 */
+.chart-headline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+/* 十字光标联动读数：鼠标在图上移动时替换掉图例 */
+.chart-readout {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  min-width: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  animation: fade-in var(--dur-1) var(--ease);
+}
+
+.chart-readout__time {
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+}
+
+.chart-readout__price {
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+
+.chart-readout__pct {
+  font-weight: 600;
+}
+
+.chart-readout__item b {
+  color: var(--text-1);
+  font-weight: 600;
 }
 
 .chart-legend__item {
@@ -513,7 +712,8 @@
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 300px;
+  /* 不设 min-height：高度完全由卡片决定，避免把主区顶出滚动条 */
+  min-height: 0;
 }
 
 .chart-svg {
@@ -526,56 +726,71 @@
   display: grid;
   place-items: center;
   height: 100%;
-  min-height: 260px;
   font-size: var(--fs-sm);
   color: var(--text-3);
 }
 
-/* ============================================================ 下半区网格 */
-.lower-grid {
-  display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  gap: var(--sp-4);
-  align-items: start;
-}
-
-@media (max-width: 1120px) {
-  .lower-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
+/* ============================================================ 右栏面板 */
 .panel {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+
+/* 盘口面板吃掉右栏剩余空间 */
+.panel--book {
+  flex: 1 1 auto;
+}
+
+/* 指标面板按内容高度，放在右栏底部 */
+.panel--stats {
+  flex: none;
 }
 
 .panel__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--sp-3) var(--sp-4);
+  flex: none;
+  padding: var(--sp-2) var(--sp-4);
   border-bottom: 1px solid var(--border);
 }
 
 .panel__body {
-  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3);
+}
+
+/* 盘口主体：让每档行按可用高度均分，既不溢出也不留大片空白 */
+.panel__body--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: var(--sp-2) var(--sp-3);
 }
 
 /* ================================================================ 五档盘口 */
 .orderbook {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  width: 100%;
+  min-height: 0;
 }
 
+/*
+ * 每一档用 flex: 1 1 0 均分可用高度：
+ * 窗口变矮时行会一起变矮（保底 18px），变高时均匀撑开，
+ * 这样既不会溢出长出滚动条，也不会在底部留一大块空白。
+ */
 .ob-row {
   position: relative;
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sp-2);
-  height: 24px;
+  flex: 1 1 0;
+  min-height: 18px;
   padding: 0 var(--sp-2);
   border-radius: var(--r-xs);
   font-size: var(--fs-xs);
@@ -625,8 +840,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: var(--sp-2) 0;
-  padding: var(--sp-2) var(--sp-2);
+  flex: none;
+  margin: var(--sp-1) 0;
+  padding: var(--sp-2);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-2xs);
@@ -639,28 +855,32 @@
 }
 
 /* ================================================================ 指标网格 */
+/* 右栏只有 300 多像素宽，固定两列比 auto-fit 更可控 */
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
-  gap: var(--sp-3) var(--sp-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px var(--sp-4);
 }
 
 .stats__item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--sp-2) 0;
+  gap: 1px;
+  min-width: 0;
+  padding: 2px 0;
 }
 
 .stats__label {
   font-size: var(--fs-2xs);
   color: var(--text-3);
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .stats__value {
-  font-size: var(--fs-md);
+  font-size: var(--fs-sm);
   font-weight: 550;
+  white-space: nowrap;
 }
 
 /* ================================================================ 状态栏 */
@@ -718,12 +938,12 @@
 /* ================================================================ 空状态 */
 .empty {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--sp-3);
-  flex: 1;
-  min-height: 420px;
+  min-height: 0;
   text-align: center;
 }
 

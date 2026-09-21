@@ -31,6 +31,7 @@ const api: StockLensApi = {
   },
   trend: {
     minute: (code) => ipcRenderer.invoke(IPC.trendMinute, code),
+    fiveDay: (code) => ipcRenderer.invoke(IPC.trendFiveDay, code),
     kline: (request) => ipcRenderer.invoke(IPC.trendKline, request)
   },
   search: {

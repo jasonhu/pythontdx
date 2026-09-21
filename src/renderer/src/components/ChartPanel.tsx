@@ -1,26 +1,40 @@
 /**
- * 图表卡片：分时 / 日K / 周K / 月K 切换 + 数据加载与自动刷新。
+ * 图表卡片：分时 / 五日 / 日K / 周K / 月K 切换 + 数据加载与自动刷新。
+ *
+ * 标题区还有一个「十字光标联动读数」：鼠标在图上移动时，
+ * 图例会被替换成当前光标位置的 时间 / 价格 / 涨跌幅 / 均价 / 成交量，
+ * 移开后又变回图例。这是专业行情软件的标配交互。
  */
 import { createMemo, createResource, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import type { KLinePeriod, KLineSeries, MinuteTrend } from '@shared/types'
+import { fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { toneOf } from '../lib/tone'
 import { KLineChart } from './KLineChart'
-import { TrendChart } from './TrendChart'
+import { TrendChart, type TrendHover } from './TrendChart'
 import { IconRefresh } from './Icons'
 
-type Tab = 'minute' | KLinePeriod
+type Tab = 'minute' | 'five' | KLinePeriod
 
-type ChartData = { kind: 'minute'; trend: MinuteTrend } | { kind: 'kline'; series: KLineSeries }
+/** 统一成两种渲染模式：折线（分时/五日）与蜡烛（K 线） */
+type ChartData = { kind: 'trend'; days: MinuteTrend[] } | { kind: 'kline'; series: KLineSeries }
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'minute', label: '分时' },
+  { key: 'five', label: '五日' },
   { key: 'day', label: '日K' },
   { key: 'week', label: '周K' },
   { key: 'month', label: '月K' }
 ]
 
-/** 分时图的自动刷新周期（主进程还有 10 秒缓存兜底） */
-const MINUTE_REFRESH_MS = 30_000
+const MA_LEGEND = [
+  { label: 'MA5', color: '#f0b429' },
+  { label: 'MA10', color: '#5b8cff' },
+  { label: 'MA20', color: '#c084fc' }
+]
+
+/** 折线类图表的自动刷新周期（主进程还有 10~60 秒缓存兜底） */
+const REFRESH_MS = 30_000
 /** K 线取多少根 */
 const KLINE_COUNT = 160
 
@@ -31,6 +45,7 @@ export interface ChartPanelProps {
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<Tab>('minute')
   const [tick, setTick] = createSignal(0)
+  const [hover, setHover] = createSignal<TrendHover | null>(null)
 
   /**
    * 用 memo 把 code 稳定下来。
@@ -40,15 +55,21 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
    * 导致图表每 3 秒重新拉一次数据。memo 默认做值比较，字符串没变就不会向下游传播。
    */
   const code = createMemo(() => props.code)
+  const isTrend = (): boolean => tab() === 'minute' || tab() === 'five'
 
-  const timer = setInterval(() => setTick((value) => value + 1), MINUTE_REFRESH_MS)
+  const timer = setInterval(() => setTick((value) => value + 1), REFRESH_MS)
   onCleanup(() => clearInterval(timer))
 
   const [data, { refetch }] = createResource<ChartData, { code: string; tab: Tab; tick: number }>(
-    () => ({ code: code(), tab: tab(), tick: tab() === 'minute' ? tick() : 0 }),
+    () => ({ code: code(), tab: tab(), tick: isTrend() ? tick() : 0 }),
     async (source) => {
+      if (source.tab === 'five') {
+        const multi = await api.trend.fiveDay(source.code)
+        return { kind: 'trend', days: multi.days }
+      }
       if (source.tab === 'minute') {
-        return { kind: 'minute', trend: await api.trend.minute(source.code) }
+        const trend = await api.trend.minute(source.code)
+        return { kind: 'trend', days: [trend] }
       }
       return {
         kind: 'kline',
@@ -61,9 +82,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     }
   )
 
-  const minuteTrend = (): MinuteTrend | undefined => {
+  const trendDays = (): MinuteTrend[] | undefined => {
     const current = data()
-    return current?.kind === 'minute' ? current.trend : undefined
+    return current?.kind === 'trend' ? current.days : undefined
   }
 
   const klineSeries = (): KLineSeries | undefined => {
@@ -75,9 +96,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     if (data.loading || data.error) return false
     const current = data()
     if (!current) return false
-    return current.kind === 'minute'
-      ? current.trend.points.length === 0
-      : current.series.bars.length === 0
+    if (current.kind === 'kline') return current.series.bars.length === 0
+    return current.days.every((day) => day.points.length === 0)
+  }
+
+  /** 切 tab 或切股票时清掉残留的读数，避免显示上一只票的数值 */
+  const switchTab = (next: Tab): void => {
+    setHover(null)
+    setTab(next)
   }
 
   return (
@@ -89,7 +115,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <button
                 class="segmented__item"
                 data-active={tab() === item.key}
-                onClick={() => setTab(item.key)}
+                onClick={() => switchTab(item.key)}
               >
                 {item.label}
               </button>
@@ -97,34 +123,63 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           </For>
         </div>
 
-        <div class="chart-legend">
+        {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
+        <div class="chart-headline">
           <Show
-            when={tab() === 'minute'}
+            when={hover()}
             fallback={
-              <For
-                each={[
-                  { label: 'MA5', color: '#f0b429' },
-                  { label: 'MA10', color: '#5b8cff' },
-                  { label: 'MA20', color: '#c084fc' }
-                ]}
-              >
-                {(item) => (
+              <div class="chart-legend">
+                <Show
+                  when={isTrend()}
+                  fallback={
+                    <For each={MA_LEGEND}>
+                      {(item) => (
+                        <span class="chart-legend__item">
+                          <span class="chart-legend__swatch" style={{ background: item.color }} />
+                          {item.label}
+                        </span>
+                      )}
+                    </For>
+                  }
+                >
                   <span class="chart-legend__item">
-                    <span class="chart-legend__swatch" style={{ background: item.color }} />
-                    {item.label}
+                    <span class="chart-legend__swatch" style={{ background: 'var(--accent)' }} />
+                    价格
                   </span>
-                )}
-              </For>
+                  <span class="chart-legend__item">
+                    <span class="chart-legend__swatch" style={{ background: 'var(--chart-avg)' }} />
+                    均价
+                  </span>
+                  <Show when={tab() === 'five'}>
+                    <span class="chart-legend__item">每段一个交易日</span>
+                  </Show>
+                </Show>
+              </div>
             }
           >
-            <span class="chart-legend__item">
-              <span class="chart-legend__swatch" style={{ background: 'var(--up-line)' }} />
-              价格
-            </span>
-            <span class="chart-legend__item">
-              <span class="chart-legend__swatch" style={{ background: 'var(--chart-avg)' }} />
-              均价
-            </span>
+            {(current) => (
+              <div class="chart-readout">
+                <span class="chart-readout__time num">{current().label}</span>
+                <span
+                  class="chart-readout__price num"
+                  style={{ color: `var(--${toneOf(current().changePct)})` }}
+                >
+                  {fixed(current().price)}
+                </span>
+                <span
+                  class="chart-readout__pct num"
+                  style={{ color: `var(--${toneOf(current().changePct)})` }}
+                >
+                  {signedPct(current().changePct)}
+                </span>
+                <span class="chart-readout__item">
+                  均价 <b class="num">{fixed(current().avg)}</b>
+                </span>
+                <span class="chart-readout__item">
+                  量 <b class="num">{thousands(current().volume)}</b> 手
+                </span>
+              </div>
+            )}
           </Show>
 
           <button
@@ -156,7 +211,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             when={!isEmpty()}
             fallback={<div class="chart-empty">暂无行情数据（可能停牌或尚未开盘）</div>}
           >
-            <Show when={minuteTrend()}>{(trend) => <TrendChart trend={trend()} />}</Show>
+            <Show when={trendDays()}>
+              {(days) => <TrendChart days={days()} onHover={setHover} />}
+            </Show>
             <Show when={klineSeries()}>{(series) => <KLineChart series={series()} />}</Show>
           </Show>
         </Show>

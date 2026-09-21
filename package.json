@@ -1,0 +1,41 @@
+{
+  "name": "stocklens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "StockLens · 高颜值跨平台股票行情终端（Electron + Vite + SolidJS）",
+  "author": "River",
+  "license": "MIT",
+  "main": "./out/main/index.js",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "dev:watch": "electron-vite dev --watch",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "icon": "node scripts/generate-icon.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" \"scripts/**/*.mjs\" \"docs/**/*.md\" \"*.{json,md,yml}\" \".vscode/*.json\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\"",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.0",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "prettier": "^3.9.8",
+    "solid-js": "^1.9.15",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vite-plugin-solid": "^2.11.14"
+  }
+}

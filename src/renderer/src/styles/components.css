@@ -1,0 +1,308 @@
+/* ============================================================================
+   可复用基础组件：卡片 / 按钮 / 标签 / 分段控件 / 骨架屏 / 开关
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ 卡片 */
+.card {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  /* 毛玻璃：让底层的极光背景透出来一点，是「高级感」的主要来源 */
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--dur-2) var(--ease),
+    background-color var(--dur-2) var(--ease);
+}
+
+.card--pad {
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.card__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+
+.card__title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  border-radius: var(--r-full);
+  background: var(--accent-grad);
+}
+
+/* ------------------------------------------------------------------ 按钮 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  transition:
+    color var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  color: var(--text-1);
+  background: var(--panel-hover);
+  border-color: var(--border-strong);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+}
+
+.btn--primary {
+  color: #fff;
+  background: var(--accent-grad);
+  border-color: transparent;
+  box-shadow: 0 6px 18px -8px rgba(91, 140, 255, 0.9);
+}
+
+.btn--primary:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.btn--icon {
+  width: 30px;
+  padding: 0;
+}
+
+.btn--bare {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* 标题栏专用的窗口按钮：更扁平，关闭键 hover 变红 */
+.win-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: var(--titlebar-h);
+  color: var(--text-2);
+  transition:
+    background-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+
+.win-btn:hover {
+  color: var(--text-1);
+  background: var(--panel-hover);
+}
+
+.win-btn--close:hover {
+  color: #fff;
+  background: #e5484d;
+}
+
+/* ------------------------------------------------------------------ 标签 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-2);
+  background: var(--panel-hover);
+  border: 1px solid var(--border);
+}
+
+.tag--accent {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+.tag--up {
+  color: var(--up);
+  background: var(--up-soft);
+  border-color: transparent;
+}
+
+.tag--down {
+  color: var(--down);
+  background: var(--down-soft);
+  border-color: transparent;
+}
+
+/* ------------------------------------------------------- 分段控件（Tab） */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.segmented__item {
+  position: relative;
+  height: 24px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-xs);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-2);
+  transition:
+    color var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+
+.segmented__item:hover {
+  color: var(--text-1);
+}
+
+.segmented__item[data-active='true'] {
+  color: var(--text-1);
+  background: var(--panel-active);
+  box-shadow: inset 0 0 0 1px rgba(91, 140, 255, 0.35);
+}
+
+/* ---------------------------------------------------------------- 骨架屏 */
+.skeleton {
+  border-radius: var(--r-xs);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-a) 0%,
+    var(--skeleton-b) 50%,
+    var(--skeleton-a) 100%
+  );
+  background-size: 420px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ------------------------------------------------------------ 开关 Switch */
+.switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--r-full);
+  background: var(--panel-hover);
+  border: 1px solid var(--border);
+  transition: background-color var(--dur-2) var(--ease);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition:
+    transform var(--dur-2) var(--ease),
+    background-color var(--dur-2) var(--ease);
+}
+
+.switch[data-on='true'] {
+  background: var(--accent-soft);
+  border-color: rgba(91, 140, 255, 0.5);
+}
+
+.switch[data-on='true']::after {
+  transform: translateX(14px);
+  background: var(--accent);
+}
+
+/* -------------------------------------------------------------- 状态圆点 */
+.dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--flat);
+}
+
+.dot--live {
+  background: var(--down);
+  box-shadow: 0 0 0 3px var(--down-soft);
+  animation: pulse-dot 2.4s var(--ease-in-out) infinite;
+}
+
+.dot--error {
+  background: var(--up);
+  box-shadow: 0 0 0 3px var(--up-soft);
+}
+
+.dot--connecting {
+  background: var(--chart-avg);
+  box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.16);
+  animation: pulse-dot 1.2s var(--ease-in-out) infinite;
+}
+
+/* -------------------------------------------------------------- 分割线 */
+.divider {
+  height: 1px;
+  background: var(--border);
+  border: 0;
+}
+
+/* ----------------------------------------------------------- 图表浮层 */
+.chart-tooltip {
+  position: absolute;
+  z-index: 6;
+  min-width: 132px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--panel-elevated);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-3);
+  backdrop-filter: blur(24px);
+  pointer-events: none;
+  font-size: var(--fs-xs);
+  animation: fade-in var(--dur-1) var(--ease);
+}
+
+.chart-tooltip__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  line-height: 1.7;
+}
+
+.chart-tooltip__label {
+  color: var(--text-3);
+}
+
+/* ---------------------------------------------------------------- 徽标 */
+.badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--panel-hover);
+}

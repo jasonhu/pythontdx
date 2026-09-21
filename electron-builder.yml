@@ -1,0 +1,56 @@
+appId: com.stocklens.app
+productName: StockLens
+copyright: Copyright © 2026 River
+
+directories:
+  buildResources: build
+  output: release/${version}
+
+# 只打包「运行时真正需要」的东西：out/ 产物 + package.json + 生产依赖
+files:
+  - out/**
+  - resources/**
+  - package.json
+  - '!**/*.{md,map,ts,tsx}'
+  - '!node_modules/**/{test,__tests__,docs,example,examples}/**'
+
+asarUnpack:
+  - resources/**
+
+# 生产依赖里如果有原生模块，这里开 rebuild；纯 JS 项目关掉可以显著加速
+npmRebuild: false
+
+win:
+  executableName: StockLens
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+
+mac:
+  # 没有 .icns 时 electron-builder 会自动用这张 512×512 的 PNG 转换生成
+  icon: build/icon.png
+  category: public.app-category.finance
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+
+dmg:
+  artifactName: ${name}-${version}-${arch}.${ext}
+
+linux:
+  icon: build/icon.png
+  category: Finance
+  maintainer: River
+  target:
+    - AppImage
+    - deb

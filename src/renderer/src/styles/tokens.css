@@ -1,0 +1,173 @@
+/* ============================================================================
+   设计令牌（Design Tokens）
+   —— 全项目所有颜色、圆角、阴影、动效都从这里取值。
+      想整体换肤，只需要动这一个文件。
+   ========================================================================== */
+
+:root {
+  /* ---------------------------------------------------------------- 排版 */
+  --font-ui:
+    'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'PingFang SC',
+    'Microsoft YaHei UI', 'Noto Sans SC', sans-serif;
+  /* 行情数字专用字体：等宽数字 + 略窄字面，长时间盯着不累 */
+  --font-num:
+    'Bahnschrift', 'DIN Alternate', 'Segoe UI Variable Display', 'Segoe UI', ui-monospace,
+    'Cascadia Mono', monospace;
+
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --fs-3xl: 42px;
+
+  /* ---------------------------------------------------------------- 形状 */
+  --r-xs: 6px;
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-full: 999px;
+
+  /* ---------------------------------------------------------------- 间距 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ---------------------------------------------------------------- 动效 */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+
+  /* ------------------------------------------------------------ 布局尺寸 */
+  --titlebar-h: 46px;
+  --statusbar-h: 30px;
+  --sidebar-w: 272px;
+}
+
+/* ============================================================================
+   深色主题（默认）
+   ========================================================================== */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-base: #07090e;
+  /* 极光背景：三层径向渐变叠加，让纯色背景有「空间感」而不是死黑 */
+  --bg-aurora:
+    radial-gradient(1150px 640px at 6% -14%, rgba(91, 140, 255, 0.2), transparent 62%),
+    radial-gradient(900px 540px at 104% -8%, rgba(160, 107, 255, 0.15), transparent 58%),
+    radial-gradient(760px 700px at 52% 122%, rgba(16, 201, 140, 0.07), transparent 62%);
+
+  --panel: rgba(255, 255, 255, 0.032);
+  --panel-hover: rgba(255, 255, 255, 0.055);
+  --panel-active: rgba(91, 140, 255, 0.14);
+  --panel-solid: #0d1017;
+  --panel-elevated: rgba(13, 16, 23, 0.92);
+
+  --border: rgba(255, 255, 255, 0.072);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --text-1: #e9edf7;
+  --text-2: #96a1b9;
+  --text-3: #5f6a82;
+
+  --accent: #5b8cff;
+  --accent-soft: rgba(91, 140, 255, 0.16);
+  --accent-2: #a06bff;
+  --accent-grad: linear-gradient(135deg, #5b8cff 0%, #a06bff 100%);
+
+  /* 中国市场惯例：红涨绿跌 */
+  --up: #ff5470;
+  --up-soft: rgba(255, 84, 112, 0.14);
+  --up-line: #ff7a90;
+  --down: #14c98c;
+  --down-soft: rgba(20, 201, 140, 0.14);
+  --down-line: #45dfa8;
+  --flat: #8b95ad;
+  --flat-soft: rgba(139, 149, 173, 0.14);
+
+  /* 图表专用 */
+  --chart-grid: rgba(255, 255, 255, 0.055);
+  --chart-axis: rgba(255, 255, 255, 0.3);
+  --chart-crosshair: rgba(255, 255, 255, 0.42);
+  --chart-avg: #f0b429;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 10px 30px -12px rgba(0, 0, 0, 0.7);
+  --shadow-3: 0 28px 64px -24px rgba(0, 0, 0, 0.8);
+  --glow-accent: 0 0 0 1px rgba(91, 140, 255, 0.4), 0 10px 34px -12px rgba(91, 140, 255, 0.6);
+
+  --skeleton-a: rgba(255, 255, 255, 0.04);
+  --skeleton-b: rgba(255, 255, 255, 0.09);
+}
+
+/* ============================================================================
+   浅色主题
+   ========================================================================== */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-base: #f2f4f9;
+  --bg-aurora:
+    radial-gradient(1100px 620px at 4% -16%, rgba(91, 140, 255, 0.18), transparent 60%),
+    radial-gradient(880px 520px at 104% -10%, rgba(160, 107, 255, 0.14), transparent 55%),
+    radial-gradient(720px 700px at 50% 124%, rgba(16, 201, 140, 0.08), transparent 60%);
+
+  --panel: rgba(255, 255, 255, 0.72);
+  --panel-hover: rgba(255, 255, 255, 0.95);
+  --panel-active: rgba(91, 140, 255, 0.12);
+  --panel-solid: #ffffff;
+  --panel-elevated: rgba(255, 255, 255, 0.97);
+
+  --border: rgba(16, 24, 40, 0.09);
+  --border-strong: rgba(16, 24, 40, 0.16);
+
+  --text-1: #0f1729;
+  --text-2: #566076;
+  --text-3: #8d96a8;
+
+  --accent: #2f6bff;
+  --accent-soft: rgba(47, 107, 255, 0.12);
+  --accent-2: #8b5cf6;
+  --accent-grad: linear-gradient(135deg, #2f6bff 0%, #8b5cf6 100%);
+
+  --up: #e5384f;
+  --up-soft: rgba(229, 56, 79, 0.12);
+  --up-line: #e5384f;
+  --down: #0a9e6e;
+  --down-soft: rgba(10, 158, 110, 0.12);
+  --down-line: #0a9e6e;
+  --flat: #7b8598;
+  --flat-soft: rgba(123, 133, 152, 0.12);
+
+  --chart-grid: rgba(16, 24, 40, 0.07);
+  --chart-axis: rgba(16, 24, 40, 0.35);
+  --chart-crosshair: rgba(16, 24, 40, 0.45);
+  --chart-avg: #d97706;
+
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-2: 0 10px 30px -14px rgba(16, 24, 40, 0.2);
+  --shadow-3: 0 28px 64px -26px rgba(16, 24, 40, 0.28);
+  --glow-accent: 0 0 0 1px rgba(47, 107, 255, 0.35), 0 10px 30px -12px rgba(47, 107, 255, 0.45);
+
+  --skeleton-a: rgba(16, 24, 40, 0.05);
+  --skeleton-b: rgba(16, 24, 40, 0.1);
+}
+
+/* 尊重系统的「减弱动态效果」设置 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 1ms;
+    --dur-2: 1ms;
+    --dur-3: 1ms;
+  }
+}

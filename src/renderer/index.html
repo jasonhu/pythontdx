@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>StockLens · 行情终端</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <!--
+      内容安全策略：
+        渲染进程不直接访问外网（所有行情请求都经主进程转发），
+        所以 connect-src 只放开 Vite 开发服务器的 HMR 通道。
+        script-src 允许 'unsafe-inline' 是为了让 Vite 开发模式注入的模块预置脚本能执行；
+        生产构建产物不含任何内联脚本，且只加载本地文件。
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self';
+               script-src 'self' 'unsafe-inline';
+               style-src 'self' 'unsafe-inline';
+               img-src 'self' data: blob:;
+               font-src 'self' data:;
+               connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:*;
+               object-src 'none';
+               base-uri 'none'"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

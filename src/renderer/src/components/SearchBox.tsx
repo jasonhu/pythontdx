@@ -1,0 +1,161 @@
+/**
+ * 顶部搜索框：带防抖、键盘导航和「直接输入代码」兜底。
+ */
+import { createEffect, createSignal, For, on, onCleanup, Show, type JSX } from 'solid-js'
+import { MARKET_LABEL, type SearchItem } from '@shared/types'
+import { normalizeCode } from '@shared/market'
+import { api } from '../lib/ipc'
+import { addSearchItem, addWatchItem } from '../stores/app'
+import { IconSearch } from './Icons'
+
+/** 输入防抖：300ms 内还在敲字就不发请求，避免把腾讯的联想接口打爆 */
+const DEBOUNCE_MS = 240
+
+export function SearchBox(): JSX.Element {
+  const [keyword, setKeyword] = createSignal('')
+  const [items, setItems] = createSignal<SearchItem[]>([])
+  const [open, setOpen] = createSignal(false)
+  const [loading, setLoading] = createSignal(false)
+  const [cursor, setCursor] = createSignal(0)
+
+  let inputElement: HTMLInputElement | undefined
+  /** 请求序号：只接受最后一次请求的结果，防止旧响应覆盖新响应 */
+  let sequence = 0
+
+  createEffect(
+    on(keyword, (value) => {
+      const text = value.trim()
+      if (!text) {
+        sequence++
+        setItems([])
+        setOpen(false)
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      const token = ++sequence
+      const timer = setTimeout(() => {
+        api.search
+          .hint(text)
+          .then((result) => {
+            if (token !== sequence) return
+            setItems(result)
+            setCursor(0)
+            setOpen(true)
+          })
+          .catch(() => {
+            if (token !== sequence) return
+            setItems([])
+            setOpen(true)
+          })
+          .finally(() => {
+            if (token === sequence) setLoading(false)
+          })
+      }, DEBOUNCE_MS)
+
+      onCleanup(() => clearTimeout(timer))
+    })
+  )
+
+  const commit = (item: SearchItem): void => {
+    addSearchItem(item)
+    setKeyword('')
+    setItems([])
+    setOpen(false)
+    inputElement?.blur()
+  }
+
+  /** 用户直接粘贴/输入 6 位代码时，不走联想接口也能加进来 */
+  const commitRawCode = (): void => {
+    const code = normalizeCode(keyword())
+    if (!code) return
+    const symbol = code.slice(2)
+    addWatchItem({
+      code,
+      name: symbol,
+      market: code.slice(0, 2).toUpperCase() as SearchItem['market']
+    })
+    setKeyword('')
+    setOpen(false)
+    inputElement?.blur()
+  }
+
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      setOpen(false)
+      return
+    }
+
+    const list = items()
+    if (list.length === 0) {
+      if (event.key === 'Enter') commitRawCode()
+      return
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setCursor((index) => (index + 1) % list.length)
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setCursor((index) => (index - 1 + list.length) % list.length)
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      const item = list[cursor()]
+      if (item) commit(item)
+      else commitRawCode()
+    }
+  }
+
+  return (
+    <div class="search-wrap">
+      <div class="search">
+        <IconSearch size={13} class="search__icon" />
+        <input
+          ref={inputElement}
+          class="search__input"
+          type="text"
+          spellcheck={false}
+          autocomplete="off"
+          placeholder="搜索股票 / 代码，回车添加自选"
+          value={keyword()}
+          onInput={(event) => setKeyword(event.currentTarget.value)}
+          onKeyDown={onKeyDown}
+          onFocus={() => keyword().trim() && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 140)}
+        />
+        <Show when={loading()}>
+          <span class="search__spinner" />
+        </Show>
+      </div>
+
+      <Show when={open()}>
+        <div class="search-pop">
+          <Show
+            when={items().length > 0}
+            fallback={
+              <div class="search-pop__empty">
+                {keyword().trim() ? '没有匹配的证券' : '输入名称、拼音或代码'}
+              </div>
+            }
+          >
+            <For each={items()}>
+              {(item, index) => (
+                <button
+                  class="search-pop__item"
+                  data-cursor={index() === cursor()}
+                  onMouseEnter={() => setCursor(index())}
+                  onClick={() => commit(item)}
+                >
+                  <span class="tag">{MARKET_LABEL[item.market]}</span>
+                  <span class="search-pop__name">{item.name}</span>
+                  <span class="search-pop__code num">{item.code.toUpperCase()}</span>
+                </button>
+              )}
+            </For>
+          </Show>
+        </div>
+      </Show>
+    </div>
+  )
+}

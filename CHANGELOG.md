@@ -232,11 +232,12 @@ StockLens 的所有重要变更都记录在这里。
 - 六篇说明文档：快速开始、架构设计、接口手册、设计系统、路线图、踩坑笔记。
 
 <!--
-  说明：项目目前没有配置 git remote，所以这里不放版本对比链接。
-  将来托管到 GitHub / Gitee 之后，按 Keep a Changelog 的惯例补上：
+  仓库地址：http://gitlab.riverzhou.cn/river/Electron-Vite-SolidJS
 
-  [未发布]: https://<仓库地址>/compare/v0.3.0...HEAD
-  [0.3.0]:  https://<仓库地址>/compare/v0.2.0...v0.3.0
-  [0.2.0]:  https://<仓库地址>/compare/v0.1.0...v0.2.0
-  [0.1.0]:  https://<仓库地址>/releases/tag/v0.1.0
+  版本对比链接可以按 Keep a Changelog 的惯例补在这里，GitLab 的格式是
+  <仓库地址>/-/compare/<旧 tag>...<新 tag>，例如：
+  [0.4.0]: http://gitlab.riverzhou.cn/river/Electron-Vite-SolidJS/-/compare/v0.3.0...v0.4.0
+
+  暂时没写，是因为这些链接需要实际点开确认可用（内网地址在外部环境打不开），
+  与其放一堆可能是死链的引用，不如留个格式说明。
 -->

@@ -79,6 +79,82 @@ async function drive(window: BrowserWindow): Promise<void> {
     await wait(120)
   }
 
+  // 滚轮：`<deltaY>@<选择器>@<横向比例>`，比例可省（默认元素正中间）。
+  // 为什么要注入滚轮而不是只单测那个累加器？因为有两件事只有真跑一遍才知道：
+  // 「非 passive 监听有没有生效」和「Electron 的 deltaY 单位是不是 DOM 的那一套」。
+  const wheelSpecs = split(process.env.STOCKLENS_CAPTURE_WHEEL)
+  if (wheelSpecs.length > 0) {
+    // 先装一个记录器：只看「界面没反应」分不清是「事件没送到」还是「deltaY 太小」，
+    // 把渲染层**实际收到**的 deltaY 读回来，一次就能判定。
+    await evaluate(
+      window,
+      `window.__captureWheelDeltas = [];
+       window.addEventListener('wheel',
+         (event) => window.__captureWheelDeltas.push(event.deltaY),
+         { capture: true, passive: true })`
+    )
+  }
+
+  /**
+   * Electron 注入的 deltaY 与渲染层收到的**不是同一套单位**。本机（Windows，2x DPI）实测：
+   *   注入 `deltaY: -100` → 渲染层收到 `+50`
+   * 即「符号相反、数值除以 devicePixelRatio」。不换算的话，环境变量里写 -100
+   * 只会在 DOM 里变成 50，连一格都凑不满，看起来就像滚轮完全没反应。
+   */
+  const pixelRatio = Number(await evaluate(window, 'window.devicePixelRatio')) || 1
+
+  for (const spec of wheelSpecs) {
+    const [rawDelta, selector, rawRatio] = spec.split('@')
+    const deltaY = Number(rawDelta)
+    if (!Number.isFinite(deltaY) || deltaY === 0 || !selector) {
+      console.warn(`[capture] 滚轮参数看不懂，跳过：${spec}（正确写法 -100@.chart-host@0.25）`)
+      continue
+    }
+
+    const ratio = Number.isFinite(Number(rawRatio)) ? Number(rawRatio) : 0.5
+    const point = await evaluate(
+      window,
+      `(() => {
+         const el = document.querySelector(${json(selector)})
+         if (!el) return ''
+         const rect = el.getBoundingClientRect()
+         return Math.round(rect.left + rect.width * ${ratio}) + ',' +
+                Math.round(rect.top + rect.height / 2)
+       })()`
+    )
+    const [x, y] = point.split(',').map(Number)
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      console.warn(`[capture] 找不到滚轮目标元素：${selector}`)
+      continue
+    }
+
+    // hasPreciseScrollingDeltas 让 deltaY 按「像素」解释，而不是按「格数」再乘系数；
+    // 代价是它按**设备像素**算，所以要乘回 pixelRatio（见上面的实测换算）
+    window.webContents.sendInputEvent({
+      type: 'mouseWheel',
+      x,
+      y,
+      deltaY: -deltaY * pixelRatio,
+      canScroll: false,
+      hasPreciseScrollingDeltas: true
+    })
+    await wait(120)
+  }
+
+  if (wheelSpecs.length > 0) {
+    // 自检：把渲染层**实际收到**的 deltaY 读回来跟请求的比。
+    // 单位或符号哪天变了（Electron 升级、换平台），这里会直接说出来，
+    // 而不是让下一个调试的人再去猜「为什么滚轮没反应」。
+    const observed = await evaluate(window, `(window.__captureWheelDeltas ?? []).join(',')`)
+    const requested = wheelSpecs
+      .map((spec) => Number(spec.split('@')[0]))
+      .filter((value) => Number.isFinite(value) && value !== 0)
+    console.log(`[capture] 滚轮：请求 DOM deltaY = [${requested.join(', ')}] → 实收 [${observed}]`)
+    if (observed !== requested.join(',')) {
+      console.warn('[capture] 滚轮换算与实测不一致 —— 注入 deltaY 的单位或符号可能变了')
+    }
+  }
+
   if (probe) {
     const text = await evaluate(
       window,

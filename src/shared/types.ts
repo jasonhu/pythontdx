@@ -183,6 +183,12 @@ export interface AppSettings {
   pauseWhenHidden: boolean
   /** 自选股行内是否显示迷你走势图 */
   showSparkline: boolean
+  /**
+   * K 线可见根数（缩放档位），下次打开还用它。
+   * 可选：默认值与合法档位由图表层给（`KLINE_BARS_MAX` / `nearestZoomLevel()`），
+   * 档位表属于图表几何，不该复制一份到 shared 来（复制就一定会漂移）。
+   */
+  klineZoom?: number
 }
 
 export interface AppState {

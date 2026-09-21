@@ -6,10 +6,11 @@
  *
  * 与分时图一样，坐标换算全部委托给 `lib/chart-geometry.ts` 里的纯函数。
  */
-import { createMemo, createSignal, For, Show, type JSX } from 'solid-js'
+import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { KLineSeries } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import {
+  accumulateWheel,
   buildKLineGeometry,
   buildKLineLevels,
   buildKLineTicks,
@@ -18,11 +19,13 @@ import {
   KLINE_BARS_MAX,
   klineWindow,
   movingAverage,
+  nearestZoomLevel,
   nextZoomLevel,
   stepCursor,
   zoomWindow
 } from '../lib/chart-geometry'
 import { useElementSize } from '../lib/dom'
+import { appState, updateSettings } from '../stores/app'
 
 /** 均线的周期与配色 */
 const MA_CONFIG = [
@@ -40,9 +43,17 @@ const DEFAULT_COUNT = KLINE_BARS_MAX
 
 export function KLineChart(props: KLineChartProps): JSX.Element {
   const { size, ref } = useElementSize<HTMLDivElement>()
+  /** 图表容器元素：滚轮监听要显式声明非 passive，所以得自己拿到它 */
+  let host: HTMLDivElement | undefined
 
-  /** 可见根数（缩放档位） */
-  const [count, setCount] = createSignal<number>(DEFAULT_COUNT)
+  /**
+   * 可见根数（缩放档位）。
+   * 初值取自上次运行存下来的档位，先吸附回档位表 ——
+   * 万一存档里的值不在表上（改过档位表 / 手改过设置文件），也不会卡在一个怪状态。
+   */
+  const [count, setCount] = createSignal<number>(
+    nearestZoomLevel(appState.settings.klineZoom ?? DEFAULT_COUNT)
+  )
   /** 窗口左端下标；null = 贴着最新一根（右对齐） */
   const [start, setStart] = createSignal<number | null>(null)
   /**
@@ -137,13 +148,19 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     setCursor(cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW))
   }
 
-  /** 上下键换档：以光标那一根为锚点，缩放前后它落在屏幕上的同一处 */
-  const zoomBy = (direction: 'in' | 'out'): void => {
+  /**
+   * 换档。以**锚点那一根**为锚：缩放前后它落在屏幕上的同一处，
+   * 不会出现「指着的 K 线换了一根」（`docs/06` 第 23 条）。
+   * 锚点默认是当前光标；滚轮会传鼠标位置算出来的那一根。
+   */
+  const zoomBy = (direction: 'in' | 'out', anchor: number | null = cursorIndex()): void => {
     const next = nextZoomLevel(count(), direction)
     if (next === count()) return // 已经到顶 / 到底
-    const anchored = zoomWindow(win(), total(), next, cursorIndex())
+    const anchored = zoomWindow(win(), total(), next, anchor)
     setCount(anchored.count)
     setStart(anchored.start)
+    // 记住档位：下次打开还是这个尺度（设置项是可选的，读的时候用 ?? 兜底）
+    updateSettings({ klineZoom: anchored.count })
   }
 
   /** 左右键移动光标；走到窗口边上时窗口跟着平移，这样能一路走到任意一根 */
@@ -158,6 +175,42 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     setStart(null)
     setCursor(total() === 0 ? null : total() - 1)
   }
+
+  /** 滚轮累计量：攒够一格才换档，余量留到下一次（见 accumulateWheel） */
+  let wheelAccumulated = 0
+
+  /**
+   * 滚轮缩放：向上滚放大（与 `↑` 一致），锚点是**鼠标位置那一根**。
+   *
+   * 为什么要手动 addEventListener，而不是用 Solid 的 `onWheel`？
+   * 因为必须显式声明 `passive: false` —— Chrome 对滚动类事件默认按 passive 处理，
+   * 那种情况下 `preventDefault()` 无效（控制台会提示
+   * "Unable to preventDefault inside passive event listener"）。
+   * `onWheel` 是 addEventListener 的语法糖，给不了这个选项。
+   */
+  const onWheel = (event: WheelEvent): void => {
+    // 图表里没有可滚动的内容，但这样能保证滚轮「只用于缩放」，不会顺手滚动页面
+    event.preventDefault()
+
+    const step = accumulateWheel(wheelAccumulated, event.deltaY)
+    wheelAccumulated = step.rest
+    if (!step.direction) return
+
+    const geo = geometry()
+    if (!geo) return
+
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const anchor = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
+    // 光标跟着鼠标走：滚轮缩放时人是盯着指针的，读数该同步过去
+    setCursor(anchor)
+    zoomBy(step.direction, anchor)
+  }
+
+  onMount(() => {
+    if (!host) return
+    host.addEventListener('wheel', onWheel, { passive: false })
+    onCleanup(() => host?.removeEventListener('wheel', onWheel))
+  })
 
   /**
    * 键盘操作。只在图表自己拿到焦点时才响应 —— 否则会和搜索框抢方向键
@@ -197,9 +250,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   return (
     <div
       class="chart-host"
-      ref={ref}
+      ref={(element: HTMLDivElement) => {
+        host = element
+        ref(element)
+      }}
       tabindex="0"
-      aria-label="K 线图：上下键缩放、左右键移动光标"
+      aria-label="K 线图：滚轮或上下键缩放、左右键移动光标"
       onKeyDown={onKeyDown}
       onPointerMove={onPointerMove}
       onPointerLeave={() => setCursor(null)}

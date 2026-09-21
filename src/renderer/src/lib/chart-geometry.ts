@@ -420,9 +420,13 @@ export function buildKLineGeometry(
  *   · 键盘上每按一下应该有**确定**的结果，按几下就能到想要的尺度；
  *   · 档位有限，就不会出现「按住不放缩到只剩 3 根」这种失控状态。
  *
+ * 相邻档位的比例约 1.2（最大 1.25）。第一版是 `160/120/80/50/30`，
+ * 比例 1.5~1.67，用户实测后反馈「缩放幅度太大，一下跳太多」，于是把档次加密。
+ * 代价是换档要多按几下 —— 所以滚轮（能连续滚）才是它的主要入口。
+ *
  * 最大档位同时是**取数上限**：不可能显示比拉回来的更多的 K 线。
  */
-export const KLINE_ZOOM_LEVELS = [30, 50, 80, 120, 160] as const
+export const KLINE_ZOOM_LEVELS = [30, 35, 40, 50, 60, 70, 85, 100, 120, 140, 160] as const
 
 /** 默认（最大）档位：显示全部 K 线，与「引入缩放之前」的行为一致 */
 export const KLINE_BARS_MAX: number = KLINE_ZOOM_LEVELS[KLINE_ZOOM_LEVELS.length - 1]
@@ -567,6 +571,67 @@ export function nextZoomLevel(
     return direction === 'in' ? candidates[candidates.length - 1] : candidates[0]
   }
   return direction === 'in' ? list[0] : list[list.length - 1]
+}
+
+/**
+ * 把任意数值吸附到最近的一档。
+ *
+ * 用在哪？持久化下来的档位来自上一次运行 —— 档位表改过、或设置文件被人手改过时，
+ * 读回来的值可能根本不在档位上（比如 47）。先吸附再进界面，
+ * 就不会出现「当前档位不在表里，上下键怎么按都别扭」的状态。
+ *
+ * 正好卡在两档中间时取**较小**的那一档（根数更少、蜡烛更宽），行为是确定的。
+ */
+export function nearestZoomLevel(
+  value: number,
+  levels: readonly number[] = KLINE_ZOOM_LEVELS
+): number {
+  if (levels.length === 0) return value
+  const target = Number.isFinite(value) ? value : levels[0]
+  return levels.reduce((best, level) =>
+    Math.abs(level - target) < Math.abs(best - target) ? level : best
+  )
+}
+
+/** 滚轮「一格」的累计量：标准鼠标滚轮一格约 100（Chrome 归一化后的像素值） */
+export const WHEEL_STEP_DELTA = 100
+
+export interface WheelStep {
+  /** 这一下该换哪一档；还没攒够一格就是 null */
+  direction: 'in' | 'out' | null
+  /** 留到下一次的余量 */
+  rest: number
+}
+
+/**
+ * 滚轮累加器：`deltaY` 攒够一格才换档。
+ *
+ * 为什么不按事件数换档？
+ *   · 鼠标滚轮一格给出约 ±100 的 `deltaY`，一次事件就是一格；
+ *   · 触控板给出的是**很多个很小的 `deltaY`**，一次事件远不够一格 ——
+ *     按事件数算的话，触控板轻轻一划就会从头缩到尾。
+ * 统一按「累计量」判断，两种设备的手感才一致。
+ *
+ * 两个刻意的限制：
+ *   · **一次事件最多换一档**：快速甩动滚轮不该一次跳好几档（要的就是幅度小）；
+ *   · **反向滚动丢掉余量**：否则一个小回滚会带着之前的惯性触发反向换档。
+ */
+export function accumulateWheel(
+  accumulated: number,
+  deltaY: number,
+  threshold: number = WHEEL_STEP_DELTA
+): WheelStep {
+  if (!Number.isFinite(deltaY) || deltaY === 0 || threshold <= 0) {
+    return { direction: null, rest: accumulated }
+  }
+
+  const sameDirection = accumulated === 0 || Math.sign(accumulated) === Math.sign(deltaY)
+  const total = (sameDirection ? accumulated : 0) + deltaY
+
+  // 向上滚（deltaY < 0）= 放大，与 ↑ 一致
+  if (total <= -threshold) return { direction: 'in', rest: 0 }
+  if (total >= threshold) return { direction: 'out', rest: 0 }
+  return { direction: null, rest: total }
 }
 
 /** K 线纵轴刻度：用「好看的数字」取步长 */

@@ -6,6 +6,8 @@ import {
   KLINE_PADDING,
   KLINE_ZOOM_LEVELS,
   TREND_PADDING,
+  WHEEL_STEP_DELTA,
+  accumulateWheel,
   buildKLineGeometry,
   buildKLineLevels,
   buildKLineTicks,
@@ -23,6 +25,7 @@ import {
   klineWindow,
   locateTrendSlot,
   movingAverage,
+  nearestZoomLevel,
   nextZoomLevel,
   niceStep,
   slotFromX,
@@ -612,15 +615,104 @@ describe('klineWindow（可见窗口）', () => {
   })
 })
 
+describe('缩放档位表本身', () => {
+  it('严格递增，都能显示（大于 0）', () => {
+    for (let i = 1; i < KLINE_ZOOM_LEVELS.length; i++) {
+      expect(KLINE_ZOOM_LEVELS[i]).toBeGreaterThan(KLINE_ZOOM_LEVELS[i - 1])
+    }
+    expect(KLINE_ZOOM_LEVELS[0]).toBeGreaterThan(0)
+  })
+
+  it('相邻档位的比例不超过 1.25 —— 用户要的「缩放幅度小一点」就是这条', () => {
+    // 第一版是 160/120/80/50/30，比例到 1.67，用户实测反馈「一下跳太多」。
+    for (let i = 1; i < KLINE_ZOOM_LEVELS.length; i++) {
+      const ratio = KLINE_ZOOM_LEVELS[i] / KLINE_ZOOM_LEVELS[i - 1]
+      expect(ratio).toBeLessThanOrEqual(1.25)
+    }
+  })
+
+  it('从最宽到最细要按足够多下（说明档次确实加密了）', () => {
+    expect(KLINE_ZOOM_LEVELS.length).toBeGreaterThanOrEqual(8)
+  })
+})
+
+describe('nearestZoomLevel（把持久化的档位吸附回档位表）', () => {
+  it('本来就在档位上就原样返回', () => {
+    for (const level of KLINE_ZOOM_LEVELS) {
+      expect(nearestZoomLevel(level)).toBe(level)
+    }
+  })
+
+  it('不在档位上时取最近的一档', () => {
+    expect(nearestZoomLevel(47)).toBe(50)
+    expect(nearestZoomLevel(32)).toBe(30)
+    expect(nearestZoomLevel(159)).toBe(160) // 旧版本的 160 读数
+  })
+
+  it('正好卡在两档中间时取较小的一档（行为确定，不来回抖）', () => {
+    expect(nearestZoomLevel(45)).toBe(40) // 40 与 50 的中点
+    expect(nearestZoomLevel(1)).toBe(30)
+    expect(nearestZoomLevel(9999)).toBe(KLINE_BARS_MAX)
+  })
+
+  it('脏数据不崩：NaN 落到最小档，空表原样返回', () => {
+    expect(nearestZoomLevel(Number.NaN)).toBe(KLINE_ZOOM_LEVELS[0])
+    expect(nearestZoomLevel(47, [])).toBe(47)
+  })
+})
+
+describe('accumulateWheel（滚轮累加换档）', () => {
+  it('鼠标滚轮一格（±100）正好换一档，向上滚是放大', () => {
+    expect(accumulateWheel(0, -WHEEL_STEP_DELTA)).toEqual({ direction: 'in', rest: 0 })
+    expect(accumulateWheel(0, WHEEL_STEP_DELTA)).toEqual({ direction: 'out', rest: 0 })
+  })
+
+  it('触控板那种「很多个小 deltaY」要攒够一格才换档', () => {
+    let accumulated = 0
+    let steps = 0
+    // 10 次 -10 才够一格：前 9 次都不动
+    for (let i = 0; i < 10; i++) {
+      const result = accumulateWheel(accumulated, -10)
+      accumulated = result.rest
+      if (result.direction) steps++
+    }
+    expect(steps).toBe(1)
+    expect(accumulated).toBe(0)
+  })
+
+  it('快速甩动时一次事件最多换一档（不跳档）', () => {
+    expect(accumulateWheel(0, -1000)).toEqual({ direction: 'in', rest: 0 })
+  })
+
+  it('反向滚动丢掉余量，不带惯性触发反向换档', () => {
+    // 先往上攒了 -80，再往下滚满一格：应当立刻缩小。
+    // 若余量不丢（-80 + 100 = 20），这一下就会被吞掉 —— 这个用例专门分辨这件事。
+    expect(accumulateWheel(-80, 100)).toEqual({ direction: 'out', rest: 0 })
+  })
+
+  it('没攒够就把余量留着；deltaY 为 0 时什么都不变', () => {
+    expect(accumulateWheel(0, -40)).toEqual({ direction: null, rest: -40 })
+    expect(accumulateWheel(-40, 0)).toEqual({ direction: null, rest: -40 })
+    expect(accumulateWheel(-40, Number.NaN)).toEqual({ direction: null, rest: -40 })
+  })
+
+  it('阈值可配置，阈值非法就不换档', () => {
+    expect(accumulateWheel(0, -10, 5)).toEqual({ direction: 'in', rest: 0 })
+    expect(accumulateWheel(0, -1000, 0)).toEqual({ direction: null, rest: 0 })
+  })
+})
+
 describe('nextZoomLevel（上下键换档）', () => {
-  it('放大时可见根数一路变少', () => {
+  it('放大时可见根数一路变少，正好走完整个档位表', () => {
     let level = KLINE_BARS_MAX
     const seen: number[] = [level]
     for (let i = 0; i < KLINE_ZOOM_LEVELS.length - 1; i++) {
       level = nextZoomLevel(level, 'in')
       seen.push(level)
     }
-    expect(seen).toEqual([160, 120, 80, 50, 30])
+    expect(seen).toEqual([...KLINE_ZOOM_LEVELS].reverse())
+    // 顺带钉住头几步：表被改动时这条测试不该变成「怎么都对」
+    expect(seen.slice(0, 3)).toEqual([160, 140, 120])
   })
 
   it('缩小时可见根数一路变多，正好是放大的逆序', () => {
@@ -630,7 +722,7 @@ describe('nextZoomLevel（上下键换档）', () => {
       level = nextZoomLevel(level, 'out')
       seen.push(level)
     }
-    expect(seen).toEqual([30, 50, 80, 120, 160])
+    expect(seen).toEqual([...KLINE_ZOOM_LEVELS])
   })
 
   it('到顶 / 到底后按不动，不环绕', () => {
@@ -639,11 +731,11 @@ describe('nextZoomLevel（上下键换档）', () => {
   })
 
   it('当前值不在档位上（被数据量钳过）也能继续换档', () => {
-    // 只有 40 根时，界面上的档位其实是 40；再放大应落到 30
-    expect(nextZoomLevel(40, 'in')).toBe(30)
-    // 再缩小会给出 50，但 klineWindow 会把它钳回 40 —— 表现就是「按了没反应」
-    expect(nextZoomLevel(40, 'out')).toBe(50)
-    expect(klineWindow(40, 50).count).toBe(40)
+    // 只有 37 根时，界面上的档位其实是 37（klineWindow 钳出来的）
+    expect(nextZoomLevel(37, 'in')).toBe(35)
+    expect(nextZoomLevel(37, 'out')).toBe(40)
+    // 再缩小会给出 40，但 klineWindow 会把它钳回 37 —— 表现就是「按了没反应」
+    expect(klineWindow(37, 40).count).toBe(37)
   })
 
   it('档位表可以替换，且不要求有序', () => {

@@ -53,7 +53,7 @@
 ```bash
 npm run dev                 # 开发模式（主进程自动重启 + 渲染层热更新）
 npm run check               # 类型检查 + Lint + 单元测试，一条命令
-npm run test                # 只跑测试（139 个用例）
+npm run test                # 只跑测试（147 个用例）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
 npm run icon                # 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）
 npm run build               # 生产构建（产物在 out/）
@@ -92,7 +92,7 @@ docs/            说明文档（是什么、为什么）
 
 ## 五、当前阶段
 
-**v0.4 已完成**——健康度 `npm run check` 全绿（139 个测试）。
+**v0.4 已完成**——健康度 `npm run check` 全绿（147 个测试）。
 
 已交付：完整行情终端界面 + 多分组自选 + 五档盘口 + 分时/五日/K线、
 Windows 单文件便携版 exe，以及**图表几何层的完整单元测试覆盖**。

@@ -61,7 +61,7 @@ npm run build:win     # 或 build:mac / build:linux
 | --------------------------- | ------------------------------------------------------------- |
 | `npm run dev`               | 开发模式（主进程自动重启 + 渲染层热更新）                     |
 | `npm run check`             | 一条命令跑完 类型检查 + Lint + 单元测试                       |
-| `npm run test`              | Vitest 单元测试（139 个用例，覆盖报文解析、图表几何与纯函数） |
+| `npm run test`              | Vitest 单元测试（147 个用例，覆盖报文解析、图表几何与纯函数） |
 | `npm run lint` / `lint:fix` | ESLint（含 Solid 响应式规则）                                 |
 | `npm run shot`              | 构建后启动应用并截图到 `screenshots/`，用来肉眼验收界面       |
 | `npm run icon`              | 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）                 |
@@ -81,7 +81,7 @@ npm run build:linux          # Linux AppImage / deb
 
 |          | 单文件便携版                                 | NSIS 安装包                 |
 | -------- | -------------------------------------------- | --------------------------- |
-| 文件名   | `stocklens-0.3.0-portable.exe`               | `stocklens-0.3.0-setup.exe` |
+| 文件名   | `stocklens-0.4.0-portable.exe`               | `stocklens-0.4.0-setup.exe` |
 | 大小     | 106 MB（一个文件）                           | 安装后约 368 MB             |
 | 安装     | **不需要**，双击即用                         | 需要，可选安装目录          |
 | 快捷方式 | 无                                           | 桌面 + 开始菜单             |
@@ -118,7 +118,7 @@ npm run build:linux          # Linux AppImage / deb
 **工程**
 
 - [x] 类型契约三进程共享，改错立刻编译报错
-- [x] 139 个单元测试（真实报文 fixture + 图表几何）+ ESLint（含 Solid 响应式规则）+ Prettier
+- [x] 147 个单元测试（真实报文 fixture + 图表几何）+ ESLint（含 Solid 响应式规则）+ Prettier
 - [x] `npm run shot` 一键截图验收界面
 - [x] 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - [x] 深 / 浅双主题，全部颜色收在一份设计令牌里

@@ -5,6 +5,7 @@
  *   主进程 = 窗口生命周期 + 网络访问 + 持久化 + 定时器
  *   渲染进程 = 界面与交互，通过 preload 白名单 API 取数
  */
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
@@ -17,11 +18,40 @@ import { createMainWindow } from './window'
 const APP_ID = 'com.stocklens.app'
 const APP_NAME = 'StockLens'
 const STATE_FILE = 'stocklens.json'
+/** 便携版放在 exe 旁边的数据目录名 */
+const PORTABLE_DATA_DIR = 'StockLens-data'
 
 let mainWindow: BrowserWindow | null = null
 let store: AppStore | undefined
 let poller: QuotePoller | undefined
 let flushing = false
+
+/**
+ * 便携版（electron-builder 的 portable 目标）会把 exe 所在目录注入到
+ * 环境变量 `PORTABLE_EXECUTABLE_DIR`。这时把配置写在 exe 旁边的
+ * `StockLens-data/` 里，「拷走 exe + 这个目录」就等于换台电脑继续用，
+ * 系统里不留任何痕迹（不写注册表、不碰 %APPDATA%）。
+ *
+ * 如果目录不可写（放在只读介质、Program Files、网络盘等），
+ * 静默退回系统默认目录，而不是让应用起不来。
+ */
+function resolvePortableUserData(): string | undefined {
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  if (!portableDir) return undefined
+
+  const candidate = join(portableDir, PORTABLE_DATA_DIR)
+  try {
+    mkdirSync(candidate, { recursive: true })
+    // 真正写一次才能确认可写：mkdir 成功但目录只读的情况是存在的
+    const probe = join(candidate, '.write-probe')
+    writeFileSync(probe, '')
+    rmSync(probe)
+    return candidate
+  } catch {
+    console.warn('[main] 便携版数据目录不可写，回退到系统默认目录：', candidate)
+    return undefined
+  }
+}
 
 /* ----------------------------------------------------------- 单实例锁 */
 // 第二次启动时不再开新窗口，而是把已有窗口拉到前面（行情软件的标准行为）
@@ -34,6 +64,10 @@ if (!app.requestSingleInstanceLock()) {
 function bootstrap(): void {
   // 必须在读取 userData 路径之前改名，否则开发环境和打包后的数据目录会不一致
   app.setName(APP_NAME)
+
+  // 便携版优先：把数据放在 exe 旁边（必须在 ready 之前设置）
+  const portableUserData = resolvePortableUserData()
+  if (portableUserData) app.setPath('userData', portableUserData)
 
   app.on('second-instance', () => {
     if (!mainWindow) return

@@ -51,16 +51,22 @@
 ## 三、常用命令
 
 ```bash
-npm run dev        # 开发模式（主进程自动重启 + 渲染层热更新）
-npm run check      # 类型检查 + Lint + 单元测试，一条命令
-npm run test       # 只跑测试（68 个用例）
-npm run shot       # 构建并截图到 screenshots/，用来肉眼验收界面
-npm run icon       # 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）
-npm run build      # 生产构建
-npm run build:win  # 打包安装包（mac / linux 同理）
+npm run dev                 # 开发模式（主进程自动重启 + 渲染层热更新）
+npm run check               # 类型检查 + Lint + 单元测试，一条命令
+npm run test                # 只跑测试（68 个用例）
+npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
+npm run icon                # 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）
+npm run build               # 生产构建（产物在 out/）
+npm run build:win           # Windows 打包：安装包 + 单文件便携版
+npm run build:win:portable  # 只要单文件便携版 exe
+npm run build:win:setup     # 只要 NSIS 安装包
 ```
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
+
+**打包提示**：产物在 `release/<版本号>/`。
+国内网络下打包依赖 `.npmrc` 里的 `electron_builder_binaries_mirror` ——
+注意它和安装 Electron 用的 `electron_mirror` 是**两套独立下载器**，都要配。
 
 ---
 
@@ -86,10 +92,14 @@ docs/            说明文档（是什么、为什么）
 
 ## 五、当前阶段
 
-**v0.2 已完成并提交**（`61dfda3`）。健康度：`npm run check` 全绿。
+**v0.3 已完成**——第一个阶段收官，健康度 `npm run check` 全绿。
 
-- 下一步有 4 个候选，**需要用户拍板** → 见 `PLAN.md` 第四节
-- 有 6 项代码完成但**无法自动验证**的功能，等人工确认 → 见 `PLAN.md` 第三节
-- 有 6 条已知技术债 → 见 `PLAN.md` 第五节
+已交付：完整行情终端界面 + 多分组自选 + 五档盘口 + 分时/五日/K线，
+以及 **Windows 单文件便携版 exe**（免安装，数据随 exe 走）。
+
+- 下一步候选见 `PLAN.md` 第四节，**需要用户拍板**
+- 仍有 **2 项**无法自动验证（macOS 打包、港股图表链路）→ `PLAN.md` 第三节
+- 已知技术债 → `PLAN.md` 第五节
 
 **开工前请先读 `PLAN.md`，收工前请更新它。**
+发布新版本时记得同步更新 `CHANGELOG.md`。

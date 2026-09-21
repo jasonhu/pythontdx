@@ -67,6 +67,34 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run icon`              | 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）           |
 | `npm run format`            | Prettier 格式化                                         |
 
+## 📦 打包分发
+
+```bash
+npm run build:win            # 同时产出「安装包」和「单文件便携版」
+npm run build:win:portable   # 只要单文件便携版
+npm run build:win:setup      # 只要 NSIS 安装包
+npm run build:mac            # macOS dmg（需在 macOS 上执行）
+npm run build:linux          # Linux AppImage / deb
+```
+
+产物在 `release/<版本号>/` 下。两种 Windows 产物怎么选：
+
+|          | 单文件便携版                                 | NSIS 安装包                 |
+| -------- | -------------------------------------------- | --------------------------- |
+| 文件名   | `stocklens-0.3.0-portable.exe`               | `stocklens-0.3.0-setup.exe` |
+| 大小     | 106 MB（一个文件）                           | 安装后约 368 MB             |
+| 安装     | **不需要**，双击即用                         | 需要，可选安装目录          |
+| 快捷方式 | 无                                           | 桌面 + 开始菜单             |
+| 数据位置 | exe 旁边的 `StockLens-data/`                 | `%APPDATA%\StockLens\`      |
+| 启动耗时 | **约 2 秒**（每次解压约 368 MB 到 `%TEMP%`） | **约 1 秒**                 |
+| 卸载     | 删掉 exe 和数据目录即可，系统无残留          | 走卸载程序                  |
+
+> **选哪个？** 想「拷到 U 盘就能在任何 Windows 上跑」选便携版；
+> 想「装一次、天天用、启动快」选安装包。
+>
+> 便携版把数据写在 exe 旁边，所以**拷走 exe 和 `StockLens-data/` 就等于带走全部自选股**；
+> 若 exe 放在只读位置（光盘、Program Files），会自动回退到 `%APPDATA%`。
+
 ## 🎯 功能一览
 
 **行情展示**
@@ -94,6 +122,7 @@ npm run build:win     # 或 build:mac / build:linux
 - [x] `npm run shot` 一键截图验收界面
 - [x] 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - [x] 深 / 浅双主题，全部颜色收在一份设计令牌里
+- [x] 单文件便携版 exe + NSIS 安装包，国内网络下打包工具链走镜像
 
 ## 📚 文档与规则
 
@@ -109,12 +138,13 @@ npm run build:win     # 或 build:mac / build:linux
 
 | 文档                                                     | 内容                                   |
 | -------------------------------------------------------- | -------------------------------------- |
+| [CHANGELOG.md](CHANGELOG.md)                             | 各版本的重要变更记录                   |
 | [docs/01-快速开始.md](docs/01-快速开始.md)               | 环境要求、命令、目录结构、调试技巧     |
 | [docs/02-架构设计.md](docs/02-架构设计.md)               | 三进程模型、IPC 契约、数据流、状态管理 |
 | [docs/03-腾讯行情API手册.md](docs/03-腾讯行情API手册.md) | 五个接口的实测字段表与解析要点         |
 | [docs/04-UI设计系统.md](docs/04-UI设计系统.md)           | 设计令牌、配色、排版、动效规范         |
 | [docs/05-开发路线图.md](docs/05-开发路线图.md)           | 已完成的里程碑与下一步 TODO            |
-| [docs/06-踩坑笔记.md](docs/06-踩坑笔记.md)               | 18 个真实踩过的坑与解决方案            |
+| [docs/06-踩坑笔记.md](docs/06-踩坑笔记.md)               | 20 个真实踩过的坑与解决方案            |
 
 ## 🧱 技术选型与理由
 

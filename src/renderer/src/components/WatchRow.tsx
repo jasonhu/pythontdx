@@ -103,7 +103,15 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
       </div>
 
       <Show when={appState.settings.showSparkline && sparklineOf(props.item.code)}>
-        {(values) => <Sparkline values={values()} width={46} height={22} />}
+        {(data) => (
+          <Sparkline
+            values={data().values}
+            baseline={data().prevClose}
+            width={46}
+            height={22}
+            title="当日分时走势"
+          />
+        )}
       </Show>
 
       <div class="watch-row__side">

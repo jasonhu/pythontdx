@@ -1,10 +1,15 @@
 /**
  * 自选股列表（左栏）：分组标签 + 当前分组的股票列表。
  *
- * 交互：
- *   · 点标签切换分组；双击标签就地改名；悬停时标签右侧出现删除按钮；
- *   · 股票行可拖拽排序，也可以拖到别的分组标签上完成跨组移动；
- *   · 列表空白处也能接收拖入（追加到末尾），空分组会显示引导文案。
+ * 这里有**两种**拖拽，落点判断必须区分开，否则会互相打架：
+ *   ① 拖动「股票行」→ 目标是分组标签（跨组移动）或同组其它行（排序）；
+ *   ② 拖动「分组标签」→ 目标是另一个分组标签（调整分组顺序）。
+ *
+ * 判断依据是 `draggingCode()`（来自 store，股票行设置）
+ * 与 `draggingGroup()`（本组件内部，分组标签设置）。
+ *
+ * 其它交互：点标签切换分组；双击标签就地改名；悬停时出现删除按钮；
+ * 列表空白处也能接收拖入（追加到末尾）；空分组显示引导文案。
  */
 import { createSignal, For, Show, type JSX } from 'solid-js'
 import type { WatchGroup } from '@shared/types'
@@ -13,6 +18,7 @@ import {
   appState,
   createGroup,
   draggingCode,
+  moveGroup,
   moveWatchItem,
   removeGroup,
   renameGroup,
@@ -22,10 +28,18 @@ import {
 import { IconClose, IconPlus, IconStar } from './Icons'
 import { WatchRow } from './WatchRow'
 
+type DropSide = 'before' | 'after'
+
 export function Sidebar(): JSX.Element {
   const [editingId, setEditingId] = createSignal<string | null>(null)
   const [draft, setDraft] = createSignal('')
-  const [dropGroupId, setDropGroupId] = createSignal<string | null>(null)
+
+  /** 股票拖到分组标签上时，高亮该标签 */
+  const [stockDropGroupId, setStockDropGroupId] = createSignal<string | null>(null)
+  /** 正在被拖动的分组（调整分组顺序） */
+  const [draggingGroup, setDraggingGroup] = createSignal<string | null>(null)
+  /** 分组排序时的落点：插到哪个标签的前面/后面 */
+  const [groupDrop, setGroupDrop] = createSignal<{ id: string; side: DropSide } | null>(null)
 
   const totalCount = (): number =>
     appState.groups.reduce((sum, group) => sum + group.items.length, 0)
@@ -42,10 +56,10 @@ export function Sidebar(): JSX.Element {
   }
 
   /** 拖到分组标签上 → 移动到该分组末尾 */
-  const dropOnGroup = (event: DragEvent, groupId: string): void => {
+  const dropStockOnGroup = (event: DragEvent, groupId: string): void => {
     event.preventDefault()
     const code = draggingCode() ?? event.dataTransfer?.getData('text/plain')
-    setDropGroupId(null)
+    setStockDropGroupId(null)
     setDraggingCode(null)
     if (!code) return
 
@@ -54,12 +68,48 @@ export function Sidebar(): JSX.Element {
   }
 
   /** 拖到列表空白处 → 追加到当前分组末尾 */
-  const dropOnList = (event: DragEvent): void => {
+  const dropStockOnList = (event: DragEvent): void => {
     event.preventDefault()
     const code = draggingCode() ?? event.dataTransfer?.getData('text/plain')
     setDraggingCode(null)
     if (!code) return
     moveWatchItem(code, appState.activeGroupId, activeItems().length)
+  }
+
+  /** 分组排序：按鼠标在标签内的水平位置决定插到前面还是后面 */
+  const onGroupDragOver = (event: DragEvent, groupId: string): void => {
+    if (draggingCode()) {
+      event.preventDefault()
+      setStockDropGroupId(groupId)
+      return
+    }
+    const source = draggingGroup()
+    if (!source || source === groupId) return
+
+    event.preventDefault()
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const side: DropSide = event.clientX < rect.left + rect.width / 2 ? 'before' : 'after'
+    setGroupDrop({ id: groupId, side })
+  }
+
+  const onGroupDrop = (event: DragEvent, groupId: string): void => {
+    // 股票 → 分组：走跨组移动
+    if (draggingCode()) {
+      dropStockOnGroup(event, groupId)
+      return
+    }
+
+    // 分组 → 分组：调整顺序
+    event.preventDefault()
+    const source = draggingGroup()
+    const target = groupDrop()
+    setGroupDrop(null)
+    setDraggingGroup(null)
+    if (!source || source === groupId) return
+
+    const index = appState.groups.findIndex((group) => group.id === groupId)
+    if (index < 0) return
+    moveGroup(source, target?.side === 'after' ? index + 1 : index)
   }
 
   return (
@@ -89,20 +139,39 @@ export function Sidebar(): JSX.Element {
           {(group) => (
             <div
               class="group-chip"
-              classList={{ 'group-chip--drop': dropGroupId() === group.id }}
+              classList={{
+                'group-chip--drop': stockDropGroupId() === group.id,
+                'group-chip--dragging': draggingGroup() === group.id,
+                'group-chip--drop-before':
+                  groupDrop()?.id === group.id && groupDrop()?.side === 'before',
+                'group-chip--drop-after':
+                  groupDrop()?.id === group.id && groupDrop()?.side === 'after'
+              }}
               data-active={group.id === appState.activeGroupId}
+              draggable={editingId() !== group.id}
               onClick={() => setActiveGroup(group.id)}
               onDblClick={() => startRename(group)}
-              onDragOver={(event) => {
-                if (!draggingCode()) return
-                event.preventDefault()
-                setDropGroupId(group.id)
+              onDragStart={(event) => {
+                if (editingId() === group.id) {
+                  event.preventDefault()
+                  return
+                }
+                setDraggingGroup(group.id)
+                event.dataTransfer?.setData('text/plain', group.id)
+                if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
               }}
-              onDragLeave={() =>
-                setDropGroupId((current) => (current === group.id ? null : current))
-              }
-              onDrop={(event) => dropOnGroup(event, group.id)}
-              title={`${group.name} · ${group.items.length} 只（双击改名，可拖入）`}
+              onDragEnd={() => {
+                setDraggingGroup(null)
+                setGroupDrop(null)
+                setStockDropGroupId(null)
+              }}
+              onDragOver={(event) => onGroupDragOver(event, group.id)}
+              onDragLeave={() => {
+                setStockDropGroupId((current) => (current === group.id ? null : current))
+                setGroupDrop((current) => (current?.id === group.id ? null : current))
+              }}
+              onDrop={(event) => onGroupDrop(event, group.id)}
+              title={`${group.name} · ${group.items.length} 只（双击改名，拖拽可调整顺序或接收股票）`}
             >
               <Show
                 when={editingId() === group.id}
@@ -147,7 +216,7 @@ export function Sidebar(): JSX.Element {
       <div
         class="sidebar__list"
         onDragOver={(event) => draggingCode() && event.preventDefault()}
-        onDrop={dropOnList}
+        onDrop={dropStockOnList}
       >
         <Show
           when={activeItems().length > 0}

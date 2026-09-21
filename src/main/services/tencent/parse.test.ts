@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  normalizeStockName,
   parseKline,
   parseMinute,
   parseMultiDayTrend,
@@ -394,6 +395,60 @@ describe('parseSearch', () => {
 
   it('未带 ^ 的多条目（单条）也能解析', () => {
     expect(parseSearch('v_hint="hk~00700~腾讯控股~txkg~GP"')[0].market).toBe('HK')
+  })
+})
+
+/* -------------------------------------------------------- 名称规范化 */
+
+describe('normalizeStockName', () => {
+  it('去掉中文名里的对齐填充空格（回归测试）', () => {
+    // 腾讯对不足 4 个字的名字会用空格补齐，实测样例
+    expect(normalizeStockName('五 粮 液')).toBe('五粮液')
+    expect(normalizeStockName('万  科Ａ')).toBe('万科Ａ')
+    expect(normalizeStockName('南  玻Ａ')).toBe('南玻Ａ')
+    expect(normalizeStockName('特  力Ａ')).toBe('特力Ａ')
+  })
+
+  it('不含空格的名字原样保留', () => {
+    expect(normalizeStockName('贵州茅台')).toBe('贵州茅台')
+    expect(normalizeStockName('比亚迪')).toBe('比亚迪')
+    expect(normalizeStockName('腾讯控股')).toBe('腾讯控股')
+  })
+
+  it('含英文字母时保留有意义的空格（港股英文名）', () => {
+    // hk00033 的真实名字，空格不能抹掉，否则会变成 INTLGENIUS
+    expect(normalizeStockName('INTL GENIUS')).toBe('INTL GENIUS')
+    expect(normalizeStockName('CHINA  MOBILE')).toBe('CHINA MOBILE')
+  })
+
+  it('首尾空白一律去掉', () => {
+    expect(normalizeStockName('  贵州茅台  ')).toBe('贵州茅台')
+    expect(normalizeStockName('  INTL GENIUS ')).toBe('INTL GENIUS')
+  })
+
+  it('空字符串返回空串', () => {
+    expect(normalizeStockName('')).toBe('')
+    expect(normalizeStockName('   ')).toBe('')
+  })
+})
+
+describe('名称规范化在行情解析里生效', () => {
+  it('五粮液不会带着空格进入界面', () => {
+    const fields = [...A_SHARE_FIELDS]
+    fields[1] = '五 粮 液'
+    expect(parseQuoteFields('sz000858', fields).name).toBe('五粮液')
+  })
+
+  it('港股英文名保持原样', () => {
+    const fields = hkFields()
+    fields[1] = 'INTL GENIUS'
+    expect(parseQuoteFields('hk00033', fields).name).toBe('INTL GENIUS')
+  })
+
+  it('名字缺失时退化成代码', () => {
+    const fields = [...A_SHARE_FIELDS]
+    fields[1] = ''
+    expect(parseQuoteFields('sh600519', fields).name).toBe('600519')
   })
 })
 

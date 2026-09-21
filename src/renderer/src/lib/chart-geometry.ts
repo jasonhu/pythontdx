@@ -1,0 +1,505 @@
+/**
+ * 图表几何计算 —— **纯函数**，不依赖 DOM、不依赖 SolidJS。
+ *
+ * 为什么要把这些从组件里抽出来？
+ *
+ * 分时图有「横轴槽位 → 像素」「价格 → 像素」「成交量 → 像素」三套映射，
+ * 它们相互耦合（纵轴范围变了，三套映射都要跟着变）。
+ * 留在组件里时，唯一的验证手段是「截图看一眼」——
+ * 而截图看不出「第 137 个点的 y 坐标算错了 1.5px」这种问题。
+ *
+ * 抽成纯函数之后：
+ *   · 可以用单元测试锁住边界（首点、末点、空数据、只有一天、极窄区间）；
+ *   · 组件只负责把返回的数字塞进 SVG，读起来也清爽得多。
+ *
+ * 约定：所有函数都是「输入数据 + 画布尺寸 → 输出数字」，没有任何副作用。
+ */
+import type { KLineBar, MinutePoint, MinuteTrend } from '@shared/types'
+import { toneOf, type Tone } from './tone'
+
+/* ============================================================ 公共类型 */
+
+export interface Padding {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+/** 纵轴刻度：单日模式带涨跌幅（pct），多日模式只有价格 */
+export interface AxisLevel {
+  value: number
+  pct: number | null
+}
+
+export interface TimeTick {
+  /** 在整条横轴上的槽位 */
+  slot: number
+  label: string
+  anchor: 'start' | 'middle' | 'end'
+}
+
+/* ============================================================ 分时图 */
+
+/** 一个交易日的分时槽位数（09:30–11:30 + 13:01–15:00 共 241 个点，索引 0..240） */
+export const DAY_SLOTS = 241
+
+/** 分时图的默认留白（右侧留给价格与涨跌幅双刻度） */
+export const TREND_PADDING: Padding = { top: 18, right: 64, bottom: 22, left: 10 }
+
+/** 成交量区占绘图高度的比例 */
+const VOLUME_RATIO = 0.2
+
+/** 价格区与成交量区之间的留白 */
+const VOLUME_GAP = 12
+
+/** 绘图区最小可用尺寸，小于它就返回 null 由界面显示占位 */
+const MIN_WIDTH = 120
+const MIN_HEIGHT = 140
+
+export interface TrendGeometry {
+  width: number
+  height: number
+  padding: Padding
+  plotW: number
+  priceTop: number
+  priceBottom: number
+  volumeTop: number
+  volumeBottom: number
+  /** 整条横轴的槽位总数（单日 240，五日 1204） */
+  totalSlots: number
+  yMax: number
+  yMin: number
+  maxVolume: number
+  /** 成交量柱宽度（已保底 1px） */
+  barWidth: number
+  /** 槽位 → 横坐标 */
+  x(slot: number): number
+  /** 价格 → 纵坐标 */
+  yPrice(value: number): number
+  /** 成交量 → 纵坐标（柱顶） */
+  yVolume(value: number): number
+}
+
+/** 把多个交易日的点摊平成一条横轴上的序列 */
+export interface FlatTrendPoint {
+  point: MinutePoint
+  dayIndex: number
+  slot: number
+}
+
+export function flattenTrendPoints(days: MinuteTrend[]): FlatTrendPoint[] {
+  return days.flatMap((day, dayIndex) =>
+    day.points.map((point, pointIndex) => ({
+      point,
+      dayIndex,
+      slot: dayIndex * DAY_SLOTS + pointIndex
+    }))
+  )
+}
+
+/** 单日模式的基准线取最后一天的昨收 */
+export function trendBaseline(days: MinuteTrend[]): number {
+  const last = days[days.length - 1]
+  return last?.prevClose || days[0]?.points[0]?.price || 0
+}
+
+export function buildTrendGeometry(
+  days: MinuteTrend[],
+  width: number,
+  height: number,
+  padding: Padding = TREND_PADDING
+): TrendGeometry | null {
+  if (width < MIN_WIDTH || height < MIN_HEIGHT) return null
+
+  const flat = flattenTrendPoints(days)
+  if (flat.length === 0) return null
+
+  const plotW = width - padding.left - padding.right
+  const plotH = height - padding.top - padding.bottom
+  if (plotW <= 0 || plotH <= 0) return null
+
+  const volumeH = plotH * VOLUME_RATIO
+  const priceH = plotH - volumeH - VOLUME_GAP
+  if (priceH <= 0) return null
+
+  const priceTop = padding.top
+  const priceBottom = priceTop + priceH
+  const volumeTop = priceBottom + VOLUME_GAP
+  const volumeBottom = volumeTop + volumeH
+
+  const multiDay = days.length > 1
+  let yMin: number
+  let yMax: number
+
+  if (multiDay) {
+    // 多日：按全部交易日的真实价格区间取范围
+    let low = Infinity
+    let high = -Infinity
+    for (const item of flat) {
+      low = Math.min(low, item.point.price, item.point.avg)
+      high = Math.max(high, item.point.price, item.point.avg)
+    }
+    const paddingValue = (high - low) * 0.06 || high * 0.01
+    yMax = high + paddingValue
+    yMin = Math.max(0, low - paddingValue)
+  } else {
+    // 单日：以昨收为中心上下对称，一眼看出偏离基准多少
+    const baseline = trendBaseline(days)
+    let deviation = 0
+    for (const item of flat) {
+      deviation = Math.max(
+        deviation,
+        Math.abs(item.point.price - baseline),
+        Math.abs(item.point.avg - baseline)
+      )
+    }
+    // 全天几乎不动时给一个最小可视区间，避免除以 0
+    if (deviation < baseline * 1e-4) deviation = baseline * 0.002
+    const paddingValue = deviation * 1.02
+    yMax = baseline + paddingValue
+    yMin = baseline - paddingValue
+  }
+
+  // 防御：纵轴退化成一个点时给一个安全区间
+  if (!(yMax > yMin)) {
+    yMax = (yMax || 1) * 1.01
+    yMin = (yMin || 1) * 0.99
+  }
+
+  const maxVolume = Math.max(1, ...flat.map((item) => item.point.volume))
+  const totalSlots = Math.max(1, days.length * DAY_SLOTS - 1)
+
+  return {
+    width,
+    height,
+    padding,
+    plotW,
+    priceTop,
+    priceBottom,
+    volumeTop,
+    volumeBottom,
+    totalSlots,
+    yMax,
+    yMin,
+    maxVolume,
+    barWidth: Math.max(1, (plotW / (totalSlots + 1)) * 0.64),
+    x: (slot: number) => padding.left + (slot / totalSlots) * plotW,
+    yPrice: (value: number) => priceTop + ((yMax - value) / (yMax - yMin)) * priceH,
+    yVolume: (value: number) => volumeBottom - (value / maxVolume) * volumeH
+  }
+}
+
+/**
+ * 纵轴刻度。
+ *
+ * 单日模式围绕昨收对称，步长按波动幅度在 0.5% / 1% / 2% / 5% / 10% 之间自动切换，
+ * 保证「波动 0.8% 的股票也能看清细节」；多日模式没有统一基准，改用价格刻度。
+ */
+export function buildTrendLevels(days: MinuteTrend[], geo: TrendGeometry): AxisLevel[] {
+  if (days.length > 1) {
+    const step = niceStep(geo.yMax - geo.yMin, 5)
+    const result: AxisLevel[] = []
+    for (let value = Math.ceil(geo.yMin / step) * step; value <= geo.yMax; value += step) {
+      result.push({ value: Number(value.toFixed(3)), pct: null })
+    }
+    return result
+  }
+
+  const base = trendBaseline(days)
+  if (!(base > 0)) return []
+
+  const rangePct = ((geo.yMax - geo.yMin) / base) * 100
+  const step = rangePct <= 2 ? 0.5 : rangePct <= 4 ? 1 : rangePct <= 9 ? 2 : rangePct <= 20 ? 5 : 10
+
+  // 基准线一定在
+  const result: AxisLevel[] = [{ value: base, pct: 0 }]
+  for (let pct = step; pct <= rangePct / 2 + step; pct += step) {
+    const up = base * (1 + pct / 100)
+    const down = base * (1 - pct / 100)
+    if (up < geo.yMax) result.push({ value: up, pct })
+    if (down > geo.yMin) result.push({ value: down, pct: -pct })
+  }
+  return result.sort((a, b) => b.value - a.value)
+}
+
+/** 横轴标签：单日给时间刻，多日给每个交易日的日期 */
+export function buildTrendTicks(days: MinuteTrend[]): TimeTick[] {
+  if (days.length > 1) {
+    return days.map((day, dayIndex) => ({
+      slot: dayIndex * DAY_SLOTS,
+      label: formatMonthDay(day.date),
+      anchor: 'start' as const
+    }))
+  }
+  return [
+    { slot: 0, label: '09:30', anchor: 'start' },
+    { slot: 60, label: '10:30', anchor: 'middle' },
+    { slot: 120, label: '11:30/13:00', anchor: 'middle' },
+    { slot: 180, label: '14:00', anchor: 'middle' },
+    { slot: 240, label: '15:00', anchor: 'end' }
+  ]
+}
+
+/** 交易日之间的分隔线槽位（仅多日模式） */
+export function buildTrendSeparators(days: MinuteTrend[]): number[] {
+  if (days.length <= 1) return []
+  return days.slice(1).map((_, index) => (index + 1) * DAY_SLOTS)
+}
+
+export interface TrendDayPath {
+  dayIndex: number
+  tone: Tone
+  /** 价格折线 */
+  line: string
+  /** 折线 + 底边围成的面积路径 */
+  area: string
+  /** 该交易日最后一个点的槽位 */
+  lastSlot: number
+}
+
+/** 每个交易日一条折线，各自按当天的涨跌上色 */
+export function buildTrendDayPaths(days: MinuteTrend[], geo: TrendGeometry): TrendDayPath[] {
+  return days.map((day, dayIndex) => {
+    const last = day.points[day.points.length - 1]
+    const tone = toneOf((last?.price ?? 0) - day.prevClose)
+
+    const line = day.points
+      .map((point, pointIndex) => {
+        const x = geo.x(dayIndex * DAY_SLOTS + pointIndex)
+        const y = geo.yPrice(point.price)
+        return `${pointIndex === 0 ? 'M' : 'L'}${round(x)},${round(y)}`
+      })
+      .join(' ')
+
+    const firstSlot = dayIndex * DAY_SLOTS
+    const lastSlot = firstSlot + Math.max(0, day.points.length - 1)
+    const area = line
+      ? `${line} L${round(geo.x(lastSlot))},${round(geo.priceBottom)} L${round(geo.x(firstSlot))},${round(geo.priceBottom)} Z`
+      : ''
+
+    return { dayIndex, tone, line, area, lastSlot }
+  })
+}
+
+/** 均价线：多日时用同一条虚线贯穿，避免五种颜色太花 */
+export function buildTrendAveragePath(days: MinuteTrend[], geo: TrendGeometry): string {
+  return days
+    .flatMap((day, dayIndex) =>
+      day.points.map((point, pointIndex) => {
+        const x = geo.x(dayIndex * DAY_SLOTS + pointIndex)
+        const y = geo.yPrice(point.avg)
+        return `${pointIndex === 0 ? 'M' : 'L'}${round(x)},${round(y)}`
+      })
+    )
+    .join(' ')
+}
+
+/**
+ * 槽位 → (第几天, 第几个点)。
+ *
+ * 每天的槽位是连续的，所以直接整除取余即可 —— 不需要遍历查找。
+ * 边界要做钳位：鼠标移到最右侧时算出的槽位可能超出实际点数。
+ */
+export function locateTrendSlot(
+  slot: number,
+  days: MinuteTrend[]
+): { dayIndex: number; pointIndex: number } | null {
+  if (days.length === 0) return null
+  if (!Number.isFinite(slot)) return null
+
+  const dayIndex = Math.min(days.length - 1, Math.max(0, Math.floor(slot / DAY_SLOTS)))
+  const day = days[dayIndex]
+  if (!day || day.points.length === 0) return null
+
+  const pointIndex = Math.min(
+    day.points.length - 1,
+    Math.max(0, Math.round(slot - dayIndex * DAY_SLOTS))
+  )
+  return { dayIndex, pointIndex }
+}
+
+/** 横坐标 → 槽位（把鼠标位置换算成槽位，注意剔除左留白） */
+export function slotFromX(
+  clientX: number,
+  containerLeft: number,
+  geo: TrendGeometry
+): number | null {
+  if (geo.plotW <= 0) return null
+  const ratio = (clientX - containerLeft - geo.padding.left) / geo.plotW
+  if (!Number.isFinite(ratio)) return null
+  return Math.round(ratio * geo.totalSlots)
+}
+
+/* ============================================================ K 线图 */
+
+export const KLINE_PADDING: Padding = { top: 18, right: 64, bottom: 22, left: 10 }
+
+export interface KLineGeometry {
+  width: number
+  height: number
+  padding: Padding
+  plotW: number
+  priceTop: number
+  priceBottom: number
+  volumeBottom: number
+  yMax: number
+  yMin: number
+  maxVolume: number
+  /** 每根 K 线占用的横向宽度 */
+  slot: number
+  /** 蜡烛实体宽度（已保底 1px） */
+  bodyWidth: number
+  x(index: number): number
+  yPrice(value: number): number
+  yVolume(value: number): number
+}
+
+export function buildKLineGeometry(
+  bars: KLineBar[],
+  width: number,
+  height: number,
+  padding: Padding = KLINE_PADDING
+): KLineGeometry | null {
+  if (width < MIN_WIDTH || height < MIN_HEIGHT) return null
+  if (bars.length === 0) return null
+
+  const plotW = width - padding.left - padding.right
+  const plotH = height - padding.top - padding.bottom
+  if (plotW <= 0 || plotH <= 0) return null
+
+  const volumeH = plotH * VOLUME_RATIO
+  const priceH = plotH - volumeH - VOLUME_GAP
+  if (priceH <= 0) return null
+
+  const priceTop = padding.top
+  const priceBottom = priceTop + priceH
+  const volumeTop = priceBottom + VOLUME_GAP
+  const volumeBottom = volumeTop + volumeH
+
+  let low = Infinity
+  let high = -Infinity
+  for (const bar of bars) {
+    low = Math.min(low, bar.low)
+    high = Math.max(high, bar.high)
+  }
+
+  const span = high - low
+  const paddingValue = span * 0.06 || high * 0.01
+  const yMax = high + paddingValue
+  const yMin = Math.max(0, low - paddingValue)
+
+  const maxVolume = Math.max(1, ...bars.map((bar) => bar.volume))
+  const slot = plotW / bars.length
+
+  return {
+    width,
+    height,
+    padding,
+    plotW,
+    priceTop,
+    priceBottom,
+    volumeBottom,
+    yMax,
+    yMin: yMax > yMin ? yMin : yMax - 1,
+    maxVolume,
+    slot,
+    bodyWidth: Math.max(1, slot * 0.6),
+    x: (index: number) => padding.left + (index + 0.5) * slot,
+    yPrice: (value: number) => priceTop + ((yMax - value) / (yMax - yMin)) * priceH,
+    yVolume: (value: number) => volumeBottom - (value / maxVolume) * volumeH
+  }
+}
+
+/** K 线纵轴刻度：用「好看的数字」取步长 */
+export function buildKLineLevels(geo: KLineGeometry): number[] {
+  const step = niceStep(geo.yMax - geo.yMin, 5)
+  const result: number[] = []
+  for (let value = Math.ceil(geo.yMin / step) * step; value <= geo.yMax; value += step) {
+    result.push(Number(value.toFixed(4)))
+  }
+  return result
+}
+
+/** 日期轴标签：均匀取若干个 */
+export function buildKLineTicks(
+  bars: KLineBar[],
+  maxTicks = 6
+): { index: number; label: string }[] {
+  if (bars.length === 0) return []
+  const count = Math.min(maxTicks, bars.length)
+  const ticks: { index: number; label: string }[] = []
+  for (let i = 0; i < count; i++) {
+    const index = Math.round((i * (bars.length - 1)) / Math.max(1, count - 1))
+    ticks.push({ index, label: bars[index].date.slice(5) })
+  }
+  return ticks
+}
+
+/** 简单移动平均，不足周期的位置返回 null */
+export function movingAverage(bars: KLineBar[], period: number): (number | null)[] {
+  const result: (number | null)[] = []
+  let sum = 0
+  for (let index = 0; index < bars.length; index++) {
+    sum += bars[index].close
+    if (index >= period) sum -= bars[index - period].close
+    result.push(index >= period - 1 ? sum / period : null)
+  }
+  return result
+}
+
+/** 把「可能有断点」的点列转成 SVG 路径（遇 null 起新段） */
+export function buildLinePath(points: ({ x: number; y: number } | null)[]): string {
+  let path = ''
+  let pending = false
+  for (const point of points) {
+    if (!point) {
+      pending = false
+      continue
+    }
+    path += `${pending ? 'L' : 'M'}${round(point.x)},${round(point.y)} `
+    pending = true
+  }
+  return path.trim()
+}
+
+/* ============================================================ 小工具 */
+
+/** 取一个「好看」的刻度步长：1 / 2 / 5 × 10ⁿ */
+export function niceStep(range: number, targetTicks: number): number {
+  const raw = range / targetTicks
+  if (!Number.isFinite(raw) || raw <= 0) return 1
+  const magnitude = Math.pow(10, Math.floor(Math.log10(raw)))
+  const normalized = raw / magnitude
+  const step = normalized >= 5 ? 10 : normalized >= 2 ? 5 : normalized >= 1 ? 2 : 1
+  return step * magnitude
+}
+
+/** 'YYYYMMDD' → 'MM-DD' */
+export function formatMonthDay(date: string): string {
+  return date.length === 8 ? `${date.slice(4, 6)}-${date.slice(6, 8)}` : date
+}
+
+/**
+ * 等距降采样，用于迷你走势图。
+ *
+ * 末尾始终保留原始序列的最后一个点 —— 它代表「最新价」，
+ * 是这条线里最不能丢的信息（否则缩略图的终点会和旁边显示的现价对不上）。
+ */
+export function downsample(values: number[], maxPoints: number): number[] {
+  if (maxPoints < 1) return []
+  if (values.length <= maxPoints) return [...values]
+
+  const step = values.length / maxPoints
+  const result: number[] = []
+  for (let index = 0; index < maxPoints; index++) {
+    result.push(values[Math.floor(index * step)])
+  }
+  result[result.length - 1] = values[values.length - 1]
+  return result
+}
+
+/** 统一保留两位小数，避免路径字符串里塞满浮点噪声 */
+function round(value: number): string {
+  return value.toFixed(2)
+}

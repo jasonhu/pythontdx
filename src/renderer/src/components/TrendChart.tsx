@@ -8,23 +8,28 @@
  *     多日时改用价格区间 + 好看的数字刻度，并按天分段上色；
  *  3. 下方叠一条成交量柱，颜色跟随该分钟的涨跌方向；
  *  4. 十字光标 + 浮层读数，并可通过 onHover 回调把读数抛给外部（标题区联动）。
+ *
+ * 所有的坐标换算都在 `lib/chart-geometry.ts` 里，那部分是纯函数且有单元测试。
+ * 本组件只负责「把返回的数字画出来」。
  */
 import { createEffect, createMemo, createSignal, For, on, Show, type JSX } from 'solid-js'
-import type { MinutePoint, MinuteTrend } from '@shared/types'
+import type { MinuteTrend } from '@shared/types'
 import { fixed, minuteLabel, signed, signedPct } from '@shared/format'
+import {
+  DAY_SLOTS,
+  buildTrendAveragePath,
+  buildTrendDayPaths,
+  buildTrendGeometry,
+  buildTrendLevels,
+  buildTrendSeparators,
+  buildTrendTicks,
+  flattenTrendPoints,
+  formatMonthDay,
+  locateTrendSlot,
+  slotFromX
+} from '../lib/chart-geometry'
 import { useElementSize } from '../lib/dom'
-import { toneOf, type Tone } from '../lib/tone'
-
-const PAD = { top: 18, right: 64, bottom: 22, left: 10 }
-
-/** 一个交易日的分时槽位数（09:30–11:30 + 13:01–15:00 共 241 个点，索引 0..240） */
-const DAY_SLOTS = 241
-
-/** 成交量区占绘图高度的比例 */
-const VOLUME_RATIO = 0.2
-
-/** 价格区与成交量区之间的留白 */
-const GAP = 12
+import { toneLineVar, toneOf } from '../lib/tone'
 
 /** 悬浮读数：由 onHover 抛给外部，用于让卡片标题区跟着十字光标联动 */
 export interface TrendHover {
@@ -43,14 +48,6 @@ export interface TrendChartProps {
   onHover?: (hover: TrendHover | null) => void
 }
 
-/** 摊平后的一个绘图点 */
-interface FlatPoint {
-  point: MinutePoint
-  dayIndex: number
-  /** 该点在整条横轴上的槽位 */
-  slot: number
-}
-
 export function TrendChart(props: TrendChartProps): JSX.Element {
   const { size, ref } = useElementSize<HTMLDivElement>()
   const [hoverSlot, setHoverSlot] = createSignal<number | null>(null)
@@ -58,211 +55,43 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
   const days = (): MinuteTrend[] => props.days
   const isMultiDay = (): boolean => days().length > 1
 
-  /** 所有交易日的点按时间顺序摊平成一维 */
-  const flat = createMemo<FlatPoint[]>(() =>
-    days().flatMap((day, dayIndex) =>
-      day.points.map((point, pointIndex) => ({
-        point,
-        dayIndex,
-        slot: dayIndex * DAY_SLOTS + pointIndex
-      }))
-    )
-  )
-
-  /** 最后一个交易日（单日模式下的基准来源） */
-  const lastDay = (): MinuteTrend | undefined => days()[days().length - 1]
-
-  const geometry = createMemo(() => {
-    const { width, height } = size()
-    const list = flat()
-    if (width < 120 || height < 140 || list.length === 0) return null
-
-    const plotW = width - PAD.left - PAD.right
-    const plotH = height - PAD.top - PAD.bottom
-    const volumeH = plotH * VOLUME_RATIO
-    const priceH = plotH - volumeH - GAP
-    const priceTop = PAD.top
-    const priceBottom = priceTop + priceH
-    const volumeTop = priceBottom + GAP
-    const volumeBottom = volumeTop + volumeH
-    const totalSlots = Math.max(1, days().length * DAY_SLOTS - 1)
-    let yMin: number
-    let yMax: number
-
-    if (isMultiDay()) {
-      // 多日：按全部交易日的真实价格区间取范围
-      let low = Infinity
-      let high = -Infinity
-      for (const item of list) {
-        low = Math.min(low, item.point.price, item.point.avg)
-        high = Math.max(high, item.point.price, item.point.avg)
-      }
-      const padding = (high - low) * 0.06 || high * 0.01
-      yMax = high + padding
-      yMin = Math.max(0, low - padding)
-    } else {
-      // 单日：以昨收为中心上下对称，一眼看出偏离基准多少
-      const baseline = lastDay()?.prevClose || list[0].point.price
-      let deviation = 0
-      for (const item of list) {
-        deviation = Math.max(
-          deviation,
-          Math.abs(item.point.price - baseline),
-          Math.abs(item.point.avg - baseline)
-        )
-      }
-      if (deviation < baseline * 1e-4) deviation = baseline * 0.002
-      // 只留 2% 余量：留太多会让折线挤在中间一条带里，浪费纵向空间
-      const padding = deviation * 1.02
-      yMax = baseline + padding
-      yMin = baseline - padding
-    }
-
-    const maxVolume = Math.max(1, ...list.map((item) => item.point.volume))
-
-    return {
-      width,
-      height,
-      plotW,
-      priceTop,
-      priceBottom,
-      volumeBottom,
-      totalSlots,
-      yMax,
-      yMin,
-      maxVolume,
-      /*
-       * 这里刻意在函数内部重新读一次 days()，而不是复用外层的 totalSlots。
-       * 否则闭包捕获的是「创建那一刻」的快照，图表切换天数后横轴不会更新
-       * ——ESLint 的 solid/reactivity 规则会直接把这种写法判为错误。
-       */
-      x: (slot: number) => PAD.left + (slot / Math.max(1, days().length * DAY_SLOTS - 1)) * plotW,
-      yPrice: (value: number) => priceTop + ((yMax - value) / (yMax - yMin)) * priceH,
-      yVolume: (value: number) => volumeBottom - (value / maxVolume) * volumeH
-    }
+  const geometry = createMemo(() => buildTrendGeometry(days(), size().width, size().height))
+  const bars = createMemo(() => flattenTrendPoints(days()))
+  const levels = createMemo(() => {
+    const geo = geometry()
+    return geo ? buildTrendLevels(days(), geo) : []
   })
-
-  /** 每个交易日一条折线，各自按当天的涨跌上色 */
+  const ticks = createMemo(() => buildTrendTicks(days()))
+  const separators = createMemo(() => buildTrendSeparators(days()))
   const dayPaths = createMemo(() => {
     const geo = geometry()
-    if (!geo) return []
-    return days().map((day, dayIndex) => {
-      const tone: Tone = toneOf((day.points[day.points.length - 1]?.price ?? 0) - day.prevClose)
-      const path = day.points
-        .map((point, pointIndex) => {
-          const x = geo.x(dayIndex * DAY_SLOTS + pointIndex)
-          const y = geo.yPrice(point.price)
-          return `${pointIndex === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`
-        })
-        .join(' ')
-      const lastSlot = dayIndex * DAY_SLOTS + Math.max(0, day.points.length - 1)
-      return {
-        dayIndex,
-        tone,
-        path,
-        color: toneColor(tone),
-        area: path
-          ? `${path} L${geo.x(lastSlot).toFixed(2)},${geo.priceBottom} L${geo.x(dayIndex * DAY_SLOTS).toFixed(2)},${geo.priceBottom} Z`
-          : ''
-      }
-    })
+    return geo ? buildTrendDayPaths(days(), geo) : []
   })
-
-  /** 均价线：多日时用同一条虚线贯穿，避免五种颜色太花 */
-  const avgPath = createMemo(() => {
+  const averagePath = createMemo(() => {
     const geo = geometry()
-    if (!geo) return ''
-    return days()
-      .flatMap((day, dayIndex) =>
-        day.points.map((point, pointIndex) => {
-          const x = geo.x(dayIndex * DAY_SLOTS + pointIndex)
-          const y = geo.yPrice(point.avg)
-          return `${pointIndex === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`
-        })
-      )
-      .join(' ')
+    return geo ? buildTrendAveragePath(days(), geo) : ''
   })
-
-  /** 纵轴刻度 */
-  const levels = createMemo<{ value: number; pct: number | null }[]>(() => {
-    const geo = geometry()
-    if (!geo) return []
-
-    if (isMultiDay()) {
-      const step = niceStep(geo.yMax - geo.yMin, 5)
-      const result: { value: number; pct: number | null }[] = []
-      for (let value = Math.ceil(geo.yMin / step) * step; value <= geo.yMax; value += step) {
-        result.push({ value: Number(value.toFixed(3)), pct: null })
-      }
-      return result
-    }
-
-    const base = lastDay()?.prevClose ?? geo.yMin
-    const rangePct = ((geo.yMax - geo.yMin) / base) * 100
-    const step =
-      rangePct <= 2 ? 0.5 : rangePct <= 4 ? 1 : rangePct <= 9 ? 2 : rangePct <= 20 ? 5 : 10
-
-    const result: { value: number; pct: number | null }[] = [{ value: base, pct: 0 }]
-    for (let pct = step; pct <= rangePct / 2 + step; pct += step) {
-      const up = base * (1 + pct / 100)
-      const down = base * (1 - pct / 100)
-      if (up < geo.yMax) result.push({ value: up, pct })
-      if (down > geo.yMin) result.push({ value: down, pct: -pct })
-    }
-    return result.sort((a, b) => b.value - a.value)
-  })
-
-  /** 横轴标签：单日给时间刻，多日给每个交易日的日期 */
-  const timeTicks = createMemo(() => {
-    if (isMultiDay()) {
-      return days().map((day, dayIndex) => ({
-        slot: dayIndex * DAY_SLOTS,
-        label: `${day.date.slice(4, 6)}-${day.date.slice(6, 8)}`,
-        anchor: 'start' as const
-      }))
-    }
-    return [
-      { slot: 0, label: '09:30', anchor: 'start' as const },
-      { slot: 60, label: '10:30', anchor: 'middle' as const },
-      { slot: 120, label: '11:30/13:00', anchor: 'middle' as const },
-      { slot: 180, label: '14:00', anchor: 'middle' as const },
-      { slot: 240, label: '15:00', anchor: 'end' as const }
-    ]
-  })
-
-  /** 交易日之间的分隔线（仅多日模式） */
-  const separators = createMemo(() =>
-    isMultiDay()
-      ? days()
-          .slice(1)
-          .map((_, index) => (index + 1) * DAY_SLOTS)
-      : []
-  )
 
   const hovered = createMemo(() => {
     const slot = hoverSlot()
     const geo = geometry()
     if (slot === null || !geo) return null
 
-    // 槽位 → (第几天, 第几个点)：每天的槽位连续，整除取余即可
-    const dayIndex = Math.min(days().length - 1, Math.max(0, Math.floor(slot / DAY_SLOTS)))
-    const day = days()[dayIndex]
-    if (!day || day.points.length === 0) return null
+    const located = locateTrendSlot(slot, days())
+    if (!located) return null
 
-    const pointIndex = Math.min(
-      day.points.length - 1,
-      Math.max(0, Math.round(slot - dayIndex * DAY_SLOTS))
-    )
-    const point = day.points[pointIndex]
+    const day = days()[located.dayIndex]
+    const point = day.points[located.pointIndex]
+    const change = point.price - day.prevClose
 
     return {
       point,
-      x: geo.x(dayIndex * DAY_SLOTS + pointIndex),
+      x: geo.x(located.dayIndex * DAY_SLOTS + located.pointIndex),
       y: geo.yPrice(point.price),
-      change: point.price - day.prevClose,
-      changePct: day.prevClose > 0 ? ((point.price - day.prevClose) / day.prevClose) * 100 : 0,
+      change,
+      changePct: day.prevClose > 0 ? (change / day.prevClose) * 100 : 0,
       label: isMultiDay()
-        ? `${day.date.slice(4, 6)}-${day.date.slice(6, 8)} ${minuteLabel(point.time)}`
+        ? `${formatMonthDay(day.date)} ${minuteLabel(point.time)}`
         : minuteLabel(point.time)
     }
   })
@@ -291,10 +120,10 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
 
   const onPointerMove = (event: PointerEvent): void => {
     const geo = geometry()
-    if (!geo || flat().length === 0) return
+    if (!geo || bars().length === 0) return
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    const ratio = (event.clientX - rect.left - PAD.left) / geo.plotW
-    setHoverSlot(Math.round(ratio * geo.totalSlots))
+    const slot = slotFromX(event.clientX, rect.left, geo)
+    if (slot !== null) setHoverSlot(slot)
   }
 
   const clearHover = (): void => {
@@ -335,7 +164,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
             </For>
 
             {/* ---------- 纵向时间网格 ---------- */}
-            <For each={timeTicks()}>
+            <For each={ticks()}>
               {(tick) => (
                 <line
                   x1={geo().x(tick.slot)}
@@ -354,15 +183,15 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
                 return (
                   <g>
                     <line
-                      x1={PAD.left}
-                      x2={geo().width - PAD.right}
+                      x1={geo().padding.left}
+                      x2={geo().width - geo().padding.right}
                       y1={y()}
                       y2={y()}
                       stroke="var(--chart-grid)"
                       stroke-dasharray={level.pct === 0 ? undefined : '3 5'}
                     />
                     <text
-                      x={geo().width - PAD.right + 8}
+                      x={geo().width - geo().padding.right + 8}
                       y={y() + 3.5}
                       fill={level.pct === 0 ? 'var(--text-3)' : 'var(--chart-axis)'}
                       font-size="10"
@@ -372,7 +201,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
                     </text>
                     <Show when={level.pct !== null}>
                       <text
-                        x={geo().width - PAD.right + 8}
+                        x={geo().width - geo().padding.right + 8}
                         y={y() + 14}
                         fill="var(--text-3)"
                         font-size="9"
@@ -387,18 +216,17 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
             </For>
 
             {/* ---------- 成交量柱 ---------- */}
-            <For each={flat()}>
+            <For each={bars()}>
               {(item, index) => {
                 const previousPrice = (): number => {
                   if (index() === 0) return days()[0]?.prevClose ?? item.point.price
-                  return flat()[index() - 1].point.price
+                  return bars()[index() - 1].point.price
                 }
-                const width = (): number => barWidth(geo().plotW, geo().totalSlots)
                 return (
                   <rect
-                    x={geo().x(item.slot) - width() / 2}
+                    x={geo().x(item.slot) - geo().barWidth / 2}
                     y={geo().yVolume(item.point.volume)}
-                    width={width()}
+                    width={geo().barWidth}
                     height={Math.max(0, geo().volumeBottom - geo().yVolume(item.point.volume))}
                     fill={item.point.price >= previousPrice() ? 'var(--up)' : 'var(--down)'}
                     opacity="0.55"
@@ -413,9 +241,9 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
                 <g>
                   <path d={day.area} fill="url(#trend-area)" />
                   <path
-                    d={day.path}
+                    d={day.line}
                     fill="none"
-                    stroke={day.color}
+                    stroke={toneLineVar(day.tone)}
                     stroke-width="1.6"
                     stroke-linejoin="round"
                     stroke-linecap="round"
@@ -425,7 +253,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
             </For>
 
             <path
-              d={avgPath()}
+              d={averagePath()}
               fill="none"
               stroke="var(--chart-avg)"
               stroke-width="1.1"
@@ -434,7 +262,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
             />
 
             {/* ---------- 横轴标签 ---------- */}
-            <For each={timeTicks()}>
+            <For each={ticks()}>
               {(tick) => (
                 <text
                   x={geo().x(tick.slot)}
@@ -461,8 +289,8 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
                     stroke-dasharray="3 3"
                   />
                   <line
-                    x1={PAD.left}
-                    x2={geo().width - PAD.right}
+                    x1={geo().padding.left}
+                    x2={geo().width - geo().padding.right}
                     y1={current().y}
                     y2={current().y}
                     stroke="var(--chart-crosshair)"
@@ -473,7 +301,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
                     cy={current().y}
                     r="3.4"
                     fill="var(--panel-solid)"
-                    stroke={toneColor(toneOf(current().change))}
+                    stroke={toneLineVar(toneOf(current().change))}
                     stroke-width="1.6"
                   />
                 </g>
@@ -499,13 +327,13 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
             </div>
             <div class="chart-tooltip__row">
               <span class="chart-tooltip__label">价格</span>
-              <span class="num" style={{ color: toneColor(toneOf(current().change)) }}>
+              <span class="num" style={{ color: toneLineVar(toneOf(current().change)) }}>
                 {fixed(current().point.price)}
               </span>
             </div>
             <div class="chart-tooltip__row">
               <span class="chart-tooltip__label">涨跌幅</span>
-              <span class="num" style={{ color: toneColor(toneOf(current().change)) }}>
+              <span class="num" style={{ color: toneLineVar(toneOf(current().change)) }}>
                 {signedPct(current().changePct)}
               </span>
             </div>
@@ -528,27 +356,4 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
       </Show>
     </div>
   )
-}
-
-/* ------------------------------------------------------------ 纯函数工具 */
-
-function toneColor(tone: Tone): string {
-  if (tone === 'up') return 'var(--up-line)'
-  if (tone === 'down') return 'var(--down-line)'
-  return 'var(--flat)'
-}
-
-/** 成交量柱宽度：按槽位数均分后取 64%，并保底 1px */
-function barWidth(plotW: number, totalSlots: number): number {
-  return Math.max(1, (plotW / (totalSlots + 1)) * 0.64)
-}
-
-/** 取一个「好看」的刻度步长：1 / 2 / 5 × 10ⁿ */
-function niceStep(range: number, targetTicks: number): number {
-  const raw = range / targetTicks
-  if (!Number.isFinite(raw) || raw <= 0) return 1
-  const magnitude = Math.pow(10, Math.floor(Math.log10(raw)))
-  const normalized = raw / magnitude
-  const step = normalized >= 5 ? 10 : normalized >= 2 ? 5 : normalized >= 1 ? 2 : 1
-  return step * magnitude
 }

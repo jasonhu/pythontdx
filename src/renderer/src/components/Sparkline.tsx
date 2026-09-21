@@ -6,12 +6,21 @@
  * 任何多余的元素都会变成视觉噪音。
  */
 import { createMemo, Show, type JSX } from 'solid-js'
-import { toneOf } from '../lib/tone'
+import { sparklineTone, toneLineVar } from '../lib/tone'
 
 export interface SparklineProps {
   values: number[]
   width?: number
   height?: number
+  /**
+   * 基准价（通常是昨收）。
+   * 传了就用「末点 vs 基准」判定颜色 —— 必须与旁边显示的涨跌幅同源，
+   * 否则会出现「线是绿的、数字是红的」这种自相矛盾的画面。
+   * 不传则退化为「末点 vs 首点」。
+   */
+  baseline?: number
+  /** 原生 SVG tooltip：说清这条线画的是什么周期，避免被误读 */
+  title?: string
 }
 
 export function Sparkline(props: SparklineProps): JSX.Element {
@@ -49,8 +58,11 @@ export function Sparkline(props: SparklineProps): JSX.Element {
       width,
       height,
       line,
-      // 首尾对比决定颜色，和列表里涨跌幅的语义保持一致
-      tone: toneOf(values[values.length - 1] - values[0])
+      /*
+       * 有基准价（昨收）时用「末点 vs 基准」判定颜色，和旁边那行涨跌幅完全同源；
+       * 没有基准时才退化成「末点 vs 首点」。判定逻辑在 tone.ts 里且有单元测试。
+       */
+      tone: sparklineTone(values, props.baseline)
     }
   })
 
@@ -64,14 +76,17 @@ export function Sparkline(props: SparklineProps): JSX.Element {
           viewBox={`0 0 ${geo().width} ${geo().height}`}
           fill="none"
         >
+          <Show when={props.title}>
+            <title>{props.title}</title>
+          </Show>
           <path
             d={`${geo().line} L${geo().width},${geo().height} L0,${geo().height} Z`}
-            fill={color(geo().tone)}
+            fill={toneLineVar(geo().tone)}
             opacity="0.14"
           />
           <path
             d={geo().line}
-            stroke={color(geo().tone)}
+            stroke={toneLineVar(geo().tone)}
             stroke-width="1.3"
             stroke-linejoin="round"
             stroke-linecap="round"
@@ -80,10 +95,4 @@ export function Sparkline(props: SparklineProps): JSX.Element {
       )}
     </Show>
   )
-}
-
-function color(tone: ReturnType<typeof toneOf>): string {
-  if (tone === 'up') return 'var(--up-line)'
-  if (tone === 'down') return 'var(--down-line)'
-  return 'var(--flat)'
 }

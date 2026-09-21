@@ -251,6 +251,7 @@
 }
 
 .group-chip {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -265,7 +266,34 @@
   transition:
     background-color var(--dur-1) var(--ease),
     border-color var(--dur-1) var(--ease),
-    color var(--dur-1) var(--ease);
+    color var(--dur-1) var(--ease),
+    opacity var(--dur-2) var(--ease);
+}
+
+/* 正在被拖动的分组标签淡出，明确指出搬的是它 */
+.group-chip--dragging {
+  opacity: 0.4;
+}
+
+/* 分组排序的落点：贴一条竖线在目标标签的左/右侧 */
+.group-chip--drop-before::before,
+.group-chip--drop-after::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(91, 140, 255, 0.85);
+}
+
+.group-chip--drop-before::before {
+  left: -3px;
+}
+
+.group-chip--drop-after::after {
+  right: -3px;
 }
 
 .group-chip:hover {
@@ -728,6 +756,60 @@
   height: 100%;
   font-size: var(--fs-sm);
   color: var(--text-3);
+}
+
+/* ---------------------------------------------------- 图表加载骨架屏 */
+/*
+ * 首屏拉数据时，图表组件拿不到值就不渲染，主区会是一整块空白 ——
+ * 看起来像界面坏了。这里用 CSS 拼出「图表的形状」，让等待过程可预期。
+ */
+.chart-skeleton {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.chart-skeleton__grid {
+  position: absolute;
+  top: 18px;
+  right: 52px;
+  bottom: 78px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.chart-skeleton__line {
+  height: 1px;
+  background: var(--chart-grid);
+}
+
+.chart-skeleton__area {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: var(--r-sm);
+  opacity: 0.55;
+}
+
+.chart-skeleton__volume {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  flex: none;
+  height: 21%;
+  min-height: 40px;
+}
+
+.chart-skeleton__bar {
+  flex: 1 1 0;
+  min-width: 1px;
+  border-radius: 1px;
+  opacity: 0.5;
 }
 
 /* ============================================================ 右栏面板 */

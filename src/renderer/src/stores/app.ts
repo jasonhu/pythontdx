@@ -118,6 +118,24 @@ export function renameGroup(id: string, name: string): void {
 }
 
 /**
+ * 调整分组顺序。
+ * 与 moveWatchItem 一样：先摘出来再插进去，
+ * 所以 targetIndex 用的是**原始数组**里的下标。
+ */
+export function moveGroup(id: string, targetIndex: number): void {
+  const from = state.groups.findIndex((group) => group.id === id)
+  if (from < 0) return
+
+  const groups = plainGroups(state.groups)
+  const [moved] = groups.splice(from, 1)
+  if (!moved) return
+
+  groups.splice(Math.max(0, Math.min(targetIndex, groups.length)), 0, moved)
+  setState('groups', groups)
+  persist({ groups })
+}
+
+/**
  * 删除分组。至少保留一个分组；被删分组里的股票会**并入第一个分组**而不是直接丢弃，
  * 避免误删造成数据丢失。
  */

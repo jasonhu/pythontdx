@@ -25,6 +25,30 @@ import { splitCode } from '@shared/market'
 
 /* ------------------------------------------------------------ 小工具 */
 
+/**
+ * 规范化股票名称。
+ *
+ * 腾讯返回的名字会用空格做**视觉对齐填充**，实测样例：
+ *   "五 粮 液"（五粮液）、"万  科Ａ"（万科Ａ）、"南  玻Ａ"（南玻Ａ）
+ * 这些空格必须去掉，否则自选股列表里会出现「五 粮 液」这种怪名字。
+ *
+ * 但港股里存在纯英文名，例如 hk00033 = "INTL GENIUS"，
+ * 那里的空格是有意义的，一并抹掉就变成 "INTLGENIUS" 了。
+ *
+ * 所以按「是否含 ASCII 字母」分流：
+ *   · 纯中文名 → 空格一定是填充，全部去掉；
+ *   · 含英文字母 → 只把连续空白压成一个空格。
+ *
+ * 注意全角字母（如 Ａ U+FF21）不算 ASCII 字母，
+ * 所以「万  科Ａ」会走第一条分支，得到 "万科Ａ"，这是期望的结果。
+ */
+export function normalizeStockName(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  if (!/[A-Za-z]/.test(trimmed)) return trimmed.replace(/\s+/g, '')
+  return trimmed.replace(/\s+/g, ' ')
+}
+
 /** 读取第 i 个字段并转成数字；空串/非法值返回 undefined */
 function num(fields: string[], i: number): number | undefined {
   const raw = fields[i]
@@ -129,7 +153,7 @@ export function parseQuoteFields(code: string, fields: string[]): Quote {
   const { market, symbol } = splitCode(code)
   const receivedAt = Date.now()
 
-  const name = (fields[1] ?? '').trim() || symbol
+  const name = normalizeStockName(fields[1] ?? '') || symbol
   const prevClose = numOr(fields, 4)
   let price = numOr(fields, 3)
   // 停牌 / 集合竞价前，最新价可能为 0，此时用昨收兜底避免出现 -100% 的离谱涨跌幅

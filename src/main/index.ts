@@ -126,7 +126,9 @@ function onReady(): void {
 
   mainWindow = createMainWindow({
     bounds: currentStore.bounds,
-    onBoundsChange: (bounds) => currentStore.saveBounds(bounds)
+    onBoundsChange: (bounds) => currentStore.saveBounds(bounds),
+    // 截图工具用 app.exit() 退出，绕过 before-quit，所以得自己把状态落盘
+    flushState: () => currentStore.flush()
   })
 
   mainWindow.on('closed', () => {
@@ -139,7 +141,8 @@ function onReady(): void {
     if (BrowserWindow.getAllWindows().length > 0) return
     mainWindow = createMainWindow({
       bounds: currentStore.bounds,
-      onBoundsChange: (bounds) => currentStore.saveBounds(bounds)
+      onBoundsChange: (bounds) => currentStore.saveBounds(bounds),
+      flushState: () => currentStore.flush()
     })
   })
 

@@ -24,6 +24,7 @@ import {
   stepCursor,
   zoomWindow
 } from '../lib/chart-geometry'
+import { chartOwnsKeys } from '../lib/chart-keys'
 import { useElementSize } from '../lib/dom'
 import { appState, updateSettings } from '../stores/app'
 
@@ -61,6 +62,11 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
    * 存绝对值而不是窗口内的相对下标，是「缩放后不漂移」的关键（`docs/06` 第 23 条）。
    */
   const [cursor, setCursor] = createSignal<number | null>(null)
+  /**
+   * 鼠标是否停在图表上。
+   * 键盘归属判断要用它：滚轮**不用点**就能用，键盘也不该要求先点一下（见 `onKeyDown`）。
+   */
+  const [hovering, setHovering] = createSignal(false)
 
   /** 全量 K 线 */
   const allBars = (): KLineSeries['bars'] => props.series.bars
@@ -209,12 +215,32 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   onMount(() => {
     if (!host) return
     host.addEventListener('wheel', onWheel, { passive: false })
-    onCleanup(() => host?.removeEventListener('wheel', onWheel))
+    // 键盘监听挂在 window 上而不是图表自己身上，理由见 onKeyDown 的注释
+    window.addEventListener('keydown', onKeyDown)
+    onCleanup(() => {
+      host?.removeEventListener('wheel', onWheel)
+      window.removeEventListener('keydown', onKeyDown)
+    })
   })
 
+  /** 事件落点是不是输入控件：搜索框正在用 ↑↓ 选联想项，侧栏改名框也在等按键 */
+  const isTyping = (event: KeyboardEvent): boolean => {
+    const element = event.target as HTMLElement | null
+    return (
+      element?.tagName === 'INPUT' ||
+      element?.tagName === 'TEXTAREA' ||
+      element?.isContentEditable === true
+    )
+  }
+
   /**
-   * 键盘操作。只在图表自己拿到焦点时才响应 —— 否则会和搜索框抢方向键
-   *（搜索框正在用上下键在联想列表里选择）。
+   * 键盘操作。**监听挂在 window 上**，而不是挂在图表自己身上。
+   *
+   * 为什么？挂在图表上就等于「必须先点一下图，键盘才生效」，可滚轮不用点就能用 ——
+   * 同一张图两套规则，用户第一次用键盘必然踩空：点完「日K」标签后焦点还留在那个按钮上，
+   * `↑` 落在按钮上，图一动不动，焦点圈反而亮到了标签上（用户实测反馈）。
+   * 所以改成「指针在图上，或图有焦点」就归这张图管（判断抽在 `lib/chart-keys.ts` 里单测），
+   * 并且在接管的那一刻把焦点收回图表 —— 否则「现在是谁在响应键盘」在界面上看不出来。
    *
    * 键位对齐主流行情软件：
    *   ↑ / ↓  横向伸张 / 收缩（柱子变宽 / 变窄）
@@ -223,6 +249,15 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
    *   Esc    收起光标
    */
   const onKeyDown = (event: KeyboardEvent): void => {
+    const owned = chartOwnsKeys({
+      hovering: hovering(),
+      chartFocused: document.activeElement === host,
+      typing: isTyping(event)
+    })
+    if (!owned) return
+
+    if (document.activeElement !== host) host?.focus({ preventScroll: true })
+
     switch (event.key) {
       case 'ArrowUp':
       case 'ArrowDown':
@@ -256,9 +291,13 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       }}
       tabindex="0"
       aria-label="K 线图：滚轮或上下键缩放、左右键移动光标"
-      onKeyDown={onKeyDown}
+      onPointerEnter={() => setHovering(true)}
       onPointerMove={onPointerMove}
-      onPointerLeave={() => setCursor(null)}
+      onPointerLeave={() => {
+        // 指针离开就交还键盘、收起光标：别让「谁在响应键盘」含糊着
+        setHovering(false)
+        setCursor(null)
+      }}
     >
       <Show when={geometry()} fallback={<div class="chart-empty">正在加载 K 线数据…</div>}>
         {(geo) => (

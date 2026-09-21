@@ -33,6 +33,12 @@ function resolveWindowIcon(): string | undefined {
 export interface CreateWindowOptions {
   bounds?: WindowBounds
   onBoundsChange?: (bounds: WindowBounds) => void
+  /**
+   * 退出前把内存里的状态落盘。
+   * 截图工具走的是 `app.exit()`，它会跳过 `before-quit`，
+   * 「点完档位马上退出」那次就因此丢过设置（见 capture.ts）。
+   */
+  flushState?: () => Promise<void>
 }
 
 export function createMainWindow(options: CreateWindowOptions = {}): BrowserWindow {
@@ -75,7 +81,7 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
   })
 
   attachDiagnostics(window)
-  setupCapture(window)
+  setupCapture(window, options.flushState)
 
   const reportBounds = debounce(() => {
     if (!window.isMaximized() && !window.isMinimized() && !window.isFullScreen()) {

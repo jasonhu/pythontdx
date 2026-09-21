@@ -15,6 +15,8 @@
  *   STOCKLENS_CAPTURE_CLICK   截图前依次点击的选择器，逗号分隔（切 tab 这类操作）
  *   STOCKLENS_CAPTURE_FOCUS   点击并等界面就绪之后，把焦点放到这个选择器上
  *   STOCKLENS_CAPTURE_KEYS    截图前依次发送的按键，逗号分隔，用 Electron 的键名（如 Up,Up）
+ *   STOCKLENS_CAPTURE_POINTER 真实指针操作：`move@选择器@比例` / `click@选择器@比例`
+ *   STOCKLENS_CAPTURE_WHEEL   真实滚轮：`deltaY@选择器@比例`（如 -100@.chart-host@0.25）
  *   STOCKLENS_CAPTURE_PROBE   等它出现并回读它的文本，打印到终端
  *   STOCKLENS_CAPTURE_EVAL    截图前求值一个只读表达式并打印（量尺寸用，别写有副作用的代码）
  *
@@ -24,7 +26,7 @@
 import { writeFile } from 'node:fs/promises'
 import { app, type BrowserWindow } from 'electron'
 
-export function setupCapture(window: BrowserWindow): void {
+export function setupCapture(window: BrowserWindow, flushState?: () => Promise<void>): void {
   const target = process.env.STOCKLENS_CAPTURE
   if (!target) return
 
@@ -32,12 +34,16 @@ export function setupCapture(window: BrowserWindow): void {
 
   window.webContents.once('did-finish-load', () => {
     setTimeout(() => {
-      void capture(window, target)
+      void capture(window, target, flushState)
     }, delay)
   })
 }
 
-async function capture(window: BrowserWindow, target: string): Promise<void> {
+async function capture(
+  window: BrowserWindow,
+  target: string,
+  flushState?: () => Promise<void>
+): Promise<void> {
   let code = 0
   try {
     await drive(window)
@@ -48,6 +54,15 @@ async function capture(window: BrowserWindow, target: string): Promise<void> {
     console.error('[capture] 截图失败：', error)
     code = 1
   } finally {
+    // app.exit() 不走 before-quit，内存里还没落盘的设置会直接丢 ——
+    // 「点完档位马上退出」就丢过一次（写入有 150ms 防抖）。所以自己先落盘再退。
+    if (flushState) {
+      try {
+        await flushState()
+      } catch (error) {
+        console.error('[capture] 退出前落盘失败：', error)
+      }
+    }
     app.exit(code)
   }
 }
@@ -64,6 +79,49 @@ async function drive(window: BrowserWindow): Promise<void> {
 
   const probe = process.env.STOCKLENS_CAPTURE_PROBE
   if (probe) await waitFor(window, probe, 8000)
+
+  /**
+   * 真实指针：`move@<选择器>@<横向比例>` / `click@<选择器>@<横向比例>`，逗号分隔。
+   *
+   * 为什么不能只用上面的 `CLICK`？因为它走的是 `element.click()` ——
+   * **程序化点击不会移动焦点**（焦点是 mousedown 的默认行为，`click()` 没有这一步）。
+   * 于是「点了 tab 之后焦点留在那个按钮上，鼠标移到图上按 ↑ 什么也不发生」
+   * 这类问题，只有真实鼠标事件才复现得出来（`docs/06` 第 26 条）。
+   */
+  for (const spec of split(process.env.STOCKLENS_CAPTURE_POINTER)) {
+    const [action, selector, rawRatio] = spec.split('@')
+    if ((action !== 'move' && action !== 'click') || !selector) {
+      console.warn(`[capture] 指针参数看不懂，跳过：${spec}（正确写法 click@.chart-host@0.5）`)
+      continue
+    }
+    const ratio = Number.isFinite(Number(rawRatio)) ? Number(rawRatio) : 0.5
+    const point = await pointOf(window, selector, ratio)
+    if (!point) {
+      console.warn(`[capture] 找不到指针目标元素：${selector}`)
+      continue
+    }
+    // 先移动再按下：真实鼠标永远是这个顺序，而且 Chromium 靠 mouseMove 触发 pointerenter
+    window.webContents.sendInputEvent({ type: 'mouseMove', x: point.x, y: point.y })
+    await wait(60)
+    if (action === 'click') {
+      window.webContents.sendInputEvent({
+        type: 'mouseDown',
+        x: point.x,
+        y: point.y,
+        button: 'left',
+        clickCount: 1
+      })
+      await wait(30)
+      window.webContents.sendInputEvent({
+        type: 'mouseUp',
+        x: point.x,
+        y: point.y,
+        button: 'left',
+        clickCount: 1
+      })
+    }
+    await wait(120)
+  }
 
   const focus = process.env.STOCKLENS_CAPTURE_FOCUS
   if (focus) {
@@ -112,18 +170,8 @@ async function drive(window: BrowserWindow): Promise<void> {
     }
 
     const ratio = Number.isFinite(Number(rawRatio)) ? Number(rawRatio) : 0.5
-    const point = await evaluate(
-      window,
-      `(() => {
-         const el = document.querySelector(${json(selector)})
-         if (!el) return ''
-         const rect = el.getBoundingClientRect()
-         return Math.round(rect.left + rect.width * ${ratio}) + ',' +
-                Math.round(rect.top + rect.height / 2)
-       })()`
-    )
-    const [x, y] = point.split(',').map(Number)
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    const point = await pointOf(window, selector, ratio)
+    if (!point) {
       console.warn(`[capture] 找不到滚轮目标元素：${selector}`)
       continue
     }
@@ -132,8 +180,8 @@ async function drive(window: BrowserWindow): Promise<void> {
     // 代价是它按**设备像素**算，所以要乘回 pixelRatio（见上面的实测换算）
     window.webContents.sendInputEvent({
       type: 'mouseWheel',
-      x,
-      y,
+      x: point.x,
+      y: point.y,
       deltaY: -deltaY * pixelRatio,
       canScroll: false,
       hasPreciseScrollingDeltas: true
@@ -169,6 +217,29 @@ async function drive(window: BrowserWindow): Promise<void> {
   if (measure) {
     console.log(`[capture] eval ${measure} → ${await evaluate(window, `String(${measure})`)}`)
   }
+}
+
+/** 选择器 + 横向比例 → 页面坐标（CSS 像素，也就是 Electron 要的 DIP）；找不到元素返回 undefined */
+async function pointOf(
+  window: BrowserWindow,
+  selector: string,
+  ratio: number
+): Promise<{ x: number; y: number } | undefined> {
+  const point = await evaluate(
+    window,
+    `(() => {
+       const el = document.querySelector(${json(selector)})
+       if (!el) return ''
+       const rect = el.getBoundingClientRect()
+       return Math.round(rect.left + rect.width * ${ratio}) + ',' +
+              Math.round(rect.top + rect.height / 2)
+     })()`
+  )
+  // 先挡空串：''.split(',') 会得到 ['']，而 Number('') === 0，会被误当成合法坐标 (0, 0)
+  if (!point) return undefined
+  const [x, y] = point.split(',').map(Number)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined
+  return { x, y }
 }
 
 /** 轮询等待选择器出现；超时不算失败，继续截图（说不定「没出现」本身就是结论） */

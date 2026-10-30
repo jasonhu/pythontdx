@@ -493,6 +493,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.stats_csv())
                 return
+            if parsed.path == "/api/stats_parquet":
+                with self.server.lock:
+                    self._ok(self.server.bridge.stats_parquet())
+                return
             if parsed.path == "/api/duck_query":
                 with self.server.lock:
                     self._ok(

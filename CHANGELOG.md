@@ -47,6 +47,8 @@ StockLens 的所有重要变更都记录在这里。
   点击卡片切换主图。
 - **自选导入/导出**：状态栏 JSON 备份；导出全部分组，导入追加分组，
   ID 冲突自动改名，不覆盖现有自选。
+- **数据工具 Parquet 按钮**：一键导出 16,200 行 / 32 文件，展示目录/manifest/schema；
+  需要 pyarrow，缺失时明确报错。
 - **可选 Parquet 导出**：`python/parquet_export.py` 按 `trade_date` 分区写 Parquet
   （需 pyarrow；本机 pyarrow 26 隔离实测 16,200 行/32 文件，默认环境测试跳过）；
   DuckDB 2.0 查询层已用隔离目录实测 20 行；DuckDB/Parquet 均非默认依赖。

@@ -25,6 +25,7 @@ import type {
   ScreenResult,
   SearchItem,
   StatsCsvExport,
+  StatsParquetExport,
   StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
@@ -202,6 +203,10 @@ export async function fetchStatsQuery(sql: string, limit = 200): Promise<StatsQu
 
 export async function fetchStatsCsv(): Promise<StatsCsvExport> {
   return bridge.send<StatsCsvExport>('stats_csv', {}, 30_000)
+}
+
+export async function fetchStatsParquet(): Promise<StatsParquetExport> {
+  return bridge.send<StatsParquetExport>('stats_parquet', {}, 120_000)
 }
 
 export async function fetchDuckQuery(sql: string, limit = 200): Promise<StatsQueryResult> {

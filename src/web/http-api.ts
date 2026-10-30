@@ -25,6 +25,7 @@ import type {
   ScreenResult,
   SearchItem,
   StatsCsvExport,
+  StatsParquetExport,
   StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
@@ -296,6 +297,7 @@ export function createHttpApi(): StockLensApi {
       statsExport: () => post<TdxStatsExport>('/api/stats_export', {}),
       statsQuery: (sql, limit) => post<StatsQueryResult>('/api/stats_query', { sql, limit }),
       statsCsv: () => post<StatsCsvExport>('/api/stats_csv', {}),
+      statsParquet: () => post<StatsParquetExport>('/api/stats_parquet', {}),
       duckQuery: (sql, limit) => post<StatsQueryResult>('/api/duck_query', { sql, limit })
     },
     block: {

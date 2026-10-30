@@ -6,6 +6,7 @@
 import { createSignal, For, Show, type JSX } from 'solid-js'
 import type {
   StatsCsvExport,
+  StatsParquetExport,
   StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary
@@ -39,6 +40,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [engine, setEngine] = createSignal<'sqlite' | 'duckdb'>('sqlite')
   const [csvExporting, setCsvExporting] = createSignal(false)
   const [csvResult, setCsvResult] = createSignal<StatsCsvExport | null>(null)
+  const [parquetExporting, setParquetExporting] = createSignal(false)
+  const [parquetResult, setParquetResult] = createSignal<StatsParquetExport | null>(null)
 
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
@@ -78,6 +81,19 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setError(errorMessage(cause))
     } finally {
       setCsvExporting(false)
+    }
+  }
+
+  const runParquet = async (): Promise<void> => {
+    if (parquetExporting()) return
+    setParquetExporting(true)
+    setError(null)
+    try {
+      setParquetResult(await api.data.statsParquet())
+    } catch (cause) {
+      setError(errorMessage(cause))
+    } finally {
+      setParquetExporting(false)
     }
   }
 
@@ -142,6 +158,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               onClick={() => void runExport()}
             >
               {exporting() ? '导出中…' : '规范化导出'}
+            </button>
+            <button
+              class="btn data__parquet"
+              disabled={loading() || exporting() || parquetExporting()}
+              onClick={() => void runParquet()}
+            >
+              {parquetExporting() ? '导出 Parquet…' : '导出 Parquet'}
             </button>
             <button
               class="btn data__csv"
@@ -227,6 +250,26 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                     </tbody>
                   </table>
                 </Show>
+              </div>
+            )}
+          </Show>
+
+          <Show when={parquetResult()}>
+            {(data) => (
+              <div class="data__summary data__summary--parquet">
+                <div class="data__path">
+                  <span>Parquet 目录</span>
+                  <code>{data().target}</code>
+                </div>
+                <div class="data__path">
+                  <span>manifest</span>
+                  <code>{data().manifest}</code>
+                </div>
+                <div class="data__partitions">
+                  <span class="data__partition">{thousands(data().rowCount)} 行</span>
+                  <span class="data__partition">{data().files.length} 个文件</span>
+                  <span class="data__partition">schema v{data().schemaVersion}</span>
+                </div>
               </div>
             )}
           </Show>

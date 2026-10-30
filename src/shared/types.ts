@@ -287,6 +287,14 @@ export interface StatsQueryResult {
   limited: boolean
 }
 
+export interface StatsParquetExport {
+  rowCount: number
+  target: string
+  manifest: string
+  schemaVersion: number
+  files: Array<{ table: string; tradeDate: string; rows: number; path: string }>
+}
+
 export interface StatsCsvExport {
   statCsv: string
   stat2Csv: string

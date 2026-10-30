@@ -26,6 +26,7 @@ import type {
   ScreenRequest,
   ScreenResult,
   StatsCsvExport,
+  StatsParquetExport,
   StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
@@ -77,6 +78,8 @@ export const IPC = {
   dataStatsQuery: 'data:stats-query',
   /** stats.db 导出 CSV（invoke） */
   dataStatsCsv: 'data:stats-csv',
+  /** stats.db 导出 Parquet（invoke） */
+  dataStatsParquet: 'data:stats-parquet',
   /** stats Parquet DuckDB 只读查询（invoke） */
   dataDuckQuery: 'data:duck-query',
   /** 板块列表/成分（invoke） */
@@ -193,6 +196,7 @@ export interface StockLensApi {
     statsQuery(sql: string, limit?: number): Promise<StatsQueryResult>
     /** 把 tdxstat/tdxstat2 全量导出为 CSV */
     statsCsv(): Promise<StatsCsvExport>
+    statsParquet(): Promise<StatsParquetExport>
     duckQuery(sql: string, limit?: number): Promise<StatsQueryResult>
   }
   block: {

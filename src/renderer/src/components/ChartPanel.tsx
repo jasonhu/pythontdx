@@ -39,7 +39,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'month', label: '月K' }
 ]
 
-const MINUTE_PERIODS: KLinePeriod[] = ['1m', '5m', '15m', '30m', '60m']
+const MINUTE_PERIODS: KLinePeriod[] = ['5s', '15s', '1m', '5m', '15m', '30m', '60m']
 
 const MA_LEGEND = [
   { label: 'MA5', color: '#f0b429' },
@@ -187,10 +187,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <button
                 class={`chart-minute-tab chart-tab-${period}`}
                 data-active={tab() === period}
-                title={`${period.replace('m', '')} 分钟 K`}
+                title={period.endsWith('s') ? period : `${period.replace('m', '')} 分钟 K`}
                 onClick={() => switchTab(period)}
               >
-                {period.replace('m', '')}
+                {period.endsWith('s') ? period : period.replace('m', '')}
               </button>
             )}
           </For>

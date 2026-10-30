@@ -44,7 +44,7 @@ import traceback
 import zipfile
 import zlib
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from duckdb_query import run_duckdb_query
@@ -132,6 +132,8 @@ F10_CONTENT_HEADER = 12
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
 PERIOD_RAW = {
+    "5s": 13,
+    "15s": 13,
     "1m": 7,
     "5m": 0,
     "15m": 1,
@@ -550,7 +552,15 @@ def f10_content_data(
     )
 
 
-def bars_data(market: int, symbol: str, period: int, count: int, adjust: int, start: int = 0) -> bytes:
+def bars_data(
+    market: int,
+    symbol: str,
+    period: int,
+    count: int,
+    adjust: int,
+    start: int = 0,
+    period_param: int = 1,
+) -> bytes:
     if count < 1 or count > 800:
         raise TdxError("单次 K 线请求必须在 1~800 根之间")
 
@@ -559,7 +569,7 @@ def bars_data(market: int, symbol: str, period: int, count: int, adjust: int, st
         market,
         code_bytes(symbol),
         period,
-        1,
+        period_param,
         start,
         count,
         adjust,
@@ -1947,7 +1957,14 @@ def parse_bars(body: bytes, kind: str, period_raw: int = 4) -> list[dict]:
     bars: list[dict] = []
 
     for _ in range(count):
-        if period_raw in {0, 1, 2, 3, 7}:
+        if period_raw == 13:
+            seconds = _u32(body, pos)
+            moment = datetime(2003, 12, 31, tzinfo=timezone(timedelta(hours=8))) + timedelta(
+                seconds=seconds
+            )
+            date_text = moment.strftime("%Y-%m-%d %H:%M:%S")
+            pos += 4
+        elif period_raw in {0, 1, 2, 3, 7}:
             packed_date = _u16(body, pos)
             minute_of_day = _u16(body, pos + 2)
             year = (packed_date >> 11) + 2004
@@ -2871,6 +2888,8 @@ class Bridge:
                 PERIOD_RAW[period],
                 safe_count,
                 {'none': 0, 'qfq': 1, 'hfq': 2}.get(str(adjust), 1),
+                0,
+                {'5s': 5, '15s': 15}.get(period, 1),
             ),
         )
         return {

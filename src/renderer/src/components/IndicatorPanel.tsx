@@ -8,6 +8,7 @@ import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
 import { boll, kdj, macd, rsi } from '@shared/indicators'
 import { api, errorMessage } from '../lib/ipc'
+import { appState, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
 
 type Tab = 'macd' | 'kdj' | 'rsi' | 'boll'
@@ -66,6 +67,40 @@ export function IndicatorPanel(props: {
   const num = (value: () => string, fallback: number): number => {
     const parsed = Number(value())
     return Number.isFinite(parsed) && parsed > 0 ? Math.min(200, Math.floor(parsed)) : fallback
+  }
+
+  let paramsHydrated = false
+
+  createEffect(() => {
+    const saved = appState.settings.indicatorParams
+    if (paramsHydrated || !saved) return
+    paramsHydrated = true
+    setMacdFast(String(saved.macdFast))
+    setMacdSlow(String(saved.macdSlow))
+    setMacdSignal(String(saved.macdSignal))
+    setKdjPeriod(String(saved.kdjPeriod))
+    setKdjM1(String(saved.kdjM1))
+    setKdjM2(String(saved.kdjM2))
+    setRsiPeriod(String(saved.rsiPeriod))
+    setBollPeriod(String(saved.bollPeriod))
+    setBollK(String(saved.bollK))
+  })
+
+  const persistParams = (): void => {
+    paramsHydrated = true
+    updateSettings({
+      indicatorParams: {
+        macdFast: num(macdFast, 12),
+        macdSlow: num(macdSlow, 26),
+        macdSignal: num(macdSignal, 9),
+        kdjPeriod: num(kdjPeriod, 9),
+        kdjM1: num(kdjM1, 3),
+        kdjM2: num(kdjM2, 3),
+        rsiPeriod: num(rsiPeriod, 14),
+        bollPeriod: num(bollPeriod, 20),
+        bollK: num(bollK, 2)
+      }
+    })
   }
   let requestId = 0
 
@@ -230,7 +265,10 @@ export function IndicatorPanel(props: {
                 min="2"
                 max="60"
                 value={macdFast()}
-                onInput={(e) => setMacdFast(e.currentTarget.value)}
+                onInput={(e) => {
+                  setMacdFast(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
             <label>
@@ -240,7 +278,10 @@ export function IndicatorPanel(props: {
                 min="3"
                 max="120"
                 value={macdSlow()}
-                onInput={(e) => setMacdSlow(e.currentTarget.value)}
+                onInput={(e) => {
+                  setMacdSlow(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
             <label>
@@ -250,7 +291,10 @@ export function IndicatorPanel(props: {
                 min="2"
                 max="60"
                 value={macdSignal()}
-                onInput={(e) => setMacdSignal(e.currentTarget.value)}
+                onInput={(e) => {
+                  setMacdSignal(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
           </Show>
@@ -262,7 +306,10 @@ export function IndicatorPanel(props: {
                 min="2"
                 max="60"
                 value={kdjPeriod()}
-                onInput={(e) => setKdjPeriod(e.currentTarget.value)}
+                onInput={(e) => {
+                  setKdjPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
             <label>
@@ -272,7 +319,10 @@ export function IndicatorPanel(props: {
                 min="1"
                 max="20"
                 value={kdjM1()}
-                onInput={(e) => setKdjM1(e.currentTarget.value)}
+                onInput={(e) => {
+                  setKdjM1(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
             <label>
@@ -282,7 +332,10 @@ export function IndicatorPanel(props: {
                 min="1"
                 max="20"
                 value={kdjM2()}
-                onInput={(e) => setKdjM2(e.currentTarget.value)}
+                onInput={(e) => {
+                  setKdjM2(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
           </Show>
@@ -294,7 +347,10 @@ export function IndicatorPanel(props: {
                 min="2"
                 max="120"
                 value={rsiPeriod()}
-                onInput={(e) => setRsiPeriod(e.currentTarget.value)}
+                onInput={(e) => {
+                  setRsiPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
           </Show>
@@ -306,7 +362,10 @@ export function IndicatorPanel(props: {
                 min="2"
                 max="120"
                 value={bollPeriod()}
-                onInput={(e) => setBollPeriod(e.currentTarget.value)}
+                onInput={(e) => {
+                  setBollPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
             <label>
@@ -317,7 +376,10 @@ export function IndicatorPanel(props: {
                 step="0.5"
                 max="10"
                 value={bollK()}
-                onInput={(e) => setBollK(e.currentTarget.value)}
+                onInput={(e) => {
+                  setBollK(e.currentTarget.value)
+                  persistParams()
+                }}
               />
             </label>
           </Show>

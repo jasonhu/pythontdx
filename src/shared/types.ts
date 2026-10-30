@@ -466,6 +466,18 @@ export interface WatchGroup {
   items: WatchItem[]
 }
 
+export interface IndicatorParams {
+  macdFast: number
+  macdSlow: number
+  macdSignal: number
+  kdjPeriod: number
+  kdjM1: number
+  kdjM2: number
+  rsiPeriod: number
+  bollPeriod: number
+  bollK: number
+}
+
 export interface AppSettings {
   /** 行情轮询间隔（ms） */
   refreshInterval: number
@@ -486,6 +498,8 @@ export interface AppSettings {
   klineAdjust?: KLineAdjust
   /** 主图是否叠加 BOLL */
   showBoll?: boolean
+  /** 指标面板参数 */
+  indicatorParams?: IndicatorParams
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

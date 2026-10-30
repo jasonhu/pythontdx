@@ -96,7 +96,7 @@
 | --- | ------------------------------ | ------------------ | ------------------------------------- |
 | V5  | macOS 上的**红绿灯让位**与打包 | 没有 macOS 环境    | 在 mac 上跑 `npm run build:mac`       |
 | V9  | **PyInstaller sidecar 打包**   | Windows 未验证；Linux 已用 6.22.3 构建并 `ping` 通过 | Windows 上 `pip install pyinstaller` → `npm run build:win`，确认 exe 与行情 |
-| V10 | **Linux packaged 应用启动**    | linux-unpacked 与 AppImage 均已启动截图 | 窗口/行情已确认；deb 未测（缺 homepage） |
+| V10 | **Linux packaged 应用启动**    | linux-unpacked / AppImage / deb 均已启动截图 | 窗口/行情已确认；Windows/macOS 仍未测 |
 
 > 港股/美股/期货/期权不在范围（`docs/00` G3），7727 扩展行情也不接入，
 > 不再作为待验证项。

@@ -4541,3 +4541,19 @@
   background: var(--panel);
   font-size: var(--fs-2xs);
 }
+
+.alert__add-condition {
+  align-self: flex-start;
+  height: 24px;
+  margin-top: 6px;
+  padding: 0 9px;
+  color: var(--accent);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-size: var(--fs-2xs);
+}
+
+.alert__form--secondary .alert__delete {
+  flex: none;
+}

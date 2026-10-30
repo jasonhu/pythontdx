@@ -38,10 +38,9 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
   const [direction, setDirection] = createSignal<AlertDirection>('above')
   const [value, setValue] = createSignal('')
   const [error, setError] = createSignal<string | null>(null)
-  const [combo, setCombo] = createSignal(false)
-  const [comboMetric, setComboMetric] = createSignal<AlertMetric>('changePct')
-  const [comboDirection, setComboDirection] = createSignal<AlertDirection>('above')
-  const [comboValue, setComboValue] = createSignal('')
+  const [extras, setExtras] = createSignal<
+    Array<{ metric: AlertMetric; direction: AlertDirection; value: string }>
+  >([])
 
   // 切换股票时用当前价/涨幅作为输入初值；只在 code 改变时重置
   createEffect(() => {
@@ -51,10 +50,7 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
     setValue(initial ? (initial.price > 0 ? fixed(initial.price) : fixed(initial.changePct)) : '')
     setMetric('price')
     setDirection('above')
-    setCombo(false)
-    setComboMetric('changePct')
-    setComboDirection('above')
-    setComboValue('')
+    setExtras([])
     setError(null)
   })
 
@@ -66,16 +62,17 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
       setError('请输入有效阈值')
       return
     }
-    const conditions = combo()
-      ? [
-          { metric: metric(), direction: direction(), value: parsed },
-          {
-            metric: comboMetric(),
-            direction: comboDirection(),
-            value: Number(comboValue())
-          }
-        ]
-      : undefined
+    const conditions =
+      extras().length > 0
+        ? [
+            { metric: metric(), direction: direction(), value: parsed },
+            ...extras().map((condition) => ({
+              metric: condition.metric,
+              direction: condition.direction,
+              value: Number(condition.value)
+            }))
+          ]
+        : undefined
     if (conditions && conditions.some((condition) => !Number.isFinite(condition.value))) {
       setError('请输入有效的组合条件阈值')
       return
@@ -181,46 +178,80 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
               添加
             </button>
           </div>
-          <label class="alert__combo-toggle">
-            <input
-              type="checkbox"
-              checked={combo()}
-              onChange={(event) => setCombo(event.currentTarget.checked)}
-            />
-            再同时满足一个条件
-          </label>
+          <For each={extras()}>
+            {(condition, index) => (
+              <div class="alert__form alert__form--secondary">
+                <select
+                  class="alert__select"
+                  value={condition.metric}
+                  aria-label="组合条件指标"
+                  onChange={(event) => {
+                    const metric = event.currentTarget.value as AlertMetric
+                    setExtras((items) =>
+                      items.map((item, itemIndex) =>
+                        itemIndex === index() ? { ...item, metric } : item
+                      )
+                    )
+                  }}
+                >
+                  <For each={Object.entries(ALERT_METRIC_LABELS)}>
+                    {([value, label]) => <option value={value}>{label}</option>}
+                  </For>
+                </select>
+                <select
+                  class="alert__select"
+                  value={condition.direction}
+                  aria-label="组合条件方向"
+                  onChange={(event) => {
+                    const direction = event.currentTarget.value as AlertDirection
+                    setExtras((items) =>
+                      items.map((item, itemIndex) =>
+                        itemIndex === index() ? { ...item, direction } : item
+                      )
+                    )
+                  }}
+                >
+                  <option value="above">≥</option>
+                  <option value="below">≤</option>
+                </select>
+                <input
+                  class="alert__input"
+                  type="number"
+                  step="0.01"
+                  placeholder="组合阈值"
+                  value={condition.value}
+                  onInput={(event) => {
+                    const value = event.currentTarget.value
+                    setExtras((items) =>
+                      items.map((item, itemIndex) =>
+                        itemIndex === index() ? { ...item, value } : item
+                      )
+                    )
+                  }}
+                />
+                <button
+                  class="alert__delete"
+                  title="移除条件"
+                  onClick={() => setExtras((items) => items.filter((_, i) => i !== index()))}
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </For>
 
-          <Show when={combo()}>
-            <div class="alert__form alert__form--secondary">
-              <select
-                class="alert__select"
-                value={comboMetric()}
-                aria-label="组合条件指标"
-                onChange={(event) => setComboMetric(event.currentTarget.value as AlertMetric)}
-              >
-                <For each={Object.entries(ALERT_METRIC_LABELS)}>
-                  {([value, label]) => <option value={value}>{label}</option>}
-                </For>
-              </select>
-              <select
-                class="alert__select"
-                value={comboDirection()}
-                aria-label="组合条件方向"
-                onChange={(event) => setComboDirection(event.currentTarget.value as AlertDirection)}
-              >
-                <option value="above">≥</option>
-                <option value="below">≤</option>
-              </select>
-              <input
-                class="alert__input"
-                type="number"
-                step="0.01"
-                placeholder="组合阈值"
-                value={comboValue()}
-                onInput={(event) => setComboValue(event.currentTarget.value)}
-              />
-            </div>
-          </Show>
+          <button
+            class="btn alert__add-condition"
+            disabled={extras().length >= 3}
+            onClick={() =>
+              setExtras((items) => [
+                ...items,
+                { metric: 'changePct', direction: 'above', value: '' }
+              ])
+            }
+          >
+            {extras().length >= 3 ? '最多 4 个条件' : '+ 条件'}
+          </button>
 
           <Show when={error()}>
             <div class="alert__error">{error()}</div>

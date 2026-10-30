@@ -152,6 +152,23 @@ export interface MoneyFlowRecord {
   mainBuySmallNet: number
 }
 
+/** 0x056a 集合竞价过程快照 */
+export interface AuctionPoint {
+  index: number
+  timeMinutes: number
+  second: number
+  /** HH:MM:SS */
+  time: string
+  timeSeconds: number
+  price: number
+  priceMilli: number
+  /** 虚拟匹配量，单位手；不是真实成交 */
+  matchedVolume: number
+  unmatchedVolume: number
+  /** 1 买方剩余 / -1 卖方剩余 */
+  unmatchedDirection: number
+}
+
 /* --------------------------------------------------------------- 分时图 */
 
 /** 分时的分钟点：价格为该分钟收盘价，avg 为当日累计均价 */

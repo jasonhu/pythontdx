@@ -530,7 +530,7 @@
 }
 
 .rail-tab {
-  padding: 5px 9px;
+  padding: 4px 7px;
   border: 0;
   border-radius: var(--r-xs);
   color: var(--text-2);
@@ -809,6 +809,109 @@
 }
 
 .flow__foot {
+  flex: none;
+  padding: 6px 2px 0;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+/* -------------------------------------------------------------- 集合竞价 */
+.auction {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  font-size: var(--fs-xs);
+}
+
+.auction__meta {
+  display: flex;
+  justify-content: space-between;
+  flex: none;
+  padding: 0 2px 4px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.auction__error {
+  flex: none;
+  padding: 6px 2px;
+  color: var(--down);
+  font-size: var(--fs-2xs);
+}
+
+.auction__retry {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.auction__head,
+.auction__row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 5px;
+  align-items: center;
+}
+
+.auction__head {
+  flex: none;
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.auction__rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.auction__row {
+  padding: 3px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auction__row:hover {
+  background: var(--panel-hover);
+}
+
+.auction__time {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.auction__num {
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.auction__row .tone-up {
+  color: var(--up);
+}
+
+.auction__row .tone-down {
+  color: var(--down);
+}
+
+.auction__empty {
+  padding: 28px 4px;
+  color: var(--text-3);
+  text-align: center;
+  font-size: var(--fs-2xs);
+}
+
+.auction__foot {
   flex: none;
   padding: 6px 2px 0;
   color: var(--text-3);

@@ -7,6 +7,7 @@
  *   · 维护代码表 + 拼音搜索索引。
  */
 import type {
+  AuctionPoint,
   CategoryQuote,
   KLinePeriod,
   KLineSeries,
@@ -109,6 +110,15 @@ export async function fetchTrades(request: TradesRequest): Promise<TradeTick[]> 
 /** 0x0ffc 资金流：最近 5 个交易日。 */
 export async function fetchMoneyFlow(code: string): Promise<MoneyFlowRecord[]> {
   return bridge.send<MoneyFlowRecord[]>('money_flow', { code }, QUOTES_TIMEOUT_MS)
+}
+
+/** 0x056a 集合竞价过程；date 省略为当日。 */
+export async function fetchAuctions(code: string, date?: string): Promise<AuctionPoint[]> {
+  return bridge.send<AuctionPoint[]>(
+    'auctions',
+    { code, date: date || undefined, limit: 500 },
+    QUOTES_TIMEOUT_MS
+  )
 }
 
 /* ------------------------------------------------------------------ K 线 */

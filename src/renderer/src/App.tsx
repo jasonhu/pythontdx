@@ -4,8 +4,9 @@
  * 布局用 CSS Grid 划成「标题栏 / 侧栏 + 工作区 / 状态栏」三块，
  * 这里只做结构，具体样式在 styles/app.css。
  */
-import { createEffect, createSignal, onMount, Show, type JSX } from 'solid-js'
+import { createEffect, createSignal, Match, onMount, Show, Switch, type JSX } from 'solid-js'
 import type { Quote } from '@shared/types'
+import { AuctionTape } from './components/AuctionTape'
 import { ChartPanel } from './components/ChartPanel'
 import { EmptyState } from './components/EmptyState'
 import { MoneyFlow } from './components/MoneyFlow'
@@ -30,7 +31,7 @@ import { createSparklineLoader } from './stores/sparklines'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
-  const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow'>('book')
+  const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow' | 'auction'>('book')
 
   onMount(() => {
     void bootstrapAppState()
@@ -107,29 +108,38 @@ export default function App(): JSX.Element {
                     >
                       资金流
                     </button>
+                    <button
+                      class="rail-tab rail-tab--auction"
+                      classList={{ 'rail-tab--active': railTab() === 'auction' }}
+                      role="tab"
+                      aria-selected={railTab() === 'auction'}
+                      onClick={() => setRailTab('auction')}
+                    >
+                      竞价
+                    </button>
                   </div>
                   <span class="statusbar__text">
                     {railTab() === 'book'
-                      ? '单位：手'
+                      ? '手'
                       : railTab() === 'tape'
-                        ? '最近 60 笔'
-                        : '近 5 日'}
+                        ? '60 笔'
+                        : railTab() === 'flow'
+                          ? '5 日'
+                          : '快照'}
                   </span>
                 </div>
                 <div class="panel__body panel__body--fill">
-                  <Show
-                    when={railTab() === 'book'}
-                    fallback={
-                      <Show
-                        when={railTab() === 'tape'}
-                        fallback={<MoneyFlow code={quote().code} />}
-                      >
-                        <TradeTape code={quote().code} />
-                      </Show>
-                    }
-                  >
-                    <OrderBook quote={quote()} />
-                  </Show>
+                  <Switch fallback={<OrderBook quote={quote()} />}>
+                    <Match when={railTab() === 'tape'}>
+                      <TradeTape code={quote().code} />
+                    </Match>
+                    <Match when={railTab() === 'flow'}>
+                      <MoneyFlow code={quote().code} />
+                    </Match>
+                    <Match when={railTab() === 'auction'}>
+                      <AuctionTape code={quote().code} />
+                    </Match>
+                  </Switch>
                 </div>
               </section>
 

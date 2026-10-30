@@ -36,6 +36,9 @@ const api: StockLensApi = {
   money: {
     flow: (code) => ipcRenderer.invoke(IPC.moneyFlow, code)
   },
+  auction: {
+    series: (code, date) => ipcRenderer.invoke(IPC.auctionSeries, code, date)
+  },
   trend: {
     minute: (code) => ipcRenderer.invoke(IPC.trendMinute, code),
     fiveDay: (code) => ipcRenderer.invoke(IPC.trendFiveDay, code),

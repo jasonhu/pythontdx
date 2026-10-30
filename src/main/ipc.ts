@@ -12,6 +12,7 @@ import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from
 import type { AppStore } from './services/store'
 import type { QuotePoller } from './services/poller'
 import {
+  fetchAuctions,
   fetchCategoryQuotes,
   fetchFiveDayTrend,
   fetchKline,
@@ -42,6 +43,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.tradeTicks, (_event, request: TradesRequest) => fetchTrades(request))
 
   ipcMain.handle(IPC.moneyFlow, (_event, code: string) => fetchMoneyFlow(code))
+
+  ipcMain.handle(IPC.auctionSeries, (_event, code: string, date?: string) =>
+    fetchAuctions(code, date)
+  )
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {
     poller.setSubscription(codes, intervalMs)

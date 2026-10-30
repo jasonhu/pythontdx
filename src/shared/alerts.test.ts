@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { AlertRule, Quote } from './types'
 import { evaluateAlerts, localDate } from './alerts'
 
-function quote(code: string, price: number, changePct: number): Quote {
-  return { code, name: code, price, changePct } as Quote
+function quote(code: string, price: number, changePct: number, extra: Partial<Quote> = {}): Quote {
+  return { code, name: code, price, changePct, ...extra } as Quote
 }
 
 function rule(overrides: Partial<AlertRule> = {}): AlertRule {
@@ -46,5 +46,14 @@ describe('evaluateAlerts', () => {
       evaluateAlerts([{ ...pct, enabled: false }], [quote('sh600519', 100, -5)], NOW).events
     ).toHaveLength(0)
     expect(evaluateAlerts([pct], [quote('sz000858', 100, -5)], NOW).events).toHaveLength(0)
+  })
+
+  it('量比预警使用可选字段并带上 x 单位', () => {
+    const volume = rule({ metric: 'volumeRatio', direction: 'above', value: 2 })
+    const scan = evaluateAlerts([volume], [quote('sh600519', 100, 1, { volumeRatio: 2.5 })], NOW)
+    expect(scan.events).toHaveLength(1)
+    expect(scan.events[0]?.message).toContain('量比')
+    expect(scan.events[0]?.message).toContain('2.50x')
+    expect(evaluateAlerts([volume], [quote('sh600519', 100, 1)], NOW).events).toHaveLength(0)
   })
 })

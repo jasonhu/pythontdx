@@ -4,7 +4,36 @@
  * 规则只在客户端计算，不生成交易指令；同一条规则同一本地日期只触发一次，
  * 避免 3 秒行情流把提示刷屏。
  */
-import type { AlertEvent, AlertRule, Quote } from './types'
+import type { AlertEvent, AlertMetric, AlertRule, Quote } from './types'
+
+export const ALERT_METRIC_LABELS: Record<AlertMetric, string> = {
+  price: '价格',
+  changePct: '涨幅',
+  volumeRatio: '量比',
+  turnoverRate: '换手率',
+  amplitude: '振幅'
+}
+
+export function alertMetricValue(metric: AlertMetric, quote: Quote): number {
+  switch (metric) {
+    case 'price':
+      return quote.price
+    case 'changePct':
+      return quote.changePct
+    case 'volumeRatio':
+      return quote.volumeRatio ?? Number.NaN
+    case 'turnoverRate':
+      return quote.turnoverRate ?? Number.NaN
+    case 'amplitude':
+      return quote.amplitude ?? Number.NaN
+  }
+}
+
+export function formatAlertValue(metric: AlertMetric, value: number): string {
+  if (metric === 'price') return value.toFixed(2)
+  if (metric === 'volumeRatio') return `${value.toFixed(2)}x`
+  return `${value.toFixed(2)}%`
+}
 
 export function localDate(now: number): string {
   const date = new Date(now)
@@ -14,11 +43,11 @@ export function localDate(now: number): string {
 }
 
 function metricValue(rule: AlertRule, quote: Quote): number {
-  return rule.metric === 'price' ? quote.price : quote.changePct
+  return alertMetricValue(rule.metric, quote)
 }
 
 function formatValue(rule: AlertRule, value: number): string {
-  return rule.metric === 'price' ? value.toFixed(2) : `${value.toFixed(2)}%`
+  return formatAlertValue(rule.metric, value)
 }
 
 export interface AlertScan {
@@ -53,7 +82,7 @@ export function evaluateAlerts(
       rule: next,
       quote,
       at: now,
-      message: `${rule.name} ${rule.metric === 'price' ? '价格' : '涨幅'} ${formatValue(
+      message: `${rule.name} ${ALERT_METRIC_LABELS[rule.metric]} ${formatValue(
         rule,
         value
       )} ${label} ${formatValue(rule, rule.value)}`

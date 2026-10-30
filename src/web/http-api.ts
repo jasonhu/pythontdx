@@ -267,6 +267,12 @@ export function createHttpApi(): StockLensApi {
       }),
       openExternal: async (url) => {
         window.open(url, '_blank', 'noopener,noreferrer')
+      },
+      notify: async (title, body) => {
+        // 不在触发时申请权限（会被浏览器拦），只在已经授权时发系统通知
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(title, { body })
+        }
       }
     }
   }

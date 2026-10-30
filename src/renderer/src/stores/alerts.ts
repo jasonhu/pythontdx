@@ -7,6 +7,7 @@
 import { createSignal } from 'solid-js'
 import type { AlertEvent, Quote } from '@shared/types'
 import { evaluateAlerts } from '@shared/alerts'
+import { api } from '../lib/ipc'
 import { appState, markAlertsTriggered } from './app'
 
 const [events, setEvents] = createSignal<AlertEvent[]>([])
@@ -21,6 +22,9 @@ export function scanAlerts(quotes: readonly Quote[], now = Date.now()): void {
   if (scan.events.length > 0) {
     setEvents((previous) => [...scan.events, ...previous].slice(0, 50))
     setLatest(scan.events[scan.events.length - 1] ?? null)
+    for (const event of scan.events) {
+      void api.app.notify('StockLens 预警', event.message).catch(() => undefined)
+    }
   }
 }
 

@@ -81,7 +81,9 @@ export const IPC = {
   /** 运行时版本信息（invoke） */
   appInfo: 'app:info',
   /** 用系统默认浏览器打开链接（invoke） */
-  appOpenExternal: 'app:open-external'
+  appOpenExternal: 'app:open-external',
+  /** 系统通知（invoke） */
+  appNotify: 'app:notify'
 } as const
 
 export interface KLineRequest {
@@ -177,5 +179,7 @@ export interface StockLensApi {
     info(): Promise<AppInfo>
     /** 交给系统浏览器打开，避免在应用内弹出新窗口 */
     openExternal(url: string): Promise<void>
+    /** 系统通知；不支持/未授权时静默失败 */
+    notify(title: string, body: string): Promise<void>
   }
 }

@@ -6,7 +6,7 @@
  *  - 处理器内部不吞异常：抛出后 Electron 会把它序列化回渲染层，
  *    渲染层由 lib/ipc.ts 的 safeInvoke 统一转成可读的中文提示。
  */
-import { ipcMain, app, shell, type BrowserWindow } from 'electron'
+import { ipcMain, app, shell, Notification, type BrowserWindow } from 'electron'
 import type { AppState, BlockKind, F10Section } from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
@@ -152,5 +152,15 @@ export function registerIpcHandlers(context: IpcContext): void {
     // 只允许 http/https，避免被注入 file:// 之类的协议
     if (/^https?:\/\//i.test(url)) return shell.openExternal(url)
     return undefined
+  })
+
+  ipcMain.handle(IPC.appNotify, (_event, title: string, body: string) => {
+    try {
+      if (Notification.isSupported()) {
+        new Notification({ title: String(title), body: String(body) }).show()
+      }
+    } catch (error) {
+      console.error('[notify] 系统通知失败：', error)
+    }
   })
 }

@@ -5,6 +5,7 @@
  */
 import { createEffect, createSignal, For, untrack, Show, type JSX } from 'solid-js'
 import type { AlertDirection, AlertMetric, AlertRule, Quote } from '@shared/types'
+import { ALERT_METRIC_LABELS, alertMetricValue, formatAlertValue } from '@shared/alerts'
 import { fixed, signedPct } from '@shared/format'
 import { addAlert, appState, removeAlert, toggleAlert } from '../stores/app'
 import { alertEvents } from '../stores/alerts'
@@ -17,7 +18,7 @@ interface AlertPanelProps {
 }
 
 function formatRuleValue(rule: AlertRule): string {
-  return rule.metric === 'price' ? fixed(rule.value) : `${fixed(rule.value)}%`
+  return formatAlertValue(rule.metric, rule.value)
 }
 
 export function AlertPanel(props: AlertPanelProps): JSX.Element {
@@ -53,6 +54,14 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
       value: parsed
     })
     setError(null)
+  }
+
+  const changeMetric = (next: AlertMetric): void => {
+    setMetric(next)
+    const quote = props.quote
+    if (!quote) return
+    const initial = alertMetricValue(next, quote)
+    setValue(Number.isFinite(initial) ? initial.toFixed(2) : '')
   }
 
   return (
@@ -104,10 +113,11 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
               class="alert__select"
               value={metric()}
               aria-label="预警指标"
-              onChange={(event) => setMetric(event.currentTarget.value as AlertMetric)}
+              onChange={(event) => changeMetric(event.currentTarget.value as AlertMetric)}
             >
-              <option value="price">价格</option>
-              <option value="changePct">涨幅</option>
+              <For each={Object.entries(ALERT_METRIC_LABELS)}>
+                {([value, label]) => <option value={value}>{label}</option>}
+              </For>
             </select>
             <select
               class="alert__select"
@@ -122,7 +132,13 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
               class="alert__input"
               type="number"
               step="0.01"
-              placeholder={metric() === 'price' ? '阈值价格' : '阈值涨幅 %'}
+              placeholder={
+                metric() === 'price'
+                  ? '阈值价格'
+                  : metric() === 'volumeRatio'
+                    ? '阈值量比'
+                    : '阈值 %'
+              }
               value={value()}
               onInput={(event) => setValue(event.currentTarget.value)}
             />
@@ -156,7 +172,7 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
                       <button class="alert__rule-main" onClick={() => props.onSelect(rule.code)}>
                         <span class="alert__rule-name">{rule.name}</span>
                         <span class="alert__rule-desc">
-                          {rule.metric === 'price' ? '价格' : '涨幅'}{' '}
+                          {ALERT_METRIC_LABELS[rule.metric]}{' '}
                           {rule.direction === 'above' ? '≥' : '≤'} {formatRuleValue(rule)}
                         </span>
                       </button>

@@ -376,7 +376,7 @@ export interface AppSettings {
   klineZoom?: number
 }
 
-export type AlertMetric = 'price' | 'changePct'
+export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'
 export type AlertDirection = 'above' | 'below'
 
 export interface AlertRule {

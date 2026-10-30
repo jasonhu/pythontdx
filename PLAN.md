@@ -166,7 +166,7 @@
   右侧栏竞价页签已接当日 `0x056a` 过程快照（188 点，虚拟匹配量）；
   F10 公司资料弹窗已接 `0x02cf/0x02d0`（16 段，GBK 正文）；
   tdxstat 已按 `trade_date` 写 JSONL.gz + manifest（8100 行，主分区 8048 行），
-  并生成 SQLite 查询层（tdxstat/tdxstat2/meta，1.7 MB），数据工具提供只读 SQL 查询；
+  并生成 SQLite 查询层（tdxstat/tdxstat2/meta，1.7 MB），数据工具提供只读 SQL 与 CSV 导出；
   只读 HTTP API 已起（`python/tdx_server.py`，默认 127.0.0.1:8765，无鉴权）；
   Web 只读页 + SSE 已可跑（`npm run dev:web`，复用同一套 SolidJS 渲染层）；
   `--web-dir out/web` 可让 Python 服务单端口托管 Web；搜索逻辑已移到 `src/shared/search.ts`，

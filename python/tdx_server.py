@@ -327,6 +327,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/stats_csv":
+                with self.server.lock:
+                    self._ok(self.server.bridge.stats_csv())
+                return
             if parsed.path == "/api/blocks":
                 with self.server.lock:
                     self._ok(self.server.bridge.blocks(payload.get("kind", "gn")))

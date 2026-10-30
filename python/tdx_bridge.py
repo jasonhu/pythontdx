@@ -29,6 +29,7 @@ StockLens 的通达信行情桥接进程。
 from __future__ import annotations
 
 import gzip
+import csv
 import hashlib
 import io
 import json
@@ -1507,6 +1508,45 @@ def run_stats_query(sql: str, limit: int = 200) -> dict:
         connection.close()
 
 
+def export_stats_csv() -> dict:
+    """把 stats.db 的 tdxstat / tdxstat2 全量导出为 UTF-8 BOM CSV。"""
+    database = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+    if not database.exists():
+        raise TdxError("stats.db 不存在，请先在数据工具里执行「规范化导出」")
+    target = database.parent / "csv"
+    target.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True)
+    counts: dict[str, int] = {}
+    paths: dict[str, str] = {}
+    try:
+        for table, filename in (
+            ("tdxstat", "tdxstat.csv"),
+            ("tdxstat2", "tdxstat2.csv"),
+        ):
+            cursor = connection.execute(f"SELECT * FROM {table}")
+            columns = [column[0] for column in cursor.description or []]
+            path = target / filename
+            temporary = path.with_name(path.name + ".part")
+            with temporary.open("w", encoding="utf-8-sig", newline="") as stream:
+                writer = csv.writer(stream)
+                writer.writerow(columns)
+                count = 0
+                for row in cursor:
+                    writer.writerow(row)
+                    count += 1
+            os.replace(temporary, path)
+            counts[table] = count
+            paths[table] = str(path)
+    finally:
+        connection.close()
+    return {
+        "statCsv": paths["tdxstat"],
+        "stat2Csv": paths["tdxstat2"],
+        "statCount": counts["tdxstat"],
+        "stat2Count": counts["tdxstat2"],
+    }
+
+
 def write_stats_db(
     root: Path,
     stat_by_date: dict[str, list[dict]],
@@ -2463,6 +2503,9 @@ class Bridge:
     def stats_query(self, sql: str, limit: int = 200) -> dict:
         return run_stats_query(sql, limit)
 
+    def stats_csv(self) -> dict:
+        return export_stats_csv()
+
     def blocks(self, kind: str = "gn") -> dict:
         """下载并解析板块 .dat，返回板块名与成分代码（含市场前缀）。"""
         if kind not in BLOCK_FILES:
@@ -2821,6 +2864,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("sql") or ""),
             int(payload.get("limit", 200)),
         )
+    if cmd == "stats_csv":
+        return bridge.stats_csv()
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

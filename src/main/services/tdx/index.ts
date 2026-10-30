@@ -22,6 +22,7 @@ import type {
   ScreenRequest,
   ScreenResult,
   SearchItem,
+  StatsCsvExport,
   StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
@@ -166,6 +167,10 @@ export async function fetchTdxStatsExport(): Promise<TdxStatsExport> {
 /** stats.db 只读查询；SQL 只允许 SELECT/WITH。 */
 export async function fetchStatsQuery(sql: string, limit = 200): Promise<StatsQueryResult> {
   return bridge.send<StatsQueryResult>('stats_query', { sql, limit }, 30_000)
+}
+
+export async function fetchStatsCsv(): Promise<StatsCsvExport> {
+  return bridge.send<StatsCsvExport>('stats_csv', {}, 30_000)
 }
 
 const BLOCK_TIMEOUT_MS = 90_000

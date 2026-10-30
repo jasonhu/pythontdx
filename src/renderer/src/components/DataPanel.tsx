@@ -4,7 +4,12 @@
  * 只做只读数据管理，不碰交易；导出路径由 Python 后端决定并在界面上明确展示。
  */
 import { createSignal, For, Show, type JSX } from 'solid-js'
-import type { StatsQueryResult, TdxStatsExport, TdxStatsSummary } from '@shared/types'
+import type {
+  StatsCsvExport,
+  StatsQueryResult,
+  TdxStatsExport,
+  TdxStatsSummary
+} from '@shared/types'
 import { thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -31,6 +36,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [querying, setQuerying] = createSignal(false)
   const [query, setQuery] = createSignal<StatsQueryResult | null>(null)
   const [queryError, setQueryError] = createSignal<string | null>(null)
+  const [csvExporting, setCsvExporting] = createSignal(false)
+  const [csvResult, setCsvResult] = createSignal<StatsCsvExport | null>(null)
 
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
@@ -57,6 +64,19 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setError(errorMessage(cause))
     } finally {
       setExporting(false)
+    }
+  }
+
+  const runCsv = async (): Promise<void> => {
+    if (csvExporting()) return
+    setCsvExporting(true)
+    setError(null)
+    try {
+      setCsvResult(await api.data.statsCsv())
+    } catch (cause) {
+      setError(errorMessage(cause))
+    } finally {
+      setCsvExporting(false)
     }
   }
 
@@ -117,6 +137,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               onClick={() => void runExport()}
             >
               {exporting() ? '导出中…' : '规范化导出'}
+            </button>
+            <button
+              class="btn data__csv"
+              disabled={loading() || exporting() || csvExporting()}
+              onClick={() => void runCsv()}
+            >
+              {csvExporting() ? '导出 CSV…' : '导出 CSV'}
             </button>
             <span class="data__hint">只读操作，不访问付费/加密数据</span>
           </div>
@@ -195,6 +222,25 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                     </tbody>
                   </table>
                 </Show>
+              </div>
+            )}
+          </Show>
+
+          <Show when={csvResult()}>
+            {(data) => (
+              <div class="data__summary data__summary--csv">
+                <div class="data__path">
+                  <span>tdxstat.csv</span>
+                  <code>{data().statCsv}</code>
+                </div>
+                <div class="data__path">
+                  <span>tdxstat2.csv</span>
+                  <code>{data().stat2Csv}</code>
+                </div>
+                <div class="data__partitions">
+                  <span class="data__partition">{thousands(data().statCount)} 行</span>
+                  <span class="data__partition">{thousands(data().stat2Count)} 行</span>
+                </div>
               </div>
             )}
           </Show>

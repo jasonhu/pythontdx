@@ -47,6 +47,9 @@ class FakeBridge:
     def stats_query(self, sql, limit):
         return {"columns": ["code"], "rows": [["600519"]], "rowCount": 1}
 
+    def stats_csv(self):
+        return {"statCsv": "/tmp/tdxstat.csv", "stat2Csv": "/tmp/tdxstat2.csv"}
+
     def blocks(self, kind):
         return {"kind": kind, "blockCount": 1, "blocks": [{"name": "测试板块"}]}
 
@@ -124,6 +127,9 @@ class TestHttpApi(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["600519"]])
+        status, payload, _ = self.request("POST", "/api/stats_csv", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["statCsv"], "/tmp/tdxstat.csv")
         status, payload, _ = self.request("POST", "/api/blocks", {"kind": "gn"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["blocks"][0]["name"], "测试板块")

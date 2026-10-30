@@ -270,6 +270,13 @@ export interface StatsQueryResult {
   limited: boolean
 }
 
+export interface StatsCsvExport {
+  statCsv: string
+  stat2Csv: string
+  statCount: number
+  stat2Count: number
+}
+
 /* --------------------------------------------------------------- 板块数据 */
 
 export type BlockKind = 'gn' | 'fg' | 'zs' | 'general'

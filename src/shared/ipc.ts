@@ -23,6 +23,7 @@ import type {
   SearchItem,
   ScreenRequest,
   ScreenResult,
+  StatsCsvExport,
   StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
@@ -58,6 +59,8 @@ export const IPC = {
   dataStatsExport: 'data:stats-export',
   /** stats.db 只读查询（invoke） */
   dataStatsQuery: 'data:stats-query',
+  /** stats.db 导出 CSV（invoke） */
+  dataStatsCsv: 'data:stats-csv',
   /** 板块列表/成分（invoke） */
   blockList: 'block:list',
   /** 行业分类/成分（invoke） */
@@ -160,6 +163,8 @@ export interface StockLensApi {
     statsExport(): Promise<TdxStatsExport>
     /** 在 stats.db 上执行只读 SELECT/WITH */
     statsQuery(sql: string, limit?: number): Promise<StatsQueryResult>
+    /** 把 tdxstat/tdxstat2 全量导出为 CSV */
+    statsCsv(): Promise<StatsCsvExport>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

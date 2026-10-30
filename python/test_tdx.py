@@ -409,12 +409,21 @@ class TestStatsQuery(unittest.TestCase):
                 database = sqlite3.connect(folder / "stats.db")
                 database.execute("CREATE TABLE tdxstat (code TEXT, pe_ttm REAL)")
                 database.execute("INSERT INTO tdxstat VALUES ('600519', 20.79)")
+                database.execute("CREATE TABLE tdxstat2 (code TEXT, amount_10k REAL)")
+                database.execute("INSERT INTO tdxstat2 VALUES ('600519', 1234.5)")
                 database.commit()
                 database.close()
 
                 result = tdx.run_stats_query("SELECT code, pe_ttm FROM tdxstat", 10)
                 self.assertEqual(result["columns"], ["code", "pe_ttm"])
                 self.assertEqual(result["rows"], [["600519", 20.79]])
+                exported = tdx.export_stats_csv()
+                self.assertEqual(exported["statCount"], 1)
+                self.assertEqual(exported["stat2Count"], 1)
+                with open(exported["statCsv"], encoding="utf-8-sig") as stream:
+                    lines = stream.read().splitlines()
+                self.assertEqual(lines[0], "code,pe_ttm")
+                self.assertEqual(lines[1], "600519,20.79")
                 with self.assertRaises(tdx.TdxError):
                     tdx.run_stats_query("DELETE FROM tdxstat")
                 with self.assertRaises(tdx.TdxError):

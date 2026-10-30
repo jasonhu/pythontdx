@@ -7,6 +7,8 @@
 import { createEffect, createSignal, For, Show, type JSX } from 'solid-js'
 import type { F10TradingTable } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
+import { downloadText } from '../lib/download'
+import { toCsv } from '@shared/csv'
 import { IconClose, IconRefresh } from './Icons'
 
 const TABS: Array<{ key: string; label: string }> = [
@@ -58,6 +60,20 @@ export function MarketReportPanel(props: { onClose: () => void }): JSX.Element {
           </div>
           <div class="mreport__actions">
             <span>{table()?.count ?? 0} 行</span>
+            <button
+              class="btn mreport-export"
+              title="导出当前分区 CSV"
+              onClick={() => {
+                const current = table()
+                if (!current) return
+                downloadText(
+                  `stocklens-market-${current.section}.csv`,
+                  toCsv(current.columns, current.rows as Array<Array<string | number>>)
+                )
+              }}
+            >
+              导出
+            </button>
             <button
               class="btn btn--icon btn--bare mreport-refresh"
               title="刷新大盘资料"

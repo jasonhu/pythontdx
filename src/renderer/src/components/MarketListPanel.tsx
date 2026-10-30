@@ -9,6 +9,8 @@ import type { Quote } from '@shared/types'
 import type { SearchSecurity } from '@shared/search'
 import { compactAmount, fixed, signedPct } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { downloadText } from '../lib/download'
+import { toCsv } from '@shared/csv'
 import { IconClose } from './Icons'
 
 type TabKey = 'all' | 'index' | 'fund' | 'reit' | 'bond' | 'kcb' | 'cyb' | 'bj' | 'b'
@@ -361,6 +363,46 @@ export function MarketListPanel(props: {
           <span>
             共 {filtered().length} 条 · 第 {page() + 1} / {pageCount()} 页
           </span>
+          <button
+            class="btn market__export"
+            onClick={() => {
+              const rows = pageItems().map((item) => {
+                const quote = quoteMap().get(item.code)
+                return [
+                  item.code,
+                  item.name,
+                  item.market,
+                  item.kind,
+                  quote?.price ?? '',
+                  quote?.changePct ?? '',
+                  quote?.amount ?? '',
+                  quote?.turnoverRate ?? '',
+                  quote?.volumeRatio ?? '',
+                  quote?.riseSpeed ?? ''
+                ]
+              })
+              downloadText(
+                `stocklens-market-page-${page() + 1}.csv`,
+                toCsv(
+                  [
+                    '代码',
+                    '名称',
+                    '市场',
+                    '类型',
+                    '现价',
+                    '涨跌幅',
+                    '成交额',
+                    '换手率',
+                    '量比',
+                    '涨速'
+                  ],
+                  rows
+                )
+              )
+            }}
+          >
+            导出本页
+          </button>
           <button
             class="btn market__blocks"
             onClick={() => {

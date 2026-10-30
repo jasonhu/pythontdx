@@ -7,6 +7,8 @@
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { F10TradingTable } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
+import { downloadText } from '../lib/download'
+import { toCsv } from '@shared/csv'
 import { IconClose, IconRefresh } from './Icons'
 
 const LIMIT = 300
@@ -85,6 +87,24 @@ export function DragonPanel(props: {
           </div>
           <div class="dragon__actions">
             <span>{table()?.count ?? 0} 条</span>
+            <button
+              class="btn dragon-export"
+              title="导出当前筛选结果 CSV"
+              onClick={() => {
+                const current = table()
+                if (!current) return
+                const indexes = visibleColumns().map((column) => column.index)
+                downloadText(
+                  'stocklens-dragon.csv',
+                  toCsv(
+                    visibleColumns().map((column) => column.name),
+                    rows().map((row) => indexes.map((index) => row[index] as string | number))
+                  )
+                )
+              }}
+            >
+              导出
+            </button>
             <button
               class="btn btn--icon btn--bare dragon-refresh"
               title="刷新龙虎榜"

@@ -62,6 +62,7 @@ CMD_REFRESH = 0x0547
 CMD_CATEGORY = 0x054B
 CMD_TODAY_TICKS = 0x0FC5
 CMD_HISTORY_TICKS = 0x0FC6
+CMD_AUCTION = 0x056A
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
@@ -73,6 +74,8 @@ CMD_FINANCE = 0x0010
 QUOTE_LIST_PREFIX = b"\x05\x00\x00\x00\x00\x00\x00\x00"
 REFRESH_BATCH = 100
 TRADE_PAGE = 1800
+AUCTION_RECORD = 16
+AUCTION_LIMIT = 500
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
@@ -386,6 +389,39 @@ def trades_data(
         raise TdxError("历史成交日期必须是 YYYY-MM-DD 或 YYYYMMDD")
     return struct.pack(
         "<IH6sHH", int(raw_date), market, code_bytes(symbol), start, count
+    )
+
+
+def auction_data(
+    market: int,
+    symbol: str,
+    trading_date: str | None = None,
+    selector: int = 3,
+    start: int = 0,
+    limit: int = AUCTION_LIMIT,
+) -> bytes:
+    """0x056a：集合竞价过程快照，28 字节请求。"""
+    if selector < 0 or selector > 0xFFFFFFFF:
+        raise TdxError("竞价 selector 超出 u32 范围")
+    if start < 0 or start > 0xFFFFFFFF or limit < 1 or limit > 0xFFFFFFFF:
+        raise TdxError("竞价起点/数量超出 u32 范围")
+
+    date_raw = 0
+    if trading_date:
+        raw_date = trading_date.strip().replace("-", "")
+        if len(raw_date) != 8 or not raw_date.isdigit():
+            raise TdxError("竞价日期必须是 YYYY-MM-DD 或 YYYYMMDD")
+        date_raw = int(raw_date)
+    return struct.pack(
+        "<BB6sIIIII",
+        market,
+        0,
+        code_bytes(symbol),
+        date_raw,
+        selector,
+        0,
+        start,
+        limit,
     )
 
 
@@ -984,6 +1020,40 @@ def parse_trades(
     return ticks
 
 
+def parse_auctions(body: bytes) -> list[dict]:
+    """0x056a 集合竞价过程：count u16 + 16 字节定长记录。"""
+    if len(body) < 2:
+        raise TdxError("竞价报文不完整")
+    count = _u16(body, 0)
+    if len(body) != 2 + count * AUCTION_RECORD:
+        raise TdxError("竞价记录数量与报文长度不符")
+
+    points: list[dict] = []
+    pos = 2
+    for index in range(count):
+        minute = _u16(body, pos)
+        price = _f32(body, pos + 2)
+        matched = _u32(body, pos + 6)
+        unmatched = struct.unpack_from("<i", body, pos + 10)[0]
+        second = body[pos + 15]
+        points.append(
+            {
+                "index": index,
+                "timeMinutes": minute,
+                "second": second,
+                "time": f"{minute // 60:02d}:{minute % 60:02d}:{second:02d}",
+                "timeSeconds": minute * 60 + second,
+                "price": price,
+                "priceMilli": round(price * 1000),
+                "matchedVolume": matched,
+                "unmatchedVolume": abs(unmatched),
+                "unmatchedDirection": 1 if unmatched >= 0 else -1,
+            }
+        )
+        pos += AUCTION_RECORD
+    return points
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1405,6 +1475,22 @@ class Bridge:
             body, market, symbol, start, self.index.by_code, trading_date
         )
 
+    def auctions(
+        self,
+        code: str,
+        trading_date: str | None = None,
+        selector: int = 3,
+        start: int = 0,
+        limit: int = AUCTION_LIMIT,
+    ) -> list[dict]:
+        """集合竞价过程快照：不传日期为当日，传日期为历史。"""
+        market, symbol = parse_code(code)
+        body = self.conn.request(
+            CMD_AUCTION,
+            auction_data(market, symbol, trading_date, selector, start, limit),
+        )
+        return parse_auctions(body)
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -1553,6 +1639,14 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             start=int(payload.get("start", 0)),
             count=int(payload.get("count", TRADE_PAGE)),
             trading_date=payload.get("date") or None,
+        )
+    if cmd == "auctions":
+        return bridge.auctions(
+            payload.get("code", ""),
+            trading_date=payload.get("date") or None,
+            selector=int(payload.get("selector", 3)),
+            start=int(payload.get("start", 0)),
+            limit=int(payload.get("limit", AUCTION_LIMIT)),
         )
     if cmd == "kline":
         return bridge.kline(

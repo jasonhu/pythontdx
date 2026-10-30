@@ -214,6 +214,33 @@ class TestTrades(unittest.TestCase):
         self.assertEqual(first["tradeAmount"], 133075.0)
 
 
+class TestAuctions(unittest.TestCase):
+    def test_auction_request(self):
+        data = tdx.auction_data(1, "600519", None, 3, 0, 50)
+        self.assertEqual(len(data), 28)
+        self.assertEqual(data[:2], b"\x01\x00")
+        self.assertEqual(data[2:8], b"600519")
+        self.assertEqual(int.from_bytes(data[8:12], "little"), 0)
+        history = tdx.auction_data(1, "600519", "2026-10-28", 3, 0, 50)
+        self.assertEqual(int.from_bytes(history[8:12], "little"), 20261028)
+
+    def test_auction_parser(self):
+        points = tdx.parse_auctions(fixture("auction-today"))
+        self.assertEqual(len(points), 50)
+        first = points[0]
+        self.assertEqual(first["time"], "09:15:02")
+        self.assertEqual(first["timeSeconds"], 33302)
+        self.assertAlmostEqual(first["price"], 1353.77, places=2)
+        self.assertEqual(first["priceMilli"], 1353770)
+        self.assertEqual(first["matchedVolume"], 16)
+        self.assertEqual(first["unmatchedVolume"], 1)
+        self.assertEqual(first["unmatchedDirection"], -1)
+        self.assertEqual(points[-1]["time"], "09:20:01")
+
+    def test_empty_auction(self):
+        self.assertEqual(tdx.parse_auctions(b"\x00\x00"), [])
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")

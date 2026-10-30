@@ -86,6 +86,7 @@ const api: StockLensApi = {
   },
   window: {
     control: (action) => ipcRenderer.invoke(IPC.windowControl, action),
+    openChart: (code) => ipcRenderer.invoke(IPC.windowChart, code),
     onStateChange: (listener) => subscribe<WindowState>(IPC.windowState, listener)
   },
   app: {

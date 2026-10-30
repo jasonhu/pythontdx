@@ -2,6 +2,7 @@
  * 无边框窗口的创建与几何状态管理。
  */
 import { existsSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BrowserWindow, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
@@ -112,6 +113,59 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
   }
 
   return window
+}
+
+const chartWindows = new Set<BrowserWindow>()
+
+/** 独立 K 线窗口：同一套 preload/渲染层，只渲染 DetachedChart。 */
+export function createChartWindow(code: string): BrowserWindow {
+  const icon = resolveWindowIcon()
+  const child = new BrowserWindow({
+    width: 980,
+    height: 700,
+    minWidth: 760,
+    minHeight: 480,
+    title: `StockLens · ${code.toUpperCase()}`,
+    backgroundColor: BACKGROUND_COLOR,
+    autoHideMenuBar: true,
+    ...(icon ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      spellcheck: false,
+      backgroundThrottling: false
+    }
+  })
+  chartWindows.add(child)
+  child.on('closed', () => chartWindows.delete(child))
+  child.once('ready-to-show', () => child.show())
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    const url = new URL(process.env['ELECTRON_RENDERER_URL'])
+    url.searchParams.set('detached', 'chart')
+    url.searchParams.set('code', code)
+    void child.loadURL(url.toString())
+  } else {
+    void child.loadFile(join(__dirname, '../renderer/index.html'), {
+      query: { detached: 'chart', code }
+    })
+  }
+
+  const capturePath = process.env.STOCKLENS_CAPTURE_CHILD
+  if (capturePath) {
+    child.webContents.once('did-finish-load', () => {
+      setTimeout(() => {
+        void child.webContents
+          .capturePage()
+          .then((image) => writeFile(capturePath, image.toPNG()))
+          .then(() => console.log(`[capture] 独立窗口截图：${capturePath}`))
+          .catch((error) => console.error('[capture] 独立窗口截图失败', error))
+      }, 5000)
+    })
+  }
+  return child
 }
 
 function debounce<T extends (...args: never[]) => void>(fn: T, delay: number): T {

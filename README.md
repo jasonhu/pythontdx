@@ -73,7 +73,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 **工程**
 
 - 类型契约桌面 / Web / 后端共享，改错立刻编译报错
-- 组合分析（当日快照 + 本地持仓盈亏 + 持股回溯）、多股同列：当前分组最多 6 只，日 K / 当日分时迷你图，点击切换主图
+- 组合分析（当日快照 + 本地持仓盈亏 + 持股回溯）、独立 K 线窗口、多股同列：当前分组最多 6 只，日 K / 当日分时迷你图，点击切换主图
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
 - 数据工具：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 只读前端（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管

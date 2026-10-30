@@ -6,6 +6,7 @@
  */
 import { render } from 'solid-js/web'
 import App from './App'
+import { DetachedChart } from './components/DetachedChart'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
@@ -16,4 +17,7 @@ if (!container) {
   throw new Error('找不到 #root 挂载点，请检查 index.html')
 }
 
-render(() => <App />, container)
+const params = new URLSearchParams(window.location.search)
+const detachedCode = params.get('detached') === 'chart' ? params.get('code') : null
+
+render(() => (detachedCode ? <DetachedChart code={detachedCode} /> : <App />), container)

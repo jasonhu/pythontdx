@@ -122,6 +122,8 @@ export const IPC = {
 
   /** 窗口控制（invoke） */
   windowControl: 'window:control',
+  /** 打开独立 K 线窗口（invoke） */
+  windowChart: 'window:chart',
   /** 窗口状态变化（on） */
   windowState: 'window:state',
 
@@ -247,6 +249,7 @@ export interface StockLensApi {
   }
   window: {
     control(action: WindowAction): Promise<WindowState>
+    openChart(code: string): Promise<void>
     onStateChange(listener: (state: WindowState) => void): () => void
   }
   app: {

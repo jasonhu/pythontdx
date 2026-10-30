@@ -16,6 +16,7 @@ import type {
 } from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
+import { createChartWindow } from './window'
 import type { QuotePoller } from './services/poller'
 import {
   fetchAuctions,
@@ -174,6 +175,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   })
 
   /* -------------------------------------------------------- 窗口 */
+
+  ipcMain.handle(IPC.windowChart, (_event, code: string) => {
+    createChartWindow(code)
+  })
 
   ipcMain.handle(IPC.windowControl, (_event, action: string) => {
     const window = getWindow()

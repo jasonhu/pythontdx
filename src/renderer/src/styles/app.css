@@ -1066,3 +1066,44 @@
   gap: var(--sp-3);
   padding: var(--sp-5);
 }
+
+/* ------------------------------------------------------------ 独立窗口 */
+.detached-window {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 8px;
+  gap: 8px;
+}
+
+.detached-window__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 4px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.detached-window__head code {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.detached-window__hint {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.detached-window__chart {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.detached-window__chart > .chart-card {
+  flex: 1;
+  min-height: 0;
+}

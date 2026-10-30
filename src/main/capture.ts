@@ -66,6 +66,8 @@ async function capture(
         console.error('[capture] 退出前落盘失败：', error)
       }
     }
+    const hold = Number(process.env.STOCKLENS_CAPTURE_HOLD_MS ?? 0)
+    if (Number.isFinite(hold) && hold > 0) await wait(hold)
     app.exit(code)
   }
 }

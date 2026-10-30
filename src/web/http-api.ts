@@ -351,6 +351,9 @@ export function createHttpApi(): StockLensApi {
     },
     window: {
       control: async () => ({ focused: true, maximized: false, platform: 'web' }),
+      openChart: async () => {
+        throw new Error('浏览器版不支持独立窗口')
+      },
       onStateChange: () => () => undefined
     },
     app: {

@@ -61,6 +61,8 @@ export interface ChartPanelProps {
   onOpenReplay: () => void
   onOpenFormula: () => void
   onOpenIndicators: () => void
+  /** 独立窗口：隐藏会打开模态框/主窗口交互的按钮 */
+  detached?: boolean
 }
 
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
@@ -367,27 +369,36 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             )}
           </Show>
 
-          <button
-            class="btn btn--bare indicator-open"
-            title="技术指标"
-            onClick={() => props.onOpenIndicators()}
-          >
-            指标
-          </button>
-          <button
-            class="btn btn--bare formula-open"
-            title="指标公式预览"
-            onClick={() => props.onOpenFormula()}
-          >
-            公式
-          </button>
-          <button
-            class="btn btn--bare replay-open"
-            title="日 K 复盘"
-            onClick={() => props.onOpenReplay()}
-          >
-            复盘
-          </button>
+          <Show when={!props.detached}>
+            <button
+              class="btn btn--bare indicator-open"
+              title="技术指标"
+              onClick={() => props.onOpenIndicators()}
+            >
+              指标
+            </button>
+            <button
+              class="btn btn--bare formula-open"
+              title="指标公式预览"
+              onClick={() => props.onOpenFormula()}
+            >
+              公式
+            </button>
+            <button
+              class="btn btn--bare replay-open"
+              title="日 K 复盘"
+              onClick={() => props.onOpenReplay()}
+            >
+              复盘
+            </button>
+            <button
+              class="btn btn--bare chart-detach"
+              title="在新窗口打开"
+              onClick={() => void api.window.openChart(props.code)}
+            >
+              新窗
+            </button>
+          </Show>
           <button
             class="btn btn--icon btn--bare"
             title="刷新图表数据"

@@ -6,7 +6,16 @@
  *
  * 与分时图一样，坐标换算全部委托给 `lib/chart-geometry.ts` 里的纯函数。
  */
-import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onCleanup,
+  onMount,
+  Show,
+  type JSX
+} from 'solid-js'
 import type { KLineSeries } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { boll } from '@shared/indicators'
@@ -18,6 +27,8 @@ import {
   buildLinePath,
   cursorFromX,
   KLINE_BARS_MAX,
+  klineRangeStats,
+  type KLineRangeStats,
   klineWindow,
   movingAverage,
   nearestZoomLevel,
@@ -42,6 +53,9 @@ export interface KLineChartProps {
   boll?: boolean
   /** 对数价格坐标 */
   logScale?: boolean
+  /** 区间统计选择模式 */
+  rangeMode?: boolean
+  onRangeStats?: (stats: KLineRangeStats | null) => void
 }
 
 /** 默认档位：显示全部 K 线 */
@@ -72,9 +86,19 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
    * 键盘归属判断要用它：滚轮**不用点**就能用，键盘也不该要求先点一下（见 `onKeyDown`）。
    */
   const [hovering, setHovering] = createSignal(false)
+  const [rangeStart, setRangeStart] = createSignal<number | null>(null)
+  const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
 
   /** 全量 K 线 */
   const allBars = (): KLineSeries['bars'] => props.series.bars
+
+  createEffect(() => {
+    void props.series.code
+    void props.series.period
+    setRangeStart(null)
+    setRangeEnd(null)
+    props.onRangeStats?.(null)
+  })
   const total = (): number => allBars().length
 
   /** 可见窗口：默认右对齐，被左右键平移过就按 start 走（两端自动钳位） */
@@ -132,6 +156,18 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const extra = bands ? [...bands.upper, ...bands.middle, ...bands.lower] : []
     return buildKLineGeometry(bars(), size().width, size().height, undefined, extra, props.logScale)
   })
+  const rangeOverlay = createMemo(() => {
+    const start = rangeStart()
+    const geo = geometry()
+    if (start === null || !geo) return null
+    const end = rangeEnd() ?? cursorIndex() ?? start
+    const from = Math.min(start, end)
+    const to = Math.max(start, end)
+    const x1 = geo.x(from) - geo.slot / 2
+    const x2 = geo.x(to) + geo.slot / 2
+    return { x: x1, width: Math.max(1, x2 - x1) }
+  })
+
   const levels = createMemo(() => {
     const geo = geometry()
     return geo ? buildKLineLevels(geo) : []
@@ -165,6 +201,24 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       }))
     }
   })
+
+  const onPointerDown = (event: PointerEvent): void => {
+    if (!props.rangeMode) return
+    const geo = geometry()
+    if (!geo) return
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
+    if (index === null) return
+    if (rangeStart() === null || rangeEnd() !== null) {
+      setRangeStart(index)
+      setRangeEnd(null)
+      props.onRangeStats?.(null)
+      return
+    }
+    setRangeEnd(index)
+    const start = rangeStart()!
+    props.onRangeStats?.(klineRangeStats(allBars(), start, index))
+  }
 
   const onPointerMove = (event: PointerEvent): void => {
     const geo = geometry()
@@ -315,6 +369,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       aria-label="K 线图：滚轮或上下键缩放、左右键移动光标"
       onPointerEnter={() => setHovering(true)}
       onPointerMove={onPointerMove}
+      onPointerDown={onPointerDown}
       onPointerLeave={() => {
         // 指针离开就交还键盘、收起光标：别让「谁在响应键盘」含糊着
         setHovering(false)
@@ -475,6 +530,19 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             >
               {`↑↓ 缩放 · 近 ${win().count} 根`}
             </text>
+
+            {/* ---------- 区间统计选区 ---------- */}
+            <Show when={rangeOverlay()}>
+              {(box) => (
+                <rect
+                  class="chart-range"
+                  x={box().x}
+                  y={geo().priceTop}
+                  width={box().width}
+                  height={geo().volumeBottom - geo().priceTop}
+                />
+              )}
+            </Show>
 
             {/* ---------- 十字光标 ---------- */}
             <Show when={cursorReadout()}>

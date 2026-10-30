@@ -19,7 +19,7 @@ import type { KLineAdjust, KLinePeriod, KLineSeries, MinuteTrend } from '@shared
 import { fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { appState, updateSettings } from '../stores/app'
-import { KLINE_BARS_MAX } from '../lib/chart-geometry'
+import { KLINE_BARS_MAX, type KLineRangeStats } from '../lib/chart-geometry'
 import { toneOf } from '../lib/tone'
 import { KLineChart } from './KLineChart'
 import { ChartSkeleton } from './ChartSkeleton'
@@ -70,6 +70,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     appState.settings.subIndicator ?? 'none'
   )
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
+  const [rangeMode, setRangeMode] = createSignal(false)
+  const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
   createEffect(() => {
@@ -246,6 +248,20 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         </Show>
 
         <Show when={!isTrend()}>
+          <button
+            class="chip chart-range-toggle"
+            data-active={rangeMode()}
+            onClick={() => {
+              const next = !rangeMode()
+              setRangeMode(next)
+              if (!next) setRangeStats(null)
+            }}
+          >
+            区间
+          </button>
+        </Show>
+
+        <Show when={!isTrend()}>
           <select
             class="chart-sub-select"
             value={subIndicator()}
@@ -353,6 +369,33 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         </div>
       </div>
 
+      <Show when={rangeMode() || rangeStats()}>
+        <div class="chart-range-stats">
+          <Show when={rangeStats()} fallback={<span>区间统计：在图上点两下选择起点/终点</span>}>
+            {(stats) => (
+              <>
+                <span class="chart-range-stats__title">区间 {stats().bars} 根</span>
+                <span>
+                  涨跌{' '}
+                  <strong
+                    classList={{
+                      'tone-up': stats().changePct > 0,
+                      'tone-down': stats().changePct < 0
+                    }}
+                  >
+                    {signedPct(stats().changePct)}
+                  </strong>
+                </span>
+                <span>最高 {fixed(stats().high)}</span>
+                <span>最低 {fixed(stats().low)}</span>
+                <span>振幅 {fixed(stats().amplitude)}%</span>
+                <span>量 {thousands(stats().volume)} 手</span>
+              </>
+            )}
+          </Show>
+        </div>
+      </Show>
+
       <div
         class="chart-card__body"
         classList={{
@@ -387,7 +430,13 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               </Show>
               <Show when={klineSeries()}>
                 {(series) => (
-                  <KLineChart series={series()} boll={showBoll()} logScale={logScale()} />
+                  <KLineChart
+                    series={series()}
+                    boll={showBoll()}
+                    logScale={logScale()}
+                    rangeMode={rangeMode()}
+                    onRangeStats={setRangeStats}
+                  />
                 )}
               </Show>
               <Show when={subIndicator() !== 'none' ? klineSeries() : undefined}>

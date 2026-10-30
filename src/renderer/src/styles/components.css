@@ -3577,3 +3577,28 @@
   height: 64px;
   margin-top: 2px;
 }
+
+.chart-range {
+  fill: var(--accent);
+  fill-opacity: 0.1;
+  stroke: var(--accent);
+  stroke-opacity: 0.45;
+  pointer-events: none;
+}
+
+.chart-range-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  padding: 5px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.chart-range-stats__title {
+  color: var(--text-2);
+  font-weight: 600;
+}

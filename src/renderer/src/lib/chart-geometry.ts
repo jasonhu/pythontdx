@@ -741,3 +741,45 @@ export function downsample(values: number[], maxPoints: number): number[] {
 function round(value: number): string {
   return value.toFixed(2)
 }
+
+export interface KLineRangeStats {
+  start: number
+  end: number
+  bars: number
+  high: number
+  low: number
+  volume: number
+  changePct: number
+  amplitude: number
+}
+
+/** 区间统计：闭区间，按可见/绝对下标传入；越界或空区间返回 null。 */
+export function klineRangeStats(
+  bars: readonly KLineBar[],
+  start: number,
+  end: number
+): KLineRangeStats | null {
+  if (bars.length === 0) return null
+  const from = Math.max(0, Math.min(bars.length - 1, Math.min(start, end)))
+  const to = Math.max(0, Math.min(bars.length - 1, Math.max(start, end)))
+  let high = -Infinity
+  let low = Infinity
+  let volume = 0
+  for (let index = from; index <= to; index += 1) {
+    high = Math.max(high, bars[index].high)
+    low = Math.min(low, bars[index].low)
+    volume += bars[index].volume
+  }
+  const base = bars[from].close
+  const last = bars[to].close
+  return {
+    start: from,
+    end: to,
+    bars: to - from + 1,
+    high,
+    low,
+    volume,
+    changePct: base > 0 ? ((last - base) / base) * 100 : 0,
+    amplitude: base > 0 ? ((high - low) / base) * 100 : 0
+  }
+}

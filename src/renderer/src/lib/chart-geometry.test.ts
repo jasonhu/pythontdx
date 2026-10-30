@@ -9,6 +9,7 @@ import {
   WHEEL_STEP_DELTA,
   accumulateWheel,
   buildKLineGeometry,
+  klineRangeStats,
   buildKLineLevels,
   buildKLineTicks,
   buildLinePath,
@@ -375,6 +376,14 @@ describe('slotFromX', () => {
 
 describe('buildKLineGeometry', () => {
   const bars = makeBars([10, 12, 11, 13, 15, 14, 16, 18, 17, 19])
+
+  it('区间统计闭区间且越界钳位', () => {
+    const stats = klineRangeStats(bars, 2, 5)!
+    expect(stats.bars).toBe(4)
+    expect(stats.high).toBe(Math.max(...bars.slice(2, 6).map((bar) => bar.high)))
+    expect(stats.volume).toBe(bars.slice(2, 6).reduce((sum, bar) => sum + bar.volume, 0))
+    expect(klineRangeStats(bars, 99, 100)).not.toBeNull()
+  })
 
   it('空数据或画布过小返回 null', () => {
     expect(buildKLineGeometry([], 800, 400)).toBeNull()

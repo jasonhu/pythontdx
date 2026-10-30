@@ -1516,7 +1516,9 @@ def normalize_tdx_stats(
     }
 
 
-def _run_readonly_query(database: Path, sql: str, limit: int) -> dict:
+def _run_readonly_query(
+    database: Path, sql: str, limit: int, attachments: list[tuple[str, Path]] | None = None
+) -> dict:
     text = sql.strip().rstrip(";").strip()
     if not text:
         raise TdxError("SQL 不能为空")
@@ -1529,6 +1531,10 @@ def _run_readonly_query(database: Path, sql: str, limit: int) -> dict:
         raise TdxError(f"{database.name} 不存在，请先执行导入/导出")
     connection = sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True)
     try:
+        for name, path in attachments or []:
+            if not path.exists():
+                continue
+            connection.execute(f"ATTACH DATABASE ? AS {name}", (f"{path.as_uri()}?mode=ro",))
         cursor = connection.execute(f"SELECT * FROM ({text}) LIMIT {safe_limit}")
         columns = [column[0] for column in cursor.description or []]
         rows = [list(row) for row in cursor.fetchall()]
@@ -1551,9 +1557,10 @@ def run_stats_query(sql: str, limit: int = 200) -> dict:
 
 
 def run_local_query(sql: str, limit: int = 200) -> dict:
-    """在 local_bars.db 上执行只读 SELECT/WITH。"""
+    """在 local_bars.db 上查询；stats.db 存在时以 stats.* 附加为只读库。"""
     database = stocklens_data_dir() / "local" / "normalized" / "local" / "local_bars.db"
-    return _run_readonly_query(database, sql, limit)
+    stats = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+    return _run_readonly_query(database, sql, limit, [("stats", stats)])
 
 
 def export_stats_csv() -> dict:

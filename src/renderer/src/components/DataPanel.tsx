@@ -578,6 +578,19 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   本地
                 </button>
               </div>
+              <Show when={engine() === 'local'}>
+                <button
+                  class="btn data__cross-example"
+                  title="local_bars + stats.tdxstat 跨库查询"
+                  onClick={() =>
+                    setSql(
+                      'SELECT b.code, b.date, b.close, s.pe_ttm FROM bars b LEFT JOIN stats.tdxstat s ON s.code = b.code AND s.stats_date = b.date LIMIT 20'
+                    )
+                  }
+                >
+                  跨库示例
+                </button>
+              </Show>
               <button
                 class="btn data__query-run"
                 disabled={querying()}

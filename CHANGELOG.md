@@ -61,7 +61,7 @@ StockLens 的所有重要变更都记录在这里。
 - **第二主窗口**：TitleBar「新窗」；行情推送广播到所有窗口；active/settings BroadcastChannel 同步。
 - **窄窗适配**：1240px 以下隐藏自选迷你图、侧栏图标收窄、右栏可滚动，避免股票名压成一个字/买五被裁。
 - **全表排序**：MAC 分批 400 只拉全 A 5,615 只报价，按涨幅/成交额/现价重排；榜单首屏 *ST航图 +20.04%。
-- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `0e8723b5…`、deb 106 MB `54826af8…`，AppImage 实机启动截图。
+- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `d32af6e5…`、deb 106 MB `f6ccdcef…`，AppImage 实机启动截图；包内全表排序已验证。
 - **MAC 报价兜底**：`0x122B` 三步握手 + 字段 0~7 + 五档；7709 报价失败时自动切 MAC，89 Python。
 - **REITs 分栏**：基金内按 508/180 前缀单列，101 条。
 - **F10 交易数据扩充**：涨停/跌停/可转债/主力盘口四个分区；涨停 30 行实测。

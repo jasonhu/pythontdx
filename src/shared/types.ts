@@ -316,6 +316,14 @@ export interface LocalDayWriteResult {
   count: number
 }
 
+export interface SnapshotArchiveResult {
+  dir: string
+  rows: number
+  sha256: string
+  generatedAt: string
+  tradeDate: string
+}
+
 export interface KLineExportResult {
   dir: string
   files: string[]

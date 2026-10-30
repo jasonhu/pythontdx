@@ -60,6 +60,7 @@ from tdx_mac import (
 )
 from local_import import import_local_file
 from kline_export import write_kline_export
+from snapshot_archive import write_snapshot_archive
 from tdx_f10 import (
     fetch_announcements,
     fetch_business,
@@ -2511,6 +2512,37 @@ class Bridge:
         """写本地 .lc1/.lc5/.5（原子替换）。"""
         return write_min_file(path, bars)
 
+    def archive_snapshot(self) -> dict:
+        """把全市场 A 股快照归档到数据湖 lake/quotes/trade_date=/。"""
+        codes = []
+        for item in self.code_list():
+            symbol = str(item.get("symbol") or "")
+            market = str(item.get("market") or "")
+            if item.get("kind") != "GP-A":
+                continue
+            if market == "SH" and not re.match(r"^(600|601|603|605|688|689)", symbol):
+                continue
+            if market == "SZ" and not re.match(r"^(000|001|002|003|300|301|302)", symbol):
+                continue
+            if market == "BJ" and not re.match(r"^[489]", symbol):
+                continue
+            if market not in ("SH", "SZ", "BJ"):
+                continue
+            codes.append(str(item.get("code") or ""))
+        quotes: list[dict] = []
+        for start in range(0, len(codes), 400):
+            quotes.extend(fetch_mac_quotes(codes[start : start + 400]))
+        now = datetime.now().astimezone()
+        trade_date = now.strftime("%Y-%m-%d")
+        result = write_snapshot_archive(
+            stocklens_data_dir() / "lake" / "quotes" / f"trade_date={trade_date}",
+            quotes,
+            trade_date,
+            now.isoformat(timespec="seconds"),
+        )
+        result["quotes"] = len(quotes)
+        return result
+
     def export_klines(
         self, codes: list[str], period: str = "day", count: int = 240, adjust: str = "qfq"
     ) -> dict:
@@ -3315,6 +3347,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.local_day_read(str(payload.get("path") or ""), int(payload.get("limit", 0)))
     if cmd == "local_import":
         return bridge.local_import(str(payload.get("path") or ""))
+    if cmd == "archive_snapshot":
+        return bridge.archive_snapshot()
     if cmd == "export_klines":
         return bridge.export_klines(
             payload.get("codes") or [],

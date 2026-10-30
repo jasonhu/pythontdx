@@ -13,7 +13,8 @@ import type {
   LocalDayResult,
   LocalImportResult,
   LocalDayWriteResult,
-  KLineExportResult
+  KLineExportResult,
+  SnapshotArchiveResult
 } from '@shared/types'
 import { thousands } from '@shared/format'
 import { appState, updateSettings, watchCodes } from '../stores/app'
@@ -56,6 +57,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [snapshotExporting, setSnapshotExporting] = createSignal(false)
   const [snapshotResult, setSnapshotResult] = createSignal<number | null>(null)
   const [snapshotError, setSnapshotError] = createSignal<string | null>(null)
+  const [archiving, setArchiving] = createSignal(false)
+  const [archive, setArchive] = createSignal<SnapshotArchiveResult | null>(null)
+  const [archiveError, setArchiveError] = createSignal<string | null>(null)
   const [localDay, setLocalDay] = createSignal<LocalDayResult | null>(null)
   const [localLoading, setLocalLoading] = createSignal(false)
   const [localError, setLocalError] = createSignal<string | null>(null)
@@ -65,6 +69,19 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [writeLoading, setWriteLoading] = createSignal(false)
   const [writeResult, setWriteResult] = createSignal<LocalDayWriteResult | null>(null)
   const [writeError, setWriteError] = createSignal<string | null>(null)
+
+  const runArchive = async (): Promise<void> => {
+    if (archiving()) return
+    setArchiving(true)
+    setArchiveError(null)
+    try {
+      setArchive(await api.data.archiveSnapshot())
+    } catch (cause) {
+      setArchiveError(errorMessage(cause))
+    } finally {
+      setArchiving(false)
+    }
+  }
 
   const runSnapshotExport = async (): Promise<void> => {
     if (snapshotExporting()) return
@@ -373,6 +390,45 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               {snapshotExporting() ? '拉取中…' : '导出全市场 CSV'}
             </button>
           </section>
+          <section class="data__kline">
+            <div>
+              <div class="data__label">归档到数据湖</div>
+              <div class="data__sub">
+                lake/quotes/trade_date=/quotes.jsonl.gz + CSV + manifest（MAC 全 A 快照）。
+              </div>
+            </div>
+            <button
+              class="btn data__archive"
+              disabled={archiving()}
+              onClick={() => void runArchive()}
+            >
+              {archiving() ? '归档中…' : '归档全市场'}
+            </button>
+          </section>
+          <Show when={archiveError()}>
+            {(message) => <div class="data__query-error">{message()}</div>}
+          </Show>
+          <Show when={archive()}>
+            {(data) => (
+              <div class="data__summary data__summary--archive">
+                <div class="data__path">
+                  <span>数据湖目录</span>
+                  <code>{data().dir}</code>
+                </div>
+                <div class="data__path">
+                  <span>分区 / 行数</span>
+                  <code>
+                    {data().tradeDate} / {data().rows}
+                  </code>
+                </div>
+                <div class="data__path">
+                  <span>SHA256</span>
+                  <code>{data().sha256}</code>
+                </div>
+              </div>
+            )}
+          </Show>
+
           <Show when={snapshotError()}>
             {(message) => <div class="data__query-error">{message()}</div>}
           </Show>

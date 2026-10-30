@@ -17,6 +17,7 @@ import type {
   LocalDayBar,
   LocalDayResult,
   KLineExportResult,
+  SnapshotArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
   F10TradingTable,
@@ -327,6 +328,10 @@ export async function fetchFormulaScreen(
     },
     180_000
   )
+}
+
+export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {
+  return bridge.send<SnapshotArchiveResult>('archive_snapshot', {}, 120_000)
 }
 
 export async function exportKlines(req: {

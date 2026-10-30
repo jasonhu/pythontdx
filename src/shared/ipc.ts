@@ -26,6 +26,7 @@ import type {
   LocalDayBar,
   LocalDayResult,
   KLineExportResult,
+  SnapshotArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
@@ -124,6 +125,8 @@ export const IPC = {
   localDayWrite: 'local:write',
   /** 批量导出 K 线（invoke） */
   exportKlines: 'data:export-klines',
+  /** 全市场快照归档到数据湖（invoke） */
+  archiveSnapshot: 'data:archive-snapshot',
   /** 写本地分钟文件（invoke） */
   localMinWrite: 'local:write-min',
   /** 7615 财务报表关键科目（invoke） */
@@ -302,6 +305,7 @@ export interface StockLensApi {
       count?: number
       adjust?: string
     }): Promise<KLineExportResult>
+    archiveSnapshot(): Promise<SnapshotArchiveResult>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

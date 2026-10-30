@@ -79,6 +79,9 @@ class FakeBridge:
     def mac_quotes(self, codes):
         return []
 
+    def archive_snapshot(self):
+        return {"dir": "/tmp", "rows": 0, "sha256": "", "generatedAt": "", "tradeDate": ""}
+
     def export_klines(self, codes, period="day", count=240, adjust="qfq"):
         return {"dir": "/tmp", "files": [], "rows": 0, "codes": len(codes), "generatedAt": "", "failed": []}
 
@@ -328,6 +331,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/export_klines", {"codes": ["sh600519"]})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["codes"], 1)
+        status, payload, _ = self.request("POST", "/api/archive_snapshot", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["rows"], 0)
         status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])

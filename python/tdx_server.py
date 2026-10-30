@@ -492,6 +492,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_quotes(payload.get("codes") or []))
                 return
+            if parsed.path == "/api/archive_snapshot":
+                with self.server.lock:
+                    self._ok(self.server.bridge.archive_snapshot())
+                return
             if parsed.path == "/api/export_klines":
                 with self.server.lock:
                     self._ok(

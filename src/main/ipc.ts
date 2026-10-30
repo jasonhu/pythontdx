@@ -34,6 +34,7 @@ import {
   fetchLocalImport,
   fetchLocalQuery,
   exportKlines,
+  archiveSnapshot,
   writeLocalDay,
   writeLocalMin,
   fetchF10Reports,
@@ -176,6 +177,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.exportKlines, (_event, req: Parameters<typeof exportKlines>[0]) =>
     exportKlines(req)
   )
+
+  ipcMain.handle(IPC.archiveSnapshot, () => archiveSnapshot())
 
   ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>
     fetchF10Statement(code, kind, full)

@@ -13,13 +13,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import mimetypes
 import sys
 import threading
 import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from tdx_bridge import Bridge, TdxError
 
@@ -30,10 +32,16 @@ class TdxApiServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, address: tuple[str, int], bridge: Bridge):
+    def __init__(
+        self,
+        address: tuple[str, int],
+        bridge: Bridge,
+        web_dir: str | Path | None = None,
+    ):
         super().__init__(address, ApiHandler)
         self.bridge = bridge
         self.lock = threading.Lock()
+        self.web_dir = Path(web_dir).resolve() if web_dir else None
 
 
 class ApiHandler(BaseHTTPRequestHandler):
@@ -119,6 +127,47 @@ class ApiHandler(BaseHTTPRequestHandler):
     def _error(self, status: int, message: str) -> None:
         self._json(status, {"ok": False, "error": message})
 
+    def _static(self, path: str, head_only: bool = False) -> None:
+        """托管 out/web；找不到的 SPA 路径回退 index.html。"""
+        web_dir = self.server.web_dir
+        if web_dir is None or not web_dir.is_dir():
+            self._error(HTTPStatus.NOT_FOUND, "Web 产物不存在，请先 npm run build:web")
+            return
+        relative = unquote(path).lstrip("/") or "index.html"
+        try:
+            candidate = (web_dir / relative).resolve()
+            candidate.relative_to(web_dir)
+        except (OSError, ValueError):
+            self._error(HTTPStatus.FORBIDDEN, "非法路径")
+            return
+        if candidate.is_dir():
+            candidate = candidate / "index.html"
+        if not candidate.is_file():
+            if "." not in Path(relative).name:
+                candidate = web_dir / "index.html"
+            else:
+                self._error(HTTPStatus.NOT_FOUND, "文件不存在")
+                return
+        if not candidate.is_file():
+            self._error(HTTPStatus.NOT_FOUND, "文件不存在")
+            return
+        data = candidate.read_bytes()
+        content_type = mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        if candidate.name == "index.html":
+            self.send_header("Cache-Control", "no-cache")
+        else:
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.end_headers()
+        if head_only:
+            return
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def _body(self) -> dict[str, Any]:
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -172,11 +221,21 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.five_day(query.get("code", "")))
                 return
+            if not parsed.path.startswith("/api/"):
+                self._static(parsed.path)
+                return
             self._error(HTTPStatus.NOT_FOUND, f"未知路径：{parsed.path}")
         except (TdxError, ValueError, TypeError) as error:
             self._error(HTTPStatus.BAD_REQUEST, str(error))
         except Exception as error:  # noqa: BLE001 - 服务端要给出可读错误
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            self._error(HTTPStatus.METHOD_NOT_ALLOWED, "API 请使用 GET/POST")
+            return
+        self._static(parsed.path, head_only=True)
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
@@ -263,18 +322,24 @@ class ApiHandler(BaseHTTPRequestHandler):
 
 
 def create_server(
-    host: str = "127.0.0.1", port: int = 8765, bridge: Bridge | None = None
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    bridge: Bridge | None = None,
+    web_dir: str | Path | None = None,
 ) -> TdxApiServer:
-    return TdxApiServer((host, port), bridge or Bridge())
+    return TdxApiServer((host, port), bridge or Bridge(), web_dir)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="StockLens 只读 HTTP 行情 API")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--web-dir", default=None, help="可选：托管 out/web 静态产物")
     args = parser.parse_args()
-    server = create_server(args.host, args.port)
+    server = create_server(args.host, args.port, web_dir=args.web_dir)
     print(f"[api] listening on http://{args.host}:{server.server_port}", file=sys.stderr)
+    if server.web_dir is not None:
+        print(f"[api] serving web from {server.web_dir}", file=sys.stderr)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

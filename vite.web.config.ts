@@ -25,6 +25,12 @@ export default defineConfig({
     strictPort: true,
     fs: {
       allow: [project]
+    },
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8765',
+        changeOrigin: false
+      }
     }
   },
   build: {

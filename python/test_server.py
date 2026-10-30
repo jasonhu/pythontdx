@@ -2,8 +2,10 @@
 
 import http.client
 import json
+import tempfile
 import threading
 import unittest
+from pathlib import Path
 
 from tdx_server import create_server
 
@@ -116,6 +118,53 @@ class TestHttpApi(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["result"]["quotes"][0]["code"], "sh600519")
         connection.close()
+
+
+class TestStaticWeb(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        root = Path(self.directory.name)
+        (root / "assets").mkdir()
+        (root / "index.html").write_text("<h1>StockLens Web</h1>", encoding="utf-8")
+        (root / "assets" / "app.js").write_text("console.log(1)", encoding="utf-8")
+        self.server = create_server("127.0.0.1", 0, FakeBridge(), root)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        self.directory.cleanup()
+
+    def get(self, path, method="GET"):
+        connection = http.client.HTTPConnection(
+            "127.0.0.1", self.server.server_port, timeout=3
+        )
+        connection.request(method, path)
+        response = connection.getresponse()
+        body = response.read()
+        content_type = response.getheader("Content-Type", "")
+        connection.close()
+        return response.status, body, content_type
+
+    def test_static_and_spa_fallback(self):
+        status, body, content_type = self.get("/")
+        self.assertEqual(status, 200)
+        self.assertIn("StockLens Web", body.decode())
+        self.assertIn("text/html", content_type)
+        status, body, content_type = self.get("/assets/app.js")
+        self.assertEqual(status, 200)
+        self.assertIn("javascript", content_type)
+        self.assertEqual(body, b"console.log(1)")
+        status, body, _ = self.get("/assets/app.js", "HEAD")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"")
+        status, body, _ = self.get("/some/spa/route")
+        self.assertEqual(status, 200)
+        self.assertIn("StockLens Web", body.decode())
+        status, _, _ = self.get("/%2e%2e/%2e%2e/etc/passwd")
+        self.assertEqual(status, 403)
 
 
 if __name__ == "__main__":

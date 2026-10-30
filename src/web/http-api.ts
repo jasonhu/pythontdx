@@ -22,7 +22,8 @@ import type {
 import type { CategoryRequest, KLineRequest, StockLensApi, TradesRequest } from '@shared/ipc'
 import { DEFAULT_GROUP_ID, DEFAULT_SETTINGS, SEED_GROUPS, STATE_VERSION } from '@shared/types'
 
-const BASE = (import.meta.env.VITE_STOCKLENS_API ?? 'http://127.0.0.1:8765').replace(/\/$/, '')
+const BASE = (import.meta.env.VITE_STOCKLENS_API ?? '').replace(/\/$/, '')
+const FORCE_POLLING = new URLSearchParams(window.location.search).get('transport') === 'poll'
 const STORAGE_KEY = 'stocklens:web:state'
 
 interface ApiEnvelope<T> {
@@ -191,7 +192,7 @@ export function createHttpApi(): StockLensApi {
         stopPolling()
         if (codes.length === 0) return
         await poll()
-        if (typeof EventSource === 'undefined') {
+        if (FORCE_POLLING || typeof EventSource === 'undefined') {
           startPolling(intervalMs)
           return
         }

@@ -354,6 +354,17 @@ class TestTdxStats(unittest.TestCase):
                 database.close()
 
 
+class TestBlocks(unittest.TestCase):
+    def test_parse_block_dat(self):
+        data = fixture("block-gn-head")
+        blocks = tdx.parse_block_dat(data, "gn")
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0]["name"], "通达信88")
+        self.assertEqual(blocks[0]["count"], 88)
+        self.assertEqual(len(blocks[0]["codes"]), 88)
+        self.assertEqual(blocks[0]["codes"][0], "000408")
+
+
 class TestMoneyFlow(unittest.TestCase):
     def test_money_flow_request(self):
         data = tdx.money_flow_data(1, "600519")

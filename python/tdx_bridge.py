@@ -1654,6 +1654,64 @@ def export_tdx_stats(zip_bytes: bytes, source_sha256: str = "") -> dict:
     }
 
 
+BLOCK_HEADER_SIZE = 384
+BLOCK_RECORD_SIZE = 2813
+BLOCK_NAME_SIZE = 9
+BLOCK_CODE_SIZE = 7
+BLOCK_MAX_CODES = 400
+
+BLOCK_FILES = {
+    "gn": ("block_gn.dat", "概念板块"),
+    "fg": ("block_fg.dat", "风格板块"),
+    "zs": ("block_zs.dat", "指数板块"),
+    "general": ("block.dat", "一般板块"),
+}
+
+
+def parse_block_dat(data: bytes, kind: str) -> list[dict]:
+    """解析 384 字节头 + 2813 字节/条的板块 .dat。
+
+    记录布局：9s 名称 + u16 股票数 + u16 类型 + 2800s 代码区（每只 7 字节）。
+    这是 0x06b9 下载的 `block_gn.dat` / `block_fg.dat` / `block_zs.dat` 格式，
+    与本地 `T0002/hq_cache` 的旧格式一致。
+    """
+    if len(data) < BLOCK_HEADER_SIZE + 2:
+        raise TdxError("板块文件头不完整")
+    count = _u16(data, BLOCK_HEADER_SIZE)
+    pos = BLOCK_HEADER_SIZE + 2
+    blocks: list[dict] = []
+    for index in range(count):
+        if pos + BLOCK_RECORD_SIZE > len(data):
+            raise TdxError(
+                f"板块记录被截断：第 {index + 1}/{count} 条，剩余 {len(data) - pos} 字节"
+            )
+        name = data[pos : pos + BLOCK_NAME_SIZE].decode("gbk", "replace").strip("\x00").strip()
+        stock_count = _u16(data, pos + 9)
+        codes: list[str] = []
+        codes_start = pos + 13
+        for code_index in range(min(stock_count, BLOCK_MAX_CODES)):
+            start = codes_start + code_index * BLOCK_CODE_SIZE
+            code = (
+                data[start : start + BLOCK_CODE_SIZE]
+                .decode("ascii", "replace")
+                .rstrip("\x00")
+                .strip()
+            )
+            if code:
+                codes.append(code)
+        blocks.append(
+            {
+                "id": f"{kind}-{index}",
+                "name": name,
+                "kind": kind,
+                "count": stock_count,
+                "codes": codes,
+            }
+        )
+        pos += BLOCK_RECORD_SIZE
+    return blocks
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1918,6 +1976,7 @@ class Bridge:
         self.money_conn: TdxConnection | None = None
         self.index = CodeIndex()
         self.finance_cache: dict[str, tuple[float, dict]] = {}
+        self.block_cache: dict[str, tuple[float, dict]] = {}
 
     def close(self) -> None:
         self.conn.close()
@@ -2217,6 +2276,82 @@ class Bridge:
         )
         return result
 
+    def blocks(self, kind: str = "gn") -> dict:
+        """下载并解析板块 .dat，返回板块名与成分代码（含市场前缀）。"""
+        if kind not in BLOCK_FILES:
+            raise TdxError(f"未知板块类型：{kind}")
+        cached = self.block_cache.get(kind)
+        if cached and cached[0] > time.time():
+            return cached[1]
+
+        filename, label = BLOCK_FILES[kind]
+        data, chunks = self._download_bytes(filename)
+        saved = save_raw_file(filename, data)
+        raw_blocks = parse_block_dat(data, kind)
+
+        # 代码表通常已经加载；这里用它把 6 位代码补成 sh/sz/bj，
+        # 指数板块优先匹配 ZS，其余优先匹配 GP-A，避免 000001 串到指数/股票。
+        self.index.ensure(self.conn)
+        by_symbol: dict[str, list[dict]] = {}
+        for item in self.index.all:
+            by_symbol.setdefault(item["symbol"], []).append(item)
+        def resolve(symbol: str, prefer: str) -> tuple[str, str]:
+            candidates = by_symbol.get(symbol, [])
+            chosen = next(
+                (item for item in candidates if item.get("kind") == prefer),
+                candidates[0] if candidates else None,
+            )
+            if chosen:
+                return chosen["code"], chosen.get("name") or symbol
+            if symbol.startswith("6"):
+                return f"sh{symbol}", symbol
+            if symbol.startswith(("0", "3")):
+                return f"sz{symbol}", symbol
+            if symbol.startswith(("4", "8", "9")):
+                return f"bj{symbol}", symbol
+            return symbol, symbol
+
+        blocks: list[dict] = []
+        code_count = 0
+        for block in raw_blocks:
+            # “精选指数”这类块装的是指数；沪深300 等块装的是成分股，
+            # 000001 在两种块里分别指上证指数 / 平安银行，不能一律按 ZS 解析。
+            prefer = "ZS" if kind == "zs" and "指数" in block["name"] else "GP-A"
+            codes: list[str] = []
+            names: dict[str, str] = {}
+            for symbol in block["codes"]:
+                code, name = resolve(symbol, prefer)
+                if not code or code in codes:
+                    continue
+                codes.append(code)
+                names[code] = name
+            code_count += len(codes)
+            blocks.append(
+                {
+                    "id": block["id"],
+                    "name": block["name"],
+                    "kind": kind,
+                    "count": block["count"],
+                    "codes": codes,
+                    "names": names,
+                }
+            )
+
+        result = {
+            "kind": kind,
+            "label": label,
+            "file": filename,
+            "bytes": len(data),
+            "chunks": chunks,
+            "sha256": saved["sha256"],
+            "savedTo": saved["savedTo"],
+            "blockCount": len(blocks),
+            "codeCount": code_count,
+            "blocks": blocks,
+        }
+        self.block_cache[kind] = (time.time() + 600, result)
+        return result
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -2390,6 +2525,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.tdx_stats()
     if cmd == "tdx_stats_export":
         return bridge.tdx_stats_export()
+    if cmd == "blocks":
+        return bridge.blocks(str(payload.get("kind") or "gn"))
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

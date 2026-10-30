@@ -7,6 +7,7 @@
 import { createEffect, createSignal, Match, onMount, Show, Switch, type JSX } from 'solid-js'
 import type { Quote } from '@shared/types'
 import { AuctionTape } from './components/AuctionTape'
+import { BlockPanel } from './components/BlockPanel'
 import { ChartPanel } from './components/ChartPanel'
 import { DataPanel } from './components/DataPanel'
 import { EmptyState } from './components/EmptyState'
@@ -33,6 +34,7 @@ import { createSparklineLoader } from './stores/sparklines'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
+  const [blocksOpen, setBlocksOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow' | 'auction'>('book')
@@ -63,7 +65,10 @@ export default function App(): JSX.Element {
   return (
     <div class="app" classList={{ 'app--empty': !activeQuote() }}>
       <TitleBar onOpenData={() => setDataOpen(true)} />
-      <Sidebar onOpenRanking={() => setRankingOpen(true)} />
+      <Sidebar
+        onOpenRanking={() => setRankingOpen(true)}
+        onOpenBlocks={() => setBlocksOpen(true)}
+      />
 
       {/* 主区只有两块：行情头部 + 图表。图表用 flex 吃掉全部剩余高度 */}
       <main class="workspace">
@@ -179,6 +184,17 @@ export default function App(): JSX.Element {
         {(quote) => (
           <F10Panel code={quote().code} name={quote().name} onClose={() => setF10Open(false)} />
         )}
+      </Show>
+
+      <Show when={blocksOpen()}>
+        <BlockPanel
+          onClose={() => setBlocksOpen(false)}
+          onSelect={(quote) => {
+            applyQuotes([quote])
+            setActiveCode(quote.code)
+            setBlocksOpen(false)
+          }}
+        />
       </Show>
 
       <Show when={dataOpen()}>

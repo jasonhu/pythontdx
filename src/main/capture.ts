@@ -47,6 +47,9 @@ async function capture(
   let code = 0
   try {
     await drive(window)
+    // 让最后一次异步渲染真正上屏；capturePage 可能拿到上一帧，
+    // 板块/数据弹窗刚加载完就截图时尤其明显。
+    await wait(350)
     const image = await window.webContents.capturePage()
     await writeFile(target, image.toPNG())
     console.log(`[capture] 截图已保存：${target}`)

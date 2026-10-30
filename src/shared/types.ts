@@ -236,6 +236,35 @@ export interface TdxStatsExport {
   rawBytes: number
 }
 
+/* --------------------------------------------------------------- 板块数据 */
+
+export type BlockKind = 'gn' | 'fg' | 'zs' | 'general'
+
+export interface BlockGroup {
+  id: string
+  name: string
+  kind: BlockKind
+  /** 文件里记录的股票数（含未解析的代码） */
+  count: number
+  /** 已解析成带市场前缀的代码 */
+  codes: string[]
+  /** 代码 → 名称，来自 0x044d 代码表 */
+  names: Record<string, string>
+}
+
+export interface BlockList {
+  kind: BlockKind
+  label: string
+  file: string
+  bytes: number
+  chunks: number
+  sha256: string
+  savedTo: string
+  blockCount: number
+  codeCount: number
+  blocks: BlockGroup[]
+}
+
 /* --------------------------------------------------------------- 分时图 */
 
 /** 分时的分钟点：价格为该分钟收盘价，avg 为当日累计均价 */

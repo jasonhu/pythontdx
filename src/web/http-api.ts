@@ -8,6 +8,8 @@ import type {
   AppInfo,
   AppState,
   AuctionPoint,
+  BlockKind,
+  BlockList,
   CategoryQuote,
   F10Section,
   KLineSeries,
@@ -218,6 +220,9 @@ export function createHttpApi(): StockLensApi {
     data: {
       statsSummary: () => post<TdxStatsSummary>('/api/stats_summary', {}),
       statsExport: () => post<TdxStatsExport>('/api/stats_export', {})
+    },
+    block: {
+      list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind })
     },
     trend: {
       minute: (code) => request<MinuteTrend>(`/api/minute?code=${encodeURIComponent(code)}`),

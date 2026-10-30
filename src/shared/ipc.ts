@@ -8,6 +8,8 @@ import type {
   AppInfo,
   AppState,
   AuctionPoint,
+  BlockKind,
+  BlockList,
   CategoryQuote,
   F10Section,
   KLinePeriod,
@@ -50,6 +52,8 @@ export const IPC = {
   dataStatsSummary: 'data:stats-summary',
   /** tdxstat 规范化导出（invoke） */
   dataStatsExport: 'data:stats-export',
+  /** 板块列表/成分（invoke） */
+  blockList: 'block:list',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -142,6 +146,10 @@ export interface StockLensApi {
     statsSummary(): Promise<TdxStatsSummary>
     /** 下载并写原始 ZIP + JSONL.gz + SQLite + manifest */
     statsExport(): Promise<TdxStatsExport>
+  }
+  block: {
+    /** 0x06b9 下载并解析 block_*.dat */
+    list(kind: BlockKind): Promise<BlockList>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

@@ -44,6 +44,9 @@ class FakeBridge:
     def tdx_stats_export(self):
         return {"statCount": 8100, "database": "/tmp/stats.db"}
 
+    def blocks(self, kind):
+        return {"kind": kind, "blockCount": 1, "blocks": [{"name": "测试板块"}]}
+
 
 class TestHttpApi(unittest.TestCase):
     def setUp(self):
@@ -103,6 +106,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/stats_export", {})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["database"], "/tmp/stats.db")
+        status, payload, _ = self.request("POST", "/api/blocks", {"kind": "gn"})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["blocks"][0]["name"], "测试板块")
 
     def test_bad_json(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)

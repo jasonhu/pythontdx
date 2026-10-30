@@ -25,13 +25,14 @@ import {
   setActiveGroup,
   setDraggingCode
 } from '../stores/app'
-import { IconChart, IconClose, IconPlus, IconStar } from './Icons'
+import { IconChart, IconClose, IconGrid, IconPlus, IconStar } from './Icons'
 import { WatchRow } from './WatchRow'
 
 type DropSide = 'before' | 'after'
 
 interface SidebarProps {
   onOpenRanking: () => void
+  onOpenBlocks: () => void
 }
 
 export function Sidebar(props: SidebarProps): JSX.Element {
@@ -124,6 +125,14 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           自选股
           <span class="badge">{totalCount()}</span>
         </div>
+        <button
+          class="btn btn--icon btn--bare block-open"
+          title="板块 / 概念"
+          aria-label="打开板块与概念"
+          onClick={() => props.onOpenBlocks()}
+        >
+          <IconGrid size={13} />
+        </button>
         <button
           class="btn btn--icon btn--bare ranking-open"
           title="排行榜"

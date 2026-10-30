@@ -8,6 +8,8 @@
  */
 import type {
   AuctionPoint,
+  BlockKind,
+  BlockList,
   CategoryQuote,
   F10Section,
   KLinePeriod,
@@ -155,6 +157,13 @@ export async function fetchTdxStatsSummary(): Promise<TdxStatsSummary> {
 /** 0x06b9 下载并写原始 ZIP + JSONL.gz + SQLite + manifest。 */
 export async function fetchTdxStatsExport(): Promise<TdxStatsExport> {
   return bridge.send<TdxStatsExport>('tdx_stats_export', {}, DATA_TIMEOUT_MS)
+}
+
+const BLOCK_TIMEOUT_MS = 90_000
+
+/** 0x06b9 下载 block_*.dat 并解析板块成分。 */
+export async function fetchBlocks(kind: BlockKind): Promise<BlockList> {
+  return bridge.send<BlockList>('blocks', { kind }, BLOCK_TIMEOUT_MS)
 }
 
 /* ------------------------------------------------------------------ K 线 */

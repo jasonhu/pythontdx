@@ -318,6 +318,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.tdx_stats_export())
                 return
+            if parsed.path == "/api/blocks":
+                with self.server.lock:
+                    self._ok(self.server.bridge.blocks(payload.get("kind", "gn")))
+                return
             self._error(HTTPStatus.NOT_FOUND, f"未知路径：{parsed.path}")
         except (TdxError, ValueError, TypeError) as error:
             self._error(HTTPStatus.BAD_REQUEST, str(error))

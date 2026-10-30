@@ -29,6 +29,9 @@ StockLens 的所有重要变更都记录在这里。
 - **服务器文件**：`0x06b9` 完整下载 + 原始 ZIP 落盘/SHA256；
   `tdx_stats` 解析 `zhb.zip` 内 `tdxstat.cfg` / `tdxstat2.cfg`
   （各 8,103 行，主日期 20261029）。
+- **板块/概念**：`0x06b9` 下载 `block_gn/fg/zs/dat`，按 384 字节头 + 2813 字节记录解析；
+  概念 269 块/41,364 代码、风格 161 块/20,092 代码、指数 117 块、一般 100 块；
+  左栏板块、右栏成分股行情，点击切股。
 - **数据工具弹窗**：标题栏「数据」打开；一键下载 `zhb.zip` 摘要，或规范化导出
   JSONL.gz + SQLite + manifest，界面展示 8,100 行 / 16 分区 / 3 行空日期跳过。
 - **共享拼音搜索**：搜索实现移到 `src/shared/search.ts`，桌面与 Web 共用；
@@ -46,7 +49,7 @@ StockLens 的所有重要变更都记录在这里。
   `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
   分区计数、空日期跳过数）；另生成 SQLite 查询层 `stats.db`（tdxstat/tdxstat2/meta）。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 49。
+  Python 测试 17 → 50。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

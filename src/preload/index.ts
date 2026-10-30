@@ -47,6 +47,9 @@ const api: StockLensApi = {
     statsSummary: () => ipcRenderer.invoke(IPC.dataStatsSummary),
     statsExport: () => ipcRenderer.invoke(IPC.dataStatsExport)
   },
+  block: {
+    list: (kind) => ipcRenderer.invoke(IPC.blockList, kind)
+  },
   trend: {
     minute: (code) => ipcRenderer.invoke(IPC.trendMinute, code),
     fiveDay: (code) => ipcRenderer.invoke(IPC.trendFiveDay, code),

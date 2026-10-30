@@ -169,6 +169,14 @@ export interface AuctionPoint {
   unmatchedDirection: number
 }
 
+/** 0x02cf F10 段落目录 */
+export interface F10Section {
+  name: string
+  filename: string
+  start: number
+  length: number
+}
+
 /* --------------------------------------------------------------- 分时图 */
 
 /** 分时的分钟点：价格为该分钟收盘价，avg 为当日累计均价 */

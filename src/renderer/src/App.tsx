@@ -9,6 +9,7 @@ import type { Quote } from '@shared/types'
 import { AuctionTape } from './components/AuctionTape'
 import { ChartPanel } from './components/ChartPanel'
 import { EmptyState } from './components/EmptyState'
+import { F10Panel } from './components/F10Panel'
 import { MoneyFlow } from './components/MoneyFlow'
 import { OrderBook } from './components/OrderBook'
 import { QuoteHeader } from './components/QuoteHeader'
@@ -31,6 +32,7 @@ import { createSparklineLoader } from './stores/sparklines'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
+  const [f10Open, setF10Open] = createSignal(false)
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow' | 'auction'>('book')
 
   onMount(() => {
@@ -66,7 +68,7 @@ export default function App(): JSX.Element {
         <Show when={activeQuote()} fallback={<EmptyState />}>
           {(quote) => (
             <>
-              <QuoteHeader quote={quote()} />
+              <QuoteHeader quote={quote()} onOpenF10={() => setF10Open(true)} />
               <ChartPanel code={quote().code} />
             </>
           )}
@@ -169,6 +171,12 @@ export default function App(): JSX.Element {
             setRankingOpen(false)
           }}
         />
+      </Show>
+
+      <Show when={f10Open() ? activeQuote() : undefined}>
+        {(quote) => (
+          <F10Panel code={quote().code} name={quote().name} onClose={() => setF10Open(false)} />
+        )}
       </Show>
     </div>
   )

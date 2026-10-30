@@ -9,6 +9,7 @@ import type {
   AppState,
   AuctionPoint,
   CategoryQuote,
+  F10Section,
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
@@ -39,6 +40,10 @@ export const IPC = {
   moneyFlow: 'money:flow',
   /** 集合竞价过程（invoke） */
   auctionSeries: 'auction:series',
+  /** F10 段落目录（invoke） */
+  f10Catalog: 'f10:catalog',
+  /** F10 段落正文（invoke） */
+  f10Content: 'f10:content',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -119,6 +124,12 @@ export interface StockLensApi {
   auction: {
     /** 集合竞价过程快照（0x056a）；date 省略为当日 */
     series(code: string, date?: string): Promise<AuctionPoint[]>
+  }
+  f10: {
+    /** 公司资料目录（0x02cf） */
+    catalog(code: string): Promise<F10Section[]>
+    /** 公司资料正文（0x02d0） */
+    content(code: string, section: F10Section): Promise<string>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

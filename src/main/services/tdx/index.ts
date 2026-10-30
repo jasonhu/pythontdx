@@ -9,6 +9,7 @@
 import type {
   AuctionPoint,
   CategoryQuote,
+  F10Section,
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
@@ -117,6 +118,25 @@ export async function fetchAuctions(code: string, date?: string): Promise<Auctio
   return bridge.send<AuctionPoint[]>(
     'auctions',
     { code, date: date || undefined, limit: 500 },
+    QUOTES_TIMEOUT_MS
+  )
+}
+
+/** 0x02cf F10 段落目录。 */
+export async function fetchF10Catalog(code: string): Promise<F10Section[]> {
+  return bridge.send<F10Section[]>('f10_catalog', { code }, QUOTES_TIMEOUT_MS)
+}
+
+/** 0x02d0 F10 段落正文。 */
+export async function fetchF10Content(code: string, section: F10Section): Promise<string> {
+  return bridge.send<string>(
+    'f10_content',
+    {
+      code,
+      filename: section.filename,
+      start: section.start,
+      length: section.length
+    },
     QUOTES_TIMEOUT_MS
   )
 }

@@ -83,6 +83,8 @@ CMD_HISTORY_TICKS = 0x0FC6
 CMD_AUCTION = 0x056A
 CMD_FILE_CONTENT = 0x06B9
 CMD_MONEY_FLOW = 0x0FFC
+CMD_F10_CATEGORY = 0x02CF
+CMD_F10_CONTENT = 0x02D0
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
@@ -104,6 +106,10 @@ MONEY_FLOW_CHANNEL = 0x2D
 MONEY_FLOW_ROUTE = 0x7E
 MONEY_FLOW_HEADER = 0x28
 MONEY_FLOW_RECORD = 0x58
+F10_NAME_SIZE = 64
+F10_FILENAME_SIZE = 80
+F10_RECORD_SIZE = 152
+F10_CONTENT_HEADER = 12
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
@@ -488,6 +494,33 @@ def money_flow_data(market: int, symbol: str) -> bytes:
     """0x0ffc：市场 + 0 + 代码，补零到 38 字节；msg_id 另带 channel/route。"""
     data = struct.pack("<BB6s", market, 0, code_bytes(symbol))
     return data.ljust(38, b"\x00")
+
+
+def f10_catalog_data(market: int, symbol: str) -> bytes:
+    """0x02cf：u16 市场 + 6 代码 + 4 字节 0。"""
+    return struct.pack("<H6s4s", market, code_bytes(symbol), b"\x00\x00\x00\x00")
+
+
+def f10_content_data(
+    market: int,
+    symbol: str,
+    filename: str,
+    offset: int,
+    length: int,
+) -> bytes:
+    """0x02d0：市场/代码/80 字节文件名/偏移/长度/4 字节 0。"""
+    if not filename.strip():
+        raise TdxError("F10 文件名不能为空")
+    raw_filename = filename.strip().encode("gbk")
+    if len(raw_filename) > F10_FILENAME_SIZE:
+        raise TdxError("F10 文件名超过 80 字节")
+    if offset < 0 or offset > 0xFFFFFFFF or length < 1 or length > 0xFFFFFFFF:
+        raise TdxError("F10 偏移/长度超出 u32 范围")
+    return (
+        struct.pack("<H6sH", market, code_bytes(symbol), 0)
+        + raw_filename.ljust(F10_FILENAME_SIZE, b"\x00")
+        + struct.pack("<III", offset, length, 0)
+    )
 
 
 def bars_data(market: int, symbol: str, period: int, count: int, adjust: int, start: int = 0) -> bytes:
@@ -1221,6 +1254,43 @@ def parse_money_flow(body: bytes) -> list[dict]:
     return records
 
 
+def parse_f10_catalog(body: bytes) -> list[dict]:
+    """0x02cf：count u16 + 152 字节目录项（64 名称 + 80 文件名 + 4 偏移 + 4 长度）。"""
+    if len(body) < 2:
+        raise TdxError("F10 目录不完整")
+    count = _u16(body, 0)
+    expected = 2 + count * F10_RECORD_SIZE
+    if len(body) < expected:
+        raise TdxError("F10 目录条目不完整")
+    sections: list[dict] = []
+    for index in range(count):
+        record = body[2 + index * F10_RECORD_SIZE : 2 + (index + 1) * F10_RECORD_SIZE]
+        name = record[:F10_NAME_SIZE].decode("gbk", "replace").rstrip("\x00").strip()
+        filename = (
+            record[F10_NAME_SIZE : F10_NAME_SIZE + F10_FILENAME_SIZE]
+            .decode("gbk", "replace")
+            .rstrip("\x00")
+            .strip()
+        )
+        start, length = struct.unpack_from("<II", record, F10_NAME_SIZE + F10_FILENAME_SIZE)
+        sections.append(
+            {"name": name, "filename": filename, "start": start, "length": length}
+        )
+    return sections
+
+
+def parse_f10_content(body: bytes) -> str:
+    """0x02d0：12 字节头 + GBK 正文；正文长度在头 [10:12]。"""
+    if len(body) < F10_CONTENT_HEADER:
+        raise TdxError("F10 正文不完整")
+    length = _u16(body, 10)
+    if len(body) < F10_CONTENT_HEADER + length:
+        raise TdxError("F10 正文长度不足")
+    return body[
+        F10_CONTENT_HEADER : F10_CONTENT_HEADER + length
+    ].decode("gbk", "replace")
+
+
 def stocklens_data_dir() -> Path:
     """原始数据目录；开发/测试可用 STOCKLENS_DATA_DIR 覆盖。"""
     configured = os.environ.get("STOCKLENS_DATA_DIR")
@@ -1794,6 +1864,25 @@ class Bridge:
             raise TdxError("资金流节点返回空金额，请换资金流主站")
         return records
 
+    def f10_catalog(self, code: str) -> list[dict]:
+        """0x02cf F10 段落目录。"""
+        market, symbol = parse_code(code)
+        body = self.conn.request(
+            CMD_F10_CATEGORY, f10_catalog_data(market, symbol)
+        )
+        return parse_f10_catalog(body)
+
+    def f10_content(
+        self, code: str, filename: str, offset: int, length: int
+    ) -> str:
+        """0x02d0 F10 段落正文。"""
+        market, symbol = parse_code(code)
+        body = self.conn.request(
+            CMD_F10_CONTENT,
+            f10_content_data(market, symbol, filename, offset, length),
+        )
+        return parse_f10_content(body)
+
     def _download_bytes(
         self,
         path: str,
@@ -2028,6 +2117,15 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.tdx_stats()
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
+    if cmd == "f10_catalog":
+        return bridge.f10_catalog(payload.get("code", ""))
+    if cmd == "f10_content":
+        return bridge.f10_content(
+            payload.get("code", ""),
+            payload.get("filename", ""),
+            int(payload.get("start", 0)),
+            int(payload.get("length", 0)),
+        )
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

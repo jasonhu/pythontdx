@@ -11,6 +11,7 @@ import { IconStar, IconStarFilled } from './Icons'
 
 export interface QuoteHeaderProps {
   quote: Quote
+  onOpenF10: () => void
 }
 
 export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
@@ -56,6 +57,13 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
               style={{ color: inWatchlist() ? 'var(--chart-avg)' : 'var(--text-3)' }}
             >
               {inWatchlist() ? <IconStarFilled size={14} /> : <IconStar size={14} />}
+            </button>
+            <button
+              class="btn btn--bare f10-open"
+              title="F10 公司资料"
+              onClick={() => props.onOpenF10()}
+            >
+              F10
             </button>
           </div>
 

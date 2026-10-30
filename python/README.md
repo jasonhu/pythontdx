@@ -46,6 +46,8 @@ STOCKLENS_TDX_BRIDGE=/path/to/tdx-bridge npm run dev
 | `file_download` | `{ path, chunkSize?, maxBytes? }` | 完整文件落盘 + SHA256 |
 | `tdx_stats` | — | 下载 `zhb.zip`，返回两份 CFG 摘要与样本 |
 | `money_flow` | `{ code }` | 最近 5 日资金流（`0x0ffc`） |
+| `f10_catalog` | `{ code }` | F10 段落目录（`0x02cf`） |
+| `f10_content` | `{ code, filename, start, length }` | F10 段落正文（`0x02d0`） |
 | `kline` | `{ code, period, count }` | `KLineSeries` |
 | `minute` | `{ code }` | `MinuteTrend` |
 | `five_day` | `{ code }` | `MultiDayTrend` |

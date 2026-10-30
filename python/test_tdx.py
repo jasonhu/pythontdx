@@ -337,6 +337,33 @@ class TestMoneyFlow(unittest.TestCase):
         self.assertEqual(first["buckets"][:4], [17301, 15350, 12329, 6470])
 
 
+class TestF10(unittest.TestCase):
+    def test_f10_requests(self):
+        catalog = tdx.f10_catalog_data(1, "600519")
+        self.assertEqual(len(catalog), 12)
+        self.assertEqual(catalog[:2], b"\x01\x00")
+        self.assertEqual(catalog[2:8], b"600519")
+        content = tdx.f10_content_data(1, "600519", "600519.txt", 0, 200)
+        self.assertEqual(len(content), 102)
+        self.assertEqual(content[10:20], b"600519.txt")
+        self.assertEqual(int.from_bytes(content[90:94], "little"), 0)
+        self.assertEqual(int.from_bytes(content[94:98], "little"), 200)
+
+    def test_f10_catalog(self):
+        sections = tdx.parse_f10_catalog(fixture("f10-cat2"))
+        self.assertEqual(len(sections), 2)
+        self.assertEqual(sections[0]["name"], "最新提示")
+        self.assertEqual(sections[0]["filename"], "600519.txt")
+        self.assertEqual(sections[0]["start"], 0)
+        self.assertEqual(sections[0]["length"], 15488)
+        self.assertEqual(sections[1]["name"], "公司概况")
+
+    def test_f10_content(self):
+        text = tdx.parse_f10_content(fixture("f10-content200"))
+        self.assertTrue(text.startswith("最新提示☆"))
+        self.assertIn("贵州茅台", text)
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")

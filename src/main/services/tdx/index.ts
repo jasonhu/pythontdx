@@ -14,8 +14,10 @@ import type {
   F10Announcement,
   F10NewsItem,
   MarketBreadth,
+  LocalDayBar,
   LocalDayResult,
   LocalImportResult,
+  LocalDayWriteResult,
   F10TradingTable,
   F10ProfileTable,
   FormulaScreenRequest,
@@ -273,6 +275,13 @@ export async function fetchFormulaScreen(
     },
     180_000
   )
+}
+
+export async function writeLocalDay(
+  path: string,
+  bars: LocalDayBar[]
+): Promise<LocalDayWriteResult> {
+  return bridge.send<LocalDayWriteResult>('local_day_write', { path, bars }, 20_000)
 }
 
 export async function fetchLocalQuery(sql: string, limit = 200): Promise<StatsQueryResult> {

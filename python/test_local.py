@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tdx_local import LocalDayError, read_day_file, read_local_file
+from tdx_local import LocalDayError, read_day_file, read_local_file, write_day_file
 
 
 class TestLocalDay(unittest.TestCase):
@@ -30,6 +30,20 @@ class TestLocalDay(unittest.TestCase):
             self.assertEqual(result["count"], 1)
             self.assertEqual(result["firstDate"], "2026-10-30 09:30")
             self.assertEqual(result["bars"][0]["volume"], 100)
+
+    def test_write_day_roundtrip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "out.day"
+            bars = [
+                {"date": "2026-10-29", "open": 10.0, "high": 10.5, "low": 9.8, "close": 10.2, "amount": 1000.0, "volume": 100},
+                {"date": "2026-10-30", "open": 10.2, "high": 10.6, "low": 10.1, "close": 10.5, "amount": 2000.0, "volume": 200},
+            ]
+            result = write_day_file(str(path), bars)
+            self.assertEqual(result["count"], 2)
+            loaded = read_day_file(str(path))
+            self.assertEqual(loaded["count"], 2)
+            self.assertEqual(loaded["bars"][1]["close"], 10.5)
+            self.assertEqual(loaded["bars"][1]["volume"], 200)
 
     def test_bad_length(self):
         with tempfile.TemporaryDirectory() as directory:

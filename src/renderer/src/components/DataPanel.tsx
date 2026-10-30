@@ -11,7 +11,8 @@ import type {
   TdxStatsExport,
   TdxStatsSummary,
   LocalDayResult,
-  LocalImportResult
+  LocalImportResult,
+  LocalDayWriteResult
 } from '@shared/types'
 import { thousands } from '@shared/format'
 import { appState, updateSettings } from '../stores/app'
@@ -52,6 +53,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [importLoading, setImportLoading] = createSignal(false)
   const [importResult, setImportResult] = createSignal<LocalImportResult | null>(null)
   const [importError, setImportError] = createSignal<string | null>(null)
+  const [writeLoading, setWriteLoading] = createSignal(false)
+  const [writeResult, setWriteResult] = createSignal<LocalDayWriteResult | null>(null)
+  const [writeError, setWriteError] = createSignal<string | null>(null)
 
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
@@ -104,6 +108,26 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setError(errorMessage(cause))
     } finally {
       setParquetExporting(false)
+    }
+  }
+
+  const outputPath = (): string => {
+    const source = localPath().trim()
+    if (!source) return ''
+    return `${source.replace(/\.[^.\\/]+$/, '')}.out.day`
+  }
+
+  const runLocalWrite = async (): Promise<void> => {
+    const data = localDay()
+    if (!data || writeLoading()) return
+    setWriteLoading(true)
+    setWriteError(null)
+    try {
+      setWriteResult(await api.data.localDayWrite(outputPath(), data.bars))
+    } catch (cause) {
+      setWriteError(errorMessage(cause))
+    } finally {
+      setWriteLoading(false)
     }
   }
 
@@ -450,6 +474,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                     >
                       {importLoading() ? '导入中…' : '导入数据湖'}
                     </button>
+                    <button
+                      class="btn data__local-write"
+                      disabled={writeLoading()}
+                      onClick={() => void runLocalWrite()}
+                    >
+                      {writeLoading() ? '写入中…' : '写回 .day'}
+                    </button>
                   </div>
                   <div class="data__query-table-wrap">
                     <table class="data__query-table">
@@ -479,6 +510,16 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+            </Show>
+            <Show when={writeError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={writeResult()}>
+              {(data) => (
+                <div class="data__local-imported">
+                  已写入 {data().count} 根 · <code>{data().path}</code>
                 </div>
               )}
             </Show>

@@ -23,8 +23,10 @@ import type {
   KLineAdjust,
   KLinePeriod,
   KLineSeries,
+  LocalDayBar,
   LocalDayResult,
   LocalImportResult,
+  LocalDayWriteResult,
   MarketBreadth,
   MinuteTrend,
   MoneyFlowRecord,
@@ -91,6 +93,8 @@ export const IPC = {
   localImport: 'local:import',
   /** 查询 local_bars.db（invoke） */
   localQuery: 'local:query',
+  /** 写本地 .day（invoke） */
+  localDayWrite: 'local:write',
   /** 7615 财务报表关键科目（invoke） */
   f10Statement: 'f10:statement',
   /** tdxstat 摘要（invoke） */
@@ -236,6 +240,7 @@ export interface StockLensApi {
     localDay(path: string, limit?: number): Promise<LocalDayResult>
     localImport(path: string): Promise<LocalImportResult>
     localQuery(sql: string, limit?: number): Promise<StatsQueryResult>
+    localDayWrite(path: string, bars: LocalDayBar[]): Promise<LocalDayWriteResult>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

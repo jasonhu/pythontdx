@@ -16,6 +16,7 @@ import type {
   F10TradingTable,
   LocalDayResult,
   LocalImportResult,
+  LocalDayWriteResult,
   MarketBreadth,
   F10ProfileTable,
   FormulaScreenRequest,
@@ -319,7 +320,8 @@ export function createHttpApi(): StockLensApi {
       duckQuery: (sql, limit) => post<StatsQueryResult>('/api/duck_query', { sql, limit }),
       localDay: (path, limit) => post<LocalDayResult>('/api/local_day', { path, limit }),
       localImport: (path) => post<LocalImportResult>('/api/local_import', { path }),
-      localQuery: (sql, limit) => post<StatsQueryResult>('/api/local_query', { sql, limit })
+      localQuery: (sql, limit) => post<StatsQueryResult>('/api/local_query', { sql, limit }),
+      localDayWrite: (path, bars) => post<LocalDayWriteResult>('/api/local_write', { path, bars })
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

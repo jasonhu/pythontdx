@@ -11,6 +11,7 @@ import type {
   AppState,
   BlockKind,
   F10Section,
+  LocalDayBar,
   FormulaScreenRequest,
   ScreenRequest
 } from '@shared/types'
@@ -31,6 +32,7 @@ import {
   fetchLocalDay,
   fetchLocalImport,
   fetchLocalQuery,
+  writeLocalDay,
   fetchF10Reports,
   fetchF10Statement,
   fetchFormulaScreen,
@@ -118,6 +120,10 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.localQuery, (_event, sql: string, limit?: number) =>
     fetchLocalQuery(sql, limit)
+  )
+
+  ipcMain.handle(IPC.localDayWrite, (_event, path: string, bars: LocalDayBar[]) =>
+    writeLocalDay(path, bars)
   )
 
   ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>

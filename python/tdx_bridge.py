@@ -50,7 +50,7 @@ from pathlib import Path
 from duckdb_query import run_duckdb_query
 from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
-from tdx_local import read_local_file
+from tdx_local import read_local_file, write_day_file
 from local_import import import_local_file
 from tdx_f10 import (
     fetch_announcements,
@@ -2413,6 +2413,10 @@ class Bridge:
         """读取本地通达信 .day 日线文件（只读）。"""
         return read_local_file(path, limit)
 
+    def local_day_write(self, path: str, bars: list[dict]) -> dict:
+        """写本地 .day（原子替换）。"""
+        return write_day_file(path, bars)
+
     def local_import(self, path: str) -> dict:
         """把本地行情文件导入数据湖（原始 + JSONL.gz + SQLite + manifest）。"""
         return import_local_file(path, stocklens_data_dir() / "local")
@@ -3134,6 +3138,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.local_day_read(str(payload.get("path") or ""), int(payload.get("limit", 0)))
     if cmd == "local_import":
         return bridge.local_import(str(payload.get("path") or ""))
+    if cmd == "local_day_write":
+        bars = payload.get("bars") or []
+        if not isinstance(bars, list):
+            raise TdxError("bars 必须是数组")
+        return bridge.local_day_write(str(payload.get("path") or ""), bars)
     if cmd == "market_breadth":
         return bridge.market_breadth()
     if cmd == "formula_backtest":

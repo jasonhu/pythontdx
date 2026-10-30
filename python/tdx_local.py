@@ -123,3 +123,35 @@ def read_local_file(path: str, limit: int = 0) -> dict:
     if suffix == ".day":
         return read_day_file(path, limit)
     return read_min_file(path, limit)
+
+
+def write_day_file(path: str, bars: list[dict]) -> dict:
+    """把 bar 列表写成通达信 .day（原子替换；价格分/量股）。"""
+    file = Path(path).expanduser()
+    if file.suffix.lower() != ".day":
+        raise LocalDayError("输出文件必须使用 .day 扩展名")
+    if not bars:
+        raise LocalDayError("没有可写入的 K 线")
+    records = []
+    for bar in bars:
+        date = int(str(bar["date"])[:10].replace("-", ""))
+        if not (19900101 <= date <= 21001231):
+            raise LocalDayError(f"非法日期：{bar['date']}")
+        records.append(
+            RECORD.pack(
+                date,
+                int(round(float(bar["open"]) * 100)),
+                int(round(float(bar["high"]) * 100)),
+                int(round(float(bar["low"]) * 100)),
+                int(round(float(bar["close"]) * 100)),
+                float(bar.get("amount", 0)),
+                int(round(float(bar.get("volume", 0)) * 100)),
+                0,
+            )
+        )
+    file.parent.mkdir(parents=True, exist_ok=True)
+    temporary = file.with_suffix(".tmp")
+    temporary.write_bytes(b"".join(records))
+    temporary.replace(file)
+    return {"path": str(file.resolve()), "count": len(records)}
+

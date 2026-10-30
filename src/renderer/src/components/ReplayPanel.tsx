@@ -1,13 +1,14 @@
 /**
- * 日 K 复盘：只显示当前回放日期之前的数据，逐根前进。
+ * 复盘：日 K 逐根回放 + 当日分时逐分钟回放。
  *
- * 复用主图的 KLineChart；回放切片在渲染层完成，不请求未来数据。
+ * 切片只喂给渲染层，不请求未来数据；日 K 用 320 根，分时用当日 241 个分钟点。
  */
 import { createEffect, createMemo, createSignal, onCleanup, Show, type JSX } from 'solid-js'
-import type { KLineBar, KLineSeries } from '@shared/types'
-import { fixed, signedPct, thousands } from '@shared/format'
+import type { KLineBar, KLineSeries, MinutePoint, MinuteTrend } from '@shared/types'
+import { fixed, minuteLabel, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { KLineChart } from './KLineChart'
+import { TrendChart } from './TrendChart'
 import { IconClose } from './Icons'
 
 interface ReplayPanelProps {
@@ -16,24 +17,44 @@ interface ReplayPanelProps {
   onClose: () => void
 }
 
+type Mode = 'day' | 'minute'
+
+const PLAY_MS = 700
+
 export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
+  const [mode, setMode] = createSignal<Mode>('day')
   const [bars, setBars] = createSignal<KLineBar[]>([])
   const [index, setIndex] = createSignal(0)
+  const [minute, setMinute] = createSignal<MinuteTrend | null>(null)
+  const [minuteIndex, setMinuteIndex] = createSignal(0)
   const [playing, setPlaying] = createSignal(false)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
 
+  const points = (): MinutePoint[] => minute()?.points ?? []
+
   const load = async (): Promise<void> => {
     const current = ++requestId
     setLoading(true)
     setError(null)
+    setPlaying(false)
     try {
-      const series = await api.trend.kline({ code: props.code, period: 'day', count: 320 })
-      if (current !== requestId) return
-      setBars(series.bars)
-      setIndex(Math.max(0, Math.min(series.bars.length - 1, Math.floor(series.bars.length * 0.7))))
-      setPlaying(false)
+      if (mode() === 'day') {
+        const series = await api.trend.kline({ code: props.code, period: 'day', count: 320 })
+        if (current !== requestId) return
+        setBars(series.bars)
+        setIndex(
+          Math.max(0, Math.min(series.bars.length - 1, Math.floor(series.bars.length * 0.7)))
+        )
+      } else {
+        const trend = await api.trend.minute(props.code)
+        if (current !== requestId) return
+        setMinute(trend)
+        setMinuteIndex(
+          Math.max(0, Math.min(trend.points.length - 1, Math.floor(trend.points.length * 0.7)))
+        )
+      }
     } catch (cause) {
       if (current === requestId) setError(errorMessage(cause))
     } finally {
@@ -43,42 +64,74 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
 
   createEffect(() => {
     if (!props.code) return
+    void mode()
     void load()
   })
 
   createEffect(() => {
     if (!playing()) return
     const timer = window.setInterval(() => {
-      setIndex((value) => {
-        const last = bars().length - 1
-        if (value >= last) {
+      const total = mode() === 'day' ? bars().length : points().length
+      const set = mode() === 'day' ? setIndex : setMinuteIndex
+      set((value) => {
+        if (value >= total - 1) {
           setPlaying(false)
           return value
         }
         return value + 1
       })
-    }, 700)
+    }, PLAY_MS)
     onCleanup(() => window.clearInterval(timer))
   })
 
-  const current = createMemo(() => bars()[index()])
-  const previous = createMemo(() => bars()[index() - 1])
-  const series = createMemo<KLineSeries>(() => ({
+  const dailyCurrent = createMemo(() => bars()[index()])
+  const dailyPrevious = createMemo(() => bars()[index() - 1])
+  const dailySeries = createMemo<KLineSeries>(() => ({
     code: props.code,
     period: 'day',
     bars: bars().slice(0, index() + 1)
   }))
-  const changePct = createMemo(() => {
-    const bar = current()
-    const prev = previous()
+  const dailyChangePct = createMemo(() => {
+    const bar = dailyCurrent()
+    const prev = dailyPrevious()
     if (!bar || !prev || prev.close === 0) return 0
     return ((bar.close - prev.close) / prev.close) * 100
   })
 
+  const minuteCurrent = createMemo(() => points()[minuteIndex()])
+  const minuteSlice = createMemo<MinuteTrend | undefined>(() => {
+    const trend = minute()
+    if (!trend) return undefined
+    return { ...trend, points: trend.points.slice(0, minuteIndex() + 1) }
+  })
+  const minuteChangePct = createMemo(() => {
+    const trend = minute()
+    const point = minuteCurrent()
+    if (!trend || !point || trend.prevClose === 0) return 0
+    return ((point.price - trend.prevClose) / trend.prevClose) * 100
+  })
+
+  const total = (): number => (mode() === 'day' ? bars().length : points().length)
+  const position = (): number => (mode() === 'day' ? index() : minuteIndex())
+  const setPosition = (value: number): void => {
+    const safe = Math.max(0, Math.min(total() - 1, value))
+    if (mode() === 'day') setIndex(safe)
+    else setMinuteIndex(safe)
+  }
+
   const step = (delta: number): void => {
     setPlaying(false)
-    setIndex((value) => Math.max(0, Math.min(bars().length - 1, value + delta)))
+    setPosition(position() + delta)
   }
+
+  const switchMode = (next: Mode): void => {
+    if (next === mode()) return
+    setPlaying(false)
+    setMode(next)
+  }
+
+  const currentReady = (): boolean =>
+    mode() === 'day' ? dailyCurrent() !== undefined : minuteCurrent() !== undefined
 
   return (
     <div class="replay-backdrop" onClick={() => props.onClose()}>
@@ -86,15 +139,35 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
         class="replay-panel"
         role="dialog"
         aria-modal="true"
-        aria-label="日 K 复盘"
+        aria-label="复盘"
         onClick={(event) => event.stopPropagation()}
       >
         <header class="replay__head">
           <div>
-            <div class="replay__eyebrow">日 K 回放 · 只使用当前日期之前的数据</div>
+            <div class="replay__eyebrow">
+              {mode() === 'day'
+                ? '日 K 回放 · 只使用当前日期之前的数据'
+                : '分时回放 · 只使用当前分钟之前的数据'}
+            </div>
             <h2 class="replay__title">
               {props.name} <code>{props.code.toUpperCase()}</code>
             </h2>
+          </div>
+          <div class="replay__modes">
+            <button
+              class="replay__mode"
+              data-active={mode() === 'day'}
+              onClick={() => switchMode('day')}
+            >
+              日 K
+            </button>
+            <button
+              class="replay__mode replay-minute-tab"
+              data-active={mode() === 'minute'}
+              onClick={() => switchMode('minute')}
+            >
+              分时
+            </button>
           </div>
           <button class="btn btn--icon btn--bare" title="关闭复盘" onClick={() => props.onClose()}>
             <IconClose size={16} />
@@ -110,78 +183,110 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
         </Show>
 
         <Show
-          when={!loading() && current()}
+          when={!loading() && currentReady()}
           fallback={
-            <div class="replay__loading">{loading() ? '加载日 K…' : '没有可回放的数据'}</div>
+            <div class="replay__loading">
+              {loading() ? `加载${mode() === 'day' ? '日 K' : '分时'}…` : '没有可回放的数据'}
+            </div>
           }
         >
-          {(bar) => (
-            <>
-              <div class="replay__quotes">
-                <span class="replay__date">{bar().date}</span>
-                <span class="replay__price num">{fixed(bar().close)}</span>
-                <span
-                  class="replay__change num"
-                  classList={{
-                    'tone-up': changePct() > 0,
-                    'tone-down': changePct() < 0
-                  }}
-                >
-                  {signedPct(changePct())}
-                </span>
-                <span class="replay__ohlc">
-                  开 {fixed(bar().open)} · 高 {fixed(bar().high)} · 低 {fixed(bar().low)}
-                </span>
-                <span class="replay__ohlc">量 {thousands(bar().volume)} 手</span>
-              </div>
+          <Show when={mode() === 'day' && dailyCurrent()}>
+            {(bar) => (
+              <>
+                <div class="replay__quotes">
+                  <span class="replay__date">{bar().date}</span>
+                  <span class="replay__price num">{fixed(bar().close)}</span>
+                  <span
+                    class="replay__change num"
+                    classList={{
+                      'tone-up': dailyChangePct() > 0,
+                      'tone-down': dailyChangePct() < 0
+                    }}
+                  >
+                    {signedPct(dailyChangePct())}
+                  </span>
+                  <span class="replay__ohlc">
+                    开 {fixed(bar().open)} · 高 {fixed(bar().high)} · 低 {fixed(bar().low)}
+                  </span>
+                  <span class="replay__ohlc">量 {thousands(bar().volume)} 手</span>
+                </div>
 
-              <div class="replay__chart">
-                <KLineChart series={series()} />
-              </div>
+                <div class="replay__chart">
+                  <KLineChart series={dailySeries()} />
+                </div>
+              </>
+            )}
+          </Show>
 
-              <div class="replay__controls">
-                <button class="btn" onClick={() => step(-1)} disabled={index() <= 0 || playing()}>
-                  上一步
-                </button>
-                <button
-                  class="btn btn--primary replay__play"
-                  onClick={() => {
-                    if (index() >= bars().length - 1) setIndex(0)
-                    setPlaying((value) => !value)
-                  }}
-                >
-                  {playing() ? '暂停' : '播放'}
-                </button>
-                <button
-                  class="btn"
-                  onClick={() => step(1)}
-                  disabled={index() >= bars().length - 1 || playing()}
-                >
-                  下一步
-                </button>
-                <input
-                  class="replay__slider"
-                  type="range"
-                  min="0"
-                  max={Math.max(0, bars().length - 1)}
-                  value={index()}
-                  aria-label="回放位置"
-                  onInput={(event) => {
-                    setPlaying(false)
-                    setIndex(Number(event.currentTarget.value))
-                  }}
-                />
-                <span class="replay__position num">
-                  {index() + 1} / {bars().length}
-                </span>
-              </div>
-            </>
-          )}
+          <Show when={mode() === 'minute' && minuteCurrent()}>
+            {(point) => (
+              <>
+                <div class="replay__quotes">
+                  <span class="replay__date">
+                    {minute()?.date} {minuteLabel(point().time)}
+                  </span>
+                  <span class="replay__price num">{fixed(point().price)}</span>
+                  <span
+                    class="replay__change num"
+                    classList={{
+                      'tone-up': minuteChangePct() > 0,
+                      'tone-down': minuteChangePct() < 0
+                    }}
+                  >
+                    {signedPct(minuteChangePct())}
+                  </span>
+                  <span class="replay__ohlc">均价 {fixed(point().avg)}</span>
+                  <span class="replay__ohlc">量 {thousands(point().volume)} 手</span>
+                </div>
+
+                <div class="replay__chart">
+                  <Show when={minuteSlice()}>{(trend) => <TrendChart days={[trend()]} />}</Show>
+                </div>
+              </>
+            )}
+          </Show>
+
+          <div class="replay__controls">
+            <button class="btn" onClick={() => step(-1)} disabled={position() <= 0 || playing()}>
+              上一步
+            </button>
+            <button
+              class="btn btn--primary replay__play"
+              onClick={() => {
+                if (position() >= total() - 1) setPosition(0)
+                setPlaying((value) => !value)
+              }}
+            >
+              {playing() ? '暂停' : '播放'}
+            </button>
+            <button
+              class="btn"
+              onClick={() => step(1)}
+              disabled={position() >= total() - 1 || playing()}
+            >
+              下一步
+            </button>
+            <input
+              class="replay__slider"
+              type="range"
+              min="0"
+              max={Math.max(0, total() - 1)}
+              value={position()}
+              aria-label="回放位置"
+              onInput={(event) => {
+                setPlaying(false)
+                setPosition(Number(event.currentTarget.value))
+              }}
+            />
+            <span class="replay__position num">
+              {position() + 1} / {total()}
+            </span>
+          </div>
         </Show>
 
         <footer class="replay__foot">
-          <span>回放切片只喂给渲染层，不请求未来 K 线</span>
-          <span>播放速度 700ms/根</span>
+          <span>回放切片只喂给渲染层，不请求未来数据</span>
+          <span>{mode() === 'day' ? '日 K 700ms/根' : '分时 700ms/分钟'}</span>
         </footer>
       </section>
     </div>

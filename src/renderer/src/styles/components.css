@@ -2654,6 +2654,29 @@
 }
 
 .replay__loading,
+.replay__modes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  align-self: center;
+}
+
+.replay__mode {
+  padding: 4px 10px;
+  border-radius: var(--r-xs);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.replay__mode[data-active='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .replay__error {
   margin: 16px 24px;
   padding: 10px 12px;

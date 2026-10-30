@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { WatchGroup } from './types'
-import { exportWatchlist, mergeImportedGroups, parseWatchlist } from './watchlist'
+import {
+  exportWatchlist,
+  exportWatchlistCsv,
+  mergeImportedGroups,
+  parseWatchlist,
+  parseWatchlistCsv
+} from './watchlist'
 
 const GROUPS: WatchGroup[] = [
   {
@@ -31,5 +37,27 @@ describe('watchlist backup', () => {
     ])
     expect(merged.map((group) => group.id)).toEqual(['default', 'default-2', 'x'])
     expect(merged).toHaveLength(3)
+  })
+})
+
+describe('watchlist csv', () => {
+  it('导出/解析 CSV 往返', () => {
+    const groups: WatchGroup[] = [
+      {
+        id: 'g1',
+        name: '核心,仓',
+        items: [{ code: 'sh600519', name: '贵州茅台', market: 'SH' }]
+      }
+    ]
+    const csv = exportWatchlistCsv(groups)
+    const parsed = parseWatchlistCsv(csv)
+    expect(parsed[0].name).toBe('核心,仓')
+    expect(parsed[0].items[0].code).toBe('sh600519')
+  })
+
+  it('无表头 CSV 可按位置解析', () => {
+    const parsed = parseWatchlistCsv('自选,sz000001,平安银行,SZ\n自选,sh600000,浦发银行\n')
+    expect(parsed[0].items).toHaveLength(2)
+    expect(parsed[0].items[1].market).toBe('SH')
   })
 })

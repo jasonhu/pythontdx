@@ -7,7 +7,12 @@ import { SESSION_LABEL, marketSession } from '@shared/market'
 import { relativeFrom, timeOfDay } from '@shared/format'
 import { createInterval } from '../lib/dom'
 import { api } from '../lib/ipc'
-import { exportWatchlist, parseWatchlist } from '@shared/watchlist'
+import {
+  exportWatchlist,
+  exportWatchlistCsv,
+  parseWatchlist,
+  parseWatchlistCsv
+} from '@shared/watchlist'
 import {
   activeQuoteCode,
   appInfo,
@@ -38,6 +43,7 @@ export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
   const [now, setNow] = createSignal(Date.now())
   const [notice, setNotice] = createSignal<string | null>(null)
   const [breadth, setBreadth] = createSignal<MarketBreadth | null>(null)
+  const [format, setFormat] = createSignal<'json' | 'csv'>('json')
   let fileInput: HTMLInputElement | undefined
   createInterval(
     () => setNow(Date.now()),
@@ -59,15 +65,20 @@ export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
 
   const exportGroups = (): void => {
     try {
-      const text = exportWatchlist(appState.groups)
-      const blob = new Blob([text], { type: 'application/json;charset=utf-8' })
+      const csv = format() === 'csv'
+      const text = csv ? exportWatchlistCsv(appState.groups) : exportWatchlist(appState.groups)
+      const blob = new Blob([text], {
+        type: csv ? 'text/csv;charset=utf-8' : 'application/json;charset=utf-8'
+      })
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `stocklens-watchlist-${new Date().toISOString().slice(0, 10)}.json`
+      anchor.download = `stocklens-watchlist-${new Date().toISOString().slice(0, 10)}.${
+        csv ? 'csv' : 'json'
+      }`
       anchor.click()
       URL.revokeObjectURL(url)
-      setNotice(`已导出 ${appState.groups.length} 个分组`)
+      setNotice(`已导出 ${appState.groups.length} 个分组（${csv ? 'CSV' : 'JSON'}）`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error))
     }
@@ -78,7 +89,10 @@ export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
     const file = input.files?.[0]
     if (!file) return
     try {
-      const groups = parseWatchlist(await file.text())
+      const text = await file.text()
+      const groups = file.name.toLowerCase().endsWith('.csv')
+        ? parseWatchlistCsv(text)
+        : parseWatchlist(text)
       importWatchGroups(groups)
       setNotice(`已导入 ${groups.length} 个分组`)
     } catch (error) {
@@ -170,9 +184,18 @@ export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
         }}
         class="statusbar__file"
         type="file"
-        accept="application/json,.json"
+        accept="application/json,.json,text/csv,.csv"
         onChange={(event) => void importGroups(event)}
       />
+      <select
+        class="statusbar__format"
+        value={format()}
+        title="导入/导出格式"
+        onChange={(event) => setFormat(event.currentTarget.value as 'json' | 'csv')}
+      >
+        <option value="json">JSON</option>
+        <option value="csv">CSV</option>
+      </select>
       <button class="statusbar__btn" title="导出自选备份" onClick={exportGroups}>
         导出
       </button>

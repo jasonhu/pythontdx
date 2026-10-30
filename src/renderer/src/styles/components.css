@@ -4187,3 +4187,19 @@
   color: var(--text-2);
   font-family: var(--font-mono);
 }
+
+.chart-drawing-label {
+  fill: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.statusbar__format {
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--text-3);
+  background: transparent;
+  font-size: var(--fs-2xs);
+}

@@ -87,3 +87,93 @@ export function mergeImportedGroups(
     ...additions
   ]
 }
+
+function csvField(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+}
+
+/** 自选 CSV：一行一只股票，group 列用于分组。 */
+export function exportWatchlistCsv(groups: readonly WatchGroup[]): string {
+  const lines = ['group,code,name,market']
+  for (const group of groups) {
+    for (const item of group.items) {
+      lines.push([csvField(group.name), item.code, csvField(item.name), item.market].join(','))
+    }
+  }
+  return `${lines.join('\n')}\n`
+}
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let quoted = false
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index]
+    if (quoted) {
+      if (char === '"' && line[index + 1] === '"') {
+        current += '"'
+        index += 1
+      } else if (char === '"') {
+        quoted = false
+      } else {
+        current += char
+      }
+    } else if (char === '"') {
+      quoted = true
+    } else if (char === ',') {
+      fields.push(current)
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  fields.push(current)
+  return fields
+}
+
+/** 解析自选 CSV：group,code,name,market；缺 market 时按代码前缀推断。 */
+export function parseWatchlistCsv(text: string): WatchGroup[] {
+  const lines = text
+    .replace(/^\ufeff/, '')
+    .split(/\r?\n/)
+    .filter((line) => line.trim())
+  if (lines.length === 0) throw new Error('CSV 为空')
+  const header = parseCsvLine(lines[0]).map((field) => field.trim().toLowerCase())
+  const hasHeader = header.includes('code')
+  const indexes = {
+    group: hasHeader ? header.indexOf('group') : 0,
+    code: hasHeader ? header.indexOf('code') : 1,
+    name: hasHeader ? header.indexOf('name') : 2,
+    market: hasHeader ? header.indexOf('market') : 3
+  }
+  const groups = new Map<string, WatchGroup>()
+  for (const line of lines.slice(hasHeader ? 1 : 0)) {
+    const fields = parseCsvLine(line)
+    const code = (fields[indexes.code] ?? '').trim().toLowerCase()
+    if (!/^(sh|sz|bj)\d{6}$/.test(code)) continue
+    const groupName = (fields[indexes.group] ?? '').trim() || '导入'
+    const marketRaw = (fields[indexes.market] ?? '').trim().toUpperCase()
+    const market =
+      marketRaw === 'SH' || marketRaw === 'SZ' || marketRaw === 'BJ'
+        ? marketRaw
+        : code.startsWith('sh')
+          ? 'SH'
+          : code.startsWith('sz')
+            ? 'SZ'
+            : 'BJ'
+    const item: WatchItem = {
+      code,
+      name: (fields[indexes.name] ?? '').trim() || code.toUpperCase(),
+      market
+    }
+    const group = groups.get(groupName) ?? {
+      id: `csv-${Date.now().toString(36)}-${groups.size}`,
+      name: groupName,
+      items: []
+    }
+    if (!group.items.some((existing) => existing.code === item.code)) group.items.push(item)
+    groups.set(groupName, group)
+  }
+  if (groups.size === 0) throw new Error('CSV 里没有有效 A 股代码')
+  return [...groups.values()]
+}

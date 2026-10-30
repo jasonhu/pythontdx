@@ -59,6 +59,20 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(table["columns"], ["日期", "PE(TTM)", "PB(MRQ)"])
         self.assertEqual(table["rows"][0][1], "5.15")
 
+    def test_parse_finance(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["T002", "mgsy", "jyr"],
+                    "Content": [["2026-09-30", 0.6951, 13490000000]],
+                }
+            ],
+        }
+        table = tdx_f10.parse_finance_payload(payload)
+        self.assertEqual(table["columns"], ["报告期", "每股收益", "净利润"])
+        self.assertEqual(table["rows"][0][0], "2026-09-30")
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

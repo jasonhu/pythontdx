@@ -455,6 +455,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_valuation(payload.get("code", "")))
                 return
+            if parsed.path == "/api/f10_finance":
+                with self.server.lock:
+                    self._ok(self.server.bridge.f10_finance(payload.get("code", "")))
+                return
             if parsed.path == "/api/stats_summary":
                 with self.server.lock:
                     self._ok(self.server.bridge.tdx_stats())

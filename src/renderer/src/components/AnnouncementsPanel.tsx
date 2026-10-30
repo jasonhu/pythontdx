@@ -14,7 +14,7 @@ interface AnnouncementsPanelProps {
   onClose: () => void
 }
 
-type OnlineTab = 'announcements' | 'profile' | 'valuation'
+type OnlineTab = 'announcements' | 'profile' | 'valuation' | 'finance'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -27,6 +27,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [valuation, setValuation] = createSignal<F10ProfileTable | null>(null)
   const [valuationLoading, setValuationLoading] = createSignal(true)
   const [valuationError, setValuationError] = createSignal<string | null>(null)
+  const [finance, setFinance] = createSignal<F10ProfileTable | null>(null)
+  const [financeLoading, setFinanceLoading] = createSignal(true)
+  const [financeError, setFinanceError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -68,6 +71,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadFinance = async (): Promise<void> => {
+    setFinanceLoading(true)
+    setFinanceError(null)
+    try {
+      setFinance(await api.f10.finance(props.code))
+    } catch (cause) {
+      setFinanceError(errorMessage(cause))
+    } finally {
+      setFinanceLoading(false)
+    }
+  }
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -77,6 +92,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadAnnouncements()
     void loadProfile()
     void loadValuation()
+    void loadFinance()
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -128,6 +144,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('valuation')}
           >
             估值
+          </button>
+          <button
+            class="online-tab online-finance-tab"
+            data-active={tab() === 'finance'}
+            onClick={() => setTab('finance')}
+          >
+            财务
           </button>
         </div>
 
@@ -217,6 +240,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'finance'}>
+              <Show
+                when={!financeLoading()}
+                fallback={<div class="announcements__empty">加载财务指标…</div>}
+              >
+                <Show
+                  when={!financeError()}
+                  fallback={<div class="announcements__error">{financeError()}</div>}
+                >
+                  <Show
+                    when={finance()}
+                    fallback={<div class="announcements__empty">暂无财务指标</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table finance-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

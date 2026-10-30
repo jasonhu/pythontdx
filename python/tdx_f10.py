@@ -14,6 +14,24 @@ TQLEX_URL = "http://static.tdx.com.cn:7615/TQLEX"
 ENTRY = "CWSearch.tzx_rcache"
 PROFILE_ENTRY = "CWServ.tdxf10_gg_gsgk"
 VALUATION_ENTRY = "HQServ.hq_nlp_gpsj"
+FINANCE_ENTRY = "CWServ.tdxf10_gg_cwfx"
+
+FINANCE_LABELS = {
+    "T002": "报告期",
+    "mgsy": "每股收益",
+    "kfjlr": "扣非净利润",
+    "mgxjll": "每股经营现金流",
+    "lrze": "利润总额",
+    "jyr": "净利润",
+    "jzzsyl": "净资产收益率",
+    "xsmll": "毛利率",
+    "jlrtbzzl": "净利润同比",
+    "yysrtb": "营收同比",
+    "yyzsrhb": "营收环比",
+    "jlrhb": "净利润环比",
+    "pjjzcsyl": "平均净资产收益率",
+    "kfjlrhb": "扣非净利润环比",
+}
 
 VALUATION_LABELS = {
     "DATE": "日期",
@@ -115,6 +133,45 @@ def parse_valuation_payload(payload: dict) -> dict:
     columns = [VALUATION_LABELS.get(str(name), str(name)) for name in raw_columns]
     rows = [list(values) for values in table.get("Content") or []]
     return {"columns": columns, "rows": rows}
+
+
+def parse_finance_payload(payload: dict) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    result_sets = payload.get("ResultSets") or []
+    if not result_sets:
+        return {"columns": [], "rows": []}
+    table = result_sets[0]
+    raw_columns = table.get("ColName") or []
+    columns = [FINANCE_LABELS.get(str(name), str(name)) for name in raw_columns]
+    rows = [list(values) for values in table.get("Content") or []][:20]
+    return {"columns": columns, "rows": rows}
+
+
+def fetch_finance(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    request = Request(
+        f"{TQLEX_URL}?Entry={FINANCE_ENTRY}",
+        data=json.dumps({"Params": [symbol, "zyzb", ""]}, separators=(",", ":")).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "StockLens/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=12) as response:
+            raw = response.read()
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise F10Error(f"7615 财务请求失败：{error}") from error
+    try:
+        parsed = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise F10Error("7615 财务返回非 JSON") from error
+    if not isinstance(parsed, dict):
+        raise F10Error("7615 财务返回结构异常")
+    return parse_finance_payload(parsed)
 
 
 def fetch_valuation(code: str) -> dict:

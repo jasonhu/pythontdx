@@ -18,6 +18,7 @@ import {
   fetchF10Announcements,
   fetchF10Catalog,
   fetchF10Profile,
+  fetchF10Finance,
   fetchF10Valuation,
   fetchF10Content,
   fetchFiveDayTrend,
@@ -71,6 +72,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.f10Profile, (_event, code: string) => fetchF10Profile(code))
 
   ipcMain.handle(IPC.f10Valuation, (_event, code: string) => fetchF10Valuation(code))
+
+  ipcMain.handle(IPC.f10Finance, (_event, code: string) => fetchF10Finance(code))
 
   ipcMain.handle(IPC.dataStatsSummary, () => fetchTdxStatsSummary())
 

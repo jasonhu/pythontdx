@@ -53,6 +53,18 @@ ENDPOINTS = [
     ("119.97.185.59", 7709),
 ]
 
+# 0x0ffc 在普通行情节点上可能只返回日期、金额全 0；这些节点实测有完整分档。
+MONEY_FLOW_HOSTS = [
+    ("180.153.18.170", 7709),
+    ("58.34.106.207", 7709),
+    ("116.128.207.164", 7709),
+    ("120.253.221.207", 7709),
+    ("202.108.254.67", 7709),
+    ("60.191.117.167", 7709),
+    ("115.238.56.198", 7709),
+    ("218.75.126.9", 7709),
+]
+
 CONNECT_TIMEOUT = 5.0
 REQUEST_TIMEOUT = 8.0
 QUOTE_BATCH = 80
@@ -70,6 +82,7 @@ CMD_TODAY_TICKS = 0x0FC5
 CMD_HISTORY_TICKS = 0x0FC6
 CMD_AUCTION = 0x056A
 CMD_FILE_CONTENT = 0x06B9
+CMD_MONEY_FLOW = 0x0FFC
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
@@ -87,6 +100,10 @@ FILE_PATH_FIELD = 300
 FILE_CHUNK = 30000
 MAX_FILE_CHUNK = 60000
 MAX_FILE_BYTES = 128 * 1024 * 1024
+MONEY_FLOW_CHANNEL = 0x2D
+MONEY_FLOW_ROUTE = 0x7E
+MONEY_FLOW_HEADER = 0x28
+MONEY_FLOW_RECORD = 0x58
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
@@ -270,7 +287,9 @@ class TdxConnection:
             remaining -= len(data)
         return b"".join(chunks)
 
-    def _transact(self, msg_type: int, data: bytes) -> bytes:
+    def _transact(
+        self, msg_type: int, data: bytes, wire_prefix: int | None = None
+    ) -> bytes:
         if self.sock is None:
             raise TdxError("行情服务器未连接")
 
@@ -278,7 +297,12 @@ class TdxConnection:
         if self.msg_id == 0:
             self.msg_id = 1
 
-        self.sock.sendall(encode_frame(self.msg_id, msg_type, data))
+        wire_msg_id = (
+            self.msg_id
+            if wire_prefix is None
+            else ((self.msg_id & 0xFF) | wire_prefix)
+        )
+        self.sock.sendall(encode_frame(wire_msg_id, msg_type, data))
         header = self._recv_exact(16)
         if header[:4] != b"\xb1\xcbt\x00":
             raise TdxError("行情报文头不合法")
@@ -293,18 +317,24 @@ class TdxConnection:
         except zlib.error as error:
             raise TdxError("行情报文解压失败") from error
 
-    def request(self, msg_type: int, data: bytes, retry: bool = True) -> bytes:
+    def request(
+        self,
+        msg_type: int,
+        data: bytes,
+        retry: bool = True,
+        wire_prefix: int | None = None,
+    ) -> bytes:
         try:
             if self.sock is None:
                 self._connect()
-            return self._transact(msg_type, data)
+            return self._transact(msg_type, data, wire_prefix)
         except (OSError, TdxError) as error:
             self.close()
             if not retry:
                 raise
             # 断线重连一次；行情请求都是只读的，重试不会产生副作用
             self._connect()
-            return self._transact(msg_type, data)
+            return self._transact(msg_type, data, wire_prefix)
 
 
 # ---------------------------------------------------------------- 请求体
@@ -452,6 +482,12 @@ def file_content_data(path: str, offset: int = 0, size: int = FILE_CHUNK) -> byt
         struct.pack("<II", offset, size)
         + text.encode("ascii").ljust(FILE_PATH_FIELD, b"\x00")
     )
+
+
+def money_flow_data(market: int, symbol: str) -> bytes:
+    """0x0ffc：市场 + 0 + 代码，补零到 38 字节；msg_id 另带 channel/route。"""
+    data = struct.pack("<BB6s", market, 0, code_bytes(symbol))
+    return data.ljust(38, b"\x00")
 
 
 def bars_data(market: int, symbol: str, period: int, count: int, adjust: int, start: int = 0) -> bytes:
@@ -1106,6 +1142,85 @@ def parse_file_chunk(
     }
 
 
+def parse_money_flow(body: bytes) -> list[dict]:
+    """0x0ffc：0x28 头 + 0x58 记录；通常每只证券最近 5 个交易日。"""
+    if len(body) < MONEY_FLOW_HEADER:
+        raise TdxError("资金流报文不完整")
+    records: list[dict] = []
+    offset = 0
+    while offset < len(body):
+        header_end = offset + MONEY_FLOW_HEADER
+        if header_end > len(body):
+            raise TdxError("资金流证券头不完整")
+        header = body[offset:header_end]
+        market_id = header[0]
+        market = MARKET_NAMES.get(market_id)
+        if market is None:
+            raise TdxError("资金流包含未知市场")
+        symbol = header[2:8].decode("ascii", errors="strict")
+        if len(symbol) != 6 or not symbol.isdigit():
+            raise TdxError("资金流包含非法代码")
+        reported = _u16(header, 0x26)
+        available = (len(body) - header_end) // MONEY_FLOW_RECORD
+        count = available if reported == 0 else reported
+        if header_end + count * MONEY_FLOW_RECORD > len(body):
+            raise TdxError("资金流记录不完整")
+
+        for index in range(count):
+            start = header_end + index * MONEY_FLOW_RECORD
+            record = body[start : start + MONEY_FLOW_RECORD]
+            date_raw = _u32(record, 0)
+            total_amount = _f32(record, 8)
+            raw = [_u32(record, 4 + i * 4) for i in range(21)]
+            buckets: list[int] = []
+            for packed_index in range(8):
+                packed = raw[10 + packed_index]
+                buckets.extend([packed & 0xFFFF, packed >> 16])
+
+            bucket_main = buckets[0] - buckets[1] + buckets[4] - buckets[5]
+            bucket_buy = (
+                buckets[2]
+                - buckets[3]
+                + buckets[6]
+                - buckets[7]
+                + buckets[10]
+                - buckets[11]
+                + buckets[14]
+                - buckets[15]
+            )
+            scale = total_amount / 50000.0
+            date_text = str(date_raw)
+            date = (
+                f"{date_text[:4]}-{date_text[4:6]}-{date_text[6:8]}"
+                if len(date_text) == 8
+                else date_text
+            )
+            records.append(
+                {
+                    "code": full_code(market_id, symbol),
+                    "market": market,
+                    "symbol": symbol,
+                    "date": date,
+                    "totalAmount": total_amount,
+                    "buckets": buckets,
+                    "mainNet": bucket_main / 50000.0 * total_amount,
+                    "mainRatio": bucket_main / 500.0,
+                    "mainBuyNet": bucket_buy / 50000.0 * total_amount,
+                    "mainBuyRatio": bucket_buy / 500.0,
+                    "mainSuperLargeNet": (buckets[0] - buckets[1]) * scale,
+                    "mainLargeNet": (buckets[4] - buckets[5]) * scale,
+                    "mainMediumNet": (buckets[8] - buckets[9]) * scale,
+                    "mainSmallNet": (buckets[12] - buckets[13]) * scale,
+                    "mainBuySuperLargeNet": (buckets[2] - buckets[3]) * scale,
+                    "mainBuyLargeNet": (buckets[6] - buckets[7]) * scale,
+                    "mainBuyMediumNet": (buckets[10] - buckets[11]) * scale,
+                    "mainBuySmallNet": (buckets[14] - buckets[15]) * scale,
+                }
+            )
+        offset = header_end + count * MONEY_FLOW_RECORD
+    return records
+
+
 def stocklens_data_dir() -> Path:
     """原始数据目录；开发/测试可用 STOCKLENS_DATA_DIR 覆盖。"""
     configured = os.environ.get("STOCKLENS_DATA_DIR")
@@ -1471,11 +1586,14 @@ class CodeIndex:
 class Bridge:
     def __init__(self) -> None:
         self.conn = TdxConnection()
+        self.money_conn: TdxConnection | None = None
         self.index = CodeIndex()
         self.finance_cache: dict[str, tuple[float, dict]] = {}
 
     def close(self) -> None:
         self.conn.close()
+        if self.money_conn is not None:
+            self.money_conn.close()
 
     # -- 代码表 ---------------------------------------------------------
 
@@ -1656,6 +1774,25 @@ class Bridge:
             CMD_FILE_CONTENT, file_content_data(normalized, offset, size)
         )
         return parse_file_chunk(body, normalized, offset, size)
+
+    def money_flow(self, code: str) -> list[dict]:
+        """0x0ffc 资金流向日数据；必须走资金流专用节点。"""
+        market, symbol = parse_code(code)
+        if self.money_conn is None:
+            self.money_conn = TdxConnection(MONEY_FLOW_HOSTS)
+        wire_prefix = (MONEY_FLOW_CHANNEL << 8) | (MONEY_FLOW_ROUTE << 16)
+        body = self.money_conn.request(
+            CMD_MONEY_FLOW,
+            money_flow_data(market, symbol),
+            wire_prefix=wire_prefix,
+        )
+        records = parse_money_flow(body)
+        if records and all(
+            record["totalAmount"] == 0 and record["mainNet"] == 0
+            for record in records
+        ):
+            raise TdxError("资金流节点返回空金额，请换资金流主站")
+        return records
 
     def _download_bytes(
         self,
@@ -1889,6 +2026,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "tdx_stats":
         return bridge.tdx_stats()
+    if cmd == "money_flow":
+        return bridge.money_flow(payload.get("code", ""))
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

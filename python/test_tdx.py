@@ -317,6 +317,26 @@ class TestTdxStats(unittest.TestCase):
             self.assertTrue(Path(saved["savedTo"]).exists())
 
 
+class TestMoneyFlow(unittest.TestCase):
+    def test_money_flow_request(self):
+        data = tdx.money_flow_data(1, "600519")
+        self.assertEqual(len(data), 38)
+        self.assertEqual(data[:2], b"\x01\x00")
+        self.assertEqual(data[2:8], b"600519")
+
+    def test_money_flow_parser(self):
+        records = tdx.parse_money_flow(fixture("money-flow-5"))
+        self.assertEqual(len(records), 5)
+        first = records[0]
+        self.assertEqual(first["code"], "sh600519")
+        self.assertEqual(first["date"], "2026-10-30")
+        self.assertAlmostEqual(first["totalAmount"], 2_817_544_192.0, delta=1)
+        self.assertAlmostEqual(first["mainNet"], 143_356_648.49, places=2)
+        self.assertAlmostEqual(first["mainRatio"], 5.088, places=3)
+        self.assertEqual(len(first["buckets"]), 16)
+        self.assertEqual(first["buckets"][:4], [17301, 15350, 12329, 6470])
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")

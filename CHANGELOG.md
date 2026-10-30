@@ -37,8 +37,8 @@ StockLens 的所有重要变更都记录在这里。
   不抓取研报正文。
 - **WebSocket 行情**：`/ws` 文本帧订阅（codes/intervalMs），每周期推 `type=quote`；
   Web 优先 WebSocket，失败自动回退 SSE；Vite 开发代理支持 `/ws`。
-- **多股同列**：当前分组最多 6 只、60 根日 K 迷你图；点击卡片切换主图，
-  分时同列未接。
+- **多股同列**：当前分组最多 6 只，支持 60 根日 K 与当日分时；
+  点击卡片切换主图。
 - **自选导入/导出**：状态栏 JSON 备份；导出全部分组，导入追加分组，
   ID 冲突自动改名，不覆盖现有自选。
 - **可选 Parquet 导出**：`python/parquet_export.py` 按 `trade_date` 分区写 Parquet

@@ -1,7 +1,7 @@
 /**
- * 成交明细（0x0fc5 当日）。
+ * 成交明细（0x0fc5 当日 / 0x0fc6 历史）。
  *
- * 每 3 秒拉一页最近 60 笔，按时间倒序显示；只做盘口旁边的「成交」页签。
+ * 默认每 3 秒拉当日最近 60 笔；选历史日期后停轮询，改查 0x0fc6。
  * 竞价快照（status=8）不是成交，弱化显示，不参与金额。
  */
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
@@ -20,13 +20,18 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   const [ticks, setTicks] = createSignal<TradeTick[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+  const [date, setDate] = createSignal('')
   let requestId = 0
 
-  const load = async (code: string): Promise<void> => {
+  const load = async (code: string, tradingDate = ''): Promise<void> => {
     const current = ++requestId
     setLoading(true)
     try {
-      const data = await api.trade.ticks({ code, count: PAGE_SIZE })
+      const data = await api.trade.ticks({
+        code,
+        count: PAGE_SIZE,
+        date: tradingDate || undefined
+      })
       if (current !== requestId) return
       setTicks(data)
       setError(null)
@@ -39,13 +44,20 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   }
 
   createEffect(() => {
-    void load(props.code)
+    void load(props.code, date())
   })
 
   onMount(() => {
-    const timer = window.setInterval(() => void load(props.code), REFRESH_MS)
+    const timer = window.setInterval(() => {
+      if (!date()) void load(props.code, '')
+    }, REFRESH_MS)
     onCleanup(() => window.clearInterval(timer))
   })
+
+  const chooseDate = (value: string): void => {
+    setDate(value)
+    setTicks([])
+  }
 
   // 服务端一页是时间正序；盘口习惯把最新一笔放最上面
   const latestFirst = (): TradeTick[] => [...ticks()].reverse()
@@ -54,14 +66,34 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
     <div class="tape">
       <div class="tape__meta">
         <span>{loading() ? '刷新中…' : `${ticks().length} 笔`}</span>
-        <span>每 3 秒</span>
+        <span>{date() ? '历史' : '每 3 秒'}</span>
+      </div>
+
+      <div class="tape__toolbar">
+        <input
+          class="tape__date"
+          type="date"
+          value={date()}
+          aria-label="成交明细日期"
+          onChange={(event) => chooseDate(event.currentTarget.value)}
+        />
+        <Show when={date()}>
+          <button
+            class="tape__today"
+            onClick={() => {
+              chooseDate('')
+            }}
+          >
+            回今天
+          </button>
+        </Show>
       </div>
 
       <Show when={error()}>
         {(message) => (
           <div class="tape__error" role="alert">
             {message()}
-            <button class="tape__retry" onClick={() => void load(props.code)}>
+            <button class="tape__retry" onClick={() => void load(props.code, date())}>
               重试
             </button>
           </div>

@@ -574,6 +574,50 @@
   font-variant-numeric: tabular-nums;
 }
 
+.tape__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 0 2px 5px;
+}
+
+.tape__date {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--text-1);
+  background: var(--panel-hover);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+.tape__date::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.tape__today {
+  flex: none;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--text-2);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.tape__today:hover {
+  color: var(--text-1);
+  background: var(--panel-hover);
+}
+
 .tape__error {
   flex: none;
   padding: 6px 2px;

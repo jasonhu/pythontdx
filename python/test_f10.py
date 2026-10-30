@@ -30,6 +30,20 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(rows[0]["title"], "平安银行：2026年三季度报告")
         self.assertEqual(rows[0]["url"], "http://example.test/a.pdf")
 
+    def test_parse_profile(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["T035", "T031", "ssbk"],
+                    "Content": [["A股", "1991-04-03", "深交所主板"]],
+                }
+            ],
+        }
+        table = tdx_f10.parse_profile_payload(payload)
+        self.assertEqual(table["columns"], ["股票类别", "上市日期", "上市板块"])
+        self.assertEqual(table["rows"][0][2], "深交所主板")
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

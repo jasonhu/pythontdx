@@ -204,6 +204,11 @@ export interface F10Section {
   length: number
 }
 
+export interface F10ProfileTable {
+  columns: string[]
+  rows: Array<Array<string | number | null>>
+}
+
 export interface F10Announcement {
   id: string
   date: string

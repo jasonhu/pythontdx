@@ -42,7 +42,8 @@ const api: StockLensApi = {
   f10: {
     catalog: (code) => ipcRenderer.invoke(IPC.f10Catalog, code),
     content: (code, section) => ipcRenderer.invoke(IPC.f10Content, code, section),
-    announcements: (code) => ipcRenderer.invoke(IPC.f10Announcements, code)
+    announcements: (code) => ipcRenderer.invoke(IPC.f10Announcements, code),
+    profile: (code) => ipcRenderer.invoke(IPC.f10Profile, code)
   },
   data: {
     statsSummary: () => ipcRenderer.invoke(IPC.dataStatsSummary),

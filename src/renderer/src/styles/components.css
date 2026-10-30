@@ -1151,6 +1151,63 @@
   font-weight: 500;
 }
 
+.online-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 24px 0;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.online-tab {
+  padding: 6px 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.online-tab:hover {
+  color: var(--text-1);
+}
+
+.online-tab[data-active='true'] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  padding: 12px 8px;
+  background: var(--border);
+  border-radius: var(--r-sm);
+  margin-top: 8px;
+}
+
+.profile-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 58px;
+  padding: 9px 12px;
+  background: var(--panel-solid);
+}
+
+.profile-cell span {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.profile-cell strong {
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  word-break: break-all;
+}
+
 .announcements__body {
   min-height: 0;
   flex: 1;

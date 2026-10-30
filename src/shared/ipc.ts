@@ -12,6 +12,7 @@ import type {
   BlockList,
   CategoryQuote,
   F10Announcement,
+  F10ProfileTable,
   F10Section,
   IndustryList,
   KLinePeriod,
@@ -56,6 +57,8 @@ export const IPC = {
   f10Content: 'f10:content',
   /** 7615 在线公告（invoke） */
   f10Announcements: 'f10:announcements',
+  /** 7615 在线公司概况（invoke） */
+  f10Profile: 'f10:profile',
   /** tdxstat 摘要（invoke） */
   dataStatsSummary: 'data:stats-summary',
   /** tdxstat 规范化导出（invoke） */
@@ -160,6 +163,7 @@ export interface StockLensApi {
     content(code: string, section: F10Section): Promise<string>
     /** 7615 TQLEX 在线公告列表 */
     announcements(code: string): Promise<F10Announcement[]>
+    profile(code: string): Promise<F10ProfileTable>
   }
   data: {
     /** 下载 zhb.zip 并返回 tdxstat 摘要 */

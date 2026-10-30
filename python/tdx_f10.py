@@ -12,6 +12,25 @@ from urllib.request import Request, urlopen
 
 TQLEX_URL = "http://static.tdx.com.cn:7615/TQLEX"
 ENTRY = "CWSearch.tzx_rcache"
+PROFILE_ENTRY = "CWServ.tdxf10_gg_gsgk"
+
+PROFILE_LABELS = {
+    "T035": "股票类别",
+    "T031": "上市日期",
+    "T051": "发行方式",
+    "fxzd": "发行制度",
+    "mgmz": "每股面值",
+    "T042": "发行价格",
+    "T044": "总发行数量",
+    "T056": "实际募资总额",
+    "T057": "实际募资净额",
+    "T059": "首日开盘价",
+    "T060": "首日收盘价",
+    "zcxs": "主承销商",
+    "bjr": "上市保荐人",
+    "T049": "上市板块",
+    "ssbk": "上市板块",
+}
 
 
 class F10Error(Exception):
@@ -52,6 +71,45 @@ def parse_announcements_payload(payload: dict) -> list[dict]:
             }
         )
     return rows
+
+
+def parse_profile_payload(payload: dict) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    result_sets = payload.get("ResultSets") or []
+    if not result_sets:
+        return {"columns": [], "rows": []}
+    table = result_sets[0]
+    raw_columns = table.get("ColName") or []
+    columns = [PROFILE_LABELS.get(str(name), str(name)) for name in raw_columns]
+    rows = [list(values) for values in table.get("Content") or []]
+    return {"columns": columns, "rows": rows}
+
+
+def fetch_profile(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    request = Request(
+        f"{TQLEX_URL}?Entry={PROFILE_ENTRY}",
+        data=json.dumps({"Params": ["8", symbol, ""]}, separators=(",", ":")).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "StockLens/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=12) as response:
+            raw = response.read()
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise F10Error(f"7615 公司概况请求失败：{error}") from error
+    try:
+        payload = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise F10Error("7615 公司概况返回非 JSON") from error
+    if not isinstance(payload, dict):
+        raise F10Error("7615 公司概况返回结构异常")
+    return parse_profile_payload(payload)
 
 
 def fetch_announcements(code: str) -> list[dict]:

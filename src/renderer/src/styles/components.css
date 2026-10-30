@@ -618,6 +618,11 @@
   background: var(--panel-hover);
 }
 
+.tape__today:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .tape__error {
   flex: none;
   padding: 6px 2px;

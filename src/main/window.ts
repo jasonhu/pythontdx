@@ -117,10 +117,12 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
   return window
 }
 
-export function createSecondaryWindow(options: {
-  bounds?: WindowBounds
-  onBoundsChange?: (bounds: WindowBounds) => void
-} = {}): BrowserWindow {
+export function createSecondaryWindow(
+  options: {
+    bounds?: WindowBounds
+    onBoundsChange?: (bounds: WindowBounds) => void
+  } = {}
+): BrowserWindow {
   const window = createMainWindow({
     secondary: true,
     bounds: options.bounds,

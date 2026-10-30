@@ -107,6 +107,29 @@ export interface CategoryQuote extends Quote {
   active2?: number
 }
 
+/** 0x0fc5 / 0x0fc6 成交明细 */
+export type TradeSide = 'buy' | 'sell' | 'neutral' | `status_${number}`
+export type TradeEventKind = 'trade' | 'opening_match' | 'auction_snapshot'
+
+export interface TradeTick {
+  /** 服务端分页内的绝对序号 */
+  index: number
+  timeMinutes: number
+  /** HH:MM */
+  time: string
+  price: number
+  /** 手 */
+  volume: number
+  orderCount: number
+  /** 0 买 / 1 卖 / 2 中性 / 5 盘后 / 8 竞价快照 */
+  status: number
+  side: TradeSide
+  eventKind: TradeEventKind
+  tailRaw?: number
+  /** 只对非竞价快照计算；单位元 */
+  tradeAmount?: number
+}
+
 /* --------------------------------------------------------------- 分时图 */
 
 /** 分时的分钟点：价格为该分钟收盘价，avg 为当日累计均价 */

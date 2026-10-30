@@ -13,9 +13,10 @@ import type {
   MinuteTrend,
   MultiDayTrend,
   Quote,
-  SearchItem
+  SearchItem,
+  TradeTick
 } from '@shared/types'
-import type { CategoryRequest } from '@shared/ipc'
+import type { CategoryRequest, TradesRequest } from '@shared/ipc'
 import { splitCode } from '@shared/market'
 import { TtlCache } from '../cache'
 import { CODE_LIST_TIMEOUT_MS, QUOTES_TIMEOUT_MS, TdxBridge, TdxError } from './bridge'
@@ -97,6 +98,11 @@ export async function fetchQuotes(codes: string[], signal?: AbortSignal): Promis
 /** 0x054b 服务端排序的一页分类行情；category=6 是沪深 A 股。 */
 export async function fetchCategoryQuotes(request: CategoryRequest): Promise<CategoryQuote[]> {
   return bridge.send<CategoryQuote[]>('category', { ...request }, QUOTES_TIMEOUT_MS)
+}
+
+/** 0x0fc5 / 0x0fc6 成交明细；date 省略走当日。 */
+export async function fetchTrades(request: TradesRequest): Promise<TradeTick[]> {
+  return bridge.send<TradeTick[]>('trades', { ...request }, QUOTES_TIMEOUT_MS)
 }
 
 /* ------------------------------------------------------------------ K 线 */

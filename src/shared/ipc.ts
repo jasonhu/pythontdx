@@ -15,6 +15,7 @@ import type {
   Quote,
   QuoteUpdate,
   SearchItem,
+  TradeTick,
   WindowAction,
   WindowState
 } from './types'
@@ -30,6 +31,8 @@ export const IPC = {
   quoteUpdate: 'quote:update',
   /** 分类行情/排行榜（invoke） */
   quoteCategory: 'quote:category',
+  /** 成交明细（invoke） */
+  tradeTicks: 'trade:ticks',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -74,6 +77,15 @@ export interface CategoryRequest {
   filterRaw?: number
 }
 
+/** 0x0fc5 / 0x0fc6 成交明细请求；date 省略时走当日 */
+export interface TradesRequest {
+  code: string
+  start?: number
+  count?: number
+  /** YYYY-MM-DD 或 YYYYMMDD */
+  date?: string
+}
+
 /**
  * preload 通过 contextBridge 暴露给渲染进程的完整 API。
  * 渲染进程的 window.api 就是这个类型（见 src/preload/index.d.ts）。
@@ -89,6 +101,10 @@ export interface StockLensApi {
     onUpdate(listener: (update: QuoteUpdate) => void): () => void
     /** 服务端排序的一页分类行情（排行榜） */
     category(req: CategoryRequest): Promise<CategoryQuote[]>
+  }
+  trade: {
+    /** 成交明细：不传 date 走当日 0x0fc5，传 date 走历史 0x0fc6 */
+    ticks(req: TradesRequest): Promise<TradeTick[]>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

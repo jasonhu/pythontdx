@@ -15,6 +15,7 @@ import { Sidebar } from './components/Sidebar'
 import { StatsGrid } from './components/StatsGrid'
 import { StatusBar } from './components/StatusBar'
 import { TitleBar } from './components/TitleBar'
+import { TradeTape } from './components/TradeTape'
 import {
   activeQuoteCode,
   appReady,
@@ -28,6 +29,7 @@ import { createSparklineLoader } from './stores/sparklines'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
+  const [railTab, setRailTab] = createSignal<'book' | 'tape'>('book')
 
   onMount(() => {
     void bootstrapAppState()
@@ -75,12 +77,35 @@ export default function App(): JSX.Element {
           {(quote) => (
             <>
               <section class="card panel panel--book">
-                <div class="panel__head">
-                  <span class="card__title">五档盘口</span>
-                  <span class="statusbar__text">单位：手</span>
+                <div class="panel__head panel__head--tabs">
+                  <div class="rail-tabs" role="tablist" aria-label="盘口与成交">
+                    <button
+                      class="rail-tab rail-tab--book"
+                      classList={{ 'rail-tab--active': railTab() === 'book' }}
+                      role="tab"
+                      aria-selected={railTab() === 'book'}
+                      onClick={() => setRailTab('book')}
+                    >
+                      五档盘口
+                    </button>
+                    <button
+                      class="rail-tab rail-tab--tape"
+                      classList={{ 'rail-tab--active': railTab() === 'tape' }}
+                      role="tab"
+                      aria-selected={railTab() === 'tape'}
+                      onClick={() => setRailTab('tape')}
+                    >
+                      成交明细
+                    </button>
+                  </div>
+                  <span class="statusbar__text">
+                    {railTab() === 'book' ? '单位：手' : '最近 60 笔'}
+                  </span>
                 </div>
                 <div class="panel__body panel__body--fill">
-                  <OrderBook quote={quote()} />
+                  <Show when={railTab() === 'book'} fallback={<TradeTape code={quote().code} />}>
+                    <OrderBook quote={quote()} />
+                  </Show>
                 </div>
               </section>
 

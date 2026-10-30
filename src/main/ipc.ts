@@ -8,7 +8,7 @@
  */
 import { ipcMain, app, shell, type BrowserWindow } from 'electron'
 import type { AppState } from '@shared/types'
-import { IPC, type CategoryRequest, type KLineRequest } from '@shared/ipc'
+import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
 import type { QuotePoller } from './services/poller'
 import {
@@ -17,7 +17,8 @@ import {
   fetchKline,
   fetchMinuteTrend,
   fetchQuotes,
-  fetchSearchHint
+  fetchSearchHint,
+  fetchTrades
 } from './services/tdx'
 
 export interface IpcContext {
@@ -36,6 +37,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.quoteCategory, (_event, request: CategoryRequest) =>
     fetchCategoryQuotes(request)
   )
+
+  ipcMain.handle(IPC.tradeTicks, (_event, request: TradesRequest) => fetchTrades(request))
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {
     poller.setSubscription(codes, intervalMs)

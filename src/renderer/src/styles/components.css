@@ -516,3 +516,150 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
 }
+
+/* ------------------------------------------------------ 盘口 / 成交切换 */
+.panel__head--tabs {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.rail-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rail-tab {
+  padding: 5px 9px;
+  border: 0;
+  border-radius: var(--r-xs);
+  color: var(--text-2);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease);
+}
+
+.rail-tab:hover {
+  color: var(--text-1);
+  background: var(--panel-hover);
+}
+
+.rail-tab--active {
+  color: var(--text-1);
+  background: var(--panel-hover);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- 成交明细 */
+.tape {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  font-size: var(--fs-xs);
+}
+
+.tape__meta {
+  display: flex;
+  justify-content: space-between;
+  flex: none;
+  padding: 0 2px 4px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.tape__error {
+  flex: none;
+  padding: 6px 2px;
+  color: var(--down);
+  font-size: var(--fs-2xs);
+}
+
+.tape__retry {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tape__head,
+.tape__row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr) 42px;
+  gap: 6px;
+  align-items: center;
+}
+
+.tape__head {
+  flex: none;
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.tape__rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tape__row {
+  padding: 3px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tape__row:hover {
+  background: var(--panel-hover);
+}
+
+.tape__row--auction {
+  opacity: 0.55;
+}
+
+.tape__row--after .tape__side {
+  color: var(--accent-2);
+}
+
+.tape__time {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.tape__num {
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tape__price.tone-up {
+  color: var(--up);
+}
+
+.tape__price.tone-down {
+  color: var(--down);
+}
+
+.tape__side {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.tape__empty {
+  padding: 28px 4px;
+  color: var(--text-3);
+  text-align: center;
+  font-size: var(--fs-2xs);
+}

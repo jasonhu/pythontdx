@@ -398,6 +398,34 @@ class TestIndustry(unittest.TestCase):
         self.assertFalse(tdx.is_index_code(1, "600519"))
 
 
+class TestStatsQuery(unittest.TestCase):
+    def test_readonly_query(self):
+        with tempfile.TemporaryDirectory() as directory:
+            old = os.environ.get("STOCKLENS_DATA_DIR")
+            os.environ["STOCKLENS_DATA_DIR"] = directory
+            try:
+                folder = Path(directory) / "normalized" / "tdx" / "zhb_stats"
+                folder.mkdir(parents=True)
+                database = sqlite3.connect(folder / "stats.db")
+                database.execute("CREATE TABLE tdxstat (code TEXT, pe_ttm REAL)")
+                database.execute("INSERT INTO tdxstat VALUES ('600519', 20.79)")
+                database.commit()
+                database.close()
+
+                result = tdx.run_stats_query("SELECT code, pe_ttm FROM tdxstat", 10)
+                self.assertEqual(result["columns"], ["code", "pe_ttm"])
+                self.assertEqual(result["rows"], [["600519", 20.79]])
+                with self.assertRaises(tdx.TdxError):
+                    tdx.run_stats_query("DELETE FROM tdxstat")
+                with self.assertRaises(tdx.TdxError):
+                    tdx.run_stats_query("SELECT 1; SELECT 2")
+            finally:
+                if old is None:
+                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                else:
+                    os.environ["STOCKLENS_DATA_DIR"] = old
+
+
 class TestScreener(unittest.TestCase):
     QUOTES = [
         {"code": "sh600519", "price": 1367.85, "changePct": 1.2, "amount": 3e9, "turnoverRate": 0.5, "amplitude": 2},

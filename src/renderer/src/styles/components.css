@@ -1300,6 +1300,109 @@
   font-size: var(--fs-2xs);
 }
 
+.data__query {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.data__query-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: 8px;
+}
+
+.data__query-head div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.data__query-head strong {
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+}
+
+.data__query-head span {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__sql {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-1);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  outline: none;
+}
+
+.data__sql:focus {
+  border-color: var(--accent);
+}
+
+.data__query-error {
+  margin-top: 6px;
+  color: var(--down);
+  font-size: var(--fs-xs);
+}
+
+.data__query-result {
+  margin-top: 8px;
+}
+
+.data__query-meta {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  margin-bottom: 4px;
+}
+
+.data__query-table-wrap {
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.data__query-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-2xs);
+}
+
+.data__query-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 5px 8px;
+  color: var(--text-3);
+  font-weight: 500;
+  text-align: left;
+  background: var(--panel-solid);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data__query-table td {
+  padding: 4px 8px;
+  color: var(--text-1);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data__query-table .num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
 /* ------------------------------------------------------------------ 板块 */
 
 .block-backdrop {

@@ -25,6 +25,7 @@ import {
   fetchQuotes,
   fetchScreen,
   fetchSearchHint,
+  fetchStatsQuery,
   fetchTdxStatsExport,
   fetchTdxStatsSummary,
   fetchTrades
@@ -64,6 +65,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.dataStatsSummary, () => fetchTdxStatsSummary())
 
   ipcMain.handle(IPC.dataStatsExport, () => fetchTdxStatsExport())
+
+  ipcMain.handle(IPC.dataStatsQuery, (_event, sql: string, limit?: number) =>
+    fetchStatsQuery(sql, limit)
+  )
 
   ipcMain.handle(IPC.blockList, (_event, kind: BlockKind) => fetchBlocks(kind))
 

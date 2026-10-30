@@ -23,6 +23,7 @@ import type {
   SearchItem,
   ScreenRequest,
   ScreenResult,
+  StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
   TradeTick,
@@ -55,6 +56,8 @@ export const IPC = {
   dataStatsSummary: 'data:stats-summary',
   /** tdxstat 规范化导出（invoke） */
   dataStatsExport: 'data:stats-export',
+  /** stats.db 只读查询（invoke） */
+  dataStatsQuery: 'data:stats-query',
   /** 板块列表/成分（invoke） */
   blockList: 'block:list',
   /** 行业分类/成分（invoke） */
@@ -155,6 +158,8 @@ export interface StockLensApi {
     statsSummary(): Promise<TdxStatsSummary>
     /** 下载并写原始 ZIP + JSONL.gz + SQLite + manifest */
     statsExport(): Promise<TdxStatsExport>
+    /** 在 stats.db 上执行只读 SELECT/WITH */
+    statsQuery(sql: string, limit?: number): Promise<StatsQueryResult>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

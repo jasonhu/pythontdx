@@ -4,7 +4,7 @@
  * 只做只读数据管理，不碰交易；导出路径由 Python 后端决定并在界面上明确展示。
  */
 import { createSignal, For, Show, type JSX } from 'solid-js'
-import type { TdxStatsExport, TdxStatsSummary } from '@shared/types'
+import type { StatsQueryResult, TdxStatsExport, TdxStatsSummary } from '@shared/types'
 import { thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -25,6 +25,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [loading, setLoading] = createSignal(false)
   const [exporting, setExporting] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
+  const [sql, setSql] = createSignal(
+    'SELECT stats_date, code, beta60, pe_ttm FROM tdxstat ORDER BY stats_date DESC, code LIMIT 20'
+  )
+  const [querying, setQuerying] = createSignal(false)
+  const [query, setQuery] = createSignal<StatsQueryResult | null>(null)
+  const [queryError, setQueryError] = createSignal<string | null>(null)
 
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
@@ -51,6 +57,20 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setError(errorMessage(cause))
     } finally {
       setExporting(false)
+    }
+  }
+
+  const runQuery = async (): Promise<void> => {
+    if (querying()) return
+    setQuerying(true)
+    setQueryError(null)
+    try {
+      setQuery(await api.data.statsQuery(sql(), 100))
+    } catch (cause) {
+      setQuery(null)
+      setQueryError(errorMessage(cause))
+    } finally {
+      setQuerying(false)
     }
   }
 
@@ -227,6 +247,63 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
             )}
           </Show>
+
+          <section class="data__query">
+            <div class="data__query-head">
+              <div>
+                <strong>SQL 查询</strong>
+                <span>只读 SELECT/WITH，最多 500 行</span>
+              </div>
+              <button
+                class="btn data__query-run"
+                disabled={querying()}
+                onClick={() => void runQuery()}
+              >
+                {querying() ? '查询中…' : '执行'}
+              </button>
+            </div>
+            <textarea
+              class="data__sql"
+              rows="3"
+              value={sql()}
+              aria-label="SQL 查询"
+              onInput={(event) => setSql(event.currentTarget.value)}
+            />
+            <Show when={queryError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={query()}>
+              {(result) => (
+                <div class="data__query-result">
+                  <div class="data__query-meta">
+                    {result().rowCount} 行{result().limited ? '（已截断）' : ''}
+                  </div>
+                  <div class="data__query-table-wrap">
+                    <table class="data__query-table">
+                      <thead>
+                        <tr>
+                          <For each={result().columns}>{(column) => <th>{column}</th>}</For>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={result().rows}>
+                          {(row) => (
+                            <tr>
+                              <For each={row}>
+                                {(cell) => (
+                                  <td class="num">{cell === null ? '—' : String(cell)}</td>
+                                )}
+                              </For>
+                            </tr>
+                          )}
+                        </For>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Show>
+          </section>
         </div>
 
         <footer class="data__foot">

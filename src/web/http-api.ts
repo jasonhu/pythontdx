@@ -22,6 +22,7 @@ import type {
   ScreenRequest,
   ScreenResult,
   SearchItem,
+  StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
   TradeTick
@@ -224,7 +225,8 @@ export function createHttpApi(): StockLensApi {
     },
     data: {
       statsSummary: () => post<TdxStatsSummary>('/api/stats_summary', {}),
-      statsExport: () => post<TdxStatsExport>('/api/stats_export', {})
+      statsExport: () => post<TdxStatsExport>('/api/stats_export', {}),
+      statsQuery: (sql, limit) => post<StatsQueryResult>('/api/stats_query', { sql, limit })
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

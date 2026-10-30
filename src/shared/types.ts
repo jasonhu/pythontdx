@@ -263,6 +263,13 @@ export interface TdxStatsExport {
   rawBytes: number
 }
 
+export interface StatsQueryResult {
+  columns: string[]
+  rows: Array<Array<string | number | null>>
+  rowCount: number
+  limited: boolean
+}
+
 /* --------------------------------------------------------------- 板块数据 */
 
 export type BlockKind = 'gn' | 'fg' | 'zs' | 'general'

@@ -22,6 +22,7 @@ import type {
   ScreenRequest,
   ScreenResult,
   SearchItem,
+  StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
   TradeTick
@@ -160,6 +161,11 @@ export async function fetchTdxStatsSummary(): Promise<TdxStatsSummary> {
 /** 0x06b9 下载并写原始 ZIP + JSONL.gz + SQLite + manifest。 */
 export async function fetchTdxStatsExport(): Promise<TdxStatsExport> {
   return bridge.send<TdxStatsExport>('tdx_stats_export', {}, DATA_TIMEOUT_MS)
+}
+
+/** stats.db 只读查询；SQL 只允许 SELECT/WITH。 */
+export async function fetchStatsQuery(sql: string, limit = 200): Promise<StatsQueryResult> {
+  return bridge.send<StatsQueryResult>('stats_query', { sql, limit }, 30_000)
 }
 
 const BLOCK_TIMEOUT_MS = 90_000

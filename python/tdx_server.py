@@ -318,6 +318,15 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.tdx_stats_export())
                 return
+            if parsed.path == "/api/stats_query":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.stats_query(
+                            str(payload.get("sql") or ""),
+                            int(payload.get("limit", 200)),
+                        )
+                    )
+                return
             if parsed.path == "/api/blocks":
                 with self.server.lock:
                     self._ok(self.server.bridge.blocks(payload.get("kind", "gn")))

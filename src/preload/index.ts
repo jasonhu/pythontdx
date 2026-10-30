@@ -45,7 +45,8 @@ const api: StockLensApi = {
   },
   data: {
     statsSummary: () => ipcRenderer.invoke(IPC.dataStatsSummary),
-    statsExport: () => ipcRenderer.invoke(IPC.dataStatsExport)
+    statsExport: () => ipcRenderer.invoke(IPC.dataStatsExport),
+    statsQuery: (sql, limit) => ipcRenderer.invoke(IPC.dataStatsQuery, sql, limit)
   },
   block: {
     list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),

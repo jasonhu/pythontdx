@@ -1474,6 +1474,39 @@ def normalize_tdx_stats(
     }
 
 
+def run_stats_query(sql: str, limit: int = 200) -> dict:
+    """在 stats.db 上执行只读 SELECT/WITH，最多返回 500 行。"""
+    text = sql.strip().rstrip(";").strip()
+    if not text:
+        raise TdxError("SQL 不能为空")
+    if not re.match(r"(?is)^(select|with)\b", text):
+        raise TdxError("只允许 SELECT / WITH 查询")
+    if ";" in text:
+        raise TdxError("只允许一条 SQL")
+    safe_limit = max(1, min(500, int(limit)))
+
+    database = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+    if not database.exists():
+        raise TdxError("stats.db 不存在，请先在数据工具里执行「规范化导出」")
+    connection = sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True)
+    try:
+        cursor = connection.execute(
+            f"SELECT * FROM ({text}) LIMIT {safe_limit}"
+        )
+        columns = [column[0] for column in cursor.description or []]
+        rows = [list(row) for row in cursor.fetchall()]
+        return {
+            "columns": columns,
+            "rows": rows,
+            "rowCount": len(rows),
+            "limited": len(rows) >= safe_limit,
+        }
+    except sqlite3.Error as error:
+        raise TdxError(f"SQL 执行失败：{error}") from error
+    finally:
+        connection.close()
+
+
 def write_stats_db(
     root: Path,
     stat_by_date: dict[str, list[dict]],
@@ -2427,6 +2460,9 @@ class Bridge:
         )
         return result
 
+    def stats_query(self, sql: str, limit: int = 200) -> dict:
+        return run_stats_query(sql, limit)
+
     def blocks(self, kind: str = "gn") -> dict:
         """下载并解析板块 .dat，返回板块名与成分代码（含市场前缀）。"""
         if kind not in BLOCK_FILES:
@@ -2780,6 +2816,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.industries()
     if cmd == "screen":
         return bridge.screen(payload.get("filters") or {})
+    if cmd == "stats_query":
+        return bridge.stats_query(
+            str(payload.get("sql") or ""),
+            int(payload.get("limit", 200)),
+        )
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

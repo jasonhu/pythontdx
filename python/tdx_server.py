@@ -478,6 +478,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                         self.server.bridge.f10_statement(
                             payload.get("code", ""),
                             str(payload.get("kind", "zcfzb")),
+                            bool(payload.get("full", False)),
                         )
                     )
                 return

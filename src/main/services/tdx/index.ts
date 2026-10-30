@@ -185,8 +185,12 @@ export async function fetchF10Reports(code: string): Promise<F10ProfileTable> {
   return bridge.send<F10ProfileTable>('f10_reports', { code }, 20_000)
 }
 
-export async function fetchF10Statement(code: string, kind: string): Promise<F10ProfileTable> {
-  return bridge.send<F10ProfileTable>('f10_statement', { code, kind }, 20_000)
+export async function fetchF10Statement(
+  code: string,
+  kind: string,
+  full = false
+): Promise<F10ProfileTable> {
+  return bridge.send<F10ProfileTable>('f10_statement', { code, kind, full }, 20_000)
 }
 
 /* ---------------------------------------------------------------- 数据工具 */

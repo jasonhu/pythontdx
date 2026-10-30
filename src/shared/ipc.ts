@@ -193,7 +193,7 @@ export interface StockLensApi {
     business(code: string): Promise<F10ProfileTable>
     shareholders(code: string): Promise<F10ProfileTable>
     reports(code: string): Promise<F10ProfileTable>
-    statement(code: string, kind: string): Promise<F10ProfileTable>
+    statement(code: string, kind: string, full?: boolean): Promise<F10ProfileTable>
   }
   data: {
     /** 下载 zhb.zip 并返回 tdxstat 摘要 */

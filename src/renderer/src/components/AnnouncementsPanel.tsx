@@ -51,6 +51,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
   const [statementError, setStatementError] = createSignal<string | null>(null)
+  const [statementFull, setStatementFull] = createSignal(false)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -140,12 +141,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
-  const loadStatement = async (kind: string): Promise<void> => {
+  const loadStatement = async (kind: string, full = statementFull()): Promise<void> => {
     setStatementKind(kind)
+    setStatementFull(full)
     setStatementLoading(true)
     setStatementError(null)
     try {
-      setStatement(await api.f10.statement(props.code, kind))
+      setStatement(await api.f10.statement(props.code, kind, full))
     } catch (cause) {
       setStatementError(errorMessage(cause))
     } finally {
@@ -554,6 +556,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                 >
                   现金流
                 </button>
+                <button
+                  class="statement-kind statement-full-toggle"
+                  data-active={statementFull()}
+                  onClick={() => void loadStatement(statementKind(), !statementFull())}
+                >
+                  {statementFull() ? '关键科目' : '全部科目'}
+                </button>
               </div>
               <Show
                 when={!statementLoading()}
@@ -570,7 +579,8 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <>
                         <div class="announcements__meta">
-                          最近 4 期 · 模板 {table().template ?? 0} · 关键科目
+                          最近 4 期 · 模板 {table().template ?? 0} ·{' '}
+                          {statementFull() ? '全部原始列' : '关键科目'}
                         </div>
                         <div class="valuation-table-wrap">
                           <table class="valuation-table finance-table">

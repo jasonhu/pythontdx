@@ -231,6 +231,7 @@ export interface F10ProfileTable {
   reportDate?: string
   template?: number
   kind?: string
+  full?: boolean
 }
 
 export interface F10Announcement {

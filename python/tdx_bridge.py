@@ -2542,9 +2542,9 @@ class Bridge:
         """7615 TQLEX 公司研报列表。"""
         return fetch_reports(code)
 
-    def f10_statement(self, code: str, kind: str = "zcfzb") -> dict:
-        """7615 TQLEX 财务报表关键科目。"""
-        return fetch_statement(code, kind)
+    def f10_statement(self, code: str, kind: str = "zcfzb", full: bool = False) -> dict:
+        """7615 TQLEX 财务报表；full=true 返回全部原始列。"""
+        return fetch_statement(code, kind, full)
 
     def _download_bytes(
         self,
@@ -3058,6 +3058,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_statement(
             payload.get("code", ""),
             str(payload.get("kind", "zcfzb")),
+            bool(payload.get("full", False)),
         )
     if cmd == "kline":
         return bridge.kline(

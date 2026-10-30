@@ -94,8 +94,8 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.f10Reports, (_event, code: string) => fetchF10Reports(code))
 
-  ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string) =>
-    fetchF10Statement(code, kind)
+  ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>
+    fetchF10Statement(code, kind, full)
   )
 
   ipcMain.handle(IPC.dataStatsSummary, () => fetchTdxStatsSummary())

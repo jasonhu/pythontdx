@@ -273,7 +273,7 @@ def parse_report_payload(payload: dict) -> dict:
     return {"columns": columns, "rows": rows}
 
 
-def parse_statement_payload(payload: dict, kind: str) -> dict:
+def parse_statement_payload(payload: dict, kind: str, full: bool = False) -> dict:
     if int(payload.get("ErrorCode") or 0) != 0:
         raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
     result_sets = payload.get("ResultSets") or []
@@ -291,7 +291,7 @@ def parse_statement_payload(payload: dict, kind: str) -> dict:
             except (ValueError, IndexError, TypeError):
                 template = 0
     metrics = STATEMENT_METRICS.get(kind, {}).get(template)
-    if metrics:
+    if metrics and not full:
         indexes = [(raw_columns.index(key), label) for key, label in metrics if key in raw_columns]
         columns = [label for _, label in indexes]
         rows = [
@@ -301,15 +301,21 @@ def parse_statement_payload(payload: dict, kind: str) -> dict:
     else:
         columns = raw_columns
         rows = [list(values) for values in (table.get("Content") or [])[:4]]
-    return {"columns": columns, "rows": rows, "template": template, "kind": kind}
+    return {
+        "columns": columns,
+        "rows": rows,
+        "template": template,
+        "kind": kind,
+        "full": full,
+    }
 
 
-def fetch_statement(code: str, kind: str = "zcfzb") -> dict:
+def fetch_statement(code: str, kind: str = "zcfzb", full: bool = False) -> dict:
     _market, symbol = _market_of(code)
     if kind not in {"zcfzb", "lyb", "xjllb"}:
         raise F10Error(f"未知报表类型：{kind}")
     payload = _post_tqlex(STATEMENT_ENTRY, {"Params": [symbol, kind, ""]})
-    return parse_statement_payload(payload, kind)
+    return parse_statement_payload(payload, kind, full)
 
 
 def fetch_reports(code: str) -> dict:

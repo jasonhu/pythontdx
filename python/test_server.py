@@ -64,8 +64,8 @@ class FakeBridge:
     def f10_reports(self, code):
         return {"columns": ["标题"], "rows": [["点评标题"]]}
 
-    def f10_statement(self, code, kind):
-        return {"columns": ["报告期"], "rows": [["2026-09-30"]]}
+    def f10_statement(self, code, kind, full=False):
+        return {"columns": ["报告期"], "rows": [["2026-09-30"]], "full": full}
 
     def tdx_stats(self):
         return {"statCount": 8100, "statSamples": []}

@@ -331,6 +331,7 @@ export function createHttpApi(): StockLensApi {
       shareholderChanges: (code) => post<F10ProfileTable>('/api/f10_shareholder_changes', { code }),
       institutions: (code) => post<F10ProfileTable>('/api/f10_institutions', { code }),
       controller: (code) => post<F10ProfileTable>('/api/f10_controller', { code }),
+      changePlans: (code) => post<F10ProfileTable>('/api/f10_change_plans', { code }),
       statement: (code, kind) => post<F10ProfileTable>('/api/f10_statement', { code, kind })
     },
     data: {

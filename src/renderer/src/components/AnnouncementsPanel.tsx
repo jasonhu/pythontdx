@@ -29,6 +29,7 @@ type OnlineTab =
   | 'shareholderChanges'
   | 'institutions'
   | 'controller'
+  | 'changePlans'
   | 'statement'
   | 'news'
   | 'trading'
@@ -78,6 +79,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [controller, setController] = createSignal<F10ProfileTable | null>(null)
   const [controllerLoading, setControllerLoading] = createSignal(true)
   const [controllerError, setControllerError] = createSignal<string | null>(null)
+  const [changePlans, setChangePlans] = createSignal<F10ProfileTable | null>(null)
+  const [changePlansLoading, setChangePlansLoading] = createSignal(true)
+  const [changePlansError, setChangePlansError] = createSignal<string | null>(null)
   const [statementKind, setStatementKind] = createSignal('zcfzb')
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
@@ -207,6 +211,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadChangePlans = async (): Promise<void> => {
+    setChangePlansLoading(true)
+    setChangePlansError(null)
+    try {
+      setChangePlans(await api.f10.changePlans(props.code))
+    } catch (cause) {
+      setChangePlansError(errorMessage(cause))
+    } finally {
+      setChangePlansLoading(false)
+    }
+  }
+
   const loadController = async (): Promise<void> => {
     setControllerLoading(true)
     setControllerError(null)
@@ -323,6 +339,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadShareholderChanges()
     void loadInstitutions()
     void loadController()
+    void loadChangePlans()
     void loadStatement('zcfzb')
     void loadNews()
     void loadTrading('margin')
@@ -419,6 +436,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('shareholderCount')}
           >
             股东人数
+          </button>
+          <button
+            class="online-tab online-plan-tab"
+            data-active={tab() === 'changePlans'}
+            onClick={() => setTab('changePlans')}
+          >
+            增减计划
           </button>
           <button
             class="online-tab online-controller-tab"
@@ -772,6 +796,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table shareholder-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'changePlans'}>
+              <Show
+                when={!changePlansLoading()}
+                fallback={<div class="announcements__empty">加载增减持计划…</div>}
+              >
+                <Show
+                  when={!changePlansError()}
+                  fallback={<div class="announcements__error">{changePlansError()}</div>}
+                >
+                  <Show
+                    when={changePlans()}
+                    fallback={<div class="announcements__empty">暂无增减持计划</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table plan-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

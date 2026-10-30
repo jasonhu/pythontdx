@@ -415,6 +415,58 @@ def fetch_capital_structure(code: str, section: str = "structure") -> dict:
     }
 
 
+CHANGE_PLAN_LABELS = {
+    "N001": "公告日",
+    "N002": "计划类型",
+    "N003": "股东名称",
+    "N004": "股东身份",
+    "N005": "价格下限",
+    "N006": "价格上限",
+    "N007": "金额下限",
+    "N008": "金额上限",
+    "N009": "开始日期",
+    "N010": "结束日期",
+    "N011": "进度",
+    "N012": "已增持数量",
+}
+
+CHANGE_PLAN_COLUMNS = (
+    "N001",
+    "N002",
+    "N003",
+    "N004",
+    "N007",
+    "N008",
+    "N009",
+    "N010",
+    "N011",
+    "N012",
+)
+
+
+def fetch_change_plans(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_gdyj",
+        {"Params": [symbol, "gdzjcjh", "", "", "1", "1", "20"]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 增减持计划返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw = [str(name) for name in (table.get("ColName") or [])]
+    wanted = [name for name in CHANGE_PLAN_COLUMNS if name in raw]
+    indexes = [raw.index(name) for name in wanted]
+    rows = table.get("Content") or []
+    return {
+        "columns": [CHANGE_PLAN_LABELS.get(name, name) for name in wanted],
+        "rows": [[row[index] for index in indexes] for row in rows],
+        "count": len(rows),
+    }
+
+
 CONTROLLER_LABELS = {
     "T001": "报告期",
     "kggd": "控股股东",

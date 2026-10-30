@@ -185,6 +185,22 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_change_plans_columns(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["N001", "N002", "N003", "N004", "N007", "N008", "N009", "N010", "N011", "N012"],
+                    "Content": [["2025-12-30", "拟增持", "茅台集团", "控股股东", 3000000000, 3300000000, "2025-09-01", "2026-02-28", "完成", 1075090]],
+                }
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_change_plans("sh600519")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][:4], ["公告日", "计划类型", "股东名称", "股东身份"])
+        self.assertEqual(table["rows"][0][8], "完成")
+
     def test_fetch_controller_columns(self):
         payload = {
             "ErrorCode": 0,

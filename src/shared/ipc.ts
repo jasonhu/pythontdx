@@ -115,6 +115,8 @@ export const IPC = {
   f10Institutions: 'f10:institutions',
   /** 控股股东/实际控制人（invoke） */
   f10Controller: 'f10:controller',
+  /** 股东增减持计划（invoke） */
+  f10ChangePlans: 'f10:change-plans',
   /** 全 A 股涨跌家数（invoke） */
   marketBreadth: 'market:breadth',
   /** 读取本地 .day 日线（invoke） */
@@ -284,6 +286,7 @@ export interface StockLensApi {
     shareholderChanges(code: string): Promise<F10ProfileTable>
     institutions(code: string): Promise<F10ProfileTable>
     controller(code: string): Promise<F10ProfileTable>
+    changePlans(code: string): Promise<F10ProfileTable>
     statement(code: string, kind: string, full?: boolean): Promise<F10ProfileTable>
   }
   data: {

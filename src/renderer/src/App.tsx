@@ -14,6 +14,7 @@ import { ChartPanel } from './components/ChartPanel'
 import { DataPanel } from './components/DataPanel'
 import { EmptyState } from './components/EmptyState'
 import { F10Panel } from './components/F10Panel'
+import { FormulaPanel } from './components/FormulaPanel'
 import { MoneyFlow } from './components/MoneyFlow'
 import { OrderBook } from './components/OrderBook'
 import { QuoteHeader } from './components/QuoteHeader'
@@ -42,6 +43,7 @@ export default function App(): JSX.Element {
   const [blocksOpen, setBlocksOpen] = createSignal(false)
   const [screenerOpen, setScreenerOpen] = createSignal(false)
   const [replayOpen, setReplayOpen] = createSignal(false)
+  const [formulaOpen, setFormulaOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
@@ -85,7 +87,11 @@ export default function App(): JSX.Element {
           {(quote) => (
             <>
               <QuoteHeader quote={quote()} onOpenF10={() => setF10Open(true)} />
-              <ChartPanel code={quote().code} onOpenReplay={() => setReplayOpen(true)} />
+              <ChartPanel
+                code={quote().code}
+                onOpenReplay={() => setReplayOpen(true)}
+                onOpenFormula={() => setFormulaOpen(true)}
+              />
             </>
           )}
         </Show>
@@ -227,6 +233,16 @@ export default function App(): JSX.Element {
             code={quote().code}
             name={quote().name}
             onClose={() => setReplayOpen(false)}
+          />
+        )}
+      </Show>
+
+      <Show when={formulaOpen() ? activeQuote() : undefined}>
+        {(quote) => (
+          <FormulaPanel
+            code={quote().code}
+            name={quote().name}
+            onClose={() => setFormulaOpen(false)}
           />
         )}
       </Show>

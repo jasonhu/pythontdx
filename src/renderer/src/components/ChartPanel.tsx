@@ -43,6 +43,7 @@ const KLINE_COUNT = KLINE_BARS_MAX
 export interface ChartPanelProps {
   code: string
   onOpenReplay: () => void
+  onOpenFormula: () => void
 }
 
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
@@ -185,6 +186,13 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             )}
           </Show>
 
+          <button
+            class="btn btn--bare formula-open"
+            title="指标公式预览"
+            onClick={() => props.onOpenFormula()}
+          >
+            公式
+          </button>
           <button
             class="btn btn--bare replay-open"
             title="日 K 复盘"

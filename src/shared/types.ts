@@ -246,6 +246,8 @@ export interface BlockGroup {
   kind: BlockKind | 'industry'
   /** 文件里记录的股票数（含未解析的代码） */
   count: number
+  /** 对应的 880xxx 板块指数（tdxzs.cfg），没有则为空 */
+  indexCode?: string
   /** 已解析成带市场前缀的代码 */
   codes: string[]
   /** 代码 → 名称，来自 0x044d 代码表 */

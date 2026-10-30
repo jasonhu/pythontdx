@@ -32,6 +32,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
   const [list, setList] = createSignal<BlockList | IndustryList | null>(null)
   const [selected, setSelected] = createSignal<BlockGroup | null>(null)
   const [quotes, setQuotes] = createSignal<Quote[]>([])
+  const [indexQuote, setIndexQuote] = createSignal<Quote | null>(null)
   const [filter, setFilter] = createSignal('')
   const [loading, setLoading] = createSignal(true)
   const [loadingQuotes, setLoadingQuotes] = createSignal(false)
@@ -51,11 +52,16 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
   const selectBlock = async (block: BlockGroup): Promise<void> => {
     setSelected(block)
     setQuotes([])
+    setIndexQuote(null)
     const current = ++quoteId
-    const codes = block.codes.slice(0, QUOTE_LIMIT)
-    if (codes.length === 0) return
     setLoadingQuotes(true)
     try {
+      if (block.indexCode) {
+        const [index] = await api.quote.snapshot([block.indexCode])
+        if (current !== quoteId) return
+        setIndexQuote(index ?? null)
+      }
+      const codes = block.codes.slice(0, QUOTE_LIMIT)
       const result: Quote[] = []
       for (let start = 0; start < codes.length; start += QUOTE_CHUNK) {
         const chunk = codes.slice(start, start + QUOTE_CHUNK)
@@ -76,6 +82,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
     setError(null)
     setSelected(null)
     setQuotes([])
+    setIndexQuote(null)
     try {
       const data =
         nextKind === 'industry' ? await api.block.industries() : await api.block.list(nextKind)
@@ -186,7 +193,24 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
               {(block) => (
                 <>
                   <header class="block__members-head">
-                    <strong>{block().name}</strong>
+                    <div class="block__members-title">
+                      <strong>{block().name}</strong>
+                      <Show when={indexQuote()}>
+                        {(index) => (
+                          <span class="block__index">
+                            指数 {fixed(index().price)}{' '}
+                            <span
+                              classList={{
+                                'tone-up': index().changePct > 0,
+                                'tone-down': index().changePct < 0
+                              }}
+                            >
+                              {signedPct(index().changePct)}
+                            </span>
+                          </span>
+                        )}
+                      </Show>
+                    </div>
                     <span>
                       {block().codes.length} 只
                       <Show when={block().count > block().codes.length}>

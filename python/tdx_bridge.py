@@ -1755,6 +1755,27 @@ def parse_tdxhy(text: str) -> list[dict]:
     return rows
 
 
+def parse_sector_indices(text: str) -> list[dict]:
+    """解析 tdxzs.cfg：板块名 | 880xxx | … | T行业代码。"""
+    rows: list[dict] = []
+    for raw in text.splitlines():
+        parts = raw.strip().split("|")
+        if len(parts) < 2:
+            continue
+        name, code = parts[0].strip(), parts[1].strip()
+        if not name or not code.startswith("88"):
+            continue
+        rows.append(
+            {
+                "name": name,
+                "symbol": code,
+                "code": f"sh{code}",
+                "tdxCode": parts[5].strip() if len(parts) > 5 else "",
+            }
+        )
+    return rows
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -2021,6 +2042,7 @@ class Bridge:
         self.finance_cache: dict[str, tuple[float, dict]] = {}
         self.block_cache: dict[str, tuple[float, dict]] = {}
         self.industry_cache: tuple[float, dict] | None = None
+        self.zhb_cache: tuple[float, bytes, dict, int] | None = None
 
     def close(self) -> None:
         self.conn.close()
@@ -2275,6 +2297,16 @@ class Bridge:
             offset += size
         return bytes(data), chunks
 
+    def _zhb_bytes(self) -> tuple[bytes, dict, int]:
+        """zhb.zip 的短期缓存；板块/行业/统计都要读它。"""
+        if self.zhb_cache and self.zhb_cache[0] > time.time():
+            _, data, saved, chunks = self.zhb_cache
+            return data, saved, chunks
+        data, chunks = self._download_bytes("zhb.zip")
+        saved = save_raw_file("zhb.zip", data)
+        self.zhb_cache = (time.time() + 600, data, saved, chunks)
+        return data, saved, chunks
+
     def file_download(
         self,
         path: str,
@@ -2339,6 +2371,20 @@ class Bridge:
         by_symbol: dict[str, list[dict]] = {}
         for item in self.index.all:
             by_symbol.setdefault(item["symbol"], []).append(item)
+
+        # tdxzs.cfg 把板块名/行业代码映射到 880xxx 板块指数；报价可用 sh880xxx。
+        zhb_bytes, _, _ = self._zhb_bytes()
+        sector_by_name: dict[str, str] = {}
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(zhb_bytes))
+            if "tdxzs.cfg" in archive.namelist():
+                for row in parse_sector_indices(
+                    archive.read("tdxzs.cfg").decode("gbk", "replace")
+                ):
+                    sector_by_name.setdefault(row["name"], row["code"])
+        except zipfile.BadZipFile:
+            pass
+
         def resolve(symbol: str, prefer: str) -> tuple[str, str]:
             candidates = by_symbol.get(symbol, [])
             chosen = next(
@@ -2378,6 +2424,7 @@ class Bridge:
                     "count": block["count"],
                     "codes": codes,
                     "names": names,
+                    "indexCode": sector_by_name.get(block["name"], "")
                 }
             )
 
@@ -2403,17 +2450,26 @@ class Bridge:
 
         cfg_bytes, chunks = self._download_bytes("tdxhy.cfg")
         cfg_saved = save_raw_file("tdxhy.cfg", cfg_bytes)
-        zhb_bytes, zhb_chunks = self._download_bytes("zhb.zip")
-        zhb_saved = save_raw_file("zhb.zip", zhb_bytes)
+        zhb_bytes, zhb_saved, zhb_chunks = self._zhb_bytes()
         try:
             archive = zipfile.ZipFile(io.BytesIO(zhb_bytes))
             if "incon.dat" not in archive.namelist():
                 raise TdxError("zhb.zip 缺少 incon.dat")
             incon = archive.read("incon.dat").decode("gbk", "replace")
+            tdxzs = (
+                archive.read("tdxzs.cfg").decode("gbk", "replace")
+                if "tdxzs.cfg" in archive.namelist()
+                else ""
+            )
         except zipfile.BadZipFile as error:
             raise TdxError("zhb.zip 不是合法 ZIP") from error
 
         names = dict(parse_incon_sections(incon).get("TDXNHY", []))
+        sector_by_tdx = {
+            row["tdxCode"]: row["code"]
+            for row in parse_sector_indices(tdxzs)
+            if row["tdxCode"]
+        }
         self.index.ensure(self.conn)
         by_symbol: dict[str, list[dict]] = {}
         for item in self.index.all:
@@ -2444,6 +2500,7 @@ class Bridge:
                     "count": 0,
                     "codes": [],
                     "names": {},
+                    "indexCode": sector_by_tdx.get(row["tdxCode"], "")
                 },
             )
             if code not in group["codes"]:

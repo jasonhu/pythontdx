@@ -383,6 +383,15 @@ class TestIndustry(unittest.TestCase):
         self.assertEqual(rows[0]["rsCode"], "X500102")
         self.assertEqual(rows[1]["tdxCode"], "T020301")
 
+    def test_parse_sector_indices(self):
+        rows = tdx.parse_sector_indices(
+            "银行|880471|2|1|1|T1001\n黑龙江|880201|3|1|0|1\nbadline\n"
+        )
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["code"], "sh880471")
+        self.assertEqual(rows[0]["tdxCode"], "T1001")
+        self.assertEqual(rows[1]["name"], "黑龙江")
+
 
 class TestMoneyFlow(unittest.TestCase):
     def test_money_flow_request(self):

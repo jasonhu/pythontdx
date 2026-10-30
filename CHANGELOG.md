@@ -29,6 +29,8 @@ StockLens 的所有重要变更都记录在这里。
 - **服务器文件**：`0x06b9` 完整下载 + 原始 ZIP 落盘/SHA256；
   `tdx_stats` 解析 `zhb.zip` 内 `tdxstat.cfg` / `tdxstat2.cfg`
   （各 8,103 行，主日期 20261029）。
+- **板块指数报价**：`tdxzs.cfg` 映射 880xxx（银行 880471、光伏 880544…），
+  行业/板块详情显示指数价格与涨跌幅；板块 K 线仍未接。
 - **本地行情预警**：价格/涨幅/量比/换手/振幅规则、同一天同规则只触发一次、
   应用内 toast + Electron 系统通知；Web 端在已授权时用浏览器通知。
   规则随 AppState 持久化，标题栏铃铛打开规则与触发记录。
@@ -54,7 +56,7 @@ StockLens 的所有重要变更都记录在这里。
   `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
   分区计数、空日期跳过数）；另生成 SQLite 查询层 `stats.db`（tdxstat/tdxstat2/meta）。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 52。
+  Python 测试 17 → 53。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

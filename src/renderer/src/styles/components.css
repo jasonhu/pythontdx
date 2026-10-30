@@ -1498,6 +1498,20 @@
   font-size: var(--fs-2xs);
 }
 
+.block__members-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.block__index {
+  color: var(--text-2) !important;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
 .block__loading {
   padding: 8px 20px;
   color: var(--text-3);

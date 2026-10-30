@@ -1198,3 +1198,42 @@
   min-width: 22px;
   padding: 0 2px;
 }
+
+/* ------------------------------------------------------------ 窄窗适配 */
+@media (max-width: 1240px) {
+  /* 名称优先：窄侧栏里先让出迷你图，别把股票名压成一个字 */
+  .watch-row .sparkline {
+    display: none;
+  }
+
+  .watch-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 7px 10px;
+    gap: 6px;
+  }
+
+  .watch-row__nums {
+    min-width: 68px;
+  }
+
+  .sidebar__head .btn--icon {
+    width: 23px;
+    height: 23px;
+  }
+
+  .sidebar__foot {
+    padding: 8px 10px;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  /* 矮窗口时右栏内部滚动，避免盘口买五/指标被硬裁掉 */
+  .rail {
+    overflow-y: auto;
+  }
+
+  .panel--book {
+    flex: 0 0 auto;
+    min-height: 338px;
+  }
+}

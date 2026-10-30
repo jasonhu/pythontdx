@@ -23,6 +23,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   const [date, setDate] = createSignal('')
   const [expanded, setExpanded] = createSignal(false)
   const [loadingMore, setLoadingMore] = createSignal(false)
+  const [loadingAll, setLoadingAll] = createSignal(false)
   const [hasMore, setHasMore] = createSignal(true)
   let requestId = 0
 
@@ -66,6 +67,30 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
     setDate(value)
     setTicks([])
     setExpanded(false)
+  }
+
+  const loadAll = async (): Promise<void> => {
+    if (loadingAll() || loadingMore() || ticks().length === 0) return
+    const current = ++requestId
+    setLoadingAll(true)
+    try {
+      const data = await api.trade.ticks({
+        code: props.code,
+        start: 0,
+        count: 1800,
+        date: date() || undefined
+      })
+      if (current !== requestId) return
+      setTicks(data)
+      setExpanded(true)
+      setHasMore(false)
+      setError(null)
+    } catch (cause) {
+      if (current !== requestId) return
+      setError(errorMessage(cause))
+    } finally {
+      if (current === requestId) setLoadingAll(false)
+    }
   }
 
   const loadMore = async (): Promise<void> => {
@@ -130,13 +155,22 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
         <Show
           when={expanded()}
           fallback={
-            <button
-              class="tape__today tape__more"
-              disabled={!hasMore() || loadingMore() || ticks().length === 0}
-              onClick={() => void loadMore()}
-            >
-              {loadingMore() ? '…' : hasMore() ? '更早' : '最早'}
-            </button>
+            <>
+              <button
+                class="tape__today tape__all"
+                disabled={loadingAll() || loadingMore() || ticks().length === 0}
+                onClick={() => void loadAll()}
+              >
+                {loadingAll() ? '加载中…' : '全部'}
+              </button>
+              <button
+                class="tape__today tape__more"
+                disabled={!hasMore() || loadingMore() || loadingAll() || ticks().length === 0}
+                onClick={() => void loadMore()}
+              >
+                {loadingMore() ? '…' : hasMore() ? '更早' : '最早'}
+              </button>
+            </>
           }
         >
           <button class="tape__today tape__more" onClick={resetLatest}>

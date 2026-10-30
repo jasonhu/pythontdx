@@ -21,7 +21,7 @@
 | 目标     | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`）  |
 | 数据源   | 当前：通达信 7709（沪/深/北 A 股）；目标：7709 + MAC + 7615 + 文件下载/本地文件  |
 | 分发     | 旧版 Windows 便携版/安装包可用；v0.6 的 PyInstaller 打包**待实测**              |
-| 平台验证 | Windows 旧版已验证；Linux 源码运行已验证；v0.6 打包与 macOS **未验证**         |
+| 平台验证 | **当前只做 Linux**；linux-unpacked/AppImage/deb 已验证；Windows/macOS 不处理 |
 
 **已交付能力**（详见 `README.md` 的功能一览）：
 实时行情推送、分时/五日/日周月K、五档盘口、关键指标、
@@ -52,12 +52,12 @@
   Python sidecar（仅标准库）、主进程桥接管理、本地拼音搜索、删除腾讯模块。
 - **验证**：`python3 -m unittest discover -s python -p 'test_*.py'` 17 项通过；
   `npm run test` 157 项通过；桥接进程 ping 测试通过。
-- **未完成**：PyInstaller 单文件打包与 Windows 实机验证（本环境没有 PyInstaller，
-  也没有 Windows）。打包路径与 `extraResources` 已配置，但**不能声称已验证**。
+- **平台范围（2026-10-30 用户指令）**：只做 Linux 运行与打包；Windows/macOS 不处理、
+  不验收。Linux 打包路径与 `extraResources` 已验证到 AppImage/deb。
 - **2026-10-30 收尾复核（Linux 开发机）**：`npm run check` / `npm run build` 均 exit 0；
   生产构建实机启动并截图（2560×1640，默认窗口无滚动条，分时图 654×499 由真实数据绘制）；
   Python 桥接直连 `ping` / `quotes` / `kline` / `minute` / `five_day` / `code_list`
-  （52,661 条）全部 ok。**仍未验证**：PyInstaller 产物、Windows / macOS 实机。
+  （52,661 条）全部 ok。Linux 打包已验证；Windows / macOS 不在范围。
 - **已知边界**：港股/美股/期货明确不做（G3）；PE TTM / 量比 / 涨跌停暂缺；
   行情时间原始值语义未确认。
 
@@ -95,8 +95,8 @@
 | #   | 项目                           | 为什么无法自动验证 | 怎么验证                              |
 | --- | ------------------------------ | ------------------ | ------------------------------------- |
 | V5  | macOS 上的**红绿灯让位**与打包 | 没有 macOS 环境    | 在 mac 上跑 `npm run build:mac`       |
-| V9  | **PyInstaller sidecar 打包**   | Windows 未验证；Linux 已用 6.22.3 构建并 `ping` 通过 | Windows 上 `pip install pyinstaller` → `npm run build:win`，确认 exe 与行情 |
-| V10 | **Linux packaged 应用启动**    | linux-unpacked / AppImage / deb 均已启动截图 | 窗口/行情已确认；Windows/macOS 仍未测 |
+| V9  | **PyInstaller sidecar 打包**   | Linux 已用 6.22.3 构建并 `ping` 通过；跨平台不处理 | 仅 Linux |
+| V10 | **Linux packaged 应用启动**    | linux-unpacked / AppImage / deb 均已启动截图 | 窗口/行情已确认；Linux 完成 |
 
 > 港股/美股/期货/期权不在范围（`docs/00` G3），7727 扩展行情也不接入，
 > 不再作为待验证项。
@@ -187,7 +187,7 @@
   **第 80 轮收尾**：目标 active，已用满 80 轮，未完成；后续恢复从剩余项继续。
 
 **第 75 轮审计**：完成定义未达到；剩余全市场回测约束、F10 研报正文、
-  MAC/`0x0547` 真实推送、Windows/macOS 打包、其他扩展周期。
+  MAC/`0x0547` 真实推送、其他扩展周期。
 - **验收**：每个命令有真实 fixture + 探针记录；字段表进 `docs/03`；
   与 `0x053e` 做差分对照；限流/重连有测试。
 - **影响**：`python/tdx_bridge.py`、`python/test_tdx.py`、`src/shared` 类型、`docs/03`。

@@ -29,8 +29,11 @@ StockLens 的所有重要变更都记录在这里。
 - **服务器文件**：`0x06b9` 完整下载 + 原始 ZIP 落盘/SHA256；
   `tdx_stats` 解析 `zhb.zip` 内 `tdxstat.cfg` / `tdxstat2.cfg`
   （各 8,103 行，主日期 20261029）。
+- **数据湖规范化**：`tdx_stats_export` 写原始 ZIP + 按 `trade_date` 分区的
+  `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
+  分区计数、空日期跳过数）；8100 行有效，主分区 20261029 有 8048 行。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 41。
+  Python 测试 17 → 42。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

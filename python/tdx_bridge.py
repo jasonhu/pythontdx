@@ -28,6 +28,7 @@ StockLens 的通达信行情桥接进程。
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import io
 import json
@@ -41,6 +42,7 @@ import traceback
 import zipfile
 import zlib
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ---------------------------------------------------------------- 常量
@@ -1395,6 +1397,148 @@ def parse_tdx_stats(zip_bytes: bytes) -> dict:
     }
 
 
+def _int_or_none(value: str) -> int | None:
+    text = value.strip()
+    return int(text) if text.isdigit() else None
+
+
+def normalize_tdx_stats(
+    zip_bytes: bytes,
+) -> tuple[dict[str, list[dict]], dict[str, list[dict]], dict[str, int]]:
+    """把 zhb.zip 的两份 CFG 规范化成按 statsDate 分组的行。"""
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    except zipfile.BadZipFile as error:
+        raise TdxError("zhb.zip 不是合法 ZIP") from error
+
+    for required in ("tdxstat.cfg", "tdxstat2.cfg"):
+        if required not in archive.namelist():
+            raise TdxError(f"zhb.zip 缺少 {required}")
+        info = archive.getinfo(required)
+        if info.flag_bits & 0x1:
+            raise TdxError(f"{required} 是加密条目，不处理")
+
+    stat_rows = _stat_rows(archive.read("tdxstat.cfg").decode("gbk", "replace"), 35)
+    stat2_rows = _stat_rows(archive.read("tdxstat2.cfg").decode("gbk", "replace"), 21)
+    stat_by_date: dict[str, list[dict]] = {}
+    stat2_by_date: dict[str, list[dict]] = {}
+    stat_skipped = 0
+    stat2_skipped = 0
+
+    for row in stat_rows:
+        date = row[4].strip()
+        if not date:
+            stat_skipped += 1
+            continue
+        stat_by_date.setdefault(date, []).append(
+            {
+                "market": _int_or_none(row[0]),
+                "code": row[1],
+                "beta60": _stat_float(row[2]),
+                "peTtm": _stat_float(row[3]),
+                "statsDate": date,
+                "freeFloatShares10k": _stat_float(row[11]),
+                "yearLimitUpDays": _int_or_none(row[26]),
+                "limitStatDays": _int_or_none(row[31]),
+                "limitUpCount": _int_or_none(row[32]),
+                "limitUpStreakDays": _int_or_none(row[33]),
+            }
+        )
+
+    for row in stat2_rows:
+        date = row[2].strip()
+        if not date:
+            stat2_skipped += 1
+            continue
+        stat2_by_date.setdefault(date, []).append(
+            {
+                "market": _int_or_none(row[0]),
+                "code": row[1],
+                "statsDate": date,
+                "amount10k": _stat_float(row[3]),
+                "sealAmount10k": _stat_float(row[4]),
+                "prevAmount10k": _stat_float(row[5]),
+                "prevSealAmount10k": _stat_float(row[6]),
+                "prev2Amount10k": _stat_float(row[7]),
+                "prev2SealAmount10k": _stat_float(row[8]),
+                "openVolumeHand": _int_or_none(row[9]),
+                "prevOpenVolumeHand": _int_or_none(row[10]),
+                "openAmount10k": _stat_float(row[14]),
+                "prevOpenAmount10k": _stat_float(row[15]),
+            }
+        )
+    return stat_by_date, stat2_by_date, {
+        "statSkipped": stat_skipped,
+        "stat2Skipped": stat2_skipped,
+    }
+
+
+def export_tdx_stats(zip_bytes: bytes, source_sha256: str = "") -> dict:
+    """把 tdxstat/tdxstat2 写成按 trade_date 分区的 JSONL.gz + manifest。"""
+    stat_by_date, stat2_by_date, skipped = normalize_tdx_stats(zip_bytes)
+    dates = sorted(set(stat_by_date) | set(stat2_by_date))
+    if not dates:
+        raise TdxError("tdxstat 没有有效日期")
+
+    root = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats"
+    root.mkdir(parents=True, exist_ok=True)
+    sha = source_sha256 or hashlib.sha256(zip_bytes).hexdigest()
+    generated_at = datetime.now(timezone.utc).isoformat()
+    partitions: list[dict] = []
+
+    def write_lines(path: Path, rows: list[dict]) -> None:
+        temporary = path.with_name(path.name + ".part")
+        with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=6) as stream:
+            for row in rows:
+                stream.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
+                stream.write("\n")
+        os.replace(temporary, path)
+
+    for date in dates:
+        directory = root / f"trade_date={date}"
+        directory.mkdir(parents=True, exist_ok=True)
+        stat_path = directory / "tdxstat.jsonl.gz"
+        stat2_path = directory / "tdxstat2.jsonl.gz"
+        if stat_by_date.get(date):
+            write_lines(stat_path, stat_by_date[date])
+        if stat2_by_date.get(date):
+            write_lines(stat2_path, stat2_by_date[date])
+        partitions.append(
+            {
+                "tradeDate": date,
+                "statCount": len(stat_by_date.get(date, [])),
+                "stat2Count": len(stat2_by_date.get(date, [])),
+                "path": str(directory),
+            }
+        )
+
+    manifest = {
+        "schemaVersion": 1,
+        "parser": "tdxstat-v1",
+        "source": "zhb.zip",
+        "sourceSha256": sha,
+        "generatedAt": generated_at,
+        "partitions": partitions,
+        "skipped": skipped,
+    }
+    manifest_path = root / "manifest.json"
+    temporary = manifest_path.with_name(manifest_path.name + ".part")
+    temporary.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    os.replace(temporary, manifest_path)
+    return {
+        "normalizedTo": str(root),
+        "manifest": str(manifest_path),
+        "sha256": sha,
+        "generatedAt": generated_at,
+        "partitions": partitions,
+        "statCount": sum(len(rows) for rows in stat_by_date.values()),
+        "stat2Count": sum(len(rows) for rows in stat2_by_date.values()),
+        **skipped,
+    }
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1944,6 +2088,20 @@ class Bridge:
         )
         return summary
 
+    def tdx_stats_export(self) -> dict:
+        """下载 zhb.zip，写原始 ZIP + 按 trade_date 分区的 JSONL.gz。"""
+        data, chunks = self._download_bytes("zhb.zip")
+        saved = save_raw_file("zhb.zip", data)
+        result = export_tdx_stats(data, saved["sha256"])
+        result.update(
+            {
+                "chunks": chunks,
+                "rawSavedTo": saved["savedTo"],
+                "rawBytes": saved["bytes"],
+            }
+        )
+        return result
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -2115,6 +2273,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "tdx_stats":
         return bridge.tdx_stats()
+    if cmd == "tdx_stats_export":
+        return bridge.tdx_stats_export()
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

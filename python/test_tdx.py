@@ -4,7 +4,9 @@ fixture 是 2026-10-29 收盘后从 7709 主站抓的真实响应（hex）。
 运行：python3 -m unittest discover -s python -p 'test_*.py'
 """
 
+import gzip
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -315,6 +317,31 @@ class TestTdxStats(unittest.TestCase):
             self.assertEqual(saved["bytes"], 3)
             self.assertTrue(saved["savedTo"].endswith("raw/tdx/x.bin"))
             self.assertTrue(Path(saved["savedTo"]).exists())
+
+    def test_export_stats_normalized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            old = os.environ.get("STOCKLENS_DATA_DIR")
+            os.environ["STOCKLENS_DATA_DIR"] = directory
+            try:
+                result = tdx.export_tdx_stats(self.make_zip())
+            finally:
+                if old is None:
+                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                else:
+                    os.environ["STOCKLENS_DATA_DIR"] = old
+            self.assertEqual(result["statCount"], 1)
+            self.assertEqual(result["statSkipped"], 0)
+            self.assertEqual(result["partitions"][0]["tradeDate"], "20261029")
+            partition = Path(result["partitions"][0]["path"])
+            self.assertTrue(Path(result["manifest"]).exists())
+            with gzip.open(
+                partition / "tdxstat.jsonl.gz", "rt", encoding="utf-8"
+            ) as stream:
+                lines = stream.read().splitlines()
+            self.assertEqual(len(lines), 1)
+            row = json.loads(lines[0])
+            self.assertEqual(row["code"], "000001")
+            self.assertAlmostEqual(row["beta60"], 1.23)
 
 
 class TestMoneyFlow(unittest.TestCase):

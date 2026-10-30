@@ -1,10 +1,10 @@
 /**
  * 设置面板：把散落在顶栏/状态栏/图表的开关集中到一处。
  */
-import { For, type JSX } from 'solid-js'
+import { createSignal, For, Show, type JSX } from 'solid-js'
 import type { LayoutSlot, ThemeMode } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
-import { appState, toggleTheme, updateSettings } from '../stores/app'
+import { appInfo, appState, toggleTheme, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
 
 const INTERVALS = [1000, 3000, 5000, 10_000] as const
@@ -16,6 +16,15 @@ const LAYOUTS = [
 ] as const
 
 export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
+  const [permission, setPermission] = createSignal(
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
+  )
+
+  const requestNotify = async (): Promise<void> => {
+    if (typeof Notification === 'undefined') return
+    setPermission(await Notification.requestPermission())
+  }
+
   const reset = (): void => {
     updateSettings({ ...DEFAULT_SETTINGS, chartDrawings: [] })
   }
@@ -194,6 +203,33 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
               </For>
             </div>
           </div>
+
+          <Show when={appInfo()?.platform === 'web'}>
+            <div class="settings__row">
+              <div>
+                <div class="settings__label">浏览器通知</div>
+                <div class="settings__hint">预警触发时发送系统通知；需浏览器授权。</div>
+              </div>
+              <div class="settings__notify">
+                <span class="settings__notify-state">
+                  {permission() === 'granted'
+                    ? '已授权'
+                    : permission() === 'denied'
+                      ? '已拒绝'
+                      : permission() === 'unsupported'
+                        ? '不支持'
+                        : '未授权'}
+                </span>
+                <button
+                  class="btn settings__notify-request"
+                  disabled={permission() === 'granted' || permission() === 'unsupported'}
+                  onClick={() => void requestNotify()}
+                >
+                  授权通知
+                </button>
+              </div>
+            </div>
+          </Show>
 
           <div class="settings__row">
             <div>

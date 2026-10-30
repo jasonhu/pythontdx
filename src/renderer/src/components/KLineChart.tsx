@@ -28,6 +28,7 @@ import {
   buildLinePath,
   cursorFromX,
   KLINE_BARS_MAX,
+  type KLineGeometry,
   klineRangeStats,
   type KLineRangeStats,
   klineWindow,
@@ -109,6 +110,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [rangeStart, setRangeStart] = createSignal<number | null>(null)
   const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
+  const [dragId, setDragId] = createSignal<number | null>(null)
   const [pendingPoint, setPendingPoint] = createSignal<{ index: number; price: number } | null>(
     null
   )
@@ -276,9 +278,44 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     }
   })
 
+  const localPoint = (
+    event: PointerEvent,
+    geo: KLineGeometry
+  ): { index: number; price: number } | null => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
+    if (index === null) return null
+    return { index, price: geo.priceFromY(event.clientY - rect.top) }
+  }
+
+  /** 在水平/垂直线上按下时进入拖动；趋势线暂不支持整条拖拽。 */
+  const hitDrawing = (event: PointerEvent, geo: KLineGeometry): KLineDrawing | null => {
+    if (props.rangeMode || props.drawMode !== 'none') return null
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    return (
+      drawings().find((drawing) => {
+        if (drawing.type === 'horizontal') return Math.abs(geo.yPrice(drawing.price ?? 0) - y) <= 6
+        if (drawing.type === 'vertical') return Math.abs(geo.x(drawing.startIndex ?? 0) - x) <= 6
+        return false
+      }) ?? null
+    )
+  }
+
   const onPointerDown = (event: PointerEvent): void => {
     const geo = geometry()
     if (!geo) return
+    const hit = hitDrawing(event, geo)
+    if (hit) {
+      setDragId(hit.id)
+      try {
+        ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+      } catch {
+        // 合成 PointerEvent（截图/测试）没有有效 pointerId，忽略捕获即可。
+      }
+      return
+    }
     if (props.drawMode && props.drawMode !== 'none') {
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
       const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
@@ -357,11 +394,31 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const onPointerMove = (event: PointerEvent): void => {
     const geo = geometry()
     if (!geo) return
-
+    const drag = dragId()
+    if (drag !== null) {
+      const point = localPoint(event, geo)
+      if (!point) return
+      setDrawings((current) =>
+        current.map((drawing) =>
+          drawing.id === drag
+            ? drawing.type === 'horizontal'
+              ? { ...drawing, price: point.price }
+              : { ...drawing, startIndex: point.index }
+            : drawing
+        )
+      )
+      return
+    }
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     // 用鼠标位置换算**绝对**下标：缩放或平移之后，同一个屏幕位置对应的 K 线变了，
     // 但我们记的是「哪一根」，所以窗口动的时候光标不会跟着跑。
     setCursor(cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW))
+  }
+
+  const onPointerUp = (): void => {
+    if (dragId() === null) return
+    setDragId(null)
+    persistDrawings(drawings())
   }
 
   /**
@@ -495,6 +552,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   return (
     <div
       class="chart-host"
+      classList={{ 'chart-host--dragging': dragId() !== null }}
       ref={(element: HTMLDivElement) => {
         host = element
         ref(element)
@@ -504,6 +562,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       onPointerEnter={() => setHovering(true)}
       onPointerMove={onPointerMove}
       onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onPointerLeave={() => {
         // 指针离开就交还键盘、收起光标：别让「谁在响应键盘」含糊着
         setHovering(false)

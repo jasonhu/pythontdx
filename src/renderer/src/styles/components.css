@@ -4557,3 +4557,7 @@
 .alert__form--secondary .alert__delete {
   flex: none;
 }
+
+.chart-host--dragging {
+  cursor: grabbing;
+}

@@ -59,6 +59,7 @@ StockLens 的所有重要变更都记录在这里。
   关闭隐藏时 capturePage 会挂起，属预期。
 - **打包守卫**：beforePack 校验 sidecar 魔数，Linux 交叉打 Windows 包直接失败，避免 ELF sidecar 混入。
 - **第二主窗口**：TitleBar「新窗」；行情推送广播到所有窗口；active/settings BroadcastChannel 同步。
+- **市场列表分栏扩充**：基金 13,214、债券 982、B股；全 A/指数/科创/创业/北证保留。
 - **市场列表**：代码表分栏（全A 5,615/指数 1,678/科创/创业/北证），当页 0x054c 快照，搜索/分页；板块入口。
 - **本地跨库查询**：local 引擎 ATTACH stats.db，可 JOIN `stats.tdxstat`；拒绝写操作。
 - **写回分钟文件**：.lc1/.lc5 float32 与 .5 整数分；3 根 roundtrip。

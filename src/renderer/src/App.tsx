@@ -78,6 +78,7 @@ export default function App(): JSX.Element {
   const [dragonOpen, setDragonOpen] = createSignal(false)
   const [boardsOpen, setBoardsOpen] = createSignal(false)
   const [marketReportOpen, setMarketReportOpen] = createSignal(false)
+  const [focusMode, setFocusMode] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
@@ -110,11 +111,16 @@ export default function App(): JSX.Element {
       } else if (event.key === 't' || event.key === 'T') {
         event.preventDefault()
         toggleTheme()
+      } else if (event.key === 'f' || event.key === 'F') {
+        event.preventDefault()
+        setFocusMode((value) => !value)
       } else if (event.key === '?') {
         event.preventDefault()
         setShortcutsOpen((value) => !value)
       } else if (event.key === 'Escape' && shortcutsOpen()) {
         setShortcutsOpen(false)
+      } else if (event.key === 'Escape' && focusMode()) {
+        setFocusMode(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -182,7 +188,11 @@ export default function App(): JSX.Element {
     }) as JSX.CSSProperties
 
   return (
-    <div class="app" classList={{ 'app--empty': !activeQuote() }} style={appStyle()}>
+    <div
+      class="app"
+      classList={{ 'app--empty': !activeQuote(), 'app--focus': focusMode() }}
+      style={appStyle()}
+    >
       <TitleBar
         onOpenData={() => setDataOpen(true)}
         onOpenUnusual={() => setUnusualOpen(true)}
@@ -216,6 +226,8 @@ export default function App(): JSX.Element {
                 onOpenReplay={() => setReplayOpen(true)}
                 onOpenFormula={() => setFormulaOpen(true)}
                 onOpenIndicators={() => setIndicatorOpen(true)}
+                focusMode={focusMode()}
+                onToggleFocus={() => setFocusMode((value) => !value)}
               />
             </>
           )}

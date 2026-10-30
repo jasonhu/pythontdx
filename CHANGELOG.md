@@ -61,6 +61,7 @@ StockLens 的所有重要变更都记录在这里。
 - **第二主窗口**：TitleBar「新窗」；行情推送广播到所有窗口；active/settings BroadcastChannel 同步。
 - **窄窗适配**：1240px 以下隐藏自选迷你图、侧栏图标收窄、右栏可滚动，避免股票名压成一个字/买五被裁。
 - **两条件组合预警**：价格/涨幅/量比/换手/振幅任选两项，AND 触发；规则描述与消息用「且」；184 TS。
+- **专注模式**：F 切换、Esc 退出，隐藏左右栏让图表占满；截图 `focus-mode.png`。
 - **窗口位置记忆**：第二主窗口、独立 K 线窗口分别持久化 bounds（主窗口原逻辑不变）。
 - **自选 K 线批量导出**：6 只/1,440 根，CSV + JSONL.gz + manifest；97 Python。
 - **图表 CSV**：当前 K 线（OHLCV）/分时（价格/均价/量）按 code+period 导出。
@@ -142,6 +143,7 @@ StockLens 的所有重要变更都记录在这里。
 - **可选 Parquet 导出**：`python/parquet_export.py` 按 `trade_date` 分区写 Parquet
   （需 pyarrow；本机 pyarrow 26 隔离实测 16,200 行/32 文件，默认环境测试跳过）；
   DuckDB 2.0 查询层已用隔离目录实测 20 行；DuckDB/Parquet 均非默认依赖。
+- **专注模式**：F 切换、Esc 退出，隐藏左右栏让图表占满；截图 `focus-mode.png`。
 - **窗口位置记忆**：第二主窗口、独立 K 线窗口分别持久化 bounds（主窗口原逻辑不变）。
 - **自选 K 线批量导出**：6 只/1,440 根，CSV + JSONL.gz + manifest；97 Python。
 - **图表 CSV**：当前 K 线（OHLCV）/分时（价格/均价/量）按 code+period 导出。

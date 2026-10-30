@@ -1280,3 +1280,14 @@
 .app--empty .layout-resizer--rail {
   display: none;
 }
+
+/* 专注模式：左右栏让位给图表，标题/状态栏保留 */
+.app--focus {
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+
+.app--focus .sidebar,
+.app--focus .rail,
+.app--focus .layout-resizer {
+  display: none;
+}

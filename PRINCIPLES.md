@@ -35,9 +35,9 @@ main      ──┘
 
 ### A2 · 主进程管 IO，渲染层管呈现
 
-网络请求、定时器、文件读写、原生对话框**一律放主进程**。理由：
+网络请求、定时器、文件读写、原生对话框**一律放主进程**（行情 socket 由主进程拉起的 Python 子进程持有）。理由：
 
-1. 渲染层的 `fetch` 会被 CORS 拦截（腾讯接口不返回 CORS 头）；
+1. 渲染层的 `fetch` 会被 CORS 拦截，也开不了 TCP（行情协议是 7709 二进制 socket）；
 2. 窗口最小化时渲染进程被 Chromium 节流，`setInterval` 会漂移；
 3. 将来加托盘常驻 / 多窗口时，数据源只需要一份。
 
@@ -136,7 +136,7 @@ const BATCH_SIZE = 60
 ```
 
 接口字段下标（`fields[37]`）属于例外：它们必须集中在一个解析函数里，
-并在 `docs/03-腾讯行情API手册.md` 里有对应表格。
+并在 `docs/03-通达信行情手册.md` 里有对应表格。
 
 ---
 
@@ -154,15 +154,16 @@ const BATCH_SIZE = 60
 
 ### D3 · 解析层必须是纯函数
 
-`src/main/services/tencent/parse.ts` 里不允许出现 `fetch`、`Date.now()`（时间由调用方传入）、
-任何 IO 或全局状态。这样才能拿真实报文直接写单元测试。
+`python/tdx_bridge.py` 里的 `parse_quotes` / `parse_bars` / `parse_today_minute` 等函数
+不允许出现 socket、`time.time()`（时间由调用方传入）、缓存或全局状态。
+这样才能拿真实报文直接写单元测试。
 
 ### D4 · 接口相关的改动必须同时更新「三件套」
 
 改动解析逻辑时，必须同步：
 
-1. `docs/03-腾讯行情API手册.md` 的字段表；
-2. `src/main/services/tencent/parse.test.ts` 的用例（用真实报文当 fixture）；
+1. `docs/03-通达信行情手册.md` 的字段表；
+2. `python/test_tdx.py` 的用例（用真实报文当 fixture）；
 3. 解析函数里的兜底逻辑。
 
 只改代码不改文档与测试的接口改动，一律视为未完成。

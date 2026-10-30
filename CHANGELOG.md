@@ -6,7 +6,53 @@ StockLens 的所有重要变更都记录在这里。
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
 分类说明：**新增**（功能）· **变更**（已有行为调整）· **修复**（bug）·
-**移除** · **工程**（构建 / 依赖 / 工具链）· **文档**。
+**移除** · **工程**（构建 / 依赖 / 工具链）· **文档** · **验证**（实测证据）。
+
+---
+
+## [未发布] - v0.6 数据源迁移
+
+**主题：A 股行情从腾讯 web 接口切到通达信 7709 协议。**
+
+### 变更
+
+- **行情层改为 Python sidecar**：`python/tdx_bridge.py` 持有 TCP 连接，
+  主进程通过 JSON Lines 调用；协议/解析不再散落在 TS 业务代码里。
+- **实时五档**：`0x053e` 批量拉取，单次最多 80 只；实测 80 只约 12ms。
+- **K 线**：`0x052d` 服务端前复权（`adjust=1`），日/周/月与腾讯 qfq 逐根一致。
+- **分时**：`0x0537` 240 点，含均价；五日分时用 5 次 `0x0fb4`，自带昨收。
+- **北交所**：market=2 支持；指数行情与 K 线单独处理（无盘口、K 线多 4 字节）。
+- **搜索**：本地 5.2 万条代码表 + `pinyin-pro`，支持 `gzmt` / `wly` / 中文 / 代码。
+- **基本面**：`0x0010` 财务批量补流通市值、总市值、换手率、市净率。
+
+### 移除
+
+- 删除 `src/main/services/tencent/` 与 `http.ts`（腾讯 web 接口退出运行时）。
+- 移除默认的「港股」分组：7709 不提供港股，留着只会显示「—」。
+- 港股/美股搜索不再返回；手动输入会提示「当前数据源暂不支持港股/美股」。
+
+### 工程
+
+- 新增 17 个 Python 协议测试（真实报文 fixture）与 1 个桥接进程 ping 测试；
+  TS 侧 196 → 157（删掉腾讯解析的 44 个用例，新增拼音搜索 4 个）。
+- `npm run check` 现在包含 Python 测试；打包前自动跑 `build:python`（PyInstaller）。
+- `electron-builder.yml` 通过 `extraResources` 把桥接程序放进 `resources/tdx-bridge/`。
+
+### 验证（2026-10-30，Linux 开发机）
+
+- `npm run check` exit 0：类型检查、ESLint、157 个 TS 测试、17 个 Python 测试全绿。
+- `npm run build` exit 0；生产构建实机启动并截图（2560×1640），DOM 回读真实行情，
+  默认窗口无滚动条，分时图正常绘制。
+- Python 桥接直连六个命令全部 ok：`ping`、`quotes`、`kline`、`minute`、
+  `five_day`、`code_list`（52,661 条代码）。
+- **仍未验证**：PyInstaller 打包产物、Windows / macOS 实机（见 `PLAN.md` 第三节）。
+
+### 已知边界
+
+- 源码运行已验证；PyInstaller 单文件打包与 Windows 实机验证**尚未执行**
+  （当前环境没有 PyInstaller / Windows）。
+- PE TTM、量比、涨跌停价暂缺，界面显示「—」。
+- `serverTimeRaw` 语义未确认，行情时间暂用接收时间。
 
 ---
 

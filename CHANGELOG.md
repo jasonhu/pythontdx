@@ -37,8 +37,8 @@ StockLens 的所有重要变更都记录在这里。
   TS 侧 196 → 157（删掉腾讯解析的 44 个用例，新增拼音搜索 4 个）。
 - `npm run check` 现在包含 Python 测试；打包前自动跑 `build:python`（PyInstaller）。
 - `electron-builder.yml` 通过 `extraResources` 把桥接程序放进 `resources/tdx-bridge/`。
-- 新增 `0x054c` 批量快照与 `0x0547` 单次增量刷新解析（真实 fixture；
-  Python 测试 17 → 21）；实时行情 UI 已从 `0x053e` 切到 `0x0547`，
+- 新增 `0x054c` 批量快照、`0x0547` 单次增量刷新、`0x054b` 分类行情解析
+  （真实 fixture；Python 测试 17 → 23）；实时行情 UI 已从 `0x053e` 切到 `0x0547`，
   推送队列下一步接入。
 
 ### 文档

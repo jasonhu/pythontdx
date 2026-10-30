@@ -59,6 +59,7 @@ CMD_HEARTBEAT = 0x0004
 CMD_QUOTES = 0x053E
 CMD_SNAPSHOT = 0x054C
 CMD_REFRESH = 0x0547
+CMD_CATEGORY = 0x054B
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
@@ -327,6 +328,36 @@ def refresh_data(
         payload += struct.pack("<B", market) + code_bytes(symbol)
         payload += struct.pack("<I", max(0, min(cursor, 0xFFFFFFFF)))
     return bytes(payload)
+
+
+def category_data(
+    category: int = 6,
+    sort_type: int = 0,
+    start: int = 0,
+    count: int = 80,
+    ascending: bool = False,
+    filter_raw: int = 0,
+) -> bytes:
+    """0x054b：9 个 u16，服务端排序；category=6 是沪深 A 股。"""
+    if category < 0 or category > 0xFFFF or sort_type < 0 or sort_type > 0xFFFF:
+        raise TdxError("分类行情参数超出 u16 范围")
+    if start < 0 or start > 0xFFFF or count < 1 or count > 80:
+        raise TdxError("分类行情必须满足 0 <= start <= 65535、1 <= count <= 80")
+    if filter_raw < 0 or filter_raw > 0xFFFF:
+        raise TdxError("分类行情过滤值超出 u16 范围")
+
+    values = [
+        category,
+        sort_type,
+        start,
+        count,
+        2 if ascending else 1,
+        5,
+        filter_raw,
+        1,
+        0,
+    ]
+    return b"".join(struct.pack("<H", value) for value in values)
 
 
 def bars_data(market: int, symbol: str, period: int, count: int, adjust: int, start: int = 0) -> bytes:
@@ -757,6 +788,101 @@ def parse_refresh(
     return quotes
 
 
+def _parse_category_record(
+    body: bytes,
+    offset: int,
+    received_at: int,
+    securities: dict[str, dict],
+) -> tuple[dict, int]:
+    if offset + 9 > len(body):
+        raise TdxError("0x054b 记录头不完整")
+    market_id = body[offset]
+    market = MARKET_NAMES.get(market_id)
+    if market is None:
+        raise TdxError("0x054b 包含未知市场")
+    symbol = body[offset + 1 : offset + 7].decode("ascii", errors="strict")
+    if len(symbol) != 6 or not symbol.isdigit():
+        raise TdxError("0x054b 包含非法代码")
+    pos = offset + 9
+    prices, pos = _read_k_prices(body, pos)
+
+    _server_time, pos = read_varint(body, pos)
+    _neg_price, pos = read_varint(body, pos)
+    total_hand, pos = read_varint(body, pos)
+    _current_hand, pos = read_varint(body, pos)
+    amount_raw = _u32(body, pos)
+    pos += 4
+    _inside, pos = read_varint(body, pos)
+    _outside, pos = read_varint(body, pos)
+    _after_outer, pos = read_varint(body, pos)
+    _open_amount, pos = read_varint(body, pos)
+    bid_delta, pos = read_varint(body, pos)
+    ask_delta, pos = read_varint(body, pos)
+    bid_volume, pos = read_varint(body, pos)
+    ask_volume, pos = read_varint(body, pos)
+
+    tail_start = pos
+    if tail_start + 56 > len(body):
+        raise TdxError("0x054b 记录尾部不完整")
+    status_raw = struct.unpack_from("<H", body, tail_start)[0]
+    rise_speed_raw = struct.unpack_from("<h", body, tail_start + 2)[0]
+    short_turnover_raw = struct.unpack_from("<h", body, tail_start + 4)[0]
+    min2_amount = _f32(body, tail_start + 6)
+    opening_rush_raw = struct.unpack_from("<h", body, tail_start + 10)[0]
+    vol_rise_speed = _f32(body, tail_start + 22)
+    depth = _f32(body, tail_start + 26)
+    active2 = struct.unpack_from("<H", body, tail_start + 54)[0]
+    pos = tail_start + 56
+
+    current_milli = prices[0]
+    bid_milli = current_milli + bid_delta * 10
+    ask_milli = current_milli + ask_delta * 10
+    quote = _build_quote(
+        market_id,
+        symbol,
+        received_at,
+        securities,
+        prices,
+        total_hand,
+        amount_raw,
+        [(bid_milli, bid_volume)],
+        [(ask_milli, ask_volume)],
+    )
+    quote["active2"] = active2
+    quote["statusRaw"] = status_raw
+    quote["riseSpeed"] = rise_speed_raw / 100
+    quote["shortTurnover"] = short_turnover_raw / 100
+    quote["min2Amount"] = min2_amount
+    quote["openingRush"] = opening_rush_raw / 100
+    quote["volRiseSpeed"] = vol_rise_speed
+    quote["depth"] = depth
+    if quote["bids"]:
+        quote["lockedAmount"] = quote["bids"][0]["price"] * bid_volume * 100
+    return quote, pos
+
+
+def parse_category_quotes(
+    body: bytes, received_at: int, securities: dict[str, dict]
+) -> list[dict]:
+    """0x054b：服务端排序的一页分类行情（A 股 category=6）。"""
+    if len(body) < 4:
+        raise TdxError("0x054b 报文不完整")
+    count = _u16(body, 2)
+    if count == 0:
+        return []
+    if len(body) < 4 + count * 86:
+        raise TdxError("0x054b 记录数量与报文长度不符")
+
+    quotes: list[dict] = []
+    offset = 4
+    for _ in range(count):
+        quote, offset = _parse_category_record(
+            body, offset, received_at, securities
+        )
+        quotes.append(quote)
+    return quotes
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1126,6 +1252,36 @@ class Bridge:
         by_code = {quote["code"]: quote for quote in quotes}
         return [by_code[code] for code in unique if code in by_code]
 
+    def category_quotes(
+        self,
+        category: int = 6,
+        sort_type: int = 0,
+        start: int = 0,
+        count: int = 80,
+        ascending: bool = False,
+        filter_raw: int = 0,
+    ) -> list[dict]:
+        """0x054b 分类行情：服务端排序，一页最多 80 条；category=6 沪深 A 股。"""
+        received_at = int(time.time() * 1000)
+        try:
+            self.index.ensure(self.conn)
+        except Exception as error:  # noqa: BLE001 - 代码表失败不该拖垮行情
+            print(f"[tdx] 代码表加载失败：{error}", file=sys.stderr)
+        body = self.conn.request(
+            CMD_CATEGORY,
+            category_data(
+                category=category,
+                sort_type=sort_type,
+                start=start,
+                count=count,
+                ascending=ascending,
+                filter_raw=filter_raw,
+            ),
+        )
+        quotes = parse_category_quotes(body, received_at, self.index.by_code)
+        self._attach_finance(quotes)
+        return quotes
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -1258,6 +1414,15 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
     if cmd == "refresh":
         return bridge.refresh_quotes(
             payload.get("codes") or [], payload.get("cursors") or {}
+        )
+    if cmd == "category":
+        return bridge.category_quotes(
+            category=int(payload.get("category", 6)),
+            sort_type=int(payload.get("sortType", payload.get("sort_type", 0))),
+            start=int(payload.get("start", 0)),
+            count=int(payload.get("count", 80)),
+            ascending=bool(payload.get("ascending", False)),
+            filter_raw=int(payload.get("filterRaw", payload.get("filter_raw", 0))),
         )
     if cmd == "kline":
         return bridge.kline(

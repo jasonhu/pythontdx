@@ -148,6 +148,31 @@ class TestSnapshotAndRefresh(unittest.TestCase):
         self.assertEqual(maotai["asks"][0], {"price": 1372.27, "volume": 58})
 
 
+class TestCategoryQuotes(unittest.TestCase):
+    def test_category_request(self):
+        data = tdx.category_data(6, 0x000E, 0, 5, ascending=False, filter_raw=0)
+        self.assertEqual(len(data), 18)
+        values = [int.from_bytes(data[i : i + 2], "little") for i in range(0, 18, 2)]
+        self.assertEqual(values, [6, 0x000E, 0, 5, 1, 5, 0, 1, 0])
+
+    def test_category_parser(self):
+        quotes = tdx.parse_category_quotes(
+            fixture("category5"), 1_700_000_000_000, {}
+        )
+        self.assertEqual(len(quotes), 5)
+        first = quotes[0]
+        self.assertEqual(first["code"], "sh688066")
+        self.assertAlmostEqual(first["price"], 5.57, places=2)
+        self.assertAlmostEqual(first["prevClose"], 4.64, places=2)
+        self.assertAlmostEqual(first["changePct"], 20.04, places=2)
+        self.assertEqual(first["bids"][0]["price"], 5.57)
+        self.assertEqual(first["asks"], [])
+        self.assertGreater(first["lockedAmount"], 0)
+        last = quotes[4]
+        self.assertEqual(last["code"], "sz301079")
+        self.assertEqual(last["asks"][0], {"price": 39.81, "volume": 61})
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")

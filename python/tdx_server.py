@@ -314,6 +314,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.tdx_stats())
                 return
+            if parsed.path == "/api/stats_export":
+                with self.server.lock:
+                    self._ok(self.server.bridge.tdx_stats_export())
+                return
             self._error(HTTPStatus.NOT_FOUND, f"未知路径：{parsed.path}")
         except (TdxError, ValueError, TypeError) as error:
             self._error(HTTPStatus.BAD_REQUEST, str(error))

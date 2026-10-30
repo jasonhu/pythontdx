@@ -17,6 +17,8 @@ import type {
   MultiDayTrend,
   Quote,
   SearchItem,
+  TdxStatsExport,
+  TdxStatsSummary,
   TradeTick
 } from '@shared/types'
 import type { CategoryRequest, TradesRequest } from '@shared/ipc'
@@ -139,6 +141,20 @@ export async function fetchF10Content(code: string, section: F10Section): Promis
     },
     QUOTES_TIMEOUT_MS
   )
+}
+
+/* ---------------------------------------------------------------- 数据工具 */
+
+const DATA_TIMEOUT_MS = 180_000
+
+/** 0x06b9 下载 zhb.zip 并解析 tdxstat 摘要。 */
+export async function fetchTdxStatsSummary(): Promise<TdxStatsSummary> {
+  return bridge.send<TdxStatsSummary>('tdx_stats', {}, DATA_TIMEOUT_MS)
+}
+
+/** 0x06b9 下载并写原始 ZIP + JSONL.gz + SQLite + manifest。 */
+export async function fetchTdxStatsExport(): Promise<TdxStatsExport> {
+  return bridge.send<TdxStatsExport>('tdx_stats_export', {}, DATA_TIMEOUT_MS)
 }
 
 /* ------------------------------------------------------------------ K 线 */

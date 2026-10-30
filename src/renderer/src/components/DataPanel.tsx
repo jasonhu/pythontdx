@@ -1,0 +1,239 @@
+/**
+ * 数据工具：下载 zhb.zip、查看 tdxstat 摘要、写规范化层。
+ *
+ * 只做只读数据管理，不碰交易；导出路径由 Python 后端决定并在界面上明确展示。
+ */
+import { createSignal, For, Show, type JSX } from 'solid-js'
+import type { TdxStatsExport, TdxStatsSummary } from '@shared/types'
+import { thousands } from '@shared/format'
+import { api, errorMessage } from '../lib/ipc'
+import { IconClose } from './Icons'
+
+interface DataPanelProps {
+  onClose: () => void
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${bytes} B`
+}
+
+export function DataPanel(props: DataPanelProps): JSX.Element {
+  const [summary, setSummary] = createSignal<TdxStatsSummary | null>(null)
+  const [exported, setExported] = createSignal<TdxStatsExport | null>(null)
+  const [loading, setLoading] = createSignal(false)
+  const [exporting, setExporting] = createSignal(false)
+  const [error, setError] = createSignal<string | null>(null)
+
+  const loadSummary = async (): Promise<void> => {
+    if (loading()) return
+    setLoading(true)
+    setError(null)
+    try {
+      setSummary(await api.data.statsSummary())
+    } catch (cause) {
+      setError(errorMessage(cause))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const runExport = async (): Promise<void> => {
+    if (exporting()) return
+    setExporting(true)
+    setError(null)
+    try {
+      const result = await api.data.statsExport()
+      setExported(result)
+      setSummary(null)
+    } catch (cause) {
+      setError(errorMessage(cause))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <div class="data-backdrop" onClick={() => props.onClose()}>
+      <section
+        class="data-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="数据工具"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header class="data__head">
+          <div>
+            <div class="data__eyebrow">0x06b9 · 原始文件 / 规范化层</div>
+            <h2 class="data__title">数据工具</h2>
+          </div>
+          <button
+            class="btn btn--icon btn--bare"
+            title="关闭数据工具"
+            onClick={() => props.onClose()}
+          >
+            <IconClose size={16} />
+          </button>
+        </header>
+
+        <div class="data__body">
+          <div class="data__intro">
+            下载官方 <code>zhb.zip</code>，先看摘要；规范化会写原始 ZIP、按交易日分区的
+            JSONL.gz、SQLite 查询层和 manifest。
+          </div>
+
+          <div class="data__actions">
+            <button
+              class="btn btn--primary data__load"
+              disabled={loading() || exporting()}
+              onClick={() => void loadSummary()}
+            >
+              {loading() ? '下载解析中…' : '下载摘要'}
+            </button>
+            <button
+              class="btn data__export"
+              disabled={loading() || exporting()}
+              onClick={() => void runExport()}
+            >
+              {exporting() ? '导出中…' : '规范化导出'}
+            </button>
+            <span class="data__hint">只读操作，不访问付费/加密数据</span>
+          </div>
+
+          <Show when={error()}>
+            {(message) => (
+              <div class="data__error" role="alert">
+                {message()}
+                <button class="data__retry" onClick={() => void loadSummary()}>
+                  重试摘要
+                </button>
+              </div>
+            )}
+          </Show>
+
+          <Show when={summary()}>
+            {(data) => (
+              <div class="data__summary">
+                <div class="data__grid">
+                  <div class="data__metric">
+                    <span>ZIP</span>
+                    <strong>{formatBytes(data().zipBytes)}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>下载块</span>
+                    <strong>{thousands(data().chunks)}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>ZIP 条目</span>
+                    <strong>{thousands(data().zipEntries)}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>tdxstat 行</span>
+                    <strong>{thousands(data().statCount)}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>tdxstat2 行</span>
+                    <strong>{thousands(data().stat2Count)}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>主日期</span>
+                    <strong>{data().statsDate ?? '—'}</strong>
+                  </div>
+                </div>
+                <div class="data__path">
+                  <span>原始 ZIP</span>
+                  <code>{data().savedTo}</code>
+                </div>
+                <div class="data__path">
+                  <span>SHA256</span>
+                  <code>{data().sha256}</code>
+                </div>
+                <Show when={data().statSamples.length > 0}>
+                  <table class="data__table">
+                    <thead>
+                      <tr>
+                        <th>代码</th>
+                        <th>日期</th>
+                        <th class="num">Beta60</th>
+                        <th class="num">PE TTM</th>
+                        <th class="num">流通股本(万)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <For each={data().statSamples}>
+                        {(row) => (
+                          <tr>
+                            <td>{row.code}</td>
+                            <td>{row.statsDate}</td>
+                            <td class="num">{row.beta60 ?? '—'}</td>
+                            <td class="num">{row.peTtm ?? '—'}</td>
+                            <td class="num">{thousands(row.freeFloatShares10k ?? 0)}</td>
+                          </tr>
+                        )}
+                      </For>
+                    </tbody>
+                  </table>
+                </Show>
+              </div>
+            )}
+          </Show>
+
+          <Show when={exported()}>
+            {(data) => (
+              <div class="data__summary data__summary--export">
+                <div class="data__grid">
+                  <div class="data__metric">
+                    <span>有效行</span>
+                    <strong>{thousands(data().statCount)}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>分区</span>
+                    <strong>{data().partitions.length}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>空日期跳过</span>
+                    <strong>{data().statSkipped}</strong>
+                  </div>
+                  <div class="data__metric">
+                    <span>生成时间</span>
+                    <strong>{data().generatedAt.slice(0, 19)}</strong>
+                  </div>
+                </div>
+                <div class="data__path">
+                  <span>规范化目录</span>
+                  <code>{data().normalizedTo}</code>
+                </div>
+                <div class="data__path">
+                  <span>SQLite</span>
+                  <code>{data().database}</code>
+                </div>
+                <div class="data__path">
+                  <span>manifest</span>
+                  <code>{data().manifest}</code>
+                </div>
+                <div class="data__partitions">
+                  <For each={data().partitions.slice(0, 6)}>
+                    {(partition) => (
+                      <span class="data__partition">
+                        {partition.tradeDate} · {thousands(partition.statCount)}
+                      </span>
+                    )}
+                  </For>
+                  <Show when={data().partitions.length > 6}>
+                    <span class="data__partition">… 共 {data().partitions.length} 个分区</span>
+                  </Show>
+                </div>
+              </div>
+            )}
+          </Show>
+        </div>
+
+        <footer class="data__foot">
+          <span>Python 后端下载/解析，Electron 只负责展示</span>
+          <span>写入用户数据目录，不修改原始行情</span>
+        </footer>
+      </section>
+    </div>
+  )
+}

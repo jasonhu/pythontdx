@@ -38,6 +38,12 @@ class FakeBridge:
     def f10_content(self, code, filename, start, length):
         return f"{code}:{filename}:{start}:{length}"
 
+    def tdx_stats(self):
+        return {"statCount": 8100, "statSamples": []}
+
+    def tdx_stats_export(self):
+        return {"statCount": 8100, "database": "/tmp/stats.db"}
+
 
 class TestHttpApi(unittest.TestCase):
     def setUp(self):
@@ -91,6 +97,12 @@ class TestHttpApi(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"][0]["start"], 60)
+        status, payload, _ = self.request("POST", "/api/stats_summary", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["statCount"], 8100)
+        status, payload, _ = self.request("POST", "/api/stats_export", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["database"], "/tmp/stats.db")
 
     def test_bad_json(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)

@@ -177,6 +177,65 @@ export interface F10Section {
   length: number
 }
 
+/* --------------------------------------------------------------- 数据工具 */
+
+export interface TdxStatSample {
+  market: number | null
+  code: string
+  beta60: number | null
+  peTtm: number | null
+  statsDate: string
+  freeFloatShares10k: number | null
+  yearLimitUpDays: number | null
+  limitUpStreakDays: number | null
+}
+
+export interface TdxStat2Sample {
+  market: number | null
+  code: string
+  statsDate: string
+  amount10k: number | null
+  sealAmount10k: number | null
+  openAmount10k: number | null
+}
+
+export interface TdxStatsSummary {
+  zipBytes: number
+  zipEntries: number
+  statCount: number
+  stat2Count: number
+  statsDate: string | null
+  statsDateTop: Array<[string, number]>
+  statSamples: TdxStatSample[]
+  stat2Samples: TdxStat2Sample[]
+  chunks: number
+  sha256: string
+  savedTo: string
+}
+
+export interface TdxStatsPartition {
+  tradeDate: string
+  statCount: number
+  stat2Count: number
+  path: string
+}
+
+export interface TdxStatsExport {
+  normalizedTo: string
+  manifest: string
+  database: string
+  sha256: string
+  generatedAt: string
+  partitions: TdxStatsPartition[]
+  statCount: number
+  stat2Count: number
+  statSkipped: number
+  stat2Skipped: number
+  chunks: number
+  rawSavedTo: string
+  rawBytes: number
+}
+
 /* --------------------------------------------------------------- 分时图 */
 
 /** 分时的分钟点：价格为该分钟收盘价，avg 为当日累计均价 */

@@ -13,7 +13,11 @@ import { appInfo, toggleTheme, appState } from '../stores/app'
 import { IconClose, IconMaximize, IconMinimize, IconMoon, IconRestore, IconSun } from './Icons'
 import { SearchBox } from './SearchBox'
 
-export function TitleBar(): JSX.Element {
+interface TitleBarProps {
+  onOpenData: () => void
+}
+
+export function TitleBar(props: TitleBarProps): JSX.Element {
   return (
     <header class="titlebar">
       <div class="titlebar__brand">
@@ -27,6 +31,9 @@ export function TitleBar(): JSX.Element {
       <div class="titlebar__drag" />
 
       <div class="titlebar__actions">
+        <button class="btn btn--bare data-open" title="数据工具" onClick={() => props.onOpenData()}>
+          数据
+        </button>
         <button
           class="btn btn--icon btn--bare"
           title={appState.settings.theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'}

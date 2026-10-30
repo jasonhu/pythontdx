@@ -68,6 +68,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 **工程**
 
 - 类型契约桌面 / Web / 后端共享，改错立刻编译报错
+- 数据工具：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz + SQLite + manifest
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 只读前端（`src/web`，复用同一套 SolidJS 渲染层）；SSE 行情流已接，`--web-dir out/web` 可单端口托管；WebSocket 未接
 - 157 个 TS 单元测试 + 49 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）

@@ -17,6 +17,8 @@ import type {
   Quote,
   QuoteUpdate,
   SearchItem,
+  TdxStatsExport,
+  TdxStatsSummary,
   TradeTick
 } from '@shared/types'
 import type { CategoryRequest, KLineRequest, StockLensApi, TradesRequest } from '@shared/ipc'
@@ -212,6 +214,10 @@ export function createHttpApi(): StockLensApi {
           start: section.start,
           length: section.length
         })
+    },
+    data: {
+      statsSummary: () => post<TdxStatsSummary>('/api/stats_summary', {}),
+      statsExport: () => post<TdxStatsExport>('/api/stats_export', {})
     },
     trend: {
       minute: (code) => request<MinuteTrend>(`/api/minute?code=${encodeURIComponent(code)}`),

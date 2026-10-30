@@ -18,6 +18,8 @@ import type {
   Quote,
   QuoteUpdate,
   SearchItem,
+  TdxStatsExport,
+  TdxStatsSummary,
   TradeTick,
   WindowAction,
   WindowState
@@ -44,6 +46,10 @@ export const IPC = {
   f10Catalog: 'f10:catalog',
   /** F10 段落正文（invoke） */
   f10Content: 'f10:content',
+  /** tdxstat 摘要（invoke） */
+  dataStatsSummary: 'data:stats-summary',
+  /** tdxstat 规范化导出（invoke） */
+  dataStatsExport: 'data:stats-export',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -130,6 +136,12 @@ export interface StockLensApi {
     catalog(code: string): Promise<F10Section[]>
     /** 公司资料正文（0x02d0） */
     content(code: string, section: F10Section): Promise<string>
+  }
+  data: {
+    /** 下载 zhb.zip 并返回 tdxstat 摘要 */
+    statsSummary(): Promise<TdxStatsSummary>
+    /** 下载并写原始 ZIP + JSONL.gz + SQLite + manifest */
+    statsExport(): Promise<TdxStatsExport>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

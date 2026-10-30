@@ -22,6 +22,8 @@ import {
   fetchMoneyFlow,
   fetchQuotes,
   fetchSearchHint,
+  fetchTdxStatsExport,
+  fetchTdxStatsSummary,
   fetchTrades
 } from './services/tdx'
 
@@ -55,6 +57,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.f10Content, (_event, code: string, section: F10Section) =>
     fetchF10Content(code, section)
   )
+
+  ipcMain.handle(IPC.dataStatsSummary, () => fetchTdxStatsSummary())
+
+  ipcMain.handle(IPC.dataStatsExport, () => fetchTdxStatsExport())
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {
     poller.setSubscription(codes, intervalMs)

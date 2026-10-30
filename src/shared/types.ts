@@ -259,6 +259,24 @@ export interface F10ProfileTable {
   full?: boolean
 }
 
+export interface LocalDayBar {
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+  amount: number
+  volume: number
+}
+
+export interface LocalDayResult {
+  path: string
+  count: number
+  firstDate: string
+  lastDate: string
+  bars: LocalDayBar[]
+}
+
 export interface MarketBreadth {
   up: number
   down: number
@@ -571,6 +589,8 @@ export interface AppSettings {
   logScale?: boolean
   /** K 线画线（按 code/period 保存） */
   chartDrawings?: ChartDrawing[]
+  /** 上次读取的本地 .day 路径 */
+  localDayPath?: string
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

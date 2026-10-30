@@ -9,9 +9,11 @@ import type {
   StatsParquetExport,
   StatsQueryResult,
   TdxStatsExport,
-  TdxStatsSummary
+  TdxStatsSummary,
+  LocalDayResult
 } from '@shared/types'
 import { thousands } from '@shared/format'
+import { appState, updateSettings } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -42,6 +44,10 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [csvResult, setCsvResult] = createSignal<StatsCsvExport | null>(null)
   const [parquetExporting, setParquetExporting] = createSignal(false)
   const [parquetResult, setParquetResult] = createSignal<StatsParquetExport | null>(null)
+  const [localPath, setLocalPath] = createSignal(appState.settings.localDayPath ?? '')
+  const [localDay, setLocalDay] = createSignal<LocalDayResult | null>(null)
+  const [localLoading, setLocalLoading] = createSignal(false)
+  const [localError, setLocalError] = createSignal<string | null>(null)
 
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
@@ -94,6 +100,26 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setError(errorMessage(cause))
     } finally {
       setParquetExporting(false)
+    }
+  }
+
+  const runLocalDay = async (): Promise<void> => {
+    if (localLoading()) return
+    const path = localPath().trim()
+    if (!path) {
+      setLocalError('请输入 .day 文件绝对路径')
+      return
+    }
+    setLocalLoading(true)
+    setLocalError(null)
+    try {
+      setLocalDay(await api.data.localDay(path, 500))
+      updateSettings({ localDayPath: path })
+    } catch (cause) {
+      setLocalDay(null)
+      setLocalError(errorMessage(cause))
+    } finally {
+      setLocalLoading(false)
     }
   }
 
@@ -341,6 +367,69 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
             )}
           </Show>
+
+          <section class="data__local">
+            <div class="data__query-head">
+              <div>
+                <strong>本地 .day</strong>
+                <span>只读解析；成交量按手换算，最多显示 500 根</span>
+              </div>
+              <button
+                class="btn data__local-run"
+                disabled={localLoading()}
+                onClick={() => void runLocalDay()}
+              >
+                {localLoading() ? '读取中…' : '读取'}
+              </button>
+            </div>
+            <input
+              class="data__local-path"
+              value={localPath()}
+              placeholder="/path/to/sh600519.day"
+              aria-label=".day 文件路径"
+              onInput={(event) => setLocalPath(event.currentTarget.value)}
+            />
+            <Show when={localError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={localDay()}>
+              {(data) => (
+                <div class="data__local-result">
+                  <div class="data__query-meta">
+                    {data().count} 根 · {data().firstDate} → {data().lastDate}
+                  </div>
+                  <div class="data__query-table-wrap">
+                    <table class="data__query-table">
+                      <thead>
+                        <tr>
+                          <th>日期</th>
+                          <th>开</th>
+                          <th>高</th>
+                          <th>低</th>
+                          <th>收</th>
+                          <th>量(手)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={data().bars.slice(-10)}>
+                          {(bar) => (
+                            <tr>
+                              <td class="num">{bar.date}</td>
+                              <td class="num">{bar.open.toFixed(2)}</td>
+                              <td class="num">{bar.high.toFixed(2)}</td>
+                              <td class="num">{bar.low.toFixed(2)}</td>
+                              <td class="num">{bar.close.toFixed(2)}</td>
+                              <td class="num">{thousands(bar.volume)}</td>
+                            </tr>
+                          )}
+                        </For>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Show>
+          </section>
 
           <section class="data__query">
             <div class="data__query-head">

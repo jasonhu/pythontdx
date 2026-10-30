@@ -50,6 +50,7 @@ from pathlib import Path
 from duckdb_query import run_duckdb_query
 from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
+from tdx_local import read_day_file
 from tdx_f10 import (
     fetch_announcements,
     fetch_business,
@@ -2400,6 +2401,10 @@ class Bridge:
             "generatedAt": int(time.time() * 1000),
         }
 
+    def local_day_read(self, path: str, limit: int = 0) -> dict:
+        """读取本地通达信 .day 日线文件（只读）。"""
+        return read_day_file(path, limit)
+
     def market_breadth(self) -> dict:
         """全 A 股涨跌家数（不含指数/基金）。"""
         quotes = self._all_category_quotes()
@@ -3113,6 +3118,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.industries()
     if cmd == "screen":
         return bridge.screen(payload.get("filters") or {})
+    if cmd == "local_day_read":
+        return bridge.local_day_read(str(payload.get("path") or ""), int(payload.get("limit", 0)))
     if cmd == "market_breadth":
         return bridge.market_breadth()
     if cmd == "formula_backtest":

@@ -67,6 +67,9 @@ class FakeBridge:
     def f10_news(self, code):
         return [{"id": "1", "title": "新闻"}]
 
+    def local_day_read(self, path, limit=0):
+        return {"path": path, "count": 1, "firstDate": "2026-01-01", "lastDate": "2026-01-01", "bars": []}
+
     def market_breadth(self):
         return {"up": 1, "down": 2, "flat": 3, "total": 6, "updatedAt": 0}
 
@@ -250,6 +253,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/market_breadth", {})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["total"], 6)
+        status, payload, _ = self.request("POST", "/api/local_day", {"path": "/tmp/a.day"})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["count"], 1)
         status, payload, _ = self.request("POST", "/api/f10_statement", {"code": "sz000001", "kind": "zcfzb"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["2026-09-30"]])

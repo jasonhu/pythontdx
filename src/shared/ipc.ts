@@ -23,6 +23,7 @@ import type {
   KLineAdjust,
   KLinePeriod,
   KLineSeries,
+  LocalDayResult,
   MarketBreadth,
   MinuteTrend,
   MoneyFlowRecord,
@@ -83,6 +84,8 @@ export const IPC = {
   f10Trading: 'f10:trading',
   /** 全 A 股涨跌家数（invoke） */
   marketBreadth: 'market:breadth',
+  /** 读取本地 .day 日线（invoke） */
+  localDayRead: 'local:day',
   /** 7615 财务报表关键科目（invoke） */
   f10Statement: 'f10:statement',
   /** tdxstat 摘要（invoke） */
@@ -225,6 +228,7 @@ export interface StockLensApi {
     statsCsv(): Promise<StatsCsvExport>
     statsParquet(): Promise<StatsParquetExport>
     duckQuery(sql: string, limit?: number): Promise<StatsQueryResult>
+    localDay(path: string, limit?: number): Promise<LocalDayResult>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

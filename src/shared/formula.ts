@@ -317,7 +317,9 @@ export interface FormulaBacktest {
   finalEquity: number
   strategyReturn: number
   holdReturn: number
+  annualizedReturn: number
   trades: number
+  winRate: number
   maxDrawdown: number
   equity: number[]
 }
@@ -341,33 +343,49 @@ export function backtestFormula(
   let trades = 0
   let peak = initial
   let maxDrawdown = 0
+  let entryEquity = 0
+  let closedTrades = 0
+  let winningTrades = 0
   const curve: number[] = [initial]
   const holdCurve: number[] = [initial]
 
   for (let index = 1; index < bars.length; index += 1) {
+    // 用上一根收盘后的信号决定今天是否持仓，避免未来函数。
     const position = Number.isFinite(result.values[index - 1]) && result.values[index - 1] > 0
     if (position !== previousPosition) {
       equity *= 1 - feeRate
       trades += 1
+      if (position) {
+        entryEquity = equity
+      } else if (entryEquity > 0) {
+        closedTrades += 1
+        if (equity > entryEquity) winningTrades += 1
+      }
       previousPosition = position
     }
-    if (position && bars[index].open > 0) {
-      equity *= bars[index].close / bars[index].open
+    if (position && bars[index - 1].close > 0) {
+      // 持仓吃的是收盘到收盘的收益，包含隔夜；不假设当天开盘能成交。
+      equity *= bars[index].close / bars[index - 1].close
     }
     curve.push(equity)
-    holdCurve.push(bars[0].open > 0 ? initial * (bars[index].close / bars[0].open) : initial)
+    holdCurve.push(initial * (bars[index].close / bars[0].close))
     peak = Math.max(peak, equity)
     maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - equity) / peak : 0)
   }
 
   const finalEquity = curve[curve.length - 1]
   const holdFinal = holdCurve[holdCurve.length - 1]
+  const years = (bars.length - 1) / 252
+  const ratio = finalEquity / initial
+  const annualizedReturn = ratio > 0 && years > 0 ? (Math.pow(ratio, 1 / years) - 1) * 100 : 0
   return {
     initial,
     finalEquity,
     strategyReturn: (finalEquity / initial - 1) * 100,
     holdReturn: (holdFinal / initial - 1) * 100,
+    annualizedReturn,
     trades,
+    winRate: closedTrades > 0 ? (winningTrades / closedTrades) * 100 : 0,
     maxDrawdown: maxDrawdown * 100,
     equity: curve
   }

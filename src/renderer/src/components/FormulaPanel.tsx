@@ -357,7 +357,9 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
                 </span>
               </span>
               <span>买入持有 {signedPct(data().holdReturn)}</span>
+              <span>年化 {signedPct(data().annualizedReturn)}</span>
               <span>交易 {data().trades} 次</span>
+              <span>胜率 {fixed(data().winRate)}%</span>
               <span>最大回撤 {fixed(data().maxDrawdown)}%</span>
             </div>
           )}

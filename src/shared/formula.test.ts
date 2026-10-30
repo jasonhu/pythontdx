@@ -47,7 +47,24 @@ describe('evaluateFormula', () => {
     expect(backtest.strategyReturn).toBeGreaterThan(0)
     expect(backtest.holdReturn).toBeGreaterThan(0)
     expect(backtest.maxDrawdown).toBeGreaterThanOrEqual(0)
+    expect(Number.isFinite(backtest.annualizedReturn)).toBe(true)
+    expect(backtest.winRate).toBe(0)
     expect(backtest.equity).toHaveLength(data.length)
+  })
+
+  it('回测吃到隔夜跳空（收盘到收盘，而非开盘到收盘）', () => {
+    const data: KLineBar[] = [10, 20, 20].map((close, index) => ({
+      date: `2026-02-0${index + 1}`,
+      open: close,
+      high: close,
+      low: close,
+      close,
+      volume: 100
+    }))
+    const result = evaluateFormula('CLOSE', data)
+    const backtest = backtestFormula(result, data)
+    expect(backtest.holdReturn).toBeCloseTo(100, 1)
+    expect(backtest.strategyReturn).toBeGreaterThan(90)
   })
 
   it('未知变量/函数与空公式报错', () => {

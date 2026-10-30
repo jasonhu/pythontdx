@@ -70,6 +70,8 @@ export interface Quote {
   pb?: number
   /** 振幅（%） */
   amplitude?: number
+  /** 涨速（%） */
+  riseSpeed?: number
   /** 量比 */
   volumeRatio?: number
   /** 均价 */

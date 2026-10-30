@@ -27,7 +27,8 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 const PAGE_SIZE = 100
 
-type SortMode = 'default' | 'change' | 'changeAsc' | 'amount' | 'price' | 'turnover' | 'volume'
+type SortMode =
+  'default' | 'change' | 'changeAsc' | 'amount' | 'price' | 'turnover' | 'volume' | 'speed'
 
 function metric(map: Map<string, Quote>, mode: SortMode, item: SearchSecurity): number {
   const quote = map.get(item.code)
@@ -36,6 +37,7 @@ function metric(map: Map<string, Quote>, mode: SortMode, item: SearchSecurity): 
   if (mode === 'changeAsc') return -quote.changePct
   if (mode === 'turnover') return quote.turnoverRate ?? 0
   if (mode === 'volume') return quote.volumeRatio ?? 0
+  if (mode === 'speed') return quote.riseSpeed ?? 0
   if (mode === 'amount') return quote.amount ?? 0
   return quote.price
 }
@@ -246,7 +248,8 @@ export function MarketListPanel(props: {
                   ['amount', '成交额'],
                   ['price', '现价'],
                   ['turnover', '换手'],
-                  ['volume', '量比']
+                  ['volume', '量比'],
+                  ['speed', '涨速']
                 ] as Array<[SortMode, string]>
               }
             >
@@ -290,6 +293,7 @@ export function MarketListPanel(props: {
                 <th class="num">成交额</th>
                 <th class="num">换手</th>
                 <th class="num">量比</th>
+                <th class="num">涨速</th>
               </tr>
             </thead>
             <tbody>
@@ -329,6 +333,11 @@ export function MarketListPanel(props: {
                       <td class="num">
                         {quote()?.volumeRatio !== undefined
                           ? quote()!.volumeRatio!.toFixed(2)
+                          : '—'}
+                      </td>
+                      <td class="num">
+                        {quote()?.riseSpeed !== undefined
+                          ? `${quote()!.riseSpeed!.toFixed(2)}%`
                           : '—'}
                       </td>
                     </tr>

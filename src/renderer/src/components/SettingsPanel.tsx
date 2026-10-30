@@ -9,6 +9,12 @@ import { IconClose } from './Icons'
 
 const INTERVALS = [1000, 3000, 5000, 10_000] as const
 
+const LAYOUTS = [
+  { id: 'default', label: '默认', sidebar: 264, rail: 318 },
+  { id: 'chart', label: '宽图表', sidebar: 224, rail: 280 },
+  { id: 'rail', label: '宽盘口', sidebar: 280, rail: 380 }
+] as const
+
 export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
   const reset = (): void => {
     updateSettings({ ...DEFAULT_SETTINGS, chartDrawings: [] })
@@ -111,6 +117,31 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
               onChange={(event) => updateSettings({ showSparkline: event.currentTarget.checked })}
             />
           </label>
+
+          <div class="settings__row">
+            <div>
+              <div class="settings__label">版面</div>
+              <div class="settings__hint">也可以直接拖拽左右栏边界；双击手柄复位。</div>
+            </div>
+            <div class="settings__choices">
+              <For each={LAYOUTS}>
+                {(layout) => (
+                  <button
+                    class={`settings__choice settings__layout-${layout.id}`}
+                    data-active={
+                      (appState.settings.sidebarWidth ?? 264) === layout.sidebar &&
+                      (appState.settings.railWidth ?? 318) === layout.rail
+                    }
+                    onClick={() =>
+                      updateSettings({ sidebarWidth: layout.sidebar, railWidth: layout.rail })
+                    }
+                  >
+                    {layout.label}
+                  </button>
+                )}
+              </For>
+            </div>
+          </div>
 
           <div class="settings__row">
             <div>

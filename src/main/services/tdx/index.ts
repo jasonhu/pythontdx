@@ -17,6 +17,7 @@ import type {
   FormulaScreenResult,
   F10Section,
   IndustryList,
+  KLineAdjust,
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
@@ -256,14 +257,14 @@ export async function fetchKline(
   code: string,
   period: KLinePeriod,
   count = 200,
-  adjust = true,
+  adjust: KLineAdjust = 'qfq',
   signal?: AbortSignal
 ): Promise<KLineSeries> {
   assertSupported(code)
   if (signal?.aborted) throw new TdxError('请求已取消')
 
   const safeCount = Math.min(800, Math.max(1, Math.trunc(count)))
-  const key = `${code}:${period}:${safeCount}:${adjust ? 1 : 0}`
+  const key = `${code}:${period}:${safeCount}:${adjust}`
 
   return klineCache.resolve(key, () =>
     bridge.send<KLineSeries>('kline', { code, period, count: safeCount, adjust })

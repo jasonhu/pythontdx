@@ -3225,3 +3225,8 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
 }
+
+.chart-adjust-group {
+  display: flex;
+  gap: 2px;
+}

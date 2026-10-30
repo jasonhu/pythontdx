@@ -402,6 +402,7 @@ export interface MultiDayTrend {
 /* ----------------------------------------------------------------- K 线 */
 
 export type KLinePeriod = 'day' | 'week' | 'month'
+export type KLineAdjust = 'none' | 'qfq' | 'hfq'
 
 export interface KLineBar {
   /** YYYY-MM-DD */

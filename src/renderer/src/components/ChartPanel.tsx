@@ -6,7 +6,7 @@
  * 移开后又变回图例。这是专业行情软件的标配交互。
  */
 import { createMemo, createResource, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
-import type { KLinePeriod, KLineSeries, MinuteTrend } from '@shared/types'
+import type { KLineAdjust, KLinePeriod, KLineSeries, MinuteTrend } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { KLINE_BARS_MAX } from '../lib/chart-geometry'
@@ -48,7 +48,7 @@ export interface ChartPanelProps {
 
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<Tab>('minute')
-  const [adjust, setAdjust] = createSignal(true)
+  const [adjust, setAdjust] = createSignal<KLineAdjust>('qfq')
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
 
@@ -67,7 +67,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
 
   const [data, { refetch }] = createResource<
     ChartData,
-    { code: string; tab: Tab; tick: number; adjust: boolean }
+    { code: string; tab: Tab; tick: number; adjust: KLineAdjust }
   >(
     () => ({ code: code(), tab: tab(), tick: isTrend() ? tick() : 0, adjust: adjust() }),
     async (source) => {
@@ -133,17 +133,28 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         </div>
 
         <Show when={!isTrend()}>
-          <button
-            class="chip chart-adjust"
-            data-active={adjust()}
-            title={adjust() ? '当前为前复权，点击切不复权' : '当前为不复权，点击切前复权'}
-            onClick={() => {
-              setAdjust((value) => !value)
-              setHover(null)
-            }}
-          >
-            {adjust() ? '复权' : '不复权'}
-          </button>
+          <div class="chart-adjust-group">
+            <For
+              each={[
+                { value: 'none' as KLineAdjust, label: '不复权' },
+                { value: 'qfq' as KLineAdjust, label: '前复权' },
+                { value: 'hfq' as KLineAdjust, label: '后复权' }
+              ]}
+            >
+              {(item) => (
+                <button
+                  class={`chip chart-adjust chart-adjust--${item.value}`}
+                  data-active={adjust() === item.value}
+                  onClick={() => {
+                    setAdjust(item.value)
+                    setHover(null)
+                  }}
+                >
+                  {item.label}
+                </button>
+              )}
+            </For>
+          </div>
         </Show>
 
         {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}

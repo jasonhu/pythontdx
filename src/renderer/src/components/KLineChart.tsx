@@ -48,16 +48,17 @@ const MA_CONFIG = [
   { period: 20, color: '#c084fc' }
 ] as const
 
-export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical'
+export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text'
 
 interface KLineDrawing {
   id: number
-  type: 'horizontal' | 'trend' | 'vertical'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text'
   price?: number
   startIndex?: number
   startPrice?: number
   endIndex?: number
   endPrice?: number
+  text?: string
 }
 
 export interface KLineChartProps {
@@ -71,6 +72,8 @@ export interface KLineChartProps {
   onRangeStats?: (stats: KLineRangeStats | null) => void
   /** 画线模式 */
   drawMode?: DrawingMode
+  /** 文字标注内容 */
+  drawingText?: string
   /** 改变时清空画线 */
   clearDrawingsKey?: number
 }
@@ -134,7 +137,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       startIndex: drawing.startIndex,
       startPrice: drawing.startPrice,
       endIndex: drawing.endIndex,
-      endPrice: drawing.endPrice
+      endPrice: drawing.endPrice,
+      text: drawing.text
     }))
     updateSettings({ chartDrawings: [...others, ...saved].slice(-200) })
   }
@@ -292,6 +296,22 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         const next = [
           ...drawings(),
           { id: drawingId, type: 'vertical' as const, startIndex: index }
+        ]
+        setDrawings(next)
+        persistDrawings(next)
+        return
+      }
+      if (props.drawMode === 'text') {
+        drawingId += 1
+        const next = [
+          ...drawings(),
+          {
+            id: drawingId,
+            type: 'text' as const,
+            startIndex: index,
+            price,
+            text: props.drawingText || '标注'
+          }
         ]
         setDrawings(next)
         persistDrawings(next)
@@ -683,6 +703,22 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                       {allBars()[drawing.startIndex ?? 0]?.date ?? ''}
                     </text>
                   </>
+                ) : drawing.type === 'text' ? (
+                  <g>
+                    <circle
+                      class="chart-drawing-point"
+                      cx={geo().x(drawing.startIndex ?? 0)}
+                      cy={geo().yPrice(drawing.price ?? 0)}
+                      r="2.5"
+                    />
+                    <text
+                      class="chart-drawing-text"
+                      x={geo().x(drawing.startIndex ?? 0) + 5}
+                      y={geo().yPrice(drawing.price ?? 0) - 5}
+                    >
+                      {drawing.text || '标注'}
+                    </text>
+                  </g>
                 ) : (
                   <>
                     <line

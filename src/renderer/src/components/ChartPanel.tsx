@@ -82,6 +82,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [rangeMode, setRangeMode] = createSignal(false)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
   const [drawMode, setDrawMode] = createSignal<DrawingMode>('none')
+  const [drawingText, setDrawingText] = createSignal('标注')
   const [clearDrawingsKey, setClearDrawingsKey] = createSignal(0)
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
@@ -296,6 +297,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               垂线
             </button>
             <button
+              class="chip chart-draw-text"
+              data-active={drawMode() === 'text'}
+              title="输入文字后点击图表放置标注"
+              onClick={() => setDrawMode((mode) => (mode === 'text' ? 'none' : 'text'))}
+            >
+              文字
+            </button>
+            <button
               class="chip chart-draw-trend"
               data-active={drawMode() === 'trend'}
               title="点两下画趋势线"
@@ -310,6 +319,16 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             >
               清线
             </button>
+            <Show when={drawMode() === 'text'}>
+              <input
+                class="chart-draw-text-input"
+                value={drawingText()}
+                maxlength="20"
+                placeholder="标注文字"
+                aria-label="标注文字"
+                onInput={(event) => setDrawingText(event.currentTarget.value)}
+              />
+            </Show>
           </Show>
 
           <Show when={!isTrend()}>

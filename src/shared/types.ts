@@ -584,12 +584,13 @@ export interface ChartDrawing {
   id: string
   code: string
   period: KLinePeriod
-  type: 'horizontal' | 'trend' | 'vertical'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text'
   price?: number
   startIndex?: number
   startPrice?: number
   endIndex?: number
   endPrice?: number
+  text?: string
 }
 
 export interface AppSettings {

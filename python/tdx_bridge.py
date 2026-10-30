@@ -63,6 +63,7 @@ CMD_CATEGORY = 0x054B
 CMD_TODAY_TICKS = 0x0FC5
 CMD_HISTORY_TICKS = 0x0FC6
 CMD_AUCTION = 0x056A
+CMD_FILE_CONTENT = 0x06B9
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
@@ -76,6 +77,9 @@ REFRESH_BATCH = 100
 TRADE_PAGE = 1800
 AUCTION_RECORD = 16
 AUCTION_LIMIT = 500
+FILE_PATH_FIELD = 300
+FILE_CHUNK = 30000
+MAX_FILE_CHUNK = 60000
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
@@ -422,6 +426,24 @@ def auction_data(
         0,
         start,
         limit,
+    )
+
+
+def file_content_data(path: str, offset: int = 0, size: int = FILE_CHUNK) -> bytes:
+    """0x06b9：u32 offset + u32 size + 300 字节 NUL 填充路径。"""
+    text = path.strip().replace("\\", "/")
+    if not text or len(text.encode("ascii", errors="ignore")) != len(text):
+        raise TdxError("服务器文件路径必须是非空 ASCII")
+    if len(text.encode("ascii")) > FILE_PATH_FIELD or "\x00" in text:
+        raise TdxError("服务器文件路径过长或包含 NUL")
+    if offset < 0 or offset > 0xFFFFFFFF:
+        raise TdxError("文件偏移超出 u32 范围")
+    if size < 1 or size > MAX_FILE_CHUNK:
+        raise TdxError("单块文件读取必须在 1~60000 字节之间")
+
+    return (
+        struct.pack("<II", offset, size)
+        + text.encode("ascii").ljust(FILE_PATH_FIELD, b"\x00")
     )
 
 
@@ -1054,6 +1076,29 @@ def parse_auctions(body: bytes) -> list[dict]:
     return points
 
 
+def parse_file_chunk(
+    body: bytes, path: str, offset: int, request_size: int
+) -> dict:
+    """0x06b9 单块文件读取：u32 实际长度 + 内容。"""
+    if len(body) < 4:
+        raise TdxError("服务器文件块不完整")
+    chunk_len = _u32(body, 0)
+    if chunk_len > request_size:
+        raise TdxError("服务器返回文件块超过请求长度")
+    if len(body) < 4 + chunk_len:
+        raise TdxError("服务器文件块内容不完整")
+    content = body[4 : 4 + chunk_len]
+    return {
+        "path": path,
+        "offset": offset,
+        "requestSize": request_size,
+        "chunkLen": chunk_len,
+        "isLast": chunk_len < request_size,
+        "contentHex": content.hex(),
+        "trailingBytes": len(body) - 4 - chunk_len,
+    }
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1491,6 +1536,16 @@ class Bridge:
         )
         return parse_auctions(body)
 
+    def file_read(
+        self, path: str, offset: int = 0, size: int = FILE_CHUNK
+    ) -> dict:
+        """服务器文件单块读取；完整下载由上层循环 offset 完成。"""
+        normalized = path.strip().replace("\\", "/")
+        body = self.conn.request(
+            CMD_FILE_CONTENT, file_content_data(normalized, offset, size)
+        )
+        return parse_file_chunk(body, normalized, offset, size)
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -1647,6 +1702,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             selector=int(payload.get("selector", 3)),
             start=int(payload.get("start", 0)),
             limit=int(payload.get("limit", AUCTION_LIMIT)),
+        )
+    if cmd == "file_read":
+        return bridge.file_read(
+            payload.get("path", ""),
+            offset=int(payload.get("offset", 0)),
+            size=int(payload.get("size", FILE_CHUNK)),
         )
     if cmd == "kline":
         return bridge.kline(

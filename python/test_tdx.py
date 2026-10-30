@@ -241,6 +241,38 @@ class TestAuctions(unittest.TestCase):
         self.assertEqual(tdx.parse_auctions(b"\x00\x00"), [])
 
 
+class TestFileRead(unittest.TestCase):
+    def test_file_request(self):
+        data = tdx.file_content_data("zhb.zip", 0, 64)
+        self.assertEqual(len(data), 308)
+        self.assertEqual(int.from_bytes(data[:4], "little"), 0)
+        self.assertEqual(int.from_bytes(data[4:8], "little"), 64)
+        self.assertEqual(data[8:15], b"zhb.zip")
+        self.assertEqual(data[8 + tdx.FILE_PATH_FIELD - 1], 0)
+
+    def test_file_path_normalization(self):
+        data = tdx.file_content_data(r"tdx\zhb.zip", 0, 64)
+        self.assertEqual(data[8:16], b"tdx/zhb.")
+        with self.assertRaises(tdx.TdxError):
+            tdx.file_content_data("中文.zip", 0, 64)
+        with self.assertRaises(tdx.TdxError):
+            tdx.file_content_data("zhb.zip", 0, 0)
+
+    def test_file_chunk(self):
+        chunk = tdx.parse_file_chunk(
+            fixture("file-zhb-head"), "zhb.zip", 0, 64
+        )
+        self.assertEqual(chunk["chunkLen"], 64)
+        self.assertTrue(chunk["contentHex"].startswith("504b0304"))
+        self.assertFalse(chunk["isLast"])
+        self.assertEqual(chunk["trailingBytes"], 0)
+
+    def test_empty_file_chunk_is_last(self):
+        chunk = tdx.parse_file_chunk(b"\x00\x00\x00\x00", "zhb.zip", 0, 64)
+        self.assertEqual(chunk["chunkLen"], 0)
+        self.assertTrue(chunk["isLast"])
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")

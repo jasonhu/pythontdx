@@ -4,7 +4,16 @@
  * 布局用 CSS Grid 划成「标题栏 / 侧栏 + 工作区 / 状态栏」三块，
  * 这里只做结构，具体样式在 styles/app.css。
  */
-import { createEffect, createSignal, Match, onMount, Show, Switch, type JSX } from 'solid-js'
+import {
+  createEffect,
+  createSignal,
+  Match,
+  onCleanup,
+  onMount,
+  Show,
+  Switch,
+  type JSX
+} from 'solid-js'
 import type { Quote } from '@shared/types'
 import { AlertPanel } from './components/AlertPanel'
 import { AlertToast } from './components/AlertToast'
@@ -31,15 +40,17 @@ import { TitleBar } from './components/TitleBar'
 import { TradeTape } from './components/TradeTape'
 import { PriceDistribution } from './components/PriceDistribution'
 import { SettingsPanel } from './components/SettingsPanel'
+import { ShortcutsPanel } from './components/ShortcutsPanel'
 import {
   activeQuoteCode,
   appReady,
   appState,
   bootstrapAppState,
   setActiveCode,
+  toggleTheme,
   watchCodes
 } from './stores/app'
-import { applyQuotes, createQuoteStream, quoteOf } from './stores/quotes'
+import { applyQuotes, createQuoteStream, quoteOf, refreshQuotes } from './stores/quotes'
 import { createSparklineLoader } from './stores/sparklines'
 import { dismissLatestAlert, latestAlert } from './stores/alerts'
 
@@ -51,6 +62,7 @@ export default function App(): JSX.Element {
   const [formulaOpen, setFormulaOpen] = createSignal(false)
   const [indicatorOpen, setIndicatorOpen] = createSignal(false)
   const [settingsOpen, setSettingsOpen] = createSignal(false)
+  const [shortcutsOpen, setShortcutsOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
@@ -60,6 +72,35 @@ export default function App(): JSX.Element {
 
   onMount(() => {
     void bootstrapAppState()
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!appReady() || event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable
+      ) {
+        return
+      }
+      if (event.key === '/') {
+        event.preventDefault()
+        document.querySelector<HTMLInputElement>('.search__input')?.focus()
+      } else if (event.key === 'r' || event.key === 'R') {
+        event.preventDefault()
+        void refreshQuotes(quoteCodes())
+      } else if (event.key === 't' || event.key === 'T') {
+        event.preventDefault()
+        toggleTheme()
+      } else if (event.key === '?') {
+        event.preventDefault()
+        setShortcutsOpen((value) => !value)
+      } else if (event.key === 'Escape' && shortcutsOpen()) {
+        setShortcutsOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    onCleanup(() => window.removeEventListener('keydown', onKeyDown))
   })
 
   // 主题：把设置写进 <html data-theme>，CSS 变量会自动切换
@@ -212,7 +253,7 @@ export default function App(): JSX.Element {
         </Show>
       </aside>
 
-      <StatusBar />
+      <StatusBar onOpenShortcuts={() => setShortcutsOpen(true)} />
 
       <Show when={rankingOpen()}>
         <RankingPanel
@@ -283,6 +324,10 @@ export default function App(): JSX.Element {
             onClose={() => setAnnouncementsOpen(false)}
           />
         )}
+      </Show>
+
+      <Show when={shortcutsOpen()}>
+        <ShortcutsPanel onClose={() => setShortcutsOpen(false)} />
       </Show>
 
       <Show when={settingsOpen()}>

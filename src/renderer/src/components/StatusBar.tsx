@@ -31,7 +31,7 @@ const STATUS_TEXT: Record<string, string> = {
   error: '连接异常'
 }
 
-export function StatusBar(): JSX.Element {
+export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
   // 每秒走一次，让「N 秒前」「当前时段」保持鲜活
   const [now, setNow] = createSignal(Date.now())
   const [notice, setNotice] = createSignal<string | null>(null)
@@ -155,6 +155,13 @@ export function StatusBar(): JSX.Element {
         导入
       </button>
 
+      <button
+        class="statusbar__btn shortcuts-open"
+        title="快捷键（?）"
+        onClick={() => props.onOpenShortcuts()}
+      >
+        ?
+      </button>
       <span class="statusbar__text num">v{appInfo()?.version ?? '0.0.0'}</span>
     </footer>
   )

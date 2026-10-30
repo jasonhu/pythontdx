@@ -305,6 +305,13 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       if (drawing.type === 'vertical' && Math.abs(geo.x(drawing.startIndex ?? 0) - x) <= 6) {
         return { drawing, part: 'end' }
       }
+      if (drawing.type === 'text') {
+        const point = {
+          x: geo.x(drawing.startIndex ?? 0),
+          y: geo.yPrice(drawing.price ?? 0)
+        }
+        if (Math.hypot(point.x - x, point.y - y) <= 10) return { drawing, part: 'end' }
+      }
       if (drawing.type === 'trend') {
         const start = {
           x: geo.x(drawing.startIndex ?? 0),
@@ -428,6 +435,9 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             return dragPart() === 'start'
               ? { ...drawing, startIndex: point.index, startPrice: point.price }
               : { ...drawing, endIndex: point.index, endPrice: point.price }
+          }
+          if (drawing.type === 'text') {
+            return { ...drawing, startIndex: point.index, price: point.price }
           }
           return drawing
         })

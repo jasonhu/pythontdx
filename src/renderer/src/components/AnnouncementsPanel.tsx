@@ -666,6 +666,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                   each={
                     [
                       ['margin', '两融'],
+                      ['margin_history', '两融历史'],
                       ['block', '大宗'],
                       ['dragon', '龙虎榜'],
                       ['north', '沪股通'],

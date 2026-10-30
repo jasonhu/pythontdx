@@ -472,6 +472,7 @@ TRADING_SECTIONS = {
     "limit_down": ("dtfx", ""),
     "bonds": ("zrq", ""),
     "main_force": ("zlpskcj", ""),
+    "margin_history": ("rzrq_sj", ""),
 }
 
 TRADING_LABELS = {
@@ -481,6 +482,16 @@ TRADING_LABELS = {
     "north": {"T001": "持股"},
     "reports": {},
     "kcb": {"sc": "科创板标记"},
+    "margin_history": {
+        "id": "序号",
+        "N001": "日期",
+        "N002": "代码",
+        "N003": "名称",
+        "N004": "融资余额",
+        "N008": "融券金额",
+        "N009": "占流通市值%",
+        "N013": "上市日期",
+    },
     "limit_up": {
         "currq": "当日",
         "lx": "类型",
@@ -644,10 +655,16 @@ def fetch_trading(code: str, section: str = "margin") -> dict:
         raise F10Error(f"不支持的交易数据分区：{section}")
     raw_section, arg = TRADING_SECTIONS[section]
     market, symbol = _market_of(code)
-    payload = _post_tqlex(
-        "CWServ.tdxf10_gg_jyds",
-        {"Params": [symbol, raw_section, arg]},
-    )
+    if section == "margin_history":
+        payload = _post_tqlex(
+            "CWServ.tdxf10_gg_sj",
+            {"Params": ["rzrq_sj", symbol, "0", symbol]},
+        )
+    else:
+        payload = _post_tqlex(
+            "CWServ.tdxf10_gg_jyds",
+            {"Params": [symbol, raw_section, arg]},
+        )
     table = parse_trading_payload(payload, section)
     if section == "dragon" and table["count"] == 0:
         # 个股 lgt 常返回空表；用大盘龙虎榜的同一批营业部明细按代码过滤补齐。

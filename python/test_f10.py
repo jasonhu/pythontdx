@@ -1,6 +1,7 @@
 """7615 在线公告解析测试（不依赖网络）。"""
 
 import unittest
+from unittest.mock import patch
 
 import tdx_f10
 
@@ -183,6 +184,23 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(table["count"], 1)
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
+
+    def test_fetch_margin_history_uses_range_entry(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [{"ColName": ["N001", "N002", "N004"], "Content": [["2026-04-30", "600519", 100]]}],
+        }
+        calls = []
+
+        def fake(entry, body):
+            calls.append((entry, body))
+            return payload
+
+        with patch.object(tdx_f10, "_post_tqlex", side_effect=fake):
+            table = tdx_f10.fetch_trading("sh600519", "margin_history")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(calls[0][0], "CWServ.tdxf10_gg_sj")
+        self.assertEqual(calls[0][1]["Params"][0], "rzrq_sj")
 
     def test_parse_market_margin(self):
         payload = {

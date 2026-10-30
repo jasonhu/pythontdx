@@ -668,13 +668,15 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                       ['margin', '两融'],
                       ['block', '大宗'],
                       ['dragon', '龙虎榜'],
-                      ['north', '沪股通']
+                      ['north', '沪股通'],
+                      ['reports', '研报席位'],
+                      ['kcb', '科创']
                     ] as Array<[string, string]>
                   }
                 >
                   {([value, label]) => (
                     <button
-                      class="trading-section"
+                      class={`trading-section trading-section--${value}`}
                       data-active={tradingSection() === value}
                       onClick={() => void loadTrading(value)}
                     >

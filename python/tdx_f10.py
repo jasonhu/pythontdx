@@ -466,6 +466,8 @@ TRADING_SECTIONS = {
     "block": ("dzjy", ""),
     "dragon": ("lgt", "2"),
     "north": ("islgt", ""),
+    "reports": ("yxsbxx", ""),
+    "kcb": ("checkkcb", ""),
 }
 
 TRADING_LABELS = {
@@ -473,6 +475,8 @@ TRADING_LABELS = {
     "block": {"yjl": "溢价率"},
     "dragon": {"rq": "日期", "T006": "买入额", "T007": "卖出额"},
     "north": {"T001": "持股"},
+    "reports": {},
+    "kcb": {"sc": "科创板标记"},
 }
 
 

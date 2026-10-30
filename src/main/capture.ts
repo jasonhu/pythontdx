@@ -123,7 +123,7 @@ async function drive(window: BrowserWindow): Promise<void> {
         clickCount: 1
       })
     }
-    await wait(120)
+    await wait(300)
   }
 
   const focus = process.env.STOCKLENS_CAPTURE_FOCUS

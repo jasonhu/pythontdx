@@ -40,6 +40,8 @@ interface PersistedFile {
   version: number
   state: AppState | (Partial<AppState> & LegacyState)
   window?: WindowBounds
+  secondaryWindow?: WindowBounds
+  chartWindow?: WindowBounds
 }
 
 const SAVE_DEBOUNCE_MS = 150
@@ -101,7 +103,9 @@ export class AppStore {
       this.data = {
         version: STATE_VERSION,
         state: this.mergeState(parsed.state),
-        window: parsed.window
+        window: parsed.window,
+        secondaryWindow: parsed.secondaryWindow,
+        chartWindow: parsed.chartWindow
       }
     } catch (error) {
       // 文件损坏时不要炸掉整个 App，退回默认值并留个日志
@@ -117,6 +121,14 @@ export class AppStore {
     return this.data.window
   }
 
+  get secondaryBounds(): WindowBounds | undefined {
+    return this.data.secondaryWindow
+  }
+
+  get chartBounds(): WindowBounds | undefined {
+    return this.data.chartWindow
+  }
+
   /** 增量更新状态（浅合并 settings，groups 整体替换） */
   patchState(patch: Partial<AppState>): AppState {
     this.data.state = this.mergeState({ ...this.state, ...patch })
@@ -126,6 +138,16 @@ export class AppStore {
 
   saveBounds(bounds: WindowBounds): void {
     this.data.window = bounds
+    this.scheduleSave()
+  }
+
+  saveSecondaryBounds(bounds: WindowBounds): void {
+    this.data.secondaryWindow = bounds
+    this.scheduleSave()
+  }
+
+  saveChartBounds(bounds: WindowBounds): void {
+    this.data.chartWindow = bounds
     this.scheduleSave()
   }
 

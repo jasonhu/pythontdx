@@ -232,11 +232,17 @@ export function registerIpcHandlers(context: IpcContext): void {
   /* -------------------------------------------------------- 窗口 */
 
   ipcMain.handle(IPC.windowChart, (_event, code: string) => {
-    createChartWindow(code)
+    createChartWindow(code, {
+      bounds: store.chartBounds,
+      onBoundsChange: (bounds) => store.saveChartBounds(bounds)
+    })
   })
 
   ipcMain.handle(IPC.windowSecondary, () => {
-    createSecondaryWindow()
+    createSecondaryWindow({
+      bounds: store.secondaryBounds,
+      onBoundsChange: (bounds) => store.saveSecondaryBounds(bounds)
+    })
   })
 
   ipcMain.handle(IPC.windowControl, (_event, action: string) => {

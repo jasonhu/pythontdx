@@ -117,8 +117,15 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
   return window
 }
 
-export function createSecondaryWindow(): BrowserWindow {
-  const window = createMainWindow({ secondary: true })
+export function createSecondaryWindow(options: {
+  bounds?: WindowBounds
+  onBoundsChange?: (bounds: WindowBounds) => void
+} = {}): BrowserWindow {
+  const window = createMainWindow({
+    secondary: true,
+    bounds: options.bounds,
+    onBoundsChange: options.onBoundsChange
+  })
   const capturePath = process.env.STOCKLENS_CAPTURE_SECONDARY
   if (capturePath) {
     window.webContents.once('did-finish-load', () => {
@@ -137,11 +144,16 @@ export function createSecondaryWindow(): BrowserWindow {
 const chartWindows = new Set<BrowserWindow>()
 
 /** 独立 K 线窗口：同一套 preload/渲染层，只渲染 DetachedChart。 */
-export function createChartWindow(code: string): BrowserWindow {
+export function createChartWindow(
+  code: string,
+  options: { bounds?: WindowBounds; onBoundsChange?: (bounds: WindowBounds) => void } = {}
+): BrowserWindow {
   const icon = resolveWindowIcon()
   const child = new BrowserWindow({
-    width: 980,
-    height: 700,
+    width: options.bounds?.width ?? 980,
+    height: options.bounds?.height ?? 700,
+    x: options.bounds?.x,
+    y: options.bounds?.y,
     minWidth: 760,
     minHeight: 480,
     title: `StockLens · ${code.toUpperCase()}`,
@@ -158,6 +170,13 @@ export function createChartWindow(code: string): BrowserWindow {
     }
   })
   chartWindows.add(child)
+  const reportBounds = debounce(() => {
+    if (!child.isMaximized() && !child.isMinimized() && !child.isFullScreen()) {
+      options.onBoundsChange?.(child.getNormalBounds())
+    }
+  }, 400)
+  child.on('resize', reportBounds)
+  child.on('move', reportBounds)
   child.on('closed', () => chartWindows.delete(child))
   child.once('ready-to-show', () => child.show())
 

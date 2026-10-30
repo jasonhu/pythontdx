@@ -32,8 +32,8 @@ StockLens 的所有重要变更都记录在这里。
 - **板块指数 K 线**：880/881 按指数布局解析 `0x052d`；点击板块指数进入主图，
   实测银行指数日 K 可用。原先“K 线日期不合法”是把它当成了股票 K 线。
 - **7615 在线资料**：公司公告列表（标题/日期/类型/来源/PDF 链接）、公司概况、
-  估值（PE/PB/PS/PEG/市值）、财务主要指标（zyzb，20 期）、主营构成（按地区/业务/产品）、十大股东；
-  公告详情交给系统浏览器；概况/估值/财务/主营/股东走 `CWServ.tdxf10_gg_gsgk` / `HQServ.hq_nlp_gpsj` / `CWServ.tdxf10_gg_cwfx` / `CWServ.tdxf10_gg_jyfx`；
+  估值（PE/PB/PS/PEG/市值）、财务主要指标（zyzb，20 期）、主营构成（按地区/业务/产品）、十大股东、研报列表；
+  公告详情交给系统浏览器；概况/估值/财务/主营/股东/研报走 `CWServ.tdxf10_gg_gsgk` / `HQServ.hq_nlp_gpsj` / `CWServ.tdxf10_gg_cwfx` / `CWServ.tdxf10_gg_jyfx`；
   不抓取研报正文。
 - **WebSocket 行情**：`/ws` 文本帧订阅（codes/intervalMs），每周期推 `type=quote`；
   Web 优先 WebSocket，失败自动回退 SSE；Vite 开发代理支持 `/ws`。
@@ -88,7 +88,7 @@ StockLens 的所有重要变更都记录在这里。
   `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
   分区计数、空日期跳过数）；另生成 SQLite 查询层 `stats.db`（tdxstat/tdxstat2/meta）。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 68。
+  Python 测试 17 → 69。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

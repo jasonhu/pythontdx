@@ -14,7 +14,8 @@ interface AnnouncementsPanelProps {
   onClose: () => void
 }
 
-type OnlineTab = 'announcements' | 'profile' | 'valuation' | 'finance' | 'business' | 'shareholders'
+type OnlineTab =
+  'announcements' | 'profile' | 'valuation' | 'finance' | 'business' | 'shareholders' | 'reports'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -36,6 +37,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [shareholders, setShareholders] = createSignal<F10ProfileTable | null>(null)
   const [shareholdersLoading, setShareholdersLoading] = createSignal(true)
   const [shareholdersError, setShareholdersError] = createSignal<string | null>(null)
+  const [reports, setReports] = createSignal<F10ProfileTable | null>(null)
+  const [reportsLoading, setReportsLoading] = createSignal(true)
+  const [reportsError, setReportsError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -113,6 +117,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadReports = async (): Promise<void> => {
+    setReportsLoading(true)
+    setReportsError(null)
+    try {
+      setReports(await api.f10.reports(props.code))
+    } catch (cause) {
+      setReportsError(errorMessage(cause))
+    } finally {
+      setReportsLoading(false)
+    }
+  }
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -125,6 +141,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadFinance()
     void loadBusiness()
     void loadShareholders()
+    void loadReports()
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -197,6 +214,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('shareholders')}
           >
             股东
+          </button>
+          <button
+            class="online-tab online-reports-tab"
+            data-active={tab() === 'reports'}
+            onClick={() => setTab('reports')}
+          >
+            研报
           </button>
         </div>
 
@@ -411,6 +435,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table shareholder-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'reports'}>
+              <Show
+                when={!reportsLoading()}
+                fallback={<div class="announcements__empty">加载研报列表…</div>}
+              >
+                <Show
+                  when={!reportsError()}
+                  fallback={<div class="announcements__error">{reportsError()}</div>}
+                >
+                  <Show
+                    when={reports()}
+                    fallback={<div class="announcements__empty">暂无研报</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table report-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

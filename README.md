@@ -8,7 +8,7 @@
 
 **当前状态**：v0.6 桌面版可用（源码验证通过，PyInstaller 打包待实测）；
 v0.7 双前端 + Python 服务化**规划中**。
-`npm run check` 全绿：**169 个 TS 测试 + 68 个 Python 协议/服务测试（1 skipped）**。
+`npm run check` 全绿：**169 个 TS 测试 + 69 个 Python 协议/服务测试（1 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -57,7 +57,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 - 日 K 复盘：逐根前进/播放，只把当前日期之前的 K 线切片喂给图表
 - 行情预警：价格/涨幅/量比/换手/振幅本地规则，同日同规则只提示一次，应用内 toast + 系统通知
 - 板块/概念/行业：行业 111、概念 269、风格 161、指数 117、一般 100；左栏分类、右栏成分股 + 880xxx 指数报价/K线，点击切股
-- F10 公司资料：标题栏 F10 按钮，7709 目录 + GBK 正文，左目录右正文；另接 7615 在线公告/公司概况/估值/财务指标/主营构成/十大股东
+- F10 公司资料：标题栏 F10 按钮，7709 目录 + GBK 正文，左目录右正文；另接 7615 在线公告/公司概况/估值/财务指标/主营构成/十大股东/研报列表
 - 排行榜：涨幅 / 成交额 / 涨速 / 短换手 / 封单额，服务端排序首屏 80 条、可加载更多，点击行查看
 - 关键指标：换手率、振幅、市净率、市值；PE TTM / 量比 / 涨跌停暂缺
 - 交易时段感知：盘后自动降频到 30s+，窗口不可见时暂停请求
@@ -77,7 +77,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
 - 数据工具：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；Parquet 为可选脚本（需 pyarrow）
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 只读前端（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 169 个 TS 单元测试 + 68 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 169 个 TS 单元测试 + 69 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
@@ -163,7 +163,7 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run build:web`         | 构建 Web 产物到 `out/web/`                          |
 | `npm run check`             | 类型检查 + Lint + TS 测试 + Python 测试，一条命令   |
 | `npm run test`              | Vitest（169 个 TS 用例）                            |
-| `npm run test:python`       | Python 协议/HTTP 测试（68 个用例，真实 fixture）    |
+| `npm run test:python`       | Python 协议/HTTP 测试（69 个用例，真实 fixture）    |
 | `npm run build:python`      | PyInstaller 打行情桥接单文件（打包前必跑）          |
 | `npm run shot`              | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收 |
 | `npm run lint` / `lint:fix` | ESLint（含 Solid 响应式规则）                       |

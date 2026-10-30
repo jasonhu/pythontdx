@@ -18,6 +18,7 @@ FINANCE_ENTRY = "CWServ.tdxf10_gg_cwfx"
 BUSINESS_ENTRY = "CWServ.tdxf10_gg_jyfx"
 BUSINESS_PERIOD_ENTRY = "CWServ.tdxf10_gg_comreq"
 SHAREHOLDER_ENTRY = "CWServ.tdxf10_gg_gdyj"
+REPORT_ENTRY = "CWServ.tdxf10_gg_gszx"
 
 FINANCE_LABELS = {
     "T002": "报告期",
@@ -34,6 +35,14 @@ FINANCE_LABELS = {
     "jlrhb": "净利润环比",
     "pjjzcsyl": "平均净资产收益率",
     "kfjlrhb": "扣非净利润环比",
+}
+
+REPORT_LABELS = {
+    "T004": "评级",
+    "T009": "分析师",
+    "T012": "日期",
+    "T039": "标题",
+    "T011": "记录ID",
 }
 
 SHAREHOLDER_LABELS = {
@@ -229,6 +238,32 @@ def parse_shareholder_payload(payload: dict) -> dict:
         for values in (table.get("Content") or [])
     ][:20]
     return {"columns": columns, "rows": rows}
+
+
+def parse_report_payload(payload: dict) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    result_sets = payload.get("ResultSets") or []
+    if not result_sets:
+        return {"columns": [], "rows": []}
+    table = result_sets[0]
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    indexes = [index for index, name in enumerate(raw_columns) if name in REPORT_LABELS]
+    columns = [REPORT_LABELS[raw_columns[index]] for index in indexes]
+    rows = [
+        [values[index] for index in indexes]
+        for values in (table.get("Content") or [])
+    ][:20]
+    return {"columns": columns, "rows": rows}
+
+
+def fetch_reports(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        REPORT_ENTRY,
+        {"Params": [symbol, "gsyj", "", "0", "1", "20"]},
+    )
+    return parse_report_payload(payload)
 
 
 def fetch_shareholders(code: str) -> dict:

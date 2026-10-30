@@ -639,21 +639,40 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             <For each={drawings()}>
               {(drawing) =>
                 drawing.type === 'horizontal' ? (
-                  <line
-                    class="chart-drawing"
-                    x1={geo().padding.left}
-                    x2={geo().width - geo().padding.right}
-                    y1={geo().yPrice(drawing.price ?? 0)}
-                    y2={geo().yPrice(drawing.price ?? 0)}
-                  />
+                  <>
+                    <line
+                      class="chart-drawing"
+                      x1={geo().padding.left}
+                      x2={geo().width - geo().padding.right}
+                      y1={geo().yPrice(drawing.price ?? 0)}
+                      y2={geo().yPrice(drawing.price ?? 0)}
+                    />
+                    <text
+                      class="chart-drawing-label"
+                      x={geo().width - geo().padding.right - 2}
+                      y={geo().yPrice(drawing.price ?? 0) - 3}
+                      text-anchor="end"
+                    >
+                      {fixed(drawing.price ?? 0)}
+                    </text>
+                  </>
                 ) : (
-                  <line
-                    class="chart-drawing"
-                    x1={geo().x(drawing.startIndex ?? 0)}
-                    y1={geo().yPrice(drawing.startPrice ?? 0)}
-                    x2={geo().x(drawing.endIndex ?? 0)}
-                    y2={geo().yPrice(drawing.endPrice ?? 0)}
-                  />
+                  <>
+                    <line
+                      class="chart-drawing"
+                      x1={geo().x(drawing.startIndex ?? 0)}
+                      y1={geo().yPrice(drawing.startPrice ?? 0)}
+                      x2={geo().x(drawing.endIndex ?? 0)}
+                      y2={geo().yPrice(drawing.endPrice ?? 0)}
+                    />
+                    <text
+                      class="chart-drawing-label"
+                      x={geo().x(drawing.endIndex ?? 0) + 4}
+                      y={geo().yPrice(drawing.endPrice ?? 0) - 3}
+                    >
+                      {fixed(drawing.endPrice ?? 0)}
+                    </text>
+                  </>
                 )
               }
             </For>

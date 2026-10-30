@@ -37,6 +37,8 @@ StockLens 的所有重要变更都记录在这里。
   不抓取研报正文。
 - **WebSocket 行情**：`/ws` 文本帧订阅（codes/intervalMs），每周期推 `type=quote`；
   Web 优先 WebSocket，失败自动回退 SSE；Vite 开发代理支持 `/ws`。
+- **条件选股行业过滤**：输入通达信行业名（如“银行”），后端用 tdxhy 成分过滤；
+  实测银行 42 只、返回成交额前 5。
 - **多股同列**：当前分组最多 6 只，支持 60 根日 K 与当日分时；
   点击卡片切换主图。
 - **自选导入/导出**：状态栏 JSON 备份；导出全部分组，导入追加分组，
@@ -86,7 +88,7 @@ StockLens 的所有重要变更都记录在这里。
   `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
   分区计数、空日期跳过数）；另生成 SQLite 查询层 `stats.db`（tdxstat/tdxstat2/meta）。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 65。
+  Python 测试 17 → 66。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

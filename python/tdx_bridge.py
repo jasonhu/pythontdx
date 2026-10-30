@@ -1856,6 +1856,11 @@ SCREEN_FIELDS = ("price", "changePct", "amount", "turnoverRate", "amplitude")
 SCREEN_SORT_FIELDS = ("changePct", "amount", "turnoverRate", "amplitude")
 
 
+def filter_quotes_by_codes(quotes: list[dict], codes: set[str]) -> list[dict]:
+    """行业筛选：保留代码集合内的行情。"""
+    return [quote for quote in quotes if quote.get("code") in codes]
+
+
 def apply_screen(quotes: list[dict], filters: dict) -> list[dict]:
     """在本地对一页/全市场分类行情做条件过滤与排序。"""
     result = []
@@ -2321,13 +2326,22 @@ class Bridge:
         return quotes
 
     def screen(self, filters: dict) -> dict:
-        """全市场条件选股：价格/涨幅/成交额/换手/振幅。"""
+        """全市场条件选股：价格/涨幅/成交额/换手/振幅/行业。"""
         quotes = self._all_category_quotes()
+        industry = str(filters.get("industry") or "").strip()
+        if industry:
+            data = self.industries()
+            group = next((item for item in data["blocks"] if item["name"] == industry), None)
+            if group is None:
+                raise TdxError(f"未知行业：{industry}")
+            codes = set(group["codes"])
+            quotes = filter_quotes_by_codes(quotes, codes)
         matched = apply_screen(quotes, filters)
         return {
             "scanned": len(quotes),
             "matched": len(matched),
             "quotes": matched,
+            "industry": industry or None,
             "sortBy": filters.get("sortBy") or "changePct",
             "generatedAt": int(time.time() * 1000),
         }

@@ -121,6 +121,8 @@ export interface ScreenRequest {
   maxTurnoverRate?: number
   minAmplitude?: number
   maxAmplitude?: number
+  /** 通达信行业名；空/未传表示全市场 */
+  industry?: string
   sortBy?: ScreenSortBy
   ascending?: boolean
   limit?: number

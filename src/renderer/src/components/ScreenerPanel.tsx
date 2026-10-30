@@ -39,6 +39,7 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
   const [result, setResult] = createSignal<ScreenResult | null>(null)
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
+  const [industry, setIndustry] = createSignal('')
 
   const run = async (): Promise<void> => {
     if (loading()) return
@@ -52,6 +53,7 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
         minTurnoverRate: numberOrUndefined(minTurnover()),
         minAmplitude: numberOrUndefined(minAmplitude()),
         maxPrice: numberOrUndefined(maxPrice()),
+        industry: industry().trim() || undefined,
         sortBy: sortBy(),
         limit: 100
       })
@@ -132,6 +134,15 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
               onInput={(event) => setMaxPrice(event.currentTarget.value)}
             />
             <em>元</em>
+          </label>
+          <label class="screener__field">
+            <span>行业</span>
+            <input
+              type="text"
+              placeholder="如 银行"
+              value={industry()}
+              onInput={(event) => setIndustry(event.currentTarget.value)}
+            />
           </label>
           <label class="screener__field screener__field--sort">
             <span>排序</span>

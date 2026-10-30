@@ -398,6 +398,15 @@ class TestIndustry(unittest.TestCase):
         self.assertFalse(tdx.is_index_code(1, "600519"))
 
 
+class TestScreenIndustry(unittest.TestCase):
+    def test_filter_codes(self):
+        quotes = [{"code": "sh600519"}, {"code": "sz000001"}]
+        self.assertEqual(
+            tdx.filter_quotes_by_codes(quotes, {"sh600519"}),
+            [{"code": "sh600519"}],
+        )
+
+
 class TestStatsQuery(unittest.TestCase):
     def test_readonly_query(self):
         with tempfile.TemporaryDirectory() as directory:

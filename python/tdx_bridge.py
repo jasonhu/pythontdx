@@ -2398,6 +2398,28 @@ class Bridge:
             "generatedAt": int(time.time() * 1000),
         }
 
+    def market_breadth(self) -> dict:
+        """全 A 股涨跌家数（不含指数/基金）。"""
+        quotes = self._all_category_quotes()
+        up = down = flat = 0
+        for quote in quotes:
+            value = quote.get("changePct")
+            if not isinstance(value, (int, float)):
+                continue
+            if value > 0:
+                up += 1
+            elif value < 0:
+                down += 1
+            else:
+                flat += 1
+        return {
+            "up": up,
+            "down": down,
+            "flat": flat,
+            "total": up + down + flat,
+            "updatedAt": int(time.time() * 1000),
+        }
+
     def formula_screen(
         self,
         expression: str,
@@ -3027,6 +3049,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.industries()
     if cmd == "screen":
         return bridge.screen(payload.get("filters") or {})
+    if cmd == "market_breadth":
+        return bridge.market_breadth()
     if cmd == "formula_screen":
         return bridge.formula_screen(
             str(payload.get("expression") or ""),

@@ -14,6 +14,7 @@ import type {
   F10Announcement,
   F10NewsItem,
   F10TradingTable,
+  MarketBreadth,
   F10ProfileTable,
   FormulaScreenRequest,
   FormulaScreenResult,
@@ -238,6 +239,10 @@ export function createHttpApi(): StockLensApi {
     return searchEntries(searchCache, keyword)
   }
 
+  const market = {
+    breadth: () => post<MarketBreadth>('/api/market_breadth', {})
+  }
+
   const api: StockLensApi = {
     quote: {
       snapshot: (list) => post<Quote[]>('/api/quotes', { codes: list }),
@@ -270,6 +275,7 @@ export function createHttpApi(): StockLensApi {
       },
       category: (req: CategoryRequest) => post<CategoryQuote[]>('/api/category', req)
     },
+    market,
     trade: {
       ticks: (req: TradesRequest) => post<TradeTick[]>('/api/trades', req)
     },

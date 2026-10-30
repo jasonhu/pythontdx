@@ -13,6 +13,7 @@ import type {
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
+  MarketBreadth,
   F10TradingTable,
   F10ProfileTable,
   FormulaScreenRequest,
@@ -204,6 +205,10 @@ export async function fetchF10Statement(
 }
 
 /* ---------------------------------------------------------------- 数据工具 */
+
+export async function fetchMarketBreadth(): Promise<MarketBreadth> {
+  return bridge.send<MarketBreadth>('market_breadth', {}, 30_000)
+}
 
 const DATA_TIMEOUT_MS = 180_000
 

@@ -2,9 +2,11 @@
  * 底部状态栏：连接状态、数据新鲜度、刷新频率、交易时段。
  */
 import { createSignal, For, Show, type JSX } from 'solid-js'
+import type { MarketBreadth } from '@shared/types'
 import { SESSION_LABEL, marketSession } from '@shared/market'
 import { relativeFrom, timeOfDay } from '@shared/format'
 import { createInterval } from '../lib/dom'
+import { api } from '../lib/ipc'
 import { exportWatchlist, parseWatchlist } from '@shared/watchlist'
 import {
   activeQuoteCode,
@@ -35,11 +37,25 @@ export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
   // 每秒走一次，让「N 秒前」「当前时段」保持鲜活
   const [now, setNow] = createSignal(Date.now())
   const [notice, setNotice] = createSignal<string | null>(null)
+  const [breadth, setBreadth] = createSignal<MarketBreadth | null>(null)
   let fileInput: HTMLInputElement | undefined
   createInterval(
     () => setNow(Date.now()),
     () => 1000
   )
+
+  const loadBreadth = async (): Promise<void> => {
+    try {
+      setBreadth(await api.market.breadth())
+    } catch {
+      // 涨跌家数是辅助信息，失败静默，不打断状态栏
+    }
+  }
+  createInterval(
+    () => void loadBreadth(),
+    () => 30_000
+  )
+  void loadBreadth()
 
   const exportGroups = (): void => {
     try {
@@ -99,6 +115,15 @@ export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
         {(current) => (
           <span class="statusbar__text num">
             行情 {timeOfDay(current().time)} · {relativeFrom(lastUpdateAt() || Date.now(), now())}
+          </span>
+        )}
+      </Show>
+
+      <Show when={breadth()}>
+        {(value) => (
+          <span class="statusbar__text market-breadth">
+            涨 <span class="tone-up">{value().up}</span> / 跌{' '}
+            <span class="tone-down">{value().down}</span> / 平 {value().flat}
           </span>
         )}
       </Show>

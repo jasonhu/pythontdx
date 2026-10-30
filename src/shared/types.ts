@@ -241,6 +241,14 @@ export interface F10ProfileTable {
   full?: boolean
 }
 
+export interface MarketBreadth {
+  up: number
+  down: number
+  flat: number
+  total: number
+  updatedAt: number
+}
+
 export interface F10TradingTable {
   section: string
   rawColumns: string[]

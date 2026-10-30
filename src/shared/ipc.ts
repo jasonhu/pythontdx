@@ -22,6 +22,7 @@ import type {
   KLineAdjust,
   KLinePeriod,
   KLineSeries,
+  MarketBreadth,
   MinuteTrend,
   MoneyFlowRecord,
   MultiDayTrend,
@@ -79,6 +80,8 @@ export const IPC = {
   f10News: 'f10:news',
   /** 7615 两融/大宗/龙虎榜/沪深股通（invoke） */
   f10Trading: 'f10:trading',
+  /** 全 A 股涨跌家数（invoke） */
+  marketBreadth: 'market:breadth',
   /** 7615 财务报表关键科目（invoke） */
   f10Statement: 'f10:statement',
   /** tdxstat 摘要（invoke） */
@@ -185,6 +188,9 @@ export interface StockLensApi {
   auction: {
     /** 集合竞价过程快照（0x056a）；date 省略为当日 */
     series(code: string, date?: string): Promise<AuctionPoint[]>
+  }
+  market: {
+    breadth(): Promise<MarketBreadth>
   }
   f10: {
     /** 公司资料目录（0x02cf） */

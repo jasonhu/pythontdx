@@ -18,6 +18,8 @@ import {
 import type { KLineAdjust, KLinePeriod, KLineSeries, MinuteTrend } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { downloadText } from '../lib/download'
+import { toCsv } from '@shared/csv'
 import { appState, updateSettings } from '../stores/app'
 import { KLINE_BARS_MAX, type KLineRangeStats } from '../lib/chart-geometry'
 import { toneOf } from '../lib/tone'
@@ -183,6 +185,29 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   }
 
   /** 切 tab 或切股票时清掉残留的读数，避免显示上一只票的数值 */
+  const exportSeries = (): void => {
+    const series = klineSeries()
+    if (series) {
+      downloadText(
+        `stocklens-${props.code}-${series.period}.csv`,
+        toCsv(
+          ['日期', '开盘', '最高', '最低', '收盘', '成交量(手)'],
+          series.bars.map((bar) => [bar.date, bar.open, bar.high, bar.low, bar.close, bar.volume])
+        )
+      )
+      return
+    }
+    const days = trendDays()
+    if (!days) return
+    const rows = days.flatMap((day) =>
+      day.points.map((point) => [day.date, point.time, point.price, point.avg, point.volume])
+    )
+    downloadText(
+      `stocklens-${props.code}-${tab()}.csv`,
+      toCsv(['日期', '时间', '价格', '均价', '成交量(手)'], rows)
+    )
+  }
+
   const switchTab = (next: Tab): void => {
     setHover(null)
     setTab(next)
@@ -428,6 +453,13 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                 onClick={() => props.onOpenReplay()}
               >
                 复盘
+              </button>
+              <button
+                class="btn btn--bare chart-export"
+                title="导出当前图表 CSV"
+                onClick={exportSeries}
+              >
+                导出
               </button>
               <button
                 class="btn btn--bare chart-detach"

@@ -61,6 +61,7 @@ StockLens 的所有重要变更都记录在这里。
 - **第二主窗口**：TitleBar「新窗」；行情推送广播到所有窗口；active/settings BroadcastChannel 同步。
 - **窄窗适配**：1240px 以下隐藏自选迷你图、侧栏图标收窄、右栏可滚动，避免股票名压成一个字/买五被裁。
 - **两条件组合预警**：价格/涨幅/量比/换手/振幅任选两项，AND 触发；规则描述与消息用「且」；184 TS。
+- **图表 CSV**：当前 K 线（OHLCV）/分时（价格/均价/量）按 code+period 导出。
 - **CSV 导出**：市场列表本页、龙虎榜筛选结果、大盘资料当前分区；纯函数 CSV 转义；187 TS。
 - **涨速排序**：MAC 0x25 接入；市场列表涨速列与全表排序；截图 `market-speed.png`。
 - **大盘资料**：7615 大盘 F10 指数概况/市场两融/新股/增发；状态栏入口；96 Python。
@@ -139,6 +140,7 @@ StockLens 的所有重要变更都记录在这里。
 - **可选 Parquet 导出**：`python/parquet_export.py` 按 `trade_date` 分区写 Parquet
   （需 pyarrow；本机 pyarrow 26 隔离实测 16,200 行/32 文件，默认环境测试跳过）；
   DuckDB 2.0 查询层已用隔离目录实测 20 行；DuckDB/Parquet 均非默认依赖。
+- **图表 CSV**：当前 K 线（OHLCV）/分时（价格/均价/量）按 code+period 导出。
 - **CSV 导出**：数据工具把 tdxstat / tdxstat2 全量导出为 UTF-8 BOM CSV，
   实测各 8,100 行；Parquet 可选脚本已实测，DuckDB 未接。
 - **SQLite 只读查询**：数据工具支持单条 SELECT/WITH，最多 500 行；只读连接，

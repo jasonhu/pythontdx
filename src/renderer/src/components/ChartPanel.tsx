@@ -69,6 +69,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [subIndicator, setSubIndicator] = createSignal<'none' | SubIndicator>(
     appState.settings.subIndicator ?? 'none'
   )
+  const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
   createEffect(() => {
@@ -86,6 +87,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   createEffect(() => {
     const saved = appState.settings.subIndicator
     if (saved && saved !== subIndicator()) setSubIndicator(saved)
+  })
+  createEffect(() => {
+    const saved = appState.settings.logScale
+    if (saved !== undefined && saved !== logScale()) setLogScale(saved)
   })
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
@@ -223,6 +228,20 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             }}
           >
             BOLL
+          </button>
+        </Show>
+
+        <Show when={!isTrend()}>
+          <button
+            class="chip chart-log"
+            data-active={logScale()}
+            onClick={() => {
+              const next = !logScale()
+              setLogScale(next)
+              updateSettings({ logScale: next })
+            }}
+          >
+            {logScale() ? '对数' : '线性'}
           </button>
         </Show>
 
@@ -367,7 +386,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                 {(days) => <TrendChart days={days()} onHover={setHover} />}
               </Show>
               <Show when={klineSeries()}>
-                {(series) => <KLineChart series={series()} boll={showBoll()} />}
+                {(series) => (
+                  <KLineChart series={series()} boll={showBoll()} logScale={logScale()} />
+                )}
               </Show>
               <Show when={subIndicator() !== 'none' ? klineSeries() : undefined}>
                 {(series) => (

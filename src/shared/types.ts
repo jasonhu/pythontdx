@@ -502,6 +502,8 @@ export interface AppSettings {
   indicatorParams?: IndicatorParams
   /** K 线副图 */
   subIndicator?: 'none' | 'macd' | 'kdj' | 'rsi'
+  /** 价格坐标是否对数 */
+  logScale?: boolean
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

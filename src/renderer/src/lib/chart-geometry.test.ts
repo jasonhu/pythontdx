@@ -388,6 +388,12 @@ describe('buildKLineGeometry', () => {
     expect(geo.yMin).toBeLessThanOrEqual(Math.min(...bars.map((bar) => bar.low)))
   })
 
+  it('对数坐标保持高低价顺序', () => {
+    const geo = buildKLineGeometry(bars, 800, 400, undefined, [], true)!
+    expect(geo.yPrice(geo.yMax)).toBeLessThan(geo.yPrice(geo.yMin))
+    expect(geo.yPrice(10)).toBeGreaterThan(geo.yPrice(20))
+  })
+
   it('额外指标值扩展纵轴范围', () => {
     const geo = buildKLineGeometry(bars, 800, 400, undefined, [100])!
     expect(geo.yMax).toBeGreaterThanOrEqual(100)

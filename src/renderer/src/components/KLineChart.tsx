@@ -40,6 +40,8 @@ export interface KLineChartProps {
   series: KLineSeries
   /** 是否叠加 BOLL(20,2) */
   boll?: boolean
+  /** 对数价格坐标 */
+  logScale?: boolean
 }
 
 /** 默认档位：显示全部 K 线 */
@@ -128,7 +130,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const geometry = createMemo(() => {
     const bands = visibleBoll()
     const extra = bands ? [...bands.upper, ...bands.middle, ...bands.lower] : []
-    return buildKLineGeometry(bars(), size().width, size().height, undefined, extra)
+    return buildKLineGeometry(bars(), size().width, size().height, undefined, extra, props.logScale)
   })
   const levels = createMemo(() => {
     const geo = geometry()

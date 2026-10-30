@@ -360,7 +360,8 @@ export function buildKLineGeometry(
   width: number,
   height: number,
   padding: Padding = KLINE_PADDING,
-  extraValues: number[] = []
+  extraValues: number[] = [],
+  logScale = false
 ): KLineGeometry | null {
   if (width < MIN_WIDTH || height < MIN_HEIGHT) return null
   if (bars.length === 0) return null
@@ -398,6 +399,11 @@ export function buildKLineGeometry(
   const maxVolume = Math.max(1, ...bars.map((bar) => bar.volume))
   const slot = plotW / bars.length
 
+  const safeMin = yMax > yMin ? yMin : yMax - 1
+  const useLog = logScale && safeMin > 0 && yMax > 0
+  const logMin = useLog ? Math.log(safeMin) : 0
+  const logSpan = useLog ? Math.log(yMax) - logMin : 1
+
   return {
     width,
     height,
@@ -407,12 +413,15 @@ export function buildKLineGeometry(
     priceBottom,
     volumeBottom,
     yMax,
-    yMin: yMax > yMin ? yMin : yMax - 1,
+    yMin: safeMin,
     maxVolume,
     slot,
     bodyWidth: Math.max(1, slot * 0.6),
     x: (index: number) => padding.left + (index + 0.5) * slot,
-    yPrice: (value: number) => priceTop + ((yMax - value) / (yMax - yMin)) * priceH,
+    yPrice: (value: number) =>
+      useLog
+        ? priceTop + ((Math.log(yMax) - Math.log(Math.max(value, safeMin))) / logSpan) * priceH
+        : priceTop + ((yMax - value) / (yMax - safeMin)) * priceH,
     yVolume: (value: number) => volumeBottom - (value / maxVolume) * volumeH
   }
 }

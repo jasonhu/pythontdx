@@ -1,2 +1,6 @@
 # 可选：Parquet 数据湖导出（不进默认依赖）
+# 安装示例：
+#   python3 -m pip install --target .venv-data -r python/requirements-data.txt
+# 运行：
+#   PYTHONPATH=.venv-data python3 python/parquet_export.py
 pyarrow>=22

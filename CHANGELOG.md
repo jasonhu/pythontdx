@@ -44,9 +44,10 @@ StockLens 的所有重要变更都记录在这里。
 - **自选导入/导出**：状态栏 JSON 备份；导出全部分组，导入追加分组，
   ID 冲突自动改名，不覆盖现有自选。
 - **可选 Parquet 导出**：`python/parquet_export.py` 按 `trade_date` 分区写 Parquet
-  （需 pyarrow，未安装时明确报错，测试跳过）；DuckDB 未接。
+  （需 pyarrow；本机 pyarrow 26 隔离实测 16,200 行/32 文件，默认环境测试跳过）；
+  DuckDB 未接。
 - **CSV 导出**：数据工具把 tdxstat / tdxstat2 全量导出为 UTF-8 BOM CSV，
-  实测各 8,100 行；Parquet/DuckDB 仍未接。
+  实测各 8,100 行；Parquet 可选脚本已实测，DuckDB 未接。
 - **SQLite 只读查询**：数据工具支持单条 SELECT/WITH，最多 500 行；只读连接，
   拒绝多语句与非查询语句；默认查询 tdxstat。
 - **公式自选池筛选**：对当前分组最多 20 只逐一拉 120 根日 K，

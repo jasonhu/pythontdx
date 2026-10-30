@@ -320,7 +320,8 @@ function plainSettings(): AppSettings {
   // 设置里只有画线是对象数组，这里显式拍平。
   return {
     ...state.settings,
-    chartDrawings: state.settings.chartDrawings?.map((drawing) => ({ ...drawing }))
+    chartDrawings: state.settings.chartDrawings?.map((drawing) => ({ ...drawing })),
+    layoutSlots: state.settings.layoutSlots?.map((slot) => ({ ...slot }))
   }
 }
 

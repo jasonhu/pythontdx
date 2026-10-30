@@ -5161,3 +5161,42 @@
 .data__kline-export {
   flex: none;
 }
+
+.settings__slots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.settings__slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.settings__slot-apply {
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  color: var(--text-2);
+  background: transparent;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.settings__slot-apply:hover {
+  color: var(--accent);
+}
+
+.settings__slot-remove {
+  width: 20px;
+  height: 24px;
+  border: 0;
+  color: var(--text-3);
+  background: transparent;
+  cursor: pointer;
+}

@@ -2,7 +2,7 @@
  * 设置面板：把散落在顶栏/状态栏/图表的开关集中到一处。
  */
 import { For, type JSX } from 'solid-js'
-import type { ThemeMode } from '@shared/types'
+import type { LayoutSlot, ThemeMode } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { appState, toggleTheme, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
@@ -18,6 +18,27 @@ const LAYOUTS = [
 export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
   const reset = (): void => {
     updateSettings({ ...DEFAULT_SETTINGS, chartDrawings: [] })
+  }
+
+  const saveLayout = (): void => {
+    const slot: LayoutSlot = {
+      sidebar: appState.settings.sidebarWidth ?? 264,
+      rail: appState.settings.railWidth ?? 318,
+      savedAt: Date.now()
+    }
+    updateSettings({
+      layoutSlots: [slot, ...(appState.settings.layoutSlots ?? [])].slice(0, 3)
+    })
+  }
+
+  const applyLayout = (slot: LayoutSlot): void => {
+    updateSettings({ sidebarWidth: slot.sidebar, railWidth: slot.rail })
+  }
+
+  const removeLayout = (index: number): void => {
+    updateSettings({
+      layoutSlots: (appState.settings.layoutSlots ?? []).filter((_, item) => item !== index)
+    })
   }
 
   return (
@@ -138,6 +159,37 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
                   >
                     {layout.label}
                   </button>
+                )}
+              </For>
+            </div>
+          </div>
+
+          <div class="settings__row">
+            <div>
+              <div class="settings__label">自定义版面</div>
+              <div class="settings__hint">保存当前左右栏宽度，最多 3 套；点击应用。</div>
+            </div>
+            <div class="settings__slots">
+              <button class="btn settings__slot-save" onClick={saveLayout}>
+                保存当前
+              </button>
+              <For each={appState.settings.layoutSlots ?? []}>
+                {(slot, index) => (
+                  <span class="settings__slot">
+                    <button
+                      class={`settings__slot-apply settings__slot-apply-${index() + 1}`}
+                      onClick={() => applyLayout(slot)}
+                    >
+                      版面 {index() + 1} · {slot.sidebar}/{slot.rail}
+                    </button>
+                    <button
+                      class="settings__slot-remove"
+                      title="删除版面"
+                      onClick={() => removeLayout(index())}
+                    >
+                      ×
+                    </button>
+                  </span>
                 )}
               </For>
             </div>

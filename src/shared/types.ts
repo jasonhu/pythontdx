@@ -684,6 +684,14 @@ export interface AppSettings {
   sidebarWidth?: number
   /** 右侧盘口栏宽度（px） */
   railWidth?: number
+  /** 自定义版面槽（最多 3 个） */
+  layoutSlots?: LayoutSlot[]
+}
+
+export interface LayoutSlot {
+  sidebar: number
+  rail: number
+  savedAt: number
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

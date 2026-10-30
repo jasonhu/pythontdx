@@ -94,6 +94,17 @@ class FakeBridge:
     def stats_duck_query(self, sql, limit):
         return {"columns": ["code"], "rows": [["600519"]], "rowCount": 1}
 
+    def formula_backtest(self, expression, scope, offset=0, batch_size=100):
+        return {
+            "scanned": 1,
+            "total": 1,
+            "nextOffset": 1,
+            "done": True,
+            "trades": 1,
+            "stocks": 1,
+            "daily": [{"date": "2026-01-01", "sum": 0, "count": 1}],
+        }
+
     def formula_screen(self, expression, scope, limit, offset=0, batch_size=100):
         return {
             "scanned": 3,
@@ -184,6 +195,11 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/formula_screen", {"expression": "CLOSE", "scope": 3})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["matched"], 1)
+        status, payload, _ = self.request(
+            "POST", "/api/formula_backtest", {"expression": "CLOSE", "scope": 3}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["stocks"], 1)
         status, payload, _ = self.request("POST", "/api/stats_csv", {})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["statCsv"], "/tmp/tdxstat.csv")

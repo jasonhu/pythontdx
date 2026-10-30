@@ -523,6 +523,17 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.stats_parquet())
                 return
+            if parsed.path == "/api/formula_backtest":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.formula_backtest(
+                            str(payload.get("expression") or ""),
+                            int(payload.get("scope", 100)),
+                            int(payload.get("offset", 0)),
+                            int(payload.get("batchSize", 100)),
+                        )
+                    )
+                return
             if parsed.path == "/api/formula_screen":
                 with self.server.lock:
                     self._ok(

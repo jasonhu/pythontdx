@@ -18,6 +18,7 @@ import type {
   F10ProfileTable,
   FormulaScreenRequest,
   FormulaScreenResult,
+  FormulaMarketBacktestResult,
   F10Section,
   IndustryList,
   KLineSeries,
@@ -322,7 +323,9 @@ export function createHttpApi(): StockLensApi {
     screen: {
       run: (request: ScreenRequest) => post<ScreenResult>('/api/screen', request),
       formula: (request: FormulaScreenRequest) =>
-        post<FormulaScreenResult>('/api/formula_screen', request)
+        post<FormulaScreenResult>('/api/formula_screen', request),
+      formulaBacktest: (request: FormulaScreenRequest) =>
+        post<FormulaMarketBacktestResult>('/api/formula_backtest', request)
     },
     trend: {
       minute: (code) => request<MinuteTrend>(`/api/minute?code=${encodeURIComponent(code)}`),

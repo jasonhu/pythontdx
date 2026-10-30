@@ -18,6 +18,7 @@ import type {
   F10ProfileTable,
   FormulaScreenRequest,
   FormulaScreenResult,
+  FormulaMarketBacktestResult,
   F10Section,
   IndustryList,
   KLineAdjust,
@@ -265,6 +266,21 @@ export async function fetchFormulaScreen(
       expression: request.expression,
       scope: request.scope,
       limit: request.limit,
+      offset: request.offset,
+      batchSize: request.batchSize
+    },
+    180_000
+  )
+}
+
+export async function fetchFormulaBacktest(
+  request: FormulaScreenRequest
+): Promise<FormulaMarketBacktestResult> {
+  return bridge.send<FormulaMarketBacktestResult>(
+    'formula_backtest',
+    {
+      expression: request.expression,
+      scope: request.scope,
       offset: request.offset,
       batchSize: request.batchSize
     },

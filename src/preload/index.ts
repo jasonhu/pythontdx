@@ -70,7 +70,8 @@ const api: StockLensApi = {
   },
   screen: {
     run: (request) => ipcRenderer.invoke(IPC.screenRun, request),
-    formula: (request) => ipcRenderer.invoke(IPC.screenFormula, request)
+    formula: (request) => ipcRenderer.invoke(IPC.screenFormula, request),
+    formulaBacktest: (request) => ipcRenderer.invoke(IPC.screenFormulaBacktest, request)
   },
   trend: {
     minute: (code) => ipcRenderer.invoke(IPC.trendMinute, code),

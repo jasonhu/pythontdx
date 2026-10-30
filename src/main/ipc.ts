@@ -31,6 +31,7 @@ import {
   fetchF10Reports,
   fetchF10Statement,
   fetchFormulaScreen,
+  fetchFormulaBacktest,
   fetchF10Shareholders,
   fetchF10Catalog,
   fetchF10Profile,
@@ -134,6 +135,10 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.screenFormula, (_event, request: FormulaScreenRequest) =>
     fetchFormulaScreen(request)
+  )
+
+  ipcMain.handle(IPC.screenFormulaBacktest, (_event, request: FormulaScreenRequest) =>
+    fetchFormulaBacktest(request)
   )
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {

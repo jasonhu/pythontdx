@@ -253,7 +253,7 @@ def _evaluate(node, bars: list[dict]) -> list[float]:
     raise FormulaError(f"未知函数：{name}")
 
 
-def evaluate_formula(expression: str, bars: list[dict]) -> float:
+def evaluate_series(expression: str, bars: list[dict]) -> list[float]:
     text = expression.strip()
     if not text:
         raise FormulaError("公式不能为空")
@@ -261,7 +261,11 @@ def evaluate_formula(expression: str, bars: list[dict]) -> float:
         raise FormulaError("公式过长（最多 200 字符）")
     if not bars:
         raise FormulaError("没有 K 线数据")
-    values = _evaluate(_Parser(_tokenize(text)).parse(), bars)
+    return _evaluate(_Parser(_tokenize(text)).parse(), bars)
+
+
+def evaluate_formula(expression: str, bars: list[dict]) -> float:
+    values = evaluate_series(expression, bars)
     latest = values[-1] if values else math.nan
     if not math.isfinite(latest):
         raise FormulaError("公式最新值无有效数值")

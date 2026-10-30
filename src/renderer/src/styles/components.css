@@ -4124,3 +4124,16 @@
   display: block;
   margin-top: 4px;
 }
+
+.screener__backtest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}

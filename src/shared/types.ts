@@ -143,6 +143,24 @@ export interface FormulaScreenRequest {
   batchSize?: number
 }
 
+export interface FormulaMarketDay {
+  date: string
+  sum: number
+  count: number
+}
+
+export interface FormulaMarketBacktestResult {
+  scanned: number
+  total: number
+  nextOffset: number
+  done: boolean
+  trades: number
+  stocks: number
+  daily: FormulaMarketDay[]
+  expression: string
+  generatedAt: number
+}
+
 export interface FormulaScreenResult {
   scanned: number
   total: number

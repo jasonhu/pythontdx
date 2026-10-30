@@ -5,7 +5,13 @@
  * 不做未来函数、不生成交易指令。
  */
 import { createSignal, For, Show, type JSX } from 'solid-js'
-import type { CategoryQuote, FormulaScreenResult, ScreenResult, ScreenSortBy } from '@shared/types'
+import type {
+  CategoryQuote,
+  FormulaMarketBacktestResult,
+  FormulaScreenResult,
+  ScreenResult,
+  ScreenSortBy
+} from '@shared/types'
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -50,6 +56,19 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
     total: number
   } | null>(null)
   let formulaCancelled = false
+  const [marketBacktest, setMarketBacktest] = createSignal<{
+    strategyReturn: number
+    maxDrawdown: number
+    trades: number
+    stocks: number
+    days: number
+  } | null>(null)
+  const [backtestLoading, setBacktestLoading] = createSignal(false)
+  const [backtestProgress, setBacktestProgress] = createSignal<{
+    offset: number
+    total: number
+  } | null>(null)
+  let backtestCancelled = false
 
   const runFormula = async (): Promise<void> => {
     if (formulaLoading()) {
@@ -97,6 +116,69 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
       setFormulaError(errorMessage(cause))
     } finally {
       setFormulaLoading(false)
+    }
+  }
+
+  const runMarketBacktest = async (): Promise<void> => {
+    if (backtestLoading()) {
+      backtestCancelled = true
+      return
+    }
+    backtestCancelled = false
+    setBacktestLoading(true)
+    setMarketBacktest(null)
+    setFormulaError(null)
+    setBacktestProgress(null)
+    const daily = new Map<string, { sum: number; count: number }>()
+    let offset = 0
+    let total: number
+    let trades = 0
+    let stocks = 0
+    try {
+      do {
+        const data: FormulaMarketBacktestResult = await api.screen.formulaBacktest({
+          expression: formula(),
+          scope: Number(formulaScope()),
+          offset,
+          batchSize: 100
+        })
+        for (const day of data.daily) {
+          const bucket = daily.get(day.date) ?? { sum: 0, count: 0 }
+          bucket.sum += day.sum
+          bucket.count += day.count
+          daily.set(day.date, bucket)
+        }
+        trades += data.trades
+        stocks += data.stocks
+        total = data.total
+        offset = data.nextOffset
+        setBacktestProgress({ offset, total })
+        if (backtestCancelled) break
+      } while (offset < total)
+      if (!backtestCancelled) {
+        let equity = 100_000
+        let peak = equity
+        let maxDrawdown = 0
+        const dates = [...daily.keys()].sort()
+        for (const date of dates) {
+          const bucket = daily.get(date)!
+          if (bucket.count === 0) continue
+          equity *= 1 + bucket.sum / bucket.count
+          peak = Math.max(peak, equity)
+          maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - equity) / peak : 0)
+        }
+        setMarketBacktest({
+          strategyReturn: (equity / 100_000 - 1) * 100,
+          maxDrawdown: maxDrawdown * 100,
+          trades,
+          stocks,
+          days: dates.length
+        })
+      }
+    } catch (cause) {
+      setFormulaError(errorMessage(cause))
+    } finally {
+      setBacktestLoading(false)
     }
   }
 
@@ -269,6 +351,9 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
           <button class="btn screener__formula-run" onClick={() => void runFormula()}>
             {formulaLoading() ? '取消扫描' : '公式选股'}
           </button>
+          <button class="btn screener__backtest-run" onClick={() => void runMarketBacktest()}>
+            {backtestLoading() ? '取消回测' : '组合回测'}
+          </button>
         </div>
         <Show when={formulaLoading() && formulaProgress()}>
           {(value) => (
@@ -279,6 +364,25 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
         </Show>
         <Show when={formulaLoading() && !formulaProgress()}>
           <div class="screener__formula-meta">公式扫描准备中…</div>
+        </Show>
+
+        <Show when={backtestLoading() && backtestProgress()}>
+          {(value) => (
+            <div class="screener__formula-meta">
+              组合回测 {value().offset} / {value().total}
+            </div>
+          )}
+        </Show>
+        <Show when={marketBacktest()}>
+          {(data) => (
+            <div class="screener__backtest">
+              <span>等权组合 {signedPct(data().strategyReturn)}</span>
+              <span>最大回撤 {fixed(data().maxDrawdown)}%</span>
+              <span>
+                {data().stocks} 只 · {data().days} 天 · {data().trades} 次调仓
+              </span>
+            </div>
+          )}
         </Show>
 
         <Show when={formulaError()}>

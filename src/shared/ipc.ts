@@ -16,6 +16,7 @@ import type {
   F10TradingTable,
   FormulaScreenRequest,
   FormulaScreenResult,
+  FormulaMarketBacktestResult,
   F10ProfileTable,
   F10Section,
   IndustryList,
@@ -104,6 +105,8 @@ export const IPC = {
   screenRun: 'screen:run',
   /** 公式选股（invoke） */
   screenFormula: 'screen:formula',
+  /** 全市场/前 N 公式组合回测（invoke） */
+  screenFormulaBacktest: 'screen:formula_backtest',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -233,6 +236,7 @@ export interface StockLensApi {
     /** 全市场扫描；结果最多 200 条 */
     run(request: ScreenRequest): Promise<ScreenResult>
     formula(request: FormulaScreenRequest): Promise<FormulaScreenResult>
+    formulaBacktest(request: FormulaScreenRequest): Promise<FormulaMarketBacktestResult>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

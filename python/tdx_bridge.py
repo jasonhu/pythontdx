@@ -48,7 +48,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from duckdb_query import run_duckdb_query
-from formula import FormulaError, evaluate_formula
+from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
 from tdx_f10 import (
     fetch_announcements,
@@ -2422,6 +2422,68 @@ class Bridge:
             "updatedAt": int(time.time() * 1000),
         }
 
+    def formula_backtest(
+        self,
+        expression: str,
+        scope: int = 100,
+        offset: int = 0,
+        batch_size: int = 100,
+        fee_rate: float = 0.0003,
+    ) -> dict:
+        """按公式做全市场/前 N 的等权组合回测（分块）。"""
+        quotes = self._all_category_quotes()
+        ranked = sorted(
+            (quote for quote in quotes if isinstance(quote.get("amount"), (int, float))),
+            key=lambda quote: float(quote.get("amount") or 0),
+            reverse=True,
+        )
+        universe = ranked if scope <= 0 else ranked[: max(1, min(2000, int(scope)))]
+        total = len(universe)
+        start = max(0, min(total, int(offset)))
+        end = min(total, start + max(1, min(500, int(batch_size))))
+        daily: dict[str, list[float]] = {}
+        trades = 0
+        stocks = 0
+        for quote in universe[start:end]:
+            try:
+                series = self.kline(quote["code"], "day", 120)
+                bars = series["bars"]
+                values = evaluate_series(expression, bars)
+            except (TdxError, FormulaError):
+                continue
+            if len(bars) < 2:
+                continue
+            stocks += 1
+            previous = False
+            for index in range(1, len(bars)):
+                position = values[index - 1] > 0
+                day_return = (
+                    bars[index]["close"] / bars[index - 1]["close"] - 1
+                    if position and bars[index - 1]["close"] > 0
+                    else 0.0
+                )
+                if position != previous:
+                    day_return -= fee_rate
+                    trades += 1
+                    previous = position
+                bucket = daily.setdefault(bars[index]["date"], [0.0, 0.0])
+                bucket[0] += day_return
+                bucket[1] += 1
+        return {
+            "scanned": end - start,
+            "total": total,
+            "nextOffset": end,
+            "done": end >= total,
+            "trades": trades,
+            "stocks": stocks,
+            "daily": [
+                {"date": date, "sum": round(values[0], 8), "count": int(values[1])}
+                for date, values in sorted(daily.items())
+            ],
+            "expression": expression,
+            "generatedAt": int(time.time() * 1000),
+        }
+
     def formula_screen(
         self,
         expression: str,
@@ -3053,6 +3115,13 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.screen(payload.get("filters") or {})
     if cmd == "market_breadth":
         return bridge.market_breadth()
+    if cmd == "formula_backtest":
+        return bridge.formula_backtest(
+            str(payload.get("expression") or ""),
+            int(payload.get("scope", 100)),
+            int(payload.get("offset", 0)),
+            int(payload.get("batchSize", 100)),
+        )
     if cmd == "formula_screen":
         return bridge.formula_screen(
             str(payload.get("expression") or ""),

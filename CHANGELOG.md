@@ -39,8 +39,8 @@ StockLens 的所有重要变更都记录在这里。
   Web 优先 WebSocket，失败自动回退 SSE；Vite 开发代理支持 `/ws`。
 - **条件选股行业过滤**：输入通达信行业名（如“银行”），后端用 tdxhy 成分过滤；
   实测银行 42 只、返回成交额前 5。
-- **Linux packaged 验证**：PyInstaller 6.22.3 + electron-builder linux-unpacked 启动成功，
-  行情/图表正常；AppImage/deb 未测。
+- **Linux 打包验证**：PyInstaller 6.22.3 + electron-builder linux-unpacked 与
+  AppImage（130 MB）均启动成功，行情/图表正常；deb 因缺 homepage 未测。
 - **K 线复权开关**：日/周/月 K 可切前复权/不复权；0x052d 的 adjust=0/1，
   实测 600519 旧价 1713.80（不复权）vs 1560.28（前复权）。
 - **多股同列**：当前分组最多 6 只，支持 60 根日 K 与当日分时；

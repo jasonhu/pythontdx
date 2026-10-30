@@ -76,15 +76,15 @@ function normalizeCodes(codes: readonly string[]): string[] {
 /**
  * 批量拉取实时行情。
  *
- * 港股/美股由 Python 侧过滤：整批都不支持会抛错；
- * 混合列表只返回 A 股部分。
+ * 主链路用 0x0547：首次游标 0 返回五档基线；0x053e 保留兼容/差分。
+ * 港股/美股由 Python 侧过滤：整批都不支持会抛错；混合列表只返回 A 股部分。
  */
 export async function fetchQuotes(codes: string[], signal?: AbortSignal): Promise<Quote[]> {
   const unique = normalizeCodes(codes)
   if (unique.length === 0) return []
   if (signal?.aborted) throw new TdxError('请求已取消')
 
-  const quotes = await bridge.send<Quote[]>('quotes', { codes: unique }, QUOTES_TIMEOUT_MS)
+  const quotes = await bridge.send<Quote[]>('refresh', { codes: unique }, QUOTES_TIMEOUT_MS)
 
   const byCode = new Map(quotes.map((quote) => [quote.code, quote]))
   return unique

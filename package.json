@@ -36,7 +36,8 @@
     "build:win:portable": "npm run build:python && npm run build && electron-builder --win portable",
     "build:win:setup": "npm run build:python && npm run build && electron-builder --win nsis",
     "build:mac": "npm run build:python && npm run build && electron-builder --mac",
-    "build:linux": "npm run build:python && npm run build && electron-builder --linux"
+    "build:linux": "npm run build:python && npm run build && electron-builder --linux",
+    "shot:web": "electron scripts/web-shot.cjs"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",

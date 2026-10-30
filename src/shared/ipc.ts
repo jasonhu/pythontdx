@@ -134,6 +134,8 @@ export const IPC = {
   searchHint: 'search:hint',
   /** 全量证券代码表（invoke） */
   quoteCatalog: 'quote:catalog',
+  /** 显式 MAC 批量报价（invoke） */
+  quoteMac: 'quote:mac',
 
   /** 读取持久化状态（invoke） */
   stateGet: 'state:get',
@@ -201,6 +203,7 @@ export interface StockLensApi {
     /** 服务端排序的一页分类行情（排行榜） */
     category(req: CategoryRequest): Promise<CategoryQuote[]>
     catalog(): Promise<SearchSecurity[]>
+    macQuotes(codes: string[]): Promise<Quote[]>
   }
   trade: {
     /** 成交明细：不传 date 走当日 0x0fc5，传 date 走历史 0x0fc6 */

@@ -27,6 +27,16 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 const PAGE_SIZE = 100
 
+type SortMode = 'default' | 'change' | 'amount' | 'price'
+
+function metric(map: Map<string, Quote>, mode: SortMode, item: SearchSecurity): number {
+  const quote = map.get(item.code)
+  if (!quote) return Number.NEGATIVE_INFINITY
+  if (mode === 'change') return quote.changePct
+  if (mode === 'amount') return quote.amount ?? 0
+  return quote.price
+}
+
 function isAShare(item: SearchSecurity): boolean {
   const symbol = item.symbol
   if (item.kind !== 'GP-A') return false
@@ -63,7 +73,13 @@ export function MarketListPanel(props: {
   const [quotes, setQuotes] = createSignal<Quote[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+  const [sort, setSort] = createSignal<SortMode>('default')
+  const [rankedCodes, setRankedCodes] = createSignal<string[]>([])
+  const [allKey, setAllKey] = createSignal('')
+  const [allLoading, setAllLoading] = createSignal(false)
+  const [allProgress, setAllProgress] = createSignal('')
   let requestId = 0
+  let allRequestId = 0
 
   createEffect(() => {
     void (async () => {
@@ -88,10 +104,65 @@ export function MarketListPanel(props: {
       )
   })
 
-  const pageCount = createMemo(() => Math.max(1, Math.ceil(filtered().length / PAGE_SIZE)))
+  const sortKey = createMemo(() => `${tab()}|${query()}`)
+
+  const displayed = createMemo(() => {
+    const base = filtered()
+    const mode = sort()
+    const order = rankedCodes()
+    if (mode === 'default' || order.length === 0) return base
+    const rank = new Map(order.map((code, index) => [code, index]))
+    return [...base].sort(
+      (a, b) =>
+        (rank.get(a.code) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.code) ?? Number.MAX_SAFE_INTEGER)
+    )
+  })
+
+  const pageCount = createMemo(() => Math.max(1, Math.ceil(displayed().length / PAGE_SIZE)))
   const pageItems = createMemo(() =>
-    filtered().slice(page() * PAGE_SIZE, page() * PAGE_SIZE + PAGE_SIZE)
+    displayed().slice(page() * PAGE_SIZE, page() * PAGE_SIZE + PAGE_SIZE)
   )
+
+  const loadAll = async (mode: SortMode): Promise<void> => {
+    if (mode === 'default') {
+      setSort('default')
+      setPage(0)
+      return
+    }
+    const key = sortKey()
+    setSort(mode)
+    setPage(0)
+    if (allKey() === key && rankedCodes().length > 0) return
+    const current = ++allRequestId
+    setAllLoading(true)
+    setError(null)
+    try {
+      const codes = filtered().map((item) => item.code)
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      const quotes = new Map<string, Quote>()
+      // 一次 5,600 只会让 Electron IPC 响应过大；按 400 只分批，进度可见。
+      for (let start = 0; start < codes.length; start += 400) {
+        if (current !== allRequestId) return
+        setAllProgress(`${Math.min(start + 400, codes.length)} / ${codes.length}`)
+        const data = await api.quote.macQuotes(codes.slice(start, start + 400))
+        for (const quote of data) quotes.set(quote.code, quote)
+      }
+      if (current !== allRequestId) return
+      const ranked = [...codes].sort(
+        (a, b) =>
+          metric(quotes, mode, { code: b } as SearchSecurity) -
+          metric(quotes, mode, { code: a } as SearchSecurity)
+      )
+      setRankedCodes(ranked)
+      setAllKey(key)
+      setAllProgress('')
+    } catch (cause) {
+      if (current === allRequestId) setError(errorMessage(cause))
+    } finally {
+      if (current === allRequestId) setAllLoading(false)
+    }
+  }
 
   createEffect(() => {
     page()
@@ -153,12 +224,36 @@ export function MarketListPanel(props: {
                 onClick={() => {
                   setTab(item.key)
                   setPage(0)
+                  setSort('default')
+                  setAllKey('')
                 }}
               >
                 {item.label}
               </button>
             )}
           </For>
+          <div class="market__sorts">
+            <For
+              each={
+                [
+                  ['default', '默认'],
+                  ['change', '涨幅'],
+                  ['amount', '成交额'],
+                  ['price', '现价']
+                ] as Array<[SortMode, string]>
+              }
+            >
+              {([value, label]) => (
+                <button
+                  class={`market__sort market__sort--${value}`}
+                  data-active={sort() === value}
+                  onClick={() => void loadAll(value)}
+                >
+                  {label}
+                </button>
+              )}
+            </For>
+          </div>
           <input
             class="market__search"
             type="search"
@@ -167,6 +262,8 @@ export function MarketListPanel(props: {
             onInput={(event) => {
               setQuery(event.currentTarget.value)
               setPage(0)
+              setSort('default')
+              setAllKey('')
             }}
           />
         </div>
@@ -223,6 +320,9 @@ export function MarketListPanel(props: {
           </table>
           <Show when={loading()}>
             <div class="market__loading">加载当前页报价…</div>
+          </Show>
+          <Show when={allLoading()}>
+            <div class="market__loading">MAC 加载整栏报价并排序… {allProgress()}</div>
           </Show>
           <Show when={!loading() && pageItems().length === 0}>
             <div class="market__empty">没有匹配的证券</div>

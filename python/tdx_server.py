@@ -476,6 +476,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/mac_quotes":
+                with self.server.lock:
+                    self._ok(self.server.bridge.mac_quotes(payload.get("codes") or []))
+                return
             if parsed.path == "/api/local_write_min":
                 with self.server.lock:
                     self._ok(

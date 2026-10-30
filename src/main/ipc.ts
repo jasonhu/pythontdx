@@ -23,6 +23,7 @@ import {
   fetchAuctions,
   fetchBlocks,
   fetchCategoryQuotes,
+  fetchMacQuotes,
   fetchDuckQuery,
   fetchF10Announcements,
   fetchF10Business,
@@ -189,6 +190,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.searchHint, (_event, keyword: string) => fetchSearchHint(keyword))
 
   ipcMain.handle(IPC.quoteCatalog, () => fetchSecurityCatalog())
+
+  ipcMain.handle(IPC.quoteMac, (_event, codes: string[]) => fetchMacQuotes(codes))
 
   /* ------------------------------------------------------ 持久化 */
 

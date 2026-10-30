@@ -280,7 +280,8 @@ export function createHttpApi(): StockLensApi {
         return () => listeners.delete(listener)
       },
       category: (req: CategoryRequest) => post<CategoryQuote[]>('/api/category', req),
-      catalog: () => request<SearchSecurity[]>('/api/code_list')
+      catalog: () => request<SearchSecurity[]>('/api/code_list'),
+      macQuotes: (codes) => post<Quote[]>('/api/mac_quotes', { codes })
     },
     market,
     trade: {

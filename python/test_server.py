@@ -67,6 +67,9 @@ class FakeBridge:
     def f10_news(self, code):
         return [{"id": "1", "title": "新闻"}]
 
+    def mac_quotes(self, codes):
+        return []
+
     def local_min_write(self, path, bars):
         return {"path": path, "count": len(bars)}
 
@@ -286,6 +289,9 @@ class TestHttpApi(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["count"], 1)
+        status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"], [])
         status, payload, _ = self.request("POST", "/api/f10_statement", {"code": "sz000001", "kind": "zcfzb"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["2026-09-30"]])

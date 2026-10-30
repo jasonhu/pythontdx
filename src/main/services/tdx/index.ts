@@ -122,6 +122,10 @@ export async function fetchQuotes(codes: string[], signal?: AbortSignal): Promis
 }
 
 /** 0x054b 服务端排序的一页分类行情；category=6 是沪深 A 股。 */
+export async function fetchMacQuotes(codes: string[]): Promise<Quote[]> {
+  return bridge.send<Quote[]>('mac_quotes', { codes: normalizeCodes(codes) }, 30_000)
+}
+
 export async function fetchCategoryQuotes(request: CategoryRequest): Promise<CategoryQuote[]> {
   return bridge.send<CategoryQuote[]>('category', { ...request }, QUOTES_TIMEOUT_MS)
 }

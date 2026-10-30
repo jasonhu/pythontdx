@@ -580,7 +580,24 @@ def fetch_trading(code: str, section: str = "margin") -> dict:
         "CWServ.tdxf10_gg_jyds",
         {"Params": [symbol, raw_section, arg]},
     )
-    return parse_trading_payload(payload, section)
+    table = parse_trading_payload(payload, section)
+    if section == "dragon" and table["count"] == 0:
+        # 个股 lgt 常返回空表；用大盘龙虎榜的同一批营业部明细按代码过滤补齐。
+        market, symbol = _market_of(code)
+        market_table = fetch_lhb_market()
+        columns = market_table["columns"]
+        code_index = columns.index("代码") if "代码" in columns else -1
+        market_index = columns.index("市场") if "市场" in columns else -1
+        rows = [
+            row
+            for row in market_table["rows"]
+            if code_index >= 0
+            and str(row[code_index]) == symbol
+            and (market_index < 0 or int(row[market_index] or 0) == market)
+        ]
+        if rows:
+            return {**table, "columns": columns, "rows": rows, "count": len(rows)}
+    return table
 
 
 def fetch_news(code: str) -> list[dict]:

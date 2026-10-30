@@ -2439,6 +2439,77 @@
   border-color: var(--accent);
 }
 
+.formula__savebar {
+  display: flex;
+  gap: 8px;
+  padding: 0 24px 8px;
+}
+
+.formula__name {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-1);
+  background: var(--panel);
+  font-size: var(--fs-xs);
+  outline: none;
+}
+
+.formula__name:focus {
+  border-color: var(--accent);
+}
+
+.formula__saved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 24px 8px;
+}
+
+.formula__saved-item {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.formula__saved-apply {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.formula__saved-apply:hover {
+  color: var(--accent);
+}
+
+.formula__saved-apply code {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.formula__saved-delete {
+  width: 20px;
+  height: 24px;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.formula__saved-delete:hover {
+  color: var(--down);
+  background: var(--down-soft);
+}
+
 .formula__error {
   margin: 0 24px 8px;
   padding: 8px 10px;

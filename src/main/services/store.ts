@@ -54,7 +54,8 @@ function createDefaultState(): AppState {
     activeGroupId: SEED_GROUPS[0]?.id ?? DEFAULT_GROUP_ID,
     settings: { ...DEFAULT_SETTINGS },
     activeCode: SEED_GROUPS[0]?.items[0]?.code ?? null,
-    alerts: []
+    alerts: [],
+    formulas: []
   }
 }
 
@@ -153,7 +154,8 @@ export class AppStore {
       activeGroupId,
       settings: { ...fallback.settings, ...source.settings },
       activeCode: source.activeCode ?? fallback.activeCode,
-      alerts: Array.isArray(source.alerts) ? source.alerts : []
+      alerts: Array.isArray(source.alerts) ? source.alerts : [],
+      formulas: Array.isArray(source.formulas) ? source.formulas : []
     }
   }
 

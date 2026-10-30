@@ -81,7 +81,8 @@ function loadState(): AppState {
           activeGroupId: parsed.activeGroupId || parsed.groups[0].id,
           settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
           activeCode: parsed.activeCode ?? parsed.groups[0]?.items[0]?.code ?? null,
-          alerts: Array.isArray(parsed.alerts) ? parsed.alerts : []
+          alerts: Array.isArray(parsed.alerts) ? parsed.alerts : [],
+          formulas: Array.isArray(parsed.formulas) ? parsed.formulas : []
         }
       }
     }
@@ -95,7 +96,8 @@ function loadState(): AppState {
     activeGroupId: DEFAULT_GROUP_ID,
     settings: { ...DEFAULT_SETTINGS },
     activeCode: groups[0]?.items[0]?.code ?? null,
-    alerts: []
+    alerts: [],
+    formulas: []
   }
 }
 

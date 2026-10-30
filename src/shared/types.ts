@@ -434,6 +434,13 @@ export interface AlertEvent {
   message: string
 }
 
+export interface SavedFormula {
+  id: string
+  name: string
+  expression: string
+  createdAt: number
+}
+
 export interface AppState {
   /** 数据结构版本，便于做迁移（v1 = 扁平 watchlist，v2 = 分组 groups） */
   version: number
@@ -445,6 +452,8 @@ export interface AppState {
   activeCode: string | null
   /** 本地行情预警；不落交易指令 */
   alerts: AlertRule[]
+  /** 本地保存的指标公式 */
+  formulas: SavedFormula[]
 }
 
 /** 持久化数据的当前版本 */

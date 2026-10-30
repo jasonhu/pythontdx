@@ -14,6 +14,7 @@ import {
   type AppInfo,
   type AppSettings,
   type AppState,
+  type SavedFormula,
   type SearchItem,
   type WatchGroup,
   type WatchItem
@@ -26,7 +27,8 @@ const [state, setState] = createStore<AppState>({
   activeGroupId: DEFAULT_GROUP_ID,
   settings: { ...DEFAULT_SETTINGS },
   activeCode: null,
-  alerts: []
+  alerts: [],
+  formulas: []
 })
 
 const [appInfo, setAppInfo] = createSignal<AppInfo | null>(null)
@@ -79,7 +81,8 @@ export async function bootstrapAppState(): Promise<void> {
     activeGroupId: persisted.activeGroupId,
     settings: { ...DEFAULT_SETTINGS, ...persisted.settings },
     activeCode: persisted.activeCode ?? persisted.groups[0]?.items[0]?.code ?? null,
-    alerts: Array.isArray(persisted.alerts) ? persisted.alerts : []
+    alerts: Array.isArray(persisted.alerts) ? persisted.alerts : [],
+    formulas: Array.isArray(persisted.formulas) ? persisted.formulas : []
   })
   setAppInfo(info)
 
@@ -316,6 +319,27 @@ export function markAlertsTriggered(updated: readonly AlertRule[]): void {
   const alerts = plainAlerts().map((rule) => changed.get(rule.id) ?? rule)
   setState('alerts', alerts)
   persist({ alerts })
+}
+
+/* ------------------------------------------------------------------ 公式 */
+
+export function saveFormula(name: string, expression: string): SavedFormula {
+  const formula: SavedFormula = {
+    id: `f${Date.now().toString(36)}`,
+    name: name.trim() || expression.trim(),
+    expression: expression.trim(),
+    createdAt: Date.now()
+  }
+  const formulas = [...state.formulas.map((item) => ({ ...item })), formula]
+  setState('formulas', formulas)
+  persist({ formulas })
+  return formula
+}
+
+export function removeFormula(id: string): void {
+  const formulas = state.formulas.filter((item) => item.id !== id).map((item) => ({ ...item }))
+  setState('formulas', formulas)
+  persist({ formulas })
 }
 
 /* ------------------------------------------------------------------ 落盘 */

@@ -7,6 +7,7 @@ import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'sol
 import type { KLineBar } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
 import { evaluateFormula, type FormulaResult } from '@shared/formula'
+import { appState, removeFormula, saveFormula } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -48,6 +49,7 @@ function linePath(values: number[], min: number, max: number): string {
 export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
   const [bars, setBars] = createSignal<KLineBar[]>([])
   const [expression, setExpression] = createSignal('MA(CLOSE,20)')
+  const [formulaName, setFormulaName] = createSignal('')
   const [result, setResult] = createSignal<FormulaResult | null>(null)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -61,6 +63,12 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
       setResult(null)
       setError(cause instanceof Error ? cause.message : String(cause))
     }
+  }
+
+  const save = (): void => {
+    if (!expression().trim()) return
+    saveFormula(formulaName(), expression())
+    setFormulaName('')
   }
 
   const load = async (): Promise<void> => {
@@ -165,6 +173,46 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
             )}
           </For>
         </div>
+
+        <div class="formula__savebar">
+          <input
+            class="formula__name"
+            placeholder="保存为…（留空用表达式）"
+            value={formulaName()}
+            onInput={(event) => setFormulaName(event.currentTarget.value)}
+          />
+          <button class="btn formula__save" onClick={save}>
+            保存公式
+          </button>
+        </div>
+
+        <Show when={appState.formulas.length > 0}>
+          <div class="formula__saved">
+            <For each={appState.formulas}>
+              {(item) => (
+                <div class="formula__saved-item">
+                  <button
+                    class="formula__saved-apply"
+                    onClick={() => {
+                      setExpression(item.expression)
+                      run()
+                    }}
+                  >
+                    <span>{item.name}</span>
+                    <code>{item.expression}</code>
+                  </button>
+                  <button
+                    class="formula__saved-delete"
+                    title="删除公式"
+                    onClick={() => removeFormula(item.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
 
         <Show when={error()}>
           {(message) => (

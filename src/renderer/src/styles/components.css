@@ -5205,3 +5205,15 @@
   flex-wrap: wrap;
   row-gap: 2px;
 }
+
+.screener__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screener__pool-notice {
+  padding: 4px 24px;
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+}

@@ -141,6 +141,27 @@ export function createGroup(name?: string): void {
   persist({ groups, activeGroupId: id })
 }
 
+export function createGroupWithItems(
+  name: string,
+  items: ReadonlyArray<Pick<WatchItem, 'code' | 'name' | 'market'>>
+): number {
+  const id = `g${Date.now().toString(36)}`
+  const seen = new Set<string>()
+  const unique = items.filter((item) => {
+    if (!item.code || seen.has(item.code)) return false
+    seen.add(item.code)
+    return true
+  })
+  const groups = [
+    ...plainGroups(state.groups),
+    { id, name: name.trim() || '选股池', items: unique.map((item) => ({ ...item })) }
+  ]
+  setState('groups', groups)
+  setState('activeGroupId', id)
+  persist({ groups, activeGroupId: id })
+  return unique.length
+}
+
 export function renameGroup(id: string, name: string): void {
   const trimmed = name.trim()
   if (!trimmed) return

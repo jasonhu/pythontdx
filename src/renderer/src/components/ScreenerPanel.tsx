@@ -15,6 +15,7 @@ import type {
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
+import { createGroupWithItems } from '../stores/app'
 
 interface ScreenerPanelProps {
   onClose: () => void
@@ -45,6 +46,7 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
   const [result, setResult] = createSignal<ScreenResult | null>(null)
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
+  const [poolNotice, setPoolNotice] = createSignal<string | null>(null)
   const [industry, setIndustry] = createSignal('')
   const [formula, setFormula] = createSignal('CLOSE > MA(CLOSE,20)')
   const [formulaScope, setFormulaScope] = createSignal('100')
@@ -206,6 +208,17 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
     }
   }
 
+  const saveAsPool = (): void => {
+    const quotes = formulaResult()?.quotes ?? result()?.quotes ?? []
+    if (quotes.length === 0) return
+    const stamp = new Date().toLocaleTimeString('zh-CN', { hour12: false }).replace(/:/g, '')
+    const count = createGroupWithItems(
+      `选股 ${stamp}`,
+      quotes.map((quote) => ({ code: quote.code, name: quote.name, market: quote.market }))
+    )
+    setPoolNotice(`已存为股票池：${count} 只`)
+  }
+
   return (
     <div class="screener-backdrop" onClick={() => props.onClose()}>
       <section
@@ -220,10 +233,23 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
             <div class="screener__eyebrow">全市场 · 0x054b · 本地条件</div>
             <h2 class="screener__title">条件选股</h2>
           </div>
-          <button class="btn btn--icon btn--bare" title="关闭选股" onClick={() => props.onClose()}>
-            <IconClose size={16} />
-          </button>
+          <div class="screener__head-actions">
+            <button class="btn screener__pool" onClick={saveAsPool}>
+              存为股票池
+            </button>
+            <button
+              class="btn btn--icon btn--bare"
+              title="关闭选股"
+              onClick={() => props.onClose()}
+            >
+              <IconClose size={16} />
+            </button>
+          </div>
         </header>
+
+        <Show when={poolNotice()}>
+          {(message) => <div class="screener__pool-notice">{message()}</div>}
+        </Show>
 
         <div class="screener__filters">
           <label class="screener__field">

@@ -40,7 +40,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [querying, setQuerying] = createSignal(false)
   const [query, setQuery] = createSignal<StatsQueryResult | null>(null)
   const [queryError, setQueryError] = createSignal<string | null>(null)
-  const [engine, setEngine] = createSignal<'sqlite' | 'duckdb'>('sqlite')
+  const [engine, setEngine] = createSignal<'sqlite' | 'duckdb' | 'local'>('sqlite')
   const [csvExporting, setCsvExporting] = createSignal(false)
   const [csvResult, setCsvResult] = createSignal<StatsCsvExport | null>(null)
   const [parquetExporting, setParquetExporting] = createSignal(false)
@@ -172,7 +172,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setQuery(
         engine() === 'duckdb'
           ? await api.data.duckQuery(sql(), 100)
-          : await api.data.statsQuery(sql(), 100)
+          : engine() === 'local'
+            ? await api.data.localQuery(sql(), 100)
+            : await api.data.statsQuery(sql(), 100)
       )
     } catch (cause) {
       setQuery(null)
@@ -516,6 +518,16 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   onClick={() => setEngine('duckdb')}
                 >
                   DuckDB
+                </button>
+                <button
+                  class="data__engine data__local-engine"
+                  data-active={engine() === 'local'}
+                  onClick={() => {
+                    setEngine('local')
+                    setSql('SELECT code, date, close, volume FROM bars ORDER BY date DESC LIMIT 20')
+                  }}
+                >
+                  本地
                 </button>
               </div>
               <button

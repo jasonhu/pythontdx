@@ -1516,8 +1516,7 @@ def normalize_tdx_stats(
     }
 
 
-def run_stats_query(sql: str, limit: int = 200) -> dict:
-    """在 stats.db 上执行只读 SELECT/WITH，最多返回 500 行。"""
+def _run_readonly_query(database: Path, sql: str, limit: int) -> dict:
     text = sql.strip().rstrip(";").strip()
     if not text:
         raise TdxError("SQL 不能为空")
@@ -1526,15 +1525,11 @@ def run_stats_query(sql: str, limit: int = 200) -> dict:
     if ";" in text:
         raise TdxError("只允许一条 SQL")
     safe_limit = max(1, min(500, int(limit)))
-
-    database = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
     if not database.exists():
-        raise TdxError("stats.db 不存在，请先在数据工具里执行「规范化导出」")
+        raise TdxError(f"{database.name} 不存在，请先执行导入/导出")
     connection = sqlite3.connect(f"{database.as_uri()}?mode=ro", uri=True)
     try:
-        cursor = connection.execute(
-            f"SELECT * FROM ({text}) LIMIT {safe_limit}"
-        )
+        cursor = connection.execute(f"SELECT * FROM ({text}) LIMIT {safe_limit}")
         columns = [column[0] for column in cursor.description or []]
         rows = [list(row) for row in cursor.fetchall()]
         return {
@@ -1547,6 +1542,18 @@ def run_stats_query(sql: str, limit: int = 200) -> dict:
         raise TdxError(f"SQL 执行失败：{error}") from error
     finally:
         connection.close()
+
+
+def run_stats_query(sql: str, limit: int = 200) -> dict:
+    """在 stats.db 上执行只读 SELECT/WITH，最多返回 500 行。"""
+    database = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+    return _run_readonly_query(database, sql, limit)
+
+
+def run_local_query(sql: str, limit: int = 200) -> dict:
+    """在 local_bars.db 上执行只读 SELECT/WITH。"""
+    database = stocklens_data_dir() / "local" / "normalized" / "local" / "local_bars.db"
+    return _run_readonly_query(database, sql, limit)
 
 
 def export_stats_csv() -> dict:
@@ -3144,6 +3151,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             int(payload.get("offset", 0)),
             int(payload.get("batchSize", 100)),
         )
+    if cmd == "local_query":
+        return run_local_query(str(payload.get("sql") or ""), int(payload.get("limit", 200)))
     if cmd == "stats_query":
         return bridge.stats_query(
             str(payload.get("sql") or ""),

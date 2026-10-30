@@ -476,6 +476,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/local_query":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.run_local_query(
+                            str(payload.get("sql") or ""), int(payload.get("limit", 200))
+                        )
+                    )
+                return
             if parsed.path == "/api/local_import":
                 with self.server.lock:
                     self._ok(

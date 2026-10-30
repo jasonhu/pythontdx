@@ -275,6 +275,10 @@ export async function fetchFormulaScreen(
   )
 }
 
+export async function fetchLocalQuery(sql: string, limit = 200): Promise<StatsQueryResult> {
+  return bridge.send<StatsQueryResult>('local_query', { sql, limit }, 20_000)
+}
+
 export async function fetchLocalImport(path: string): Promise<LocalImportResult> {
   return bridge.send<LocalImportResult>('local_import', { path }, 60_000)
 }

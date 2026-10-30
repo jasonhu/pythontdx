@@ -67,6 +67,9 @@ class FakeBridge:
     def f10_news(self, code):
         return [{"id": "1", "title": "新闻"}]
 
+    def run_local_query(self, sql, limit=200):
+        return {"columns": ["code"], "rows": [["sh600519"]], "rowCount": 1, "limited": False}
+
     def local_import(self, path):
         return {"code": "sh600519", "rows": 1, "totalRows": 1, "sha256": "x"}
 
@@ -262,6 +265,11 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/local_import", {"path": "/tmp/a.day"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["totalRows"], 1)
+        status, payload, _ = self.request(
+            "POST", "/api/local_query", {"sql": "SELECT code FROM bars", "limit": 1}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["rowCount"], 1)
         status, payload, _ = self.request("POST", "/api/f10_statement", {"code": "sz000001", "kind": "zcfzb"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["2026-09-30"]])

@@ -1,8 +1,11 @@
+import os
+import sqlite3
 import struct
 import tempfile
 import unittest
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from local_import import import_local_file
@@ -23,6 +26,25 @@ class TestLocalImport(unittest.TestCase):
             self.assertEqual(second["totalRows"], 2)
             self.assertTrue(Path(second["jsonlPath"]).exists())
             self.assertTrue(Path(second["database"]).exists())
+
+
+class TestLocalQuery(unittest.TestCase):
+    def test_readonly_query(self):
+        import tdx_bridge
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "local" / "normalized" / "local" / "local_bars.db"
+            database.parent.mkdir(parents=True)
+            connection = sqlite3.connect(database)
+            connection.execute("CREATE TABLE bars(code TEXT, date TEXT, close REAL)")
+            connection.execute("INSERT INTO bars VALUES('sh600519','2026-10-30',1392.05)")
+            connection.commit()
+            connection.close()
+            with patch.dict(os.environ, {"STOCKLENS_DATA_DIR": directory}):
+                result = tdx_bridge.run_local_query("SELECT code, close FROM bars")
+                self.assertEqual(result["rowCount"], 1)
+                with self.assertRaises(tdx_bridge.TdxError):
+                    tdx_bridge.run_local_query("UPDATE bars SET close = 0")
 
 
 if __name__ == "__main__":

@@ -57,6 +57,7 @@ StockLens 的所有重要变更都记录在这里。
 - **F10 交易扩充**：新增研报席位/科创标记分区；截图工具指针操作后等待 300ms 以等异步表。
 - **托盘常驻**：默认关闭窗口隐藏；托盘菜单显示/退出；设置面板可关。
   关闭隐藏时 capturePage 会挂起，属预期。
+- **本地数据湖查询**：数据工具「本地」引擎只读查询 local_bars.db；拒绝非 SELECT/WITH。
 - **本地数据湖导入**：原始文件按 sha256 存 raw/，JSONL.gz、SQLite `local_bars`、manifest；
   重复导入按 code/date 去重。
 - **本地文件 CSV**：解析结果可直接导出 UTF-8 BOM CSV。

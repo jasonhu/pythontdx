@@ -89,6 +89,8 @@ export const IPC = {
   localDayRead: 'local:day',
   /** 本地行情导入数据湖（invoke） */
   localImport: 'local:import',
+  /** 查询 local_bars.db（invoke） */
+  localQuery: 'local:query',
   /** 7615 财务报表关键科目（invoke） */
   f10Statement: 'f10:statement',
   /** tdxstat 摘要（invoke） */
@@ -233,6 +235,7 @@ export interface StockLensApi {
     duckQuery(sql: string, limit?: number): Promise<StatsQueryResult>
     localDay(path: string, limit?: number): Promise<LocalDayResult>
     localImport(path: string): Promise<LocalImportResult>
+    localQuery(sql: string, limit?: number): Promise<StatsQueryResult>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

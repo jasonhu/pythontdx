@@ -3424,3 +3424,34 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
 }
+
+.replay__ticks {
+  flex: 1;
+  min-height: 0;
+  margin: 10px 24px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.replay__tick-row {
+  display: grid;
+  grid-template-columns: 70px 90px 90px 30px;
+  gap: 12px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.replay__tick-row:last-child {
+  border-bottom: none;
+}
+
+.replay__tick-row > span:last-child {
+  text-align: center;
+  font-weight: 600;
+}

@@ -3,8 +3,8 @@
  *
  * 切片只喂给渲染层，不请求未来数据；日 K 用 320 根，分时用当日 241 个分钟点。
  */
-import { createEffect, createMemo, createSignal, onCleanup, Show, type JSX } from 'solid-js'
-import type { KLineBar, KLineSeries, MinutePoint, MinuteTrend } from '@shared/types'
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
+import type { KLineBar, KLineSeries, MinutePoint, MinuteTrend, TradeTick } from '@shared/types'
 import { fixed, minuteLabel, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { KLineChart } from './KLineChart'
@@ -17,7 +17,7 @@ interface ReplayPanelProps {
   onClose: () => void
 }
 
-type Mode = 'day' | 'minute'
+type Mode = 'day' | 'minute' | 'tick'
 
 const PLAY_MS = 700
 
@@ -27,6 +27,8 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
   const [index, setIndex] = createSignal(0)
   const [minute, setMinute] = createSignal<MinuteTrend | null>(null)
   const [minuteIndex, setMinuteIndex] = createSignal(0)
+  const [ticks, setTicks] = createSignal<TradeTick[]>([])
+  const [tickIndex, setTickIndex] = createSignal(0)
   const [playing, setPlaying] = createSignal(false)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -47,13 +49,18 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
         setIndex(
           Math.max(0, Math.min(series.bars.length - 1, Math.floor(series.bars.length * 0.7)))
         )
-      } else {
+      } else if (mode() === 'minute') {
         const trend = await api.trend.minute(props.code)
         if (current !== requestId) return
         setMinute(trend)
         setMinuteIndex(
           Math.max(0, Math.min(trend.points.length - 1, Math.floor(trend.points.length * 0.7)))
         )
+      } else {
+        const data = await api.trade.ticks({ code: props.code, count: 500 })
+        if (current !== requestId) return
+        setTicks(data)
+        setTickIndex(Math.max(0, Math.min(data.length - 1, Math.floor(data.length * 0.7))))
       }
     } catch (cause) {
       if (current === requestId) setError(errorMessage(cause))
@@ -71,8 +78,9 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
   createEffect(() => {
     if (!playing()) return
     const timer = window.setInterval(() => {
-      const total = mode() === 'day' ? bars().length : points().length
-      const set = mode() === 'day' ? setIndex : setMinuteIndex
+      const total =
+        mode() === 'day' ? bars().length : mode() === 'minute' ? points().length : ticks().length
+      const set = mode() === 'day' ? setIndex : mode() === 'minute' ? setMinuteIndex : setTickIndex
       set((value) => {
         if (value >= total - 1) {
           setPlaying(false)
@@ -111,12 +119,15 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
     return ((point.price - trend.prevClose) / trend.prevClose) * 100
   })
 
-  const total = (): number => (mode() === 'day' ? bars().length : points().length)
-  const position = (): number => (mode() === 'day' ? index() : minuteIndex())
+  const total = (): number =>
+    mode() === 'day' ? bars().length : mode() === 'minute' ? points().length : ticks().length
+  const position = (): number =>
+    mode() === 'day' ? index() : mode() === 'minute' ? minuteIndex() : tickIndex()
   const setPosition = (value: number): void => {
     const safe = Math.max(0, Math.min(total() - 1, value))
     if (mode() === 'day') setIndex(safe)
-    else setMinuteIndex(safe)
+    else if (mode() === 'minute') setMinuteIndex(safe)
+    else setTickIndex(safe)
   }
 
   const step = (delta: number): void => {
@@ -131,7 +142,11 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
   }
 
   const currentReady = (): boolean =>
-    mode() === 'day' ? dailyCurrent() !== undefined : minuteCurrent() !== undefined
+    mode() === 'day'
+      ? dailyCurrent() !== undefined
+      : mode() === 'minute'
+        ? minuteCurrent() !== undefined
+        : ticks()[tickIndex()] !== undefined
 
   return (
     <div class="replay-backdrop" onClick={() => props.onClose()}>
@@ -147,7 +162,9 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
             <div class="replay__eyebrow">
               {mode() === 'day'
                 ? '日 K 回放 · 只使用当前日期之前的数据'
-                : '分时回放 · 只使用当前分钟之前的数据'}
+                : mode() === 'minute'
+                  ? '分时回放 · 只使用当前分钟之前的数据'
+                  : '逐笔回放 · 只使用当前笔之前的数据'}
             </div>
             <h2 class="replay__title">
               {props.name} <code>{props.code.toUpperCase()}</code>
@@ -168,6 +185,13 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
             >
               分时
             </button>
+            <button
+              class="replay__mode replay-tick-tab"
+              data-active={mode() === 'tick'}
+              onClick={() => switchMode('tick')}
+            >
+              逐笔
+            </button>
           </div>
           <button class="btn btn--icon btn--bare" title="关闭复盘" onClick={() => props.onClose()}>
             <IconClose size={16} />
@@ -186,7 +210,9 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
           when={!loading() && currentReady()}
           fallback={
             <div class="replay__loading">
-              {loading() ? `加载${mode() === 'day' ? '日 K' : '分时'}…` : '没有可回放的数据'}
+              {loading()
+                ? `加载${mode() === 'day' ? '日 K' : mode() === 'minute' ? '分时' : '逐笔'}…`
+                : '没有可回放的数据'}
             </div>
           }
         >
@@ -246,6 +272,41 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
             )}
           </Show>
 
+          <Show when={mode() === 'tick' && ticks()[tickIndex()]}>
+            {(tick) => (
+              <>
+                <div class="replay__quotes">
+                  <span class="replay__date">{tick().time}</span>
+                  <span class="replay__price num">{fixed(tick().price)}</span>
+                  <span class="replay__ohlc">
+                    {tick().side === 'buy' ? '主动买' : tick().side === 'sell' ? '主动卖' : '中性'}
+                  </span>
+                  <span class="replay__ohlc">量 {thousands(tick().volume)} 手</span>
+                  <span class="replay__ohlc">笔数 {tick().orderCount}</span>
+                </div>
+                <div class="replay__ticks">
+                  <For each={ticks().slice(Math.max(0, tickIndex() - 19), tickIndex() + 1)}>
+                    {(item) => (
+                      <div class="replay__tick-row">
+                        <span class="num">{item.time}</span>
+                        <span class="num">{fixed(item.price)}</span>
+                        <span class="num">{thousands(item.volume)}</span>
+                        <span
+                          classList={{
+                            'tone-up': item.side === 'buy',
+                            'tone-down': item.side === 'sell'
+                          }}
+                        >
+                          {item.side === 'buy' ? 'B' : item.side === 'sell' ? 'S' : '—'}
+                        </span>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </>
+            )}
+          </Show>
+
           <div class="replay__controls">
             <button class="btn" onClick={() => step(-1)} disabled={position() <= 0 || playing()}>
               上一步
@@ -286,7 +347,13 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
 
         <footer class="replay__foot">
           <span>回放切片只喂给渲染层，不请求未来数据</span>
-          <span>{mode() === 'day' ? '日 K 700ms/根' : '分时 700ms/分钟'}</span>
+          <span>
+            {mode() === 'day'
+              ? '日 K 700ms/根'
+              : mode() === 'minute'
+                ? '分时 700ms/分钟'
+                : '逐笔 700ms/笔'}
+          </span>
         </footer>
       </section>
     </div>

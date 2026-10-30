@@ -463,6 +463,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_business(payload.get("code", "")))
                 return
+            if parsed.path == "/api/f10_shareholders":
+                with self.server.lock:
+                    self._ok(self.server.bridge.f10_shareholders(payload.get("code", "")))
+                return
             if parsed.path == "/api/stats_summary":
                 with self.server.lock:
                     self._ok(self.server.bridge.tdx_stats())

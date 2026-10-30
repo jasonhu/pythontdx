@@ -14,7 +14,7 @@ interface AnnouncementsPanelProps {
   onClose: () => void
 }
 
-type OnlineTab = 'announcements' | 'profile' | 'valuation' | 'finance' | 'business'
+type OnlineTab = 'announcements' | 'profile' | 'valuation' | 'finance' | 'business' | 'shareholders'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -33,6 +33,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [business, setBusiness] = createSignal<F10ProfileTable | null>(null)
   const [businessLoading, setBusinessLoading] = createSignal(true)
   const [businessError, setBusinessError] = createSignal<string | null>(null)
+  const [shareholders, setShareholders] = createSignal<F10ProfileTable | null>(null)
+  const [shareholdersLoading, setShareholdersLoading] = createSignal(true)
+  const [shareholdersError, setShareholdersError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -98,6 +101,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadShareholders = async (): Promise<void> => {
+    setShareholdersLoading(true)
+    setShareholdersError(null)
+    try {
+      setShareholders(await api.f10.shareholders(props.code))
+    } catch (cause) {
+      setShareholdersError(errorMessage(cause))
+    } finally {
+      setShareholdersLoading(false)
+    }
+  }
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -109,6 +124,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadValuation()
     void loadFinance()
     void loadBusiness()
+    void loadShareholders()
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -174,6 +190,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('business')}
           >
             主营
+          </button>
+          <button
+            class="online-tab online-shareholders-tab"
+            data-active={tab() === 'shareholders'}
+            onClick={() => setTab('shareholders')}
+          >
+            股东
           </button>
         </div>
 
@@ -366,6 +389,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                           </table>
                         </div>
                       </>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'shareholders'}>
+              <Show
+                when={!shareholdersLoading()}
+                fallback={<div class="announcements__empty">加载股东…</div>}
+              >
+                <Show
+                  when={!shareholdersError()}
+                  fallback={<div class="announcements__error">{shareholdersError()}</div>}
+                >
+                  <Show
+                    when={shareholders()}
+                    fallback={<div class="announcements__empty">暂无股东数据</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </Show>
                 </Show>

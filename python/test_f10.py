@@ -87,6 +87,20 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(table["columns"], ["分类", "项目", "营业收入"])
         self.assertEqual(table["rows"][0][1], "总部")
 
+    def test_parse_shareholders(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["gd", "rq", "cgs", "bl", "lb", "xz"],
+                    "Content": [["平安人寿", "2026-09-30", 440478714, 2.27, "保险", "流通A股"]],
+                }
+            ],
+        }
+        table = tdx_f10.parse_shareholder_payload(payload)
+        self.assertEqual(table["columns"][0], "股东名称")
+        self.assertEqual(table["rows"][0][2], 440478714)
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

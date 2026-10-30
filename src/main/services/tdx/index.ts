@@ -173,6 +173,10 @@ export async function fetchF10Business(code: string): Promise<F10ProfileTable> {
   return bridge.send<F10ProfileTable>('f10_business', { code }, 20_000)
 }
 
+export async function fetchF10Shareholders(code: string): Promise<F10ProfileTable> {
+  return bridge.send<F10ProfileTable>('f10_shareholders', { code }, 20_000)
+}
+
 /* ---------------------------------------------------------------- 数据工具 */
 
 const DATA_TIMEOUT_MS = 180_000

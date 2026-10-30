@@ -60,7 +60,7 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
           </div>
 
           <div class="quote-header__code num">
-            {props.quote.code.toUpperCase()} · {props.quote.currency} · 行情时间{' '}
+            {props.quote.code.toUpperCase()} · {props.quote.currency} · 接收时间{' '}
             {timeOfDay(props.quote.time)}
           </div>
         </div>

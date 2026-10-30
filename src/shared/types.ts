@@ -154,7 +154,7 @@ export interface SearchItem {
   symbol: string
   name: string
   market: Market
-  /** 腾讯返回的证券类型，如 GP-A / ZS / JJ */
+  /** 证券类型，如 GP-A / ZS / JJ / ZQ */
   kind: string
 }
 
@@ -224,11 +224,15 @@ const SEED_ITEMS: WatchItem[] = [
   { code: 'sz300059', name: '东方财富', market: 'SZ' }
 ]
 
-/** 默认分组（老用户从 v1 迁移过来时也落到这个分组） */
+/**
+ * 默认分组（老用户从 v1 迁移过来时也落到这个分组）。
+ *
+ * 港股分组已移除：通达信 7709 不提供港股行情，留着只会显示一行「—」。
+ * 老用户的持久化数据不会被动删，港股自选会保留但暂时没有行情。
+ */
 export const SEED_GROUPS: WatchGroup[] = [
   { id: DEFAULT_GROUP_ID, name: '自选', items: SEED_ITEMS },
-  { id: 'tech', name: '科技', items: [] },
-  { id: 'hk', name: '港股', items: [{ code: 'hk00700', name: '腾讯控股', market: 'HK' }] }
+  { id: 'tech', name: '科技', items: [] }
 ]
 
 /* --------------------------------------------------------------- 窗口/应用 */

@@ -31,3 +31,9 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+# Python 行情桥接进程
+python/build/
+python/dist/
+__pycache__/
+*.pyc

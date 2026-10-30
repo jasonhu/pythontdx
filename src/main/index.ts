@@ -12,6 +12,7 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc'
 import { registerIpcHandlers } from './ipc'
 import { QuotePoller } from './services/poller'
+import { closeTdx } from './services/tdx'
 import { AppStore } from './services/store'
 import { createMainWindow } from './window'
 
@@ -85,6 +86,7 @@ function bootstrap(): void {
     flushing = true
     event.preventDefault()
     poller?.stop()
+    closeTdx()
     void store.flush().finally(() => app.quit())
   })
 

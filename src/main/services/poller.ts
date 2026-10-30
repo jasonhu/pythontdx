@@ -8,7 +8,7 @@
  */
 import type { Quote, QuoteUpdate } from '@shared/types'
 import { isTradingNow } from '@shared/market'
-import { fetchQuotes } from './tencent'
+import { fetchQuotes } from './tdx'
 
 /** 非交易时段的降频下限：再快也没意义，还容易被上游限流 */
 const IDLE_MIN_INTERVAL = 30_000

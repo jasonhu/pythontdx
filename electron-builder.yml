@@ -17,6 +17,14 @@ files:
 asarUnpack:
   - resources/**
 
+# Python 行情桥接进程：build:python 会产出 python/dist/tdx-bridge
+# （Windows 是 tdx-bridge.exe），这里整个目录复制到 resources/tdx-bridge/
+extraResources:
+  - from: python/dist
+    to: tdx-bridge
+    filter:
+      - 'tdx-bridge*'
+
 # 生产依赖里如果有原生模块，这里开 rebuild；纯 JS 项目关掉可以显著加速
 npmRebuild: false
 

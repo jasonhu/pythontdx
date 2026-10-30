@@ -28,9 +28,10 @@ export function applyQuotes(quotes: Quote[]): void {
   for (const quote of quotes) {
     setQuoteMap(quote.code, quote)
 
-    // 名称纠偏：从搜索结果或手输代码加入的条目，名字可能只是占位符
+    // 名称纠偏：从搜索结果或手输代码加入的条目，名字可能只是占位符。
+    // 代码表还没加载完时 quote.name 会退化成 6 位代码，不能拿它覆盖真实名称。
     const known = watchItemOf(quote.code)
-    if (known && quote.name && known.name !== quote.name) {
+    if (known && quote.name && !/^\d{6}$/.test(quote.name) && known.name !== quote.name) {
       renameWatchItem(quote.code, quote.name)
     }
   }

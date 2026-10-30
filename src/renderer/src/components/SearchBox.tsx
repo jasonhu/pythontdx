@@ -8,7 +8,7 @@ import { api } from '../lib/ipc'
 import { addSearchItem, addWatchItem } from '../stores/app'
 import { IconSearch } from './Icons'
 
-/** 输入防抖：300ms 内还在敲字就不发请求，避免把腾讯的联想接口打爆 */
+/** 输入防抖：避免每次按键都在 5 万多条本地代码表里重算 */
 const DEBOUNCE_MS = 240
 
 export function SearchBox(): JSX.Element {
@@ -124,7 +124,7 @@ export function SearchBox(): JSX.Element {
           type="text"
           spellcheck={false}
           autocomplete="off"
-          placeholder="搜索股票 / 代码，回车添加自选"
+          placeholder="搜索股票 / 代码 / 拼音，回车添加自选"
           value={keyword()}
           onInput={(event) => setKeyword(event.currentTarget.value)}
           onKeyDown={onKeyDown}

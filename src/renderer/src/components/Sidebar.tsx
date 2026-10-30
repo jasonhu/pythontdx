@@ -237,7 +237,7 @@ export function Sidebar(): JSX.Element {
       </div>
 
       <div class="sidebar__foot">
-        数据来源 腾讯行情
+        数据来源 通达信行情
         <br />
         行情有延迟，仅供参考，不构成投资建议
       </div>

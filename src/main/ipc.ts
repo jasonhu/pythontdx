@@ -17,7 +17,7 @@ import {
   fetchMinuteTrend,
   fetchQuotes,
   fetchSearchHint
-} from './services/tencent'
+} from './services/tdx'
 
 export interface IpcContext {
   store: AppStore

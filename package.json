@@ -21,19 +21,22 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:python": "node scripts/python.mjs test",
+    "build:python": "node scripts/python.mjs build",
     "icon": "node scripts/generate-icon.mjs",
     "shot": "npm run build && node scripts/screenshot.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run test:python",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,html}\" \"scripts/**/*.mjs\" \"docs/**/*.md\" \"*.{json,md,yml}\" \".vscode/*.json\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\"",
-    "build:win": "npm run build && electron-builder --win",
-    "build:win:portable": "npm run build && electron-builder --win portable",
-    "build:win:setup": "npm run build && electron-builder --win nsis",
-    "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:win": "npm run build:python && npm run build && electron-builder --win",
+    "build:win:portable": "npm run build:python && npm run build && electron-builder --win portable",
+    "build:win:setup": "npm run build:python && npm run build && electron-builder --win nsis",
+    "build:mac": "npm run build:python && npm run build && electron-builder --mac",
+    "build:linux": "npm run build:python && npm run build && electron-builder --linux"
   },
   "dependencies": {
-    "@electron-toolkit/utils": "^4.0.0"
+    "@electron-toolkit/utils": "^4.0.0",
+    "pinyin-pro": "^3.29.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -39,6 +39,8 @@ StockLens 的所有重要变更都记录在这里。
   Web 优先 WebSocket，失败自动回退 SSE；Vite 开发代理支持 `/ws`。
 - **自选导入/导出**：状态栏 JSON 备份；导出全部分组，导入追加分组，
   ID 冲突自动改名，不覆盖现有自选。
+- **可选 Parquet 导出**：`python/parquet_export.py` 按 `trade_date` 分区写 Parquet
+  （需 pyarrow，未安装时明确报错，测试跳过）；DuckDB 未接。
 - **CSV 导出**：数据工具把 tdxstat / tdxstat2 全量导出为 UTF-8 BOM CSV，
   实测各 8,100 行；Parquet/DuckDB 仍未接。
 - **SQLite 只读查询**：数据工具支持单条 SELECT/WITH，最多 500 行；只读连接，
@@ -80,7 +82,7 @@ StockLens 的所有重要变更都记录在这里。
   `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
   分区计数、空日期跳过数）；另生成 SQLite 查询层 `stats.db`（tdxstat/tdxstat2/meta）。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 62。
+  Python 测试 17 → 64。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

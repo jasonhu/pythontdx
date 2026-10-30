@@ -47,6 +47,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from parquet_export import export_stats_parquet
 from tdx_f10 import fetch_announcements, fetch_profile, fetch_valuation
 
 # ---------------------------------------------------------------- 常量
@@ -2520,6 +2521,9 @@ class Bridge:
     def stats_csv(self) -> dict:
         return export_stats_csv()
 
+    def stats_parquet(self) -> dict:
+        return export_stats_parquet()
+
     def blocks(self, kind: str = "gn") -> dict:
         """下载并解析板块 .dat，返回板块名与成分代码（含市场前缀）。"""
         if kind not in BLOCK_FILES:
@@ -2880,6 +2884,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "stats_csv":
         return bridge.stats_csv()
+    if cmd == "stats_parquet":
+        return bridge.stats_parquet()
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

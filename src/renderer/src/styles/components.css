@@ -4986,3 +4986,8 @@
 .boards__sort[data-active='true'] {
   color: var(--accent);
 }
+
+.market__tabs {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}

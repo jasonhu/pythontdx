@@ -27,13 +27,22 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 const PAGE_SIZE = 100
 
-type SortMode = 'default' | 'change' | 'changeAsc' | 'amount' | 'price'
+type SortMode =
+  | 'default'
+  | 'change'
+  | 'changeAsc'
+  | 'amount'
+  | 'price'
+  | 'turnover'
+  | 'volume'
 
 function metric(map: Map<string, Quote>, mode: SortMode, item: SearchSecurity): number {
   const quote = map.get(item.code)
   if (!quote) return Number.NEGATIVE_INFINITY
   if (mode === 'change') return quote.changePct
   if (mode === 'changeAsc') return -quote.changePct
+  if (mode === 'turnover') return quote.turnoverRate ?? 0
+  if (mode === 'volume') return quote.volumeRatio ?? 0
   if (mode === 'amount') return quote.amount ?? 0
   return quote.price
 }
@@ -179,7 +188,10 @@ export function MarketListPanel(props: {
     setLoading(true)
     void (async () => {
       try {
-        const data = await api.quote.snapshot(codes)
+        const data =
+          sort() !== 'default'
+            ? await api.quote.macQuotes(codes)
+            : await api.quote.snapshot(codes)
         if (current !== requestId) return
         setQuotes(data)
         setError(null)
@@ -241,7 +253,9 @@ export function MarketListPanel(props: {
                   ['change', '涨幅'],
                   ['changeAsc', '跌幅'],
                   ['amount', '成交额'],
-                  ['price', '现价']
+                  ['price', '现价'],
+                ['turnover', '换手'],
+                ['volume', '量比']
                 ] as Array<[SortMode, string]>
               }
             >
@@ -283,6 +297,8 @@ export function MarketListPanel(props: {
                 <th class="num">现价</th>
                 <th class="num">涨跌幅</th>
                 <th class="num">成交额</th>
+                <th class="num">换手</th>
+                <th class="num">量比</th>
               </tr>
             </thead>
             <tbody>
@@ -314,6 +330,16 @@ export function MarketListPanel(props: {
                         {quote() ? signedPct(quote()!.changePct) : '—'}
                       </td>
                       <td class="num">{quote() ? compactAmount(quote()!.amount) : '—'}</td>
+                      <td class="num">
+                        {quote()?.turnoverRate !== undefined
+                          ? `${quote()!.turnoverRate!.toFixed(2)}%`
+                          : '—'}
+                      </td>
+                      <td class="num">
+                        {quote()?.volumeRatio !== undefined
+                          ? quote()!.volumeRatio!.toFixed(2)
+                          : '—'}
+                      </td>
                     </tr>
                   )
                 }}

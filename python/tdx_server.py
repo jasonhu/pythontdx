@@ -343,6 +343,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                             query.get("code", ""),
                             query.get("period", "day"),
                             int(query.get("count", "200")),
+                            query.get("adjust", "true").lower() != "false",
                         )
                     )
                 return

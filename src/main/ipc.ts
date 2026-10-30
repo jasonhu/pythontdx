@@ -120,7 +120,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.trendFiveDay, (_event, code: string) => fetchFiveDayTrend(code))
 
   ipcMain.handle(IPC.trendKline, (_event, request: KLineRequest) =>
-    fetchKline(request.code, request.period, request.count ?? 200)
+    fetchKline(request.code, request.period, request.count ?? 200, request.adjust ?? true)
   )
 
   /* ---------------------------------------------------------- 搜索 */

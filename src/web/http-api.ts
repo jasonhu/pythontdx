@@ -312,7 +312,8 @@ export function createHttpApi(): StockLensApi {
         const params = new URLSearchParams({
           code: req.code,
           period: req.period,
-          count: String(req.count ?? 200)
+          count: String(req.count ?? 200),
+          adjust: String(req.adjust ?? true)
         })
         return request<KLineSeries>(`/api/kline?${params.toString()}`)
       }

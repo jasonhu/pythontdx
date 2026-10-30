@@ -119,6 +119,8 @@ export interface KLineRequest {
   period: KLinePeriod
   /** 取多少根 K 线 */
   count?: number
+  /** 前复权，默认 true；false 为不复权 */
+  adjust?: boolean
 }
 
 /** 0x054b 分类行情请求；category=6 是沪深 A 股 */

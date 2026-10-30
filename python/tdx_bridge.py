@@ -2796,7 +2796,7 @@ class Bridge:
 
     # -- K 线 / 分时 -----------------------------------------------------
 
-    def kline(self, code: str, period: str, count: int) -> dict:
+    def kline(self, code: str, period: str, count: int, adjust: bool = True) -> dict:
         market, symbol = parse_code(code)
         if period not in PERIOD_RAW:
             raise TdxError("K 线周期只支持 day / week / month")
@@ -2804,7 +2804,8 @@ class Bridge:
         safe_count = max(1, min(800, int(count)))
         kind = "index" if is_index_code(market, symbol) else "stock"
         body = self.conn.request(
-            CMD_BARS, bars_data(market, symbol, PERIOD_RAW[period], safe_count, 1)
+            CMD_BARS,
+            bars_data(market, symbol, PERIOD_RAW[period], safe_count, 1 if adjust else 0),
         )
         return {"code": code, "period": period, "bars": parse_bars(body, kind)}
 
@@ -2963,6 +2964,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             payload.get("code", ""),
             payload.get("period", "day"),
             payload.get("count", 200),
+            bool(payload.get("adjust", True)),
         )
     if cmd == "minute":
         return bridge.minute(payload.get("code", ""))

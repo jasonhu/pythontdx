@@ -231,16 +231,17 @@ export async function fetchKline(
   code: string,
   period: KLinePeriod,
   count = 200,
+  adjust = true,
   signal?: AbortSignal
 ): Promise<KLineSeries> {
   assertSupported(code)
   if (signal?.aborted) throw new TdxError('请求已取消')
 
   const safeCount = Math.min(800, Math.max(1, Math.trunc(count)))
-  const key = `${code}:${period}:${safeCount}`
+  const key = `${code}:${period}:${safeCount}:${adjust ? 1 : 0}`
 
   return klineCache.resolve(key, () =>
-    bridge.send<KLineSeries>('kline', { code, period, count: safeCount })
+    bridge.send<KLineSeries>('kline', { code, period, count: safeCount, adjust })
   )
 }
 

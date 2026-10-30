@@ -48,6 +48,7 @@ export interface ChartPanelProps {
 
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<Tab>('minute')
+  const [adjust, setAdjust] = createSignal(true)
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
 
@@ -64,8 +65,11 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const timer = setInterval(() => setTick((value) => value + 1), REFRESH_MS)
   onCleanup(() => clearInterval(timer))
 
-  const [data, { refetch }] = createResource<ChartData, { code: string; tab: Tab; tick: number }>(
-    () => ({ code: code(), tab: tab(), tick: isTrend() ? tick() : 0 }),
+  const [data, { refetch }] = createResource<
+    ChartData,
+    { code: string; tab: Tab; tick: number; adjust: boolean }
+  >(
+    () => ({ code: code(), tab: tab(), tick: isTrend() ? tick() : 0, adjust: adjust() }),
     async (source) => {
       if (source.tab === 'five') {
         const multi = await api.trend.fiveDay(source.code)
@@ -80,7 +84,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         series: await api.trend.kline({
           code: source.code,
           period: source.tab,
-          count: KLINE_COUNT
+          count: KLINE_COUNT,
+          adjust: source.adjust
         })
       }
     }
@@ -117,7 +122,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           <For each={TABS}>
             {(item) => (
               <button
-                class="segmented__item"
+                class={`segmented__item chart-tab-${item.key}`}
                 data-active={tab() === item.key}
                 onClick={() => switchTab(item.key)}
               >
@@ -126,6 +131,20 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             )}
           </For>
         </div>
+
+        <Show when={!isTrend()}>
+          <button
+            class="chip chart-adjust"
+            data-active={adjust()}
+            title={adjust() ? '当前为前复权，点击切不复权' : '当前为不复权，点击切前复权'}
+            onClick={() => {
+              setAdjust((value) => !value)
+              setHover(null)
+            }}
+          >
+            {adjust() ? '复权' : '不复权'}
+          </button>
+        </Show>
 
         {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
         <div class="chart-headline">

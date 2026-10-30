@@ -51,6 +51,7 @@ from duckdb_query import run_duckdb_query
 from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
 from tdx_local import read_local_file, write_day_file, write_min_file
+from tdx_mac import MacError, fetch_quotes as fetch_mac_quotes
 from local_import import import_local_file
 from tdx_f10 import (
     fetch_announcements,
@@ -2261,7 +2262,7 @@ class Bridge:
 
     # -- 行情 -----------------------------------------------------------
 
-    def quotes(self, codes: list[str]) -> list[dict]:
+    def _quotes_7709(self, codes: list[str]) -> list[dict]:
         received_at = int(time.time() * 1000)
         unique: list[str] = []
         items: list[tuple[int, str]] = []
@@ -2296,6 +2297,40 @@ class Bridge:
         by_code = {quote["code"]: quote for quote in quotes}
         return [by_code[code] for code in unique if code in by_code]
 
+    def _mac_fallback(self, codes: list[str], error: Exception) -> list[dict]:
+        print(f"[tdx] 7709 行情失败，尝试 MAC：{error}", file=sys.stderr)
+        try:
+            quotes = fetch_mac_quotes(codes)
+        except Exception as mac_error:  # noqa: BLE001 - 两路都失败时给出组合原因
+            raise TdxError(f"7709 与 MAC 行情均失败：{error} / {mac_error}") from error
+        if not quotes:
+            raise TdxError(f"MAC 未返回行情：{error}")
+        return quotes
+
+    def mac_quotes(self, codes: list[str]) -> list[dict]:
+        """显式走 MAC 0x122B；用于探测与手动切换。"""
+        return fetch_mac_quotes(codes)
+
+    def quotes(self, codes: list[str]) -> list[dict]:
+        try:
+            return self._quotes_7709(codes)
+        except Exception as error:  # noqa: BLE001 - 只在主通道失败时兜底
+            return self._mac_fallback(codes, error)
+
+    def snapshots(self, codes: list[str]) -> list[dict]:
+        try:
+            return self._snapshots_7709(codes)
+        except Exception as error:  # noqa: BLE001
+            return self._mac_fallback(codes, error)
+
+    def refresh_quotes(
+        self, codes: list[str], cursors: dict[str, int] | None = None
+    ) -> list[dict]:
+        try:
+            return self._refresh_quotes_7709(codes, cursors)
+        except Exception as error:  # noqa: BLE001
+            return self._mac_fallback(codes, error)
+
     def _prepare_items(self, codes: list[str]) -> tuple[list[str], list[tuple[int, str]]]:
         unique: list[str] = []
         items: list[tuple[int, str]] = []
@@ -2317,7 +2352,7 @@ class Bridge:
             print(f"[tdx] 代码表加载失败：{error}", file=sys.stderr)
         return unique, items
 
-    def snapshots(self, codes: list[str]) -> list[dict]:
+    def _snapshots_7709(self, codes: list[str]) -> list[dict]:
         """0x054c 批量快照：现价 + 买一/卖一，适合初始化一批代码。"""
         received_at = int(time.time() * 1000)
         unique, items = self._prepare_items(codes)
@@ -2332,7 +2367,7 @@ class Bridge:
         by_code = {quote["code"]: quote for quote in quotes}
         return [by_code[code] for code in unique if code in by_code]
 
-    def refresh_quotes(
+    def _refresh_quotes_7709(
         self, codes: list[str], cursors: dict[str, int] | None = None
     ) -> list[dict]:
         """0x0547 增量刷新：首次游标 0 返回五档基线；单次最多 100 只。"""
@@ -3098,6 +3133,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.quotes(payload.get("codes") or [])
     if cmd == "snapshots":
         return bridge.snapshots(payload.get("codes") or [])
+    if cmd == "mac_quotes":
+        return bridge.mac_quotes(payload.get("codes") or [])
     if cmd == "refresh":
         return bridge.refresh_quotes(
             payload.get("codes") or [], payload.get("cursors") or {}

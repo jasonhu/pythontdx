@@ -1107,3 +1107,94 @@
   flex: 1;
   min-height: 0;
 }
+
+/* ------------------------------------------------------------ 布局精修 */
+.sidebar__head {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  padding: 12px 12px 8px;
+}
+
+.sidebar__title {
+  flex: 1 1 100%;
+  height: 22px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sidebar__head .btn--icon {
+  width: 26px;
+  height: 24px;
+}
+
+.chart-card__head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chart-toolbar--primary {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-toolbar--secondary {
+  align-items: center;
+}
+
+.chart-headline {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chart-headline .btn--bare {
+  height: 24px;
+  padding: 0 7px;
+  font-size: var(--fs-2xs);
+}
+
+.chart-legend {
+  padding-right: 4px;
+}
+
+.chart-ma-overlay {
+  position: absolute;
+  top: 24px;
+  left: 14px;
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--bg-base) 68%, transparent);
+  pointer-events: none;
+  transition: opacity var(--dur-1) var(--ease);
+}
+
+.chart-ma-overlay--hidden {
+  opacity: 0;
+}
+
+.segmented__item {
+  padding: 0 9px;
+}
+
+.chart-minute-tab {
+  min-width: 22px;
+  padding: 0 2px;
+}

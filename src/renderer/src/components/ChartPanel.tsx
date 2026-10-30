@@ -175,260 +175,233 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   return (
     <section class="card chart-card">
       <div class="chart-card__head">
-        <div class="segmented">
-          <For each={TABS}>
-            {(item) => (
-              <button
-                class={`segmented__item chart-tab-${item.key}`}
-                data-active={tab() === item.key}
-                onClick={() => switchTab(item.key)}
-              >
-                {item.label}
-              </button>
-            )}
-          </For>
-        </div>
-
-        <Show when={!isTrend()}>
-          <div class="chart-adjust-group">
-            <For
-              each={[
-                { value: 'none' as KLineAdjust, label: '不复权' },
-                { value: 'qfq' as KLineAdjust, label: '前复权' },
-                { value: 'hfq' as KLineAdjust, label: '后复权' }
-              ]}
-            >
+        <div class="chart-toolbar chart-toolbar--primary">
+          <div class="segmented">
+            <For each={TABS}>
               {(item) => (
                 <button
-                  class={`chip chart-adjust chart-adjust--${item.value}`}
-                  data-active={adjust() === item.value}
-                  onClick={() => {
-                    setAdjust(item.value)
-                    updateSettings({ klineAdjust: item.value })
-                    setHover(null)
-                  }}
+                  class={`segmented__item chart-tab-${item.key}`}
+                  data-active={tab() === item.key}
+                  onClick={() => switchTab(item.key)}
                 >
                   {item.label}
                 </button>
               )}
             </For>
           </div>
-        </Show>
 
-        <div class="chart-minute-tabs" aria-label="分钟 K 周期">
-          <For each={MINUTE_PERIODS}>
-            {(period) => (
-              <button
-                class={`chart-minute-tab chart-tab-${period}`}
-                data-active={tab() === period}
-                title={period.endsWith('s') ? period : `${period.replace('m', '')} 分钟 K`}
-                onClick={() => switchTab(period)}
-              >
-                {period.endsWith('s') ? period : period.replace('m', '')}
-              </button>
-            )}
-          </For>
+          <div class="chart-minute-tabs" aria-label="分钟 K 周期">
+            <For each={MINUTE_PERIODS}>
+              {(period) => (
+                <button
+                  class={`chart-minute-tab chart-tab-${period}`}
+                  data-active={tab() === period}
+                  title={period.endsWith('s') ? period : `${period.replace('m', '')} 分钟 K`}
+                  onClick={() => switchTab(period)}
+                >
+                  {period.endsWith('s') ? period : period.replace('m', '')}
+                </button>
+              )}
+            </For>
+          </div>
+
+          <Show when={!isTrend()}>
+            <select
+              class="chart-ext-select"
+              value={EXT_PERIODS.some(([period]) => period === tab()) ? tab() : ''}
+              aria-label="扩展周期"
+              onChange={(event) => {
+                const value = event.currentTarget.value
+                if (value) switchTab(value as KLinePeriod)
+              }}
+            >
+              <option value="">扩展</option>
+              <For each={EXT_PERIODS}>
+                {([period, label]) => <option value={period}>{label}</option>}
+              </For>
+            </select>
+          </Show>
         </div>
 
-        <Show when={!isTrend()}>
-          <select
-            class="chart-ext-select"
-            value={EXT_PERIODS.some(([period]) => period === tab()) ? tab() : ''}
-            aria-label="扩展周期"
-            onChange={(event) => {
-              const value = event.currentTarget.value
-              if (value) switchTab(value as KLinePeriod)
-            }}
-          >
-            <option value="">扩展</option>
-            <For each={EXT_PERIODS}>
-              {([period, label]) => <option value={period}>{label}</option>}
-            </For>
-          </select>
-        </Show>
-
-        <Show when={!isTrend()}>
-          <button
-            class="chip chart-boll"
-            data-active={showBoll()}
-            onClick={() => {
-              const next = !showBoll()
-              setShowBoll(next)
-              updateSettings({ showBoll: next })
-            }}
-          >
-            BOLL
-          </button>
-        </Show>
-
-        <Show when={!isTrend()}>
-          <button
-            class="chip chart-log"
-            data-active={logScale()}
-            onClick={() => {
-              const next = !logScale()
-              setLogScale(next)
-              updateSettings({ logScale: next })
-            }}
-          >
-            {logScale() ? '对数' : '线性'}
-          </button>
-        </Show>
-
-        <Show when={!isTrend()}>
-          <button
-            class="chip chart-draw-horizontal"
-            data-active={drawMode() === 'horizontal'}
-            title="点击图表放置水平线"
-            onClick={() => setDrawMode((mode) => (mode === 'horizontal' ? 'none' : 'horizontal'))}
-          >
-            水平
-          </button>
-          <button
-            class="chip chart-draw-trend"
-            data-active={drawMode() === 'trend'}
-            title="点两下画趋势线"
-            onClick={() => setDrawMode((mode) => (mode === 'trend' ? 'none' : 'trend'))}
-          >
-            趋势
-          </button>
-          <button
-            class="chip chart-draw-clear"
-            title="清除所有画线"
-            onClick={() => setClearDrawingsKey((value) => value + 1)}
-          >
-            清线
-          </button>
-        </Show>
-
-        <Show when={!isTrend()}>
-          <button
-            class="chip chart-range-toggle"
-            data-active={rangeMode()}
-            onClick={() => {
-              const next = !rangeMode()
-              setRangeMode(next)
-              if (!next) setRangeStats(null)
-            }}
-          >
-            区间
-          </button>
-        </Show>
-
-        <Show when={!isTrend()}>
-          <select
-            class="chart-sub-select"
-            value={subIndicator()}
-            aria-label="K 线副图"
-            onChange={(event) => {
-              const value = event.currentTarget.value as 'none' | SubIndicator
-              setSubIndicator(value)
-              updateSettings({ subIndicator: value })
-            }}
-          >
-            <option value="none">副图</option>
-            <option value="macd">MACD</option>
-            <option value="kdj">KDJ</option>
-            <option value="rsi">RSI</option>
-          </select>
-        </Show>
-
-        {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
-        <div class="chart-headline">
-          <Show
-            when={hover()}
-            fallback={
-              <div class="chart-legend">
-                <Show
-                  when={isTrend()}
-                  fallback={
-                    <For each={MA_LEGEND}>
-                      {(item) => (
-                        <span class="chart-legend__item">
-                          <span class="chart-legend__swatch" style={{ background: item.color }} />
-                          {item.label}
-                        </span>
-                      )}
-                    </For>
-                  }
-                >
-                  <span class="chart-legend__item">
-                    <span class="chart-legend__swatch" style={{ background: 'var(--accent)' }} />
-                    价格
-                  </span>
-                  <span class="chart-legend__item">
-                    <span class="chart-legend__swatch" style={{ background: 'var(--chart-avg)' }} />
-                    均价
-                  </span>
-                  <Show when={tab() === 'five'}>
-                    <span class="chart-legend__item">每段一个交易日</span>
-                  </Show>
-                </Show>
-              </div>
-            }
-          >
-            {(current) => (
-              <div class="chart-readout">
-                <span class="chart-readout__time num">{current().label}</span>
-                <span
-                  class="chart-readout__price num"
-                  style={{ color: `var(--${toneOf(current().changePct)})` }}
-                >
-                  {fixed(current().price)}
-                </span>
-                <span
-                  class="chart-readout__pct num"
-                  style={{ color: `var(--${toneOf(current().changePct)})` }}
-                >
-                  {signedPct(current().changePct)}
-                </span>
-                <span class="chart-readout__item">
-                  均价 <b class="num">{fixed(current().avg)}</b>
-                </span>
-                <span class="chart-readout__item">
-                  量 <b class="num">{thousands(current().volume)}</b> 手
-                </span>
-              </div>
-            )}
+        <div class="chart-toolbar chart-toolbar--secondary">
+          <Show when={!isTrend()}>
+            <div class="chart-adjust-group">
+              <For
+                each={[
+                  { value: 'none' as KLineAdjust, label: '不复权' },
+                  { value: 'qfq' as KLineAdjust, label: '前复权' },
+                  { value: 'hfq' as KLineAdjust, label: '后复权' }
+                ]}
+              >
+                {(item) => (
+                  <button
+                    class={`chip chart-adjust chart-adjust--${item.value}`}
+                    data-active={adjust() === item.value}
+                    onClick={() => {
+                      setAdjust(item.value)
+                      updateSettings({ klineAdjust: item.value })
+                      setHover(null)
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                )}
+              </For>
+            </div>
           </Show>
 
-          <Show when={!props.detached}>
+          <Show when={!isTrend()}>
             <button
-              class="btn btn--bare indicator-open"
-              title="技术指标"
-              onClick={() => props.onOpenIndicators()}
+              class="chip chart-boll"
+              data-active={showBoll()}
+              onClick={() => {
+                const next = !showBoll()
+                setShowBoll(next)
+                updateSettings({ showBoll: next })
+              }}
             >
-              指标
-            </button>
-            <button
-              class="btn btn--bare formula-open"
-              title="指标公式预览"
-              onClick={() => props.onOpenFormula()}
-            >
-              公式
-            </button>
-            <button
-              class="btn btn--bare replay-open"
-              title="日 K 复盘"
-              onClick={() => props.onOpenReplay()}
-            >
-              复盘
-            </button>
-            <button
-              class="btn btn--bare chart-detach"
-              title="在新窗口打开"
-              onClick={() => void api.window.openChart(props.code)}
-            >
-              新窗
+              BOLL
             </button>
           </Show>
-          <button
-            class="btn btn--icon btn--bare"
-            title="刷新图表数据"
-            onClick={() => void refetch()}
-          >
-            <IconRefresh size={13} />
-          </button>
+
+          <Show when={!isTrend()}>
+            <button
+              class="chip chart-log"
+              data-active={logScale()}
+              onClick={() => {
+                const next = !logScale()
+                setLogScale(next)
+                updateSettings({ logScale: next })
+              }}
+            >
+              {logScale() ? '对数' : '线性'}
+            </button>
+          </Show>
+
+          <Show when={!isTrend()}>
+            <button
+              class="chip chart-draw-horizontal"
+              data-active={drawMode() === 'horizontal'}
+              title="点击图表放置水平线"
+              onClick={() => setDrawMode((mode) => (mode === 'horizontal' ? 'none' : 'horizontal'))}
+            >
+              水平
+            </button>
+            <button
+              class="chip chart-draw-trend"
+              data-active={drawMode() === 'trend'}
+              title="点两下画趋势线"
+              onClick={() => setDrawMode((mode) => (mode === 'trend' ? 'none' : 'trend'))}
+            >
+              趋势
+            </button>
+            <button
+              class="chip chart-draw-clear"
+              title="清除所有画线"
+              onClick={() => setClearDrawingsKey((value) => value + 1)}
+            >
+              清线
+            </button>
+          </Show>
+
+          <Show when={!isTrend()}>
+            <button
+              class="chip chart-range-toggle"
+              data-active={rangeMode()}
+              onClick={() => {
+                const next = !rangeMode()
+                setRangeMode(next)
+                if (!next) setRangeStats(null)
+              }}
+            >
+              区间
+            </button>
+          </Show>
+
+          <Show when={!isTrend()}>
+            <select
+              class="chart-sub-select"
+              value={subIndicator()}
+              aria-label="K 线副图"
+              onChange={(event) => {
+                const value = event.currentTarget.value as 'none' | SubIndicator
+                setSubIndicator(value)
+                updateSettings({ subIndicator: value })
+              }}
+            >
+              <option value="none">副图</option>
+              <option value="macd">MACD</option>
+              <option value="kdj">KDJ</option>
+              <option value="rsi">RSI</option>
+            </select>
+          </Show>
+
+          {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
+          <div class="chart-headline">
+            <Show when={hover()}>
+              {(current) => (
+                <div class="chart-readout">
+                  <span class="chart-readout__time num">{current().label}</span>
+                  <span
+                    class="chart-readout__price num"
+                    style={{ color: `var(--${toneOf(current().changePct)})` }}
+                  >
+                    {fixed(current().price)}
+                  </span>
+                  <span
+                    class="chart-readout__pct num"
+                    style={{ color: `var(--${toneOf(current().changePct)})` }}
+                  >
+                    {signedPct(current().changePct)}
+                  </span>
+                  <span class="chart-readout__item">
+                    均价 <b class="num">{fixed(current().avg)}</b>
+                  </span>
+                  <span class="chart-readout__item">
+                    量 <b class="num">{thousands(current().volume)}</b> 手
+                  </span>
+                </div>
+              )}
+            </Show>
+
+            <Show when={!props.detached}>
+              <button
+                class="btn btn--bare indicator-open"
+                title="技术指标"
+                onClick={() => props.onOpenIndicators()}
+              >
+                指标
+              </button>
+              <button
+                class="btn btn--bare formula-open"
+                title="指标公式预览"
+                onClick={() => props.onOpenFormula()}
+              >
+                公式
+              </button>
+              <button
+                class="btn btn--bare replay-open"
+                title="日 K 复盘"
+                onClick={() => props.onOpenReplay()}
+              >
+                复盘
+              </button>
+              <button
+                class="btn btn--bare chart-detach"
+                title="在新窗口打开"
+                onClick={() => void api.window.openChart(props.code)}
+              >
+                新窗
+              </button>
+            </Show>
+            <button
+              class="btn btn--icon btn--bare"
+              title="刷新图表数据"
+              onClick={() => void refetch()}
+            >
+              <IconRefresh size={13} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -465,6 +438,30 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           'chart-card__body--sub': subIndicator() !== 'none' && klineSeries() !== undefined
         }}
       >
+        <div class="chart-ma-overlay" classList={{ 'chart-ma-overlay--hidden': hover() !== null }}>
+          <Show
+            when={isTrend()}
+            fallback={
+              <For each={MA_LEGEND}>
+                {(item) => (
+                  <span class="chart-legend__item">
+                    <span class="chart-legend__swatch" style={{ background: item.color }} />
+                    {item.label}
+                  </span>
+                )}
+              </For>
+            }
+          >
+            <span class="chart-legend__item">
+              <span class="chart-legend__swatch" style={{ background: 'var(--accent)' }} />
+              价格
+            </span>
+            <span class="chart-legend__item">
+              <span class="chart-legend__swatch" style={{ background: 'var(--chart-avg)' }} />
+              均价
+            </span>
+          </Show>
+        </div>
         <Show
           when={!data.error}
           fallback={

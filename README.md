@@ -146,6 +146,8 @@ npm run build:win     # 或 build:mac / build:linux
 > **Web 端尚未提供。** v0.7 才会加入 Web 端与服务端的开发命令（脚本名待定）；
 > 在脚本真正落地前，不要按计划中的命令操作。
 
+> **平台范围**：当前只维护 Linux 运行与打包；Windows/macOS 打包不在范围内，命令仅保留参考。
+>
 > **Windows**：如果 PowerShell 提示 `npm.ps1 cannot be loaded`，
 > 改用 `npm.cmd install`，或执行
 > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` 后重开终端。
@@ -239,7 +241,7 @@ npm run build:linux            # Linux AppImage / deb
   桌面/Web 同屏对比。
 - **协议门禁**：新字段要有真实 fixture；来源登记到 `docs/08`，字段表回写 `docs/03`。
 - **数据门禁**：规范化层有 schema 版本；抽样对照、幂等补齐、可重放。
-- **已知限制**：PyInstaller 打包与 Windows/macOS 实机尚未验证；PE TTM/量比/涨跌停暂缺；
+- **已知限制**：Linux 打包已验证；Windows/macOS 不在当前范围；PE TTM/量比/涨跌停暂缺；
   行情时间暂用接收时间（`serverTimeRaw` 语义未确认）；没有 CI，验证靠本地手跑。
 
 ---

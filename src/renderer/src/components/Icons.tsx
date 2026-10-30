@@ -213,3 +213,12 @@ export function IconSettings(props: IconProps): JSX.Element {
     </svg>
   )
 }
+
+export function IconList(props: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M8 6h13M8 12h13M8 18h13" />
+      <path d="M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  )
+}

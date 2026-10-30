@@ -4371,3 +4371,71 @@
   padding: 0 9px;
   font-size: var(--fs-2xs);
 }
+
+/* ------------------------------------------------------------ 图表工具栏 */
+.chip {
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-3);
+  background: transparent;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease);
+}
+
+.chip:hover {
+  color: var(--text-1);
+  background: var(--panel-hover);
+}
+
+.chip[data-active='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: rgba(91, 140, 255, 0.28);
+}
+
+.chart-adjust-group {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.chart-adjust {
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  padding: 0 8px;
+}
+
+.chart-adjust[data-active='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chart-minute-tabs {
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.chart-minute-tab {
+  height: 22px;
+  border-radius: 6px;
+}
+
+.chart-toolbar--secondary {
+  gap: 10px;
+}
+
+.chart-toolbar--secondary .chip {
+  color: var(--text-2);
+}

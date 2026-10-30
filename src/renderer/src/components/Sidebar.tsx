@@ -32,6 +32,7 @@ import {
   IconFilter,
   IconGrid,
   IconInfo,
+  IconList,
   IconPlus,
   IconStar
 } from './Icons'
@@ -160,7 +161,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           aria-label="打开全市场列表"
           onClick={() => props.onOpenMarket()}
         >
-          <IconFilter size={13} />
+          <IconList size={13} />
         </button>
         <button
           class="btn btn--icon btn--bare block-open"

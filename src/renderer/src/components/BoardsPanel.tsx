@@ -33,6 +33,7 @@ export function BoardsPanel(props: {
   const [type, setType] = createSignal(255)
   const [boards, setBoards] = createSignal<MacBoard[]>([])
   const [query, setQuery] = createSignal('')
+  const [sort, setSort] = createSignal<'change' | 'changeAsc' | 'leader' | 'name'>('change')
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
@@ -54,11 +55,24 @@ export function BoardsPanel(props: {
 
   createEffect(() => void load(type()))
 
+  const boardChange = (board: MacBoard): number => pct(board.price, board.preClose)
+
   const rows = createMemo(() => {
     const text = query().trim().toLowerCase()
-    return boards()
-      .filter((board) => !text || board.name.toLowerCase().includes(text))
-      .slice(0, 360)
+    const mode = sort()
+    const list = boards().filter(
+      (board) =>
+        board.price > 0 && board.preClose > 0 && (!text || board.name.toLowerCase().includes(text))
+    )
+    list.sort((a, b) => {
+      if (mode === 'name') return a.name.localeCompare(b.name, 'zh-CN')
+      if (mode === 'leader') {
+        return pct(b.leaderPrice, b.leaderPreClose) - pct(a.leaderPrice, a.leaderPreClose)
+      }
+      if (mode === 'changeAsc') return boardChange(a) - boardChange(b)
+      return boardChange(b) - boardChange(a)
+    })
+    return list.slice(0, 360)
   })
 
   return (
@@ -116,11 +130,42 @@ export function BoardsPanel(props: {
           <table class="boards__table">
             <thead>
               <tr>
-                <th>板块</th>
+                <th>
+                  <button
+                    class="boards__sort boards__sort--name"
+                    data-active={sort() === 'name'}
+                    onClick={() => setSort('name')}
+                  >
+                    板块
+                  </button>
+                </th>
                 <th class="num">点位</th>
-                <th class="num">涨跌幅</th>
+                <th class="num">
+                  <button
+                    class="boards__sort boards__sort--change"
+                    data-active={sort() === 'change'}
+                    onClick={() => setSort('change')}
+                  >
+                    涨跌幅 ↓
+                  </button>
+                  <button
+                    class="boards__sort boards__sort--change-asc"
+                    data-active={sort() === 'changeAsc'}
+                    onClick={() => setSort('changeAsc')}
+                  >
+                    ↑
+                  </button>
+                </th>
                 <th>领涨股</th>
-                <th class="num">领涨涨幅</th>
+                <th class="num">
+                  <button
+                    class="boards__sort boards__sort--leader"
+                    data-active={sort() === 'leader'}
+                    onClick={() => setSort('leader')}
+                  >
+                    领涨涨幅
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>

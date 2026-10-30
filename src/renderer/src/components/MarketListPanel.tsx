@@ -11,12 +11,13 @@ import { compactAmount, fixed, signedPct } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
-type TabKey = 'all' | 'index' | 'fund' | 'bond' | 'kcb' | 'cyb' | 'bj' | 'b'
+type TabKey = 'all' | 'index' | 'fund' | 'reit' | 'bond' | 'kcb' | 'cyb' | 'bj' | 'b'
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'all', label: '全部 A 股' },
   { key: 'index', label: '指数' },
   { key: 'fund', label: '基金' },
+  { key: 'reit', label: 'REITs' },
   { key: 'bond', label: '债券' },
   { key: 'kcb', label: '科创板' },
   { key: 'cyb', label: '创业板' },
@@ -39,6 +40,7 @@ function matches(tab: TabKey, item: SearchSecurity): boolean {
   const symbol = item.symbol
   if (tab === 'index') return item.kind === 'ZS'
   if (tab === 'fund') return item.kind === 'JJ'
+  if (tab === 'reit') return item.kind === 'JJ' && /^(508|180)/.test(symbol)
   if (tab === 'bond') return item.kind === 'ZQ'
   if (tab === 'b') return item.kind === 'GP-B'
   if (!isAShare(item)) return false

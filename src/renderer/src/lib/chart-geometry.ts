@@ -359,7 +359,8 @@ export function buildKLineGeometry(
   bars: KLineBar[],
   width: number,
   height: number,
-  padding: Padding = KLINE_PADDING
+  padding: Padding = KLINE_PADDING,
+  extraValues: number[] = []
 ): KLineGeometry | null {
   if (width < MIN_WIDTH || height < MIN_HEIGHT) return null
   if (bars.length === 0) return null
@@ -382,6 +383,11 @@ export function buildKLineGeometry(
   for (const bar of bars) {
     low = Math.min(low, bar.low)
     high = Math.max(high, bar.high)
+  }
+  for (const value of extraValues) {
+    if (!Number.isFinite(value)) continue
+    low = Math.min(low, value)
+    high = Math.max(high, value)
   }
 
   const span = high - low

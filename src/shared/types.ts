@@ -469,6 +469,8 @@ export interface AppSettings {
   chartTab?: 'minute' | 'five' | KLinePeriod
   /** 上次复权口径 */
   klineAdjust?: KLineAdjust
+  /** 主图是否叠加 BOLL */
+  showBoll?: boolean
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

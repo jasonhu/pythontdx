@@ -44,6 +44,7 @@ StockLens 的所有重要变更都记录在这里。
 - **Linux 打包验证**：PyInstaller 6.22.3 + electron-builder linux-unpacked 与
   AppImage（130 MB）/ deb（106 MB）均启动成功，行情/图表正常；补 `homepage` 元数据。
 - **图表设置记忆**：上次停留的周期（分时/五日/1–60 分钟/日周月）与复权口径写入 AppSettings，跨重启恢复。
+- **主图 BOLL**：BOLL(20,2) 叠加主图，纵轴范围包含上下轨；设置随重启恢复。
 - **技术指标面板**：MACD(12,26,9)/KDJ(9,3,3)/RSI14/BOLL(20,2)，
   本地计算，最近 160 根日 K，显示最新值。
 - **5s/15s K**：0x052d period=13 + N 秒参数；秒级时间戳按 2003-12-31 起的秒数解码；

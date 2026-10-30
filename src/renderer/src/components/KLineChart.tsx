@@ -9,6 +9,7 @@
 import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { KLineSeries } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
+import { boll } from '@shared/indicators'
 import {
   accumulateWheel,
   buildKLineGeometry,
@@ -37,6 +38,8 @@ const MA_CONFIG = [
 
 export interface KLineChartProps {
   series: KLineSeries
+  /** 是否叠加 BOLL(20,2) */
+  boll?: boolean
 }
 
 /** 默认档位：显示全部 K 线 */
@@ -109,7 +112,24 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     }))
   })
 
-  const geometry = createMemo(() => buildKLineGeometry(bars(), size().width, size().height))
+  const bollBands = createMemo(() => (props.boll ? boll(allBars(), 20, 2) : null))
+  const visibleBoll = createMemo(() => {
+    const bands = bollBands()
+    if (!bands) return null
+    const slice = (values: number[]): number[] =>
+      values.slice(win().start, win().start + win().count)
+    return {
+      upper: slice(bands.upper),
+      middle: slice(bands.middle),
+      lower: slice(bands.lower)
+    }
+  })
+
+  const geometry = createMemo(() => {
+    const bands = visibleBoll()
+    const extra = bands ? [...bands.upper, ...bands.middle, ...bands.lower] : []
+    return buildKLineGeometry(bars(), size().width, size().height, undefined, extra)
+  })
   const levels = createMemo(() => {
     const geo = geometry()
     return geo ? buildKLineLevels(geo) : []
@@ -391,6 +411,37 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                 />
               )}
             </For>
+
+            {/* ---------- BOLL 叠加 ---------- */}
+            <Show when={visibleBoll()}>
+              {(bands) => (
+                <g>
+                  <For
+                    each={[
+                      { values: bands().upper, color: '#f0b429', label: 'UP' },
+                      { values: bands().middle, color: '#5b8cff', label: 'MID' },
+                      { values: bands().lower, color: '#c084fc', label: 'LOW' }
+                    ]}
+                  >
+                    {(line) => (
+                      <path
+                        d={buildLinePath(
+                          line.values.map((value, index) =>
+                            Number.isFinite(value)
+                              ? { x: geo().x(index), y: geo().yPrice(value) }
+                              : null
+                          )
+                        )}
+                        fill="none"
+                        stroke={line.color}
+                        stroke-width="1.1"
+                        opacity="0.8"
+                      />
+                    )}
+                  </For>
+                </g>
+              )}
+            </Show>
 
             {/* ---------- 日期轴 ---------- */}
             <For each={dateTicks()}>

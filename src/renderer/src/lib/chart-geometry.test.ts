@@ -388,6 +388,11 @@ describe('buildKLineGeometry', () => {
     expect(geo.yMin).toBeLessThanOrEqual(Math.min(...bars.map((bar) => bar.low)))
   })
 
+  it('额外指标值扩展纵轴范围', () => {
+    const geo = buildKLineGeometry(bars, 800, 400, undefined, [100])!
+    expect(geo.yMax).toBeGreaterThanOrEqual(100)
+  })
+
   it('每根 K 线居中于自己的槽位', () => {
     const geo = buildKLineGeometry(bars, 800, 400)!
     const first = geo.x(0)

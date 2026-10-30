@@ -62,6 +62,7 @@ export interface ChartPanelProps {
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<Tab>(appState.settings.chartTab ?? 'minute')
   const [adjust, setAdjust] = createSignal<KLineAdjust>(appState.settings.klineAdjust ?? 'qfq')
+  const [showBoll, setShowBoll] = createSignal(appState.settings.showBoll ?? false)
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
   createEffect(() => {
@@ -71,6 +72,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   createEffect(() => {
     const savedAdjust = appState.settings.klineAdjust
     if (savedAdjust && savedAdjust !== adjust()) setAdjust(savedAdjust)
+  })
+  createEffect(() => {
+    const savedBoll = appState.settings.showBoll
+    if (savedBoll !== undefined && savedBoll !== showBoll()) setShowBoll(savedBoll)
   })
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
@@ -197,6 +202,20 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           </For>
         </div>
 
+        <Show when={!isTrend()}>
+          <button
+            class="chip chart-boll"
+            data-active={showBoll()}
+            onClick={() => {
+              const next = !showBoll()
+              setShowBoll(next)
+              updateSettings({ showBoll: next })
+            }}
+          >
+            BOLL
+          </button>
+        </Show>
+
         {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
         <div class="chart-headline">
           <Show
@@ -314,7 +333,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <Show when={trendDays()}>
                 {(days) => <TrendChart days={days()} onHover={setHover} />}
               </Show>
-              <Show when={klineSeries()}>{(series) => <KLineChart series={series()} />}</Show>
+              <Show when={klineSeries()}>
+                {(series) => <KLineChart series={series()} boll={showBoll()} />}
+              </Show>
             </Show>
           </Show>
         </Show>

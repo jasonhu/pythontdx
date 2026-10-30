@@ -4162,3 +4162,9 @@
 .data__local-result {
   margin-top: 6px;
 }
+
+.data__local-csv {
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: var(--fs-2xs);
+}

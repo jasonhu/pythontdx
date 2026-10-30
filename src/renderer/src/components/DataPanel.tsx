@@ -103,6 +103,24 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     }
   }
 
+  const exportLocalCsv = (): void => {
+    const data = localDay()
+    if (!data) return
+    const header = 'date,open,high,low,close,amount,volume\n'
+    const body = data.bars
+      .map((bar) =>
+        [bar.date, bar.open, bar.high, bar.low, bar.close, bar.amount, bar.volume].join(',')
+      )
+      .join('\n')
+    const blob = new Blob([`\ufeff${header}${body}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${data.path.split(/[\\/]/).pop() ?? 'local'}.csv`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
   const runLocalDay = async (): Promise<void> => {
     if (localLoading()) return
     const path = localPath().trim()
@@ -397,6 +415,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 <div class="data__local-result">
                   <div class="data__query-meta">
                     {data().count} 根 · {data().firstDate} → {data().lastDate}
+                    <button class="btn data__local-csv" onClick={exportLocalCsv}>
+                      导出 CSV
+                    </button>
                   </div>
                   <div class="data__query-table-wrap">
                     <table class="data__query-table">

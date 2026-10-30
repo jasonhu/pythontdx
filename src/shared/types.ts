@@ -629,6 +629,12 @@ export interface AppSettings {
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'
 export type AlertDirection = 'above' | 'below'
 
+export interface AlertCondition {
+  metric: AlertMetric
+  direction: AlertDirection
+  value: number
+}
+
 export interface AlertRule {
   id: string
   code: string
@@ -636,6 +642,8 @@ export interface AlertRule {
   metric: AlertMetric
   direction: AlertDirection
   value: number
+  /** 可选：全部条件同时满足才触发；为空时使用顶层 metric/direction/value */
+  conditions?: AlertCondition[]
   enabled: boolean
   /** 最近一次触发的本地日期 YYYY-MM-DD；同一天不重复 */
   lastTriggeredDate?: string

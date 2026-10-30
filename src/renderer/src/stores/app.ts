@@ -342,7 +342,9 @@ function plainAlerts(): AlertRule[] {
 }
 
 export function addAlert(
-  input: Pick<AlertRule, 'code' | 'name' | 'metric' | 'direction' | 'value'>
+  input: Pick<AlertRule, 'code' | 'name' | 'metric' | 'direction' | 'value'> & {
+    conditions?: AlertRule['conditions']
+  }
 ): void {
   const rule: AlertRule = {
     ...input,

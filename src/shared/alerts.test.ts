@@ -48,6 +48,20 @@ describe('evaluateAlerts', () => {
     expect(evaluateAlerts([pct], [quote('sz000858', 100, -5)], NOW).events).toHaveLength(0)
   })
 
+  it('多条件必须全部满足，消息用「且」连接', () => {
+    const combo = rule({
+      value: 100,
+      conditions: [
+        { metric: 'price', direction: 'above', value: 100 },
+        { metric: 'changePct', direction: 'above', value: 2 }
+      ]
+    })
+    expect(evaluateAlerts([combo], [quote('sh600519', 150, 1.5)], NOW).events).toHaveLength(0)
+    const scan = evaluateAlerts([combo], [quote('sh600519', 150, 2.1)], NOW)
+    expect(scan.events).toHaveLength(1)
+    expect(scan.events[0]?.message).toContain('且')
+  })
+
   it('量比预警使用可选字段并带上 x 单位', () => {
     const volume = rule({ metric: 'volumeRatio', direction: 'above', value: 2 })
     const scan = evaluateAlerts([volume], [quote('sh600519', 100, 1, { volumeRatio: 2.5 })], NOW)

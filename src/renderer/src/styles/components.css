@@ -4498,3 +4498,19 @@
   color: var(--text-1);
   font-weight: 600;
 }
+
+.alert__combo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.alert__form--secondary {
+  margin-top: 5px;
+  padding-left: 22px;
+  border-left: 2px solid var(--border);
+}

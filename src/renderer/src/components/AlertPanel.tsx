@@ -4,7 +4,7 @@
  * 规则只存在本机，不做条件单/交易；同一规则同一交易日只提示一次。
  */
 import { createEffect, createSignal, For, untrack, Show, type JSX } from 'solid-js'
-import type { AlertDirection, AlertMetric, AlertRule, Quote } from '@shared/types'
+import type { AlertCondition, AlertDirection, AlertMetric, AlertRule, Quote } from '@shared/types'
 import { ALERT_METRIC_LABELS, alertMetricValue, formatAlertValue } from '@shared/alerts'
 import { fixed, signedPct } from '@shared/format'
 import { addAlert, appState, removeAlert, toggleAlert } from '../stores/app'
@@ -17,8 +17,20 @@ interface AlertPanelProps {
   onSelect: (code: string) => void
 }
 
-function formatRuleValue(rule: AlertRule): string {
-  return formatAlertValue(rule.metric, rule.value)
+function describeConditions(rule: AlertRule): string {
+  const conditions: AlertCondition[] =
+    rule.conditions && rule.conditions.length > 0
+      ? rule.conditions
+      : [{ metric: rule.metric, direction: rule.direction, value: rule.value }]
+  return conditions
+    .map((condition) => {
+      const label = condition.direction === 'above' ? '≥' : '≤'
+      return `${ALERT_METRIC_LABELS[condition.metric]} ${label} ${formatAlertValue(
+        condition.metric,
+        condition.value
+      )}`
+    })
+    .join(' 且 ')
 }
 
 export function AlertPanel(props: AlertPanelProps): JSX.Element {
@@ -26,6 +38,10 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
   const [direction, setDirection] = createSignal<AlertDirection>('above')
   const [value, setValue] = createSignal('')
   const [error, setError] = createSignal<string | null>(null)
+  const [combo, setCombo] = createSignal(false)
+  const [comboMetric, setComboMetric] = createSignal<AlertMetric>('changePct')
+  const [comboDirection, setComboDirection] = createSignal<AlertDirection>('above')
+  const [comboValue, setComboValue] = createSignal('')
 
   // 切换股票时用当前价/涨幅作为输入初值；只在 code 改变时重置
   createEffect(() => {
@@ -35,6 +51,10 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
     setValue(initial ? (initial.price > 0 ? fixed(initial.price) : fixed(initial.changePct)) : '')
     setMetric('price')
     setDirection('above')
+    setCombo(false)
+    setComboMetric('changePct')
+    setComboDirection('above')
+    setComboValue('')
     setError(null)
   })
 
@@ -46,12 +66,27 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
       setError('请输入有效阈值')
       return
     }
+    const conditions = combo()
+      ? [
+          { metric: metric(), direction: direction(), value: parsed },
+          {
+            metric: comboMetric(),
+            direction: comboDirection(),
+            value: Number(comboValue())
+          }
+        ]
+      : undefined
+    if (conditions && conditions.some((condition) => !Number.isFinite(condition.value))) {
+      setError('请输入有效的组合条件阈值')
+      return
+    }
     addAlert({
       code: quote.code,
       name: quote.name,
       metric: metric(),
       direction: direction(),
-      value: parsed
+      value: parsed,
+      conditions
     })
     setError(null)
   }
@@ -146,6 +181,47 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
               添加
             </button>
           </div>
+          <label class="alert__combo-toggle">
+            <input
+              type="checkbox"
+              checked={combo()}
+              onChange={(event) => setCombo(event.currentTarget.checked)}
+            />
+            再同时满足一个条件
+          </label>
+
+          <Show when={combo()}>
+            <div class="alert__form alert__form--secondary">
+              <select
+                class="alert__select"
+                value={comboMetric()}
+                aria-label="组合条件指标"
+                onChange={(event) => setComboMetric(event.currentTarget.value as AlertMetric)}
+              >
+                <For each={Object.entries(ALERT_METRIC_LABELS)}>
+                  {([value, label]) => <option value={value}>{label}</option>}
+                </For>
+              </select>
+              <select
+                class="alert__select"
+                value={comboDirection()}
+                aria-label="组合条件方向"
+                onChange={(event) => setComboDirection(event.currentTarget.value as AlertDirection)}
+              >
+                <option value="above">≥</option>
+                <option value="below">≤</option>
+              </select>
+              <input
+                class="alert__input"
+                type="number"
+                step="0.01"
+                placeholder="组合阈值"
+                value={comboValue()}
+                onInput={(event) => setComboValue(event.currentTarget.value)}
+              />
+            </div>
+          </Show>
+
           <Show when={error()}>
             <div class="alert__error">{error()}</div>
           </Show>
@@ -171,10 +247,7 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
                       />
                       <button class="alert__rule-main" onClick={() => props.onSelect(rule.code)}>
                         <span class="alert__rule-name">{rule.name}</span>
-                        <span class="alert__rule-desc">
-                          {ALERT_METRIC_LABELS[rule.metric]}{' '}
-                          {rule.direction === 'above' ? '≥' : '≤'} {formatRuleValue(rule)}
-                        </span>
+                        <span class="alert__rule-desc">{describeConditions(rule)}</span>
                       </button>
                       <span class="alert__rule-state">
                         {rule.lastTriggeredDate ? `已触发 ${rule.lastTriggeredDate}` : '等待'}

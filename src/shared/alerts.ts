@@ -4,7 +4,7 @@
  * 规则只在客户端计算，不生成交易指令；同一条规则同一本地日期只触发一次，
  * 避免 3 秒行情流把提示刷屏。
  */
-import type { AlertEvent, AlertMetric, AlertRule, Quote } from './types'
+import type { AlertCondition, AlertEvent, AlertMetric, AlertRule, Quote } from './types'
 
 export const ALERT_METRIC_LABELS: Record<AlertMetric, string> = {
   price: '价格',
@@ -42,12 +42,13 @@ export function localDate(now: number): string {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
-function metricValue(rule: AlertRule, quote: Quote): number {
-  return alertMetricValue(rule.metric, quote)
+export function ruleConditions(rule: AlertRule): AlertCondition[] {
+  if (rule.conditions && rule.conditions.length > 0) return rule.conditions
+  return [{ metric: rule.metric, direction: rule.direction, value: rule.value }]
 }
 
-function formatValue(rule: AlertRule, value: number): string {
-  return formatAlertValue(rule.metric, value)
+function matches(condition: AlertCondition, value: number): boolean {
+  return condition.direction === 'above' ? value >= condition.value : value <= condition.value
 }
 
 export interface AlertScan {
@@ -71,21 +72,26 @@ export function evaluateAlerts(
     if (rule.lastTriggeredDate === date) continue
     const quote = quoteMap.get(rule.code)
     if (!quote) continue
-    const value = metricValue(rule, quote)
-    if (!Number.isFinite(value)) continue
-    const triggered = rule.direction === 'above' ? value >= rule.value : value <= rule.value
-    if (!triggered) continue
+    const conditions = ruleConditions(rule)
+    const values = conditions.map((condition) => alertMetricValue(condition.metric, quote))
+    if (values.some((value) => !Number.isFinite(value))) continue
+    if (!conditions.every((condition, index) => matches(condition, values[index]))) continue
 
     const next = { ...rule, lastTriggeredDate: date }
-    const label = rule.direction === 'above' ? '≥' : '≤'
+    const description = conditions
+      .map((condition, index) => {
+        const label = condition.direction === 'above' ? '≥' : '≤'
+        return `${ALERT_METRIC_LABELS[condition.metric]} ${formatAlertValue(
+          condition.metric,
+          values[index]
+        )} ${label} ${formatAlertValue(condition.metric, condition.value)}`
+      })
+      .join(' 且 ')
     events.push({
       rule: next,
       quote,
       at: now,
-      message: `${rule.name} ${ALERT_METRIC_LABELS[rule.metric]} ${formatValue(
-        rule,
-        value
-      )} ${label} ${formatValue(rule, rule.value)}`
+      message: `${rule.name} ${description}`
     })
     updated.push(next)
   }

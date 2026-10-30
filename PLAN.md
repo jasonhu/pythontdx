@@ -185,7 +185,7 @@
   日 K + 当日分时复盘已接（逐根/逐分钟，切片只到当前回放位置）；
   公式预览已接（安全表达式，MA/EMA/REF/ABS/MAX/MIN/CROSS），公式可保存/应用 + 单标的回测 + 自选池筛选；
   **第 60 轮审计**：完成定义未达到；剩余公式扫描进度/取消、F10 完整三大报表/研报正文、
-  MAC/`0x0547` 真实推送、Windows/macOS 打包、分钟 K。
+  MAC/`0x0547` 真实推送、Windows/macOS 打包、逐笔回放。
 - **验收**：每个命令有真实 fixture + 探针记录；字段表进 `docs/03`；
   与 `0x053e` 做差分对照；限流/重连有测试。
 - **影响**：`python/tdx_bridge.py`、`python/test_tdx.py`、`src/shared` 类型、`docs/03`。

@@ -401,11 +401,11 @@ export interface MultiDayTrend {
 
 /* ----------------------------------------------------------------- K 线 */
 
-export type KLinePeriod = 'day' | 'week' | 'month'
+export type KLinePeriod = '1m' | '5m' | '15m' | '30m' | '60m' | 'day' | 'week' | 'month'
 export type KLineAdjust = 'none' | 'qfq' | 'hfq'
 
 export interface KLineBar {
-  /** YYYY-MM-DD */
+  /** YYYY-MM-DD，分钟 K 为 YYYY-MM-DD HH:MM */
   date: string
   open: number
   close: number

@@ -131,7 +131,16 @@ F10_CONTENT_HEADER = 12
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
-PERIOD_RAW = {"day": 4, "week": 5, "month": 6}
+PERIOD_RAW = {
+    "1m": 7,
+    "5m": 0,
+    "15m": 1,
+    "30m": 2,
+    "60m": 3,
+    "day": 4,
+    "week": 5,
+    "month": 6,
+}
 
 
 class TdxError(Exception):
@@ -1928,7 +1937,7 @@ def to_levels(levels: list[tuple[int, int]], scale: int) -> list[dict]:
     return result
 
 
-def parse_bars(body: bytes, kind: str) -> list[dict]:
+def parse_bars(body: bytes, kind: str, period_raw: int = 4) -> list[dict]:
     count = _u16(body, 0)
     if len(body) < 2 + count * 16:
         raise TdxError("K 线报文不完整")
@@ -1938,8 +1947,19 @@ def parse_bars(body: bytes, kind: str) -> list[dict]:
     bars: list[dict] = []
 
     for _ in range(count):
-        date_raw = _u32(body, pos)
-        pos += 4
+        if period_raw in {0, 1, 2, 3, 7}:
+            packed_date = _u16(body, pos)
+            minute_of_day = _u16(body, pos + 2)
+            year = (packed_date >> 11) + 2004
+            month = (packed_date % 2048) // 100
+            day = (packed_date % 2048) % 100
+            hour, minute = minute_of_day // 60, minute_of_day % 60
+            date_text = f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}"
+            pos += 4
+        else:
+            date_raw = _u32(body, pos)
+            date_text = format_date(date_raw)
+            pos += 4
 
         open_diff, pos = read_varint(body, pos)
         close_diff, pos = read_varint(body, pos)
@@ -1957,7 +1977,7 @@ def parse_bars(body: bytes, kind: str) -> list[dict]:
         volume = decode_volume(volume_raw)
         bars.append(
             {
-                "date": format_date(date_raw),
+                "date": date_text,
                 "open": open_raw / 1000,
                 "close": close_raw / 1000,
                 "high": (open_raw + high_diff) / 1000,
@@ -2853,14 +2873,18 @@ class Bridge:
                 {'none': 0, 'qfq': 1, 'hfq': 2}.get(str(adjust), 1),
             ),
         )
-        return {"code": code, "period": period, "bars": parse_bars(body, kind)}
+        return {
+            "code": code,
+            "period": period,
+            "bars": parse_bars(body, kind, PERIOD_RAW[period]),
+        }
 
     def _raw_daily(self, code: str, count: int, market: int, symbol: str) -> list[dict]:
         kind = "index" if is_index_code(market, symbol) else "stock"
         body = self.conn.request(
             CMD_BARS, bars_data(market, symbol, PERIOD_RAW["day"], count, 0)
         )
-        return parse_bars(body, kind)
+        return parse_bars(body, kind, PERIOD_RAW["day"])
 
     def minute(self, code: str) -> dict:
         market, symbol = parse_code(code)

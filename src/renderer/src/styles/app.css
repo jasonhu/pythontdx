@@ -661,6 +661,7 @@
 
 .chart-card__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-3);
   flex: none;

@@ -29,6 +29,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'month', label: '月K' }
 ]
 
+const MINUTE_PERIODS: KLinePeriod[] = ['1m', '5m', '15m', '30m', '60m']
+
 const MA_LEGEND = [
   { label: 'MA5', color: '#f0b429' },
   { label: 'MA10', color: '#5b8cff' },
@@ -156,6 +158,21 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             </For>
           </div>
         </Show>
+
+        <div class="chart-minute-tabs" aria-label="分钟 K 周期">
+          <For each={MINUTE_PERIODS}>
+            {(period) => (
+              <button
+                class={`chart-minute-tab chart-tab-${period}`}
+                data-active={tab() === period}
+                title={`${period.replace('m', '')} 分钟 K`}
+                onClick={() => switchTab(period)}
+              >
+                {period.replace('m', '')}
+              </button>
+            )}
+          </For>
+        </div>
 
         {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
         <div class="chart-headline">

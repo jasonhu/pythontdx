@@ -3455,3 +3455,27 @@
   text-align: center;
   font-weight: 600;
 }
+
+.replay__tickbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.replay__date-input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-1);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.replay__tick-date-note {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

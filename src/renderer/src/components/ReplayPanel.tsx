@@ -6,6 +6,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import type { KLineBar, KLineSeries, MinutePoint, MinuteTrend, TradeTick } from '@shared/types'
 import { fixed, minuteLabel, signedPct, thousands } from '@shared/format'
+import { localDate } from '@shared/alerts'
 import { api, errorMessage } from '../lib/ipc'
 import { KLineChart } from './KLineChart'
 import { TrendChart } from './TrendChart'
@@ -29,6 +30,7 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
   const [minuteIndex, setMinuteIndex] = createSignal(0)
   const [ticks, setTicks] = createSignal<TradeTick[]>([])
   const [tickIndex, setTickIndex] = createSignal(0)
+  const [tickDate, setTickDate] = createSignal('')
   const [playing, setPlaying] = createSignal(false)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -57,7 +59,11 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
           Math.max(0, Math.min(trend.points.length - 1, Math.floor(trend.points.length * 0.7)))
         )
       } else {
-        const data = await api.trade.ticks({ code: props.code, count: 500 })
+        const data = await api.trade.ticks({
+          code: props.code,
+          count: 500,
+          date: tickDate() || undefined
+        })
         if (current !== requestId) return
         setTicks(data)
         setTickIndex(Math.max(0, Math.min(data.length - 1, Math.floor(data.length * 0.7))))
@@ -204,6 +210,40 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
               {message()}
             </div>
           )}
+        </Show>
+
+        <Show when={mode() === 'tick'}>
+          <div class="replay__tickbar">
+            <input
+              type="date"
+              class="replay__date-input"
+              value={tickDate()}
+              aria-label="逐笔日期"
+              onChange={(event) => {
+                setTickDate(event.currentTarget.value)
+                void load()
+              }}
+            />
+            <button
+              class="btn replay-tick-prev"
+              onClick={() => {
+                setTickDate(localDate(Date.now() - 86_400_000))
+                void load()
+              }}
+            >
+              昨日
+            </button>
+            <button
+              class="btn"
+              onClick={() => {
+                setTickDate('')
+                void load()
+              }}
+            >
+              今日
+            </button>
+            <span class="replay__tick-date-note">{tickDate() || '当前交易日'}</span>
+          </div>
         </Show>
 
         <Show

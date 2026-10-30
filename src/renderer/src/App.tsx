@@ -30,6 +30,7 @@ import { StatusBar } from './components/StatusBar'
 import { TitleBar } from './components/TitleBar'
 import { TradeTape } from './components/TradeTape'
 import { PriceDistribution } from './components/PriceDistribution'
+import { SettingsPanel } from './components/SettingsPanel'
 import {
   activeQuoteCode,
   appReady,
@@ -49,6 +50,7 @@ export default function App(): JSX.Element {
   const [replayOpen, setReplayOpen] = createSignal(false)
   const [formulaOpen, setFormulaOpen] = createSignal(false)
   const [indicatorOpen, setIndicatorOpen] = createSignal(false)
+  const [settingsOpen, setSettingsOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
@@ -81,7 +83,11 @@ export default function App(): JSX.Element {
 
   return (
     <div class="app" classList={{ 'app--empty': !activeQuote() }}>
-      <TitleBar onOpenData={() => setDataOpen(true)} onOpenAlerts={() => setAlertsOpen(true)} />
+      <TitleBar
+        onOpenData={() => setDataOpen(true)}
+        onOpenAlerts={() => setAlertsOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       <Sidebar
         onOpenRanking={() => setRankingOpen(true)}
         onOpenBlocks={() => setBlocksOpen(true)}
@@ -277,6 +283,10 @@ export default function App(): JSX.Element {
             onClose={() => setAnnouncementsOpen(false)}
           />
         )}
+      </Show>
+
+      <Show when={settingsOpen()}>
+        <SettingsPanel onClose={() => setSettingsOpen(false)} />
       </Show>
 
       <Show when={indicatorOpen() ? activeQuote() : undefined}>

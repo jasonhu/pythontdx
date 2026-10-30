@@ -17,6 +17,7 @@ import {
   IconMinimize,
   IconMoon,
   IconRestore,
+  IconSettings,
   IconSun
 } from './Icons'
 import { SearchBox } from './SearchBox'
@@ -24,6 +25,7 @@ import { SearchBox } from './SearchBox'
 interface TitleBarProps {
   onOpenData: () => void
   onOpenAlerts: () => void
+  onOpenSettings: () => void
 }
 
 export function TitleBar(props: TitleBarProps): JSX.Element {
@@ -50,6 +52,13 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
         </button>
         <button class="btn btn--bare data-open" title="数据工具" onClick={() => props.onOpenData()}>
           数据
+        </button>
+        <button
+          class="btn btn--icon btn--bare settings-open"
+          title="设置"
+          onClick={() => props.onOpenSettings()}
+        >
+          <IconSettings size={15} />
         </button>
         <button
           class="btn btn--icon btn--bare"

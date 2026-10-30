@@ -509,12 +509,34 @@
 
 .ranking__foot {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
   padding: 10px 24px;
   border-top: 1px solid var(--border);
   color: var(--text-3);
   font-size: var(--fs-2xs);
+}
+
+.ranking__more {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: var(--r-full);
+  color: var(--accent);
+  background: var(--accent-soft);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ranking__more:hover:not(:disabled) {
+  background: var(--panel-active);
+}
+
+.ranking__more:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 /* ------------------------------------------------------ 盘口 / 成交切换 */

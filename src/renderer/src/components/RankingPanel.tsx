@@ -33,6 +33,9 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
   const [sort, setSort] = createSignal(SORTS[0])
   const [rows, setRows] = createSignal<CategoryQuote[]>([])
   const [loading, setLoading] = createSignal(true)
+  const [loadingMore, setLoadingMore] = createSignal(false)
+  const [expanded, setExpanded] = createSignal(false)
+  const [hasMore, setHasMore] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
 
@@ -47,6 +50,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
       })
       if (current !== requestId) return
       setRows(data)
+      setHasMore(data.length === 80)
       setError(null)
     } catch (cause) {
       if (current !== requestId) return
@@ -56,14 +60,42 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
     }
   }
 
-  // sort() 变化 → 重新向服务端要一页；首次挂载也会走这里
+  const loadMore = async (): Promise<void> => {
+    if (!hasMore() || loadingMore()) return
+    const current = ++requestId
+    setLoadingMore(true)
+    setExpanded(true)
+    try {
+      const data = await api.quote.category({
+        category: 6,
+        sortType: sort().sortType,
+        start: rows().length,
+        count: 80
+      })
+      if (current !== requestId) return
+      setRows([...rows(), ...data])
+      setHasMore(data.length === 80)
+      setError(null)
+    } catch (cause) {
+      if (current !== requestId) return
+      setExpanded(false)
+      setError(errorMessage(cause))
+    } finally {
+      if (current === requestId) setLoadingMore(false)
+    }
+  }
+
+  // sort() 变化 → 重新向服务端要第一页；首次挂载也会走这里
   createEffect(() => {
     sort()
+    setExpanded(false)
     void load()
   })
 
   onMount(() => {
-    const timer = window.setInterval(() => void load(), 10_000)
+    const timer = window.setInterval(() => {
+      if (!expanded()) void load()
+    }, 10_000)
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
     }
@@ -174,7 +206,11 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
 
         <footer class="ranking__foot">
           <span>数据源：通达信 7709 · 0x054b</span>
-          <span>点击任意行查看该股行情</span>
+          <Show when={hasMore()} fallback={<span>已到末尾</span>}>
+            <button class="ranking__more" disabled={loadingMore()} onClick={() => void loadMore()}>
+              {loadingMore() ? '加载中…' : '加载更多'}
+            </button>
+          </Show>
         </footer>
       </section>
     </div>

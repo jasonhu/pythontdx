@@ -37,7 +37,8 @@
     "build:win:setup": "npm run build:python && npm run build && electron-builder --win nsis",
     "build:mac": "npm run build:python && npm run build && electron-builder --mac",
     "build:linux": "npm run build:python && npm run build && electron-builder --linux",
-    "shot:web": "electron scripts/web-shot.cjs"
+    "shot:web": "electron scripts/web-shot.cjs",
+    "archive:snapshot": "python3 scripts/archive-snapshot.py"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",

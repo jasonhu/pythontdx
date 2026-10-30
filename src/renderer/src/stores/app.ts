@@ -19,6 +19,7 @@ import {
   type WatchGroup,
   type WatchItem
 } from '@shared/types'
+import { mergeImportedGroups } from '@shared/watchlist'
 import { api } from '../lib/ipc'
 
 const [state, setState] = createStore<AppState>({
@@ -199,6 +200,15 @@ export function addWatchItem(
 
 export function addSearchItem(item: SearchItem): void {
   addWatchItem({ code: item.code, name: item.name, market: item.market })
+}
+
+/** 导入自选备份：追加分组，不覆盖现有数据。 */
+export function importWatchGroups(groups: readonly WatchGroup[]): void {
+  const merged = mergeImportedGroups(state.groups, groups)
+  setState('groups', merged)
+  const active = merged[merged.length - 1]
+  if (active) setState('activeGroupId', active.id)
+  persist({ groups: merged, activeGroupId: state.activeGroupId })
 }
 
 export function removeWatchItem(code: string): void {

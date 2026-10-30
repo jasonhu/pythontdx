@@ -5,7 +5,15 @@ import { createSignal, For, Show, type JSX } from 'solid-js'
 import { SESSION_LABEL, marketSession } from '@shared/market'
 import { relativeFrom, timeOfDay } from '@shared/format'
 import { createInterval } from '../lib/dom'
-import { activeQuoteCode, appInfo, appState, updateSettings, watchCodes } from '../stores/app'
+import { exportWatchlist, parseWatchlist } from '@shared/watchlist'
+import {
+  activeQuoteCode,
+  appInfo,
+  appState,
+  importWatchGroups,
+  updateSettings,
+  watchCodes
+} from '../stores/app'
 import { connection, lastUpdateAt, quoteOf, refreshQuotes, streamError } from '../stores/quotes'
 import { IconRefresh } from './Icons'
 
@@ -26,10 +34,43 @@ const STATUS_TEXT: Record<string, string> = {
 export function StatusBar(): JSX.Element {
   // 每秒走一次，让「N 秒前」「当前时段」保持鲜活
   const [now, setNow] = createSignal(Date.now())
+  const [notice, setNotice] = createSignal<string | null>(null)
+  let fileInput: HTMLInputElement | undefined
   createInterval(
     () => setNow(Date.now()),
     () => 1000
   )
+
+  const exportGroups = (): void => {
+    try {
+      const text = exportWatchlist(appState.groups)
+      const blob = new Blob([text], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `stocklens-watchlist-${new Date().toISOString().slice(0, 10)}.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      setNotice(`已导出 ${appState.groups.length} 个分组`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const importGroups = async (event: Event): Promise<void> => {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+    try {
+      const groups = parseWatchlist(await file.text())
+      importWatchGroups(groups)
+      setNotice(`已导入 ${groups.length} 个分组`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error))
+    } finally {
+      input.value = ''
+    }
+  }
 
   const quote = () => quoteOf(activeQuoteCode())
   const session = () => marketSession(new Date(now()))
@@ -90,6 +131,28 @@ export function StatusBar(): JSX.Element {
         onClick={() => void refreshQuotes(watchCodes())}
       >
         <IconRefresh size={11} />
+      </button>
+
+      <Show when={notice()}>
+        <span class="statusbar__text" title={notice() ?? ''}>
+          {notice()}
+        </span>
+      </Show>
+
+      <input
+        ref={(element) => {
+          fileInput = element
+        }}
+        class="statusbar__file"
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => void importGroups(event)}
+      />
+      <button class="statusbar__btn" title="导出自选备份" onClick={exportGroups}>
+        导出
+      </button>
+      <button class="statusbar__btn" title="导入自选备份" onClick={() => fileInput?.click()}>
+        导入
       </button>
 
       <span class="statusbar__text num">v{appInfo()?.version ?? '0.0.0'}</span>

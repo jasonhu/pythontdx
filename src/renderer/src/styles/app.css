@@ -1023,6 +1023,10 @@
   background: var(--accent-soft);
 }
 
+.statusbar__file {
+  display: none;
+}
+
 /* ================================================================ 空状态 */
 .empty {
   display: flex;

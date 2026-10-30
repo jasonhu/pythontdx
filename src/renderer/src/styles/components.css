@@ -4991,3 +4991,145 @@
   flex-wrap: wrap;
   row-gap: 4px;
 }
+
+/* ------------------------------------------------------------ 大盘资料 */
+.market-breadth {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.market-breadth:hover {
+  color: var(--accent);
+}
+
+.mreport-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 332;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(3, 5, 10, 0.64);
+  backdrop-filter: blur(9px);
+  -webkit-app-region: no-drag;
+}
+
+.mreport-panel {
+  width: min(980px, 95vw);
+  height: min(720px, 90vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.mreport__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 15px 20px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mreport__eyebrow {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.05em;
+}
+
+.mreport__title {
+  margin: 2px 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+}
+
+.mreport__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.mreport__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mreport__tab {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text-3);
+  background: transparent;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.mreport__tab[data-active='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.mreport__hint {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.mreport__table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 20px 12px;
+}
+
+.mreport__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-2xs);
+}
+
+.mreport__table th,
+.mreport__table td {
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.mreport__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--text-3);
+  background: var(--panel-solid);
+  font-weight: 500;
+}
+
+.mreport__table td.num {
+  text-align: right;
+}
+
+.mreport__error {
+  padding: 6px 20px;
+  color: var(--down);
+  font-size: var(--fs-xs);
+}
+
+.mreport__loading {
+  padding: 8px 0;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

@@ -38,7 +38,10 @@ const STATUS_TEXT: Record<string, string> = {
   error: '连接异常'
 }
 
-export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
+export function StatusBar(props: {
+  onOpenShortcuts: () => void
+  onOpenMarketReport: () => void
+}): JSX.Element {
   // 每秒走一次，让「N 秒前」「当前时段」保持鲜活
   const [now, setNow] = createSignal(Date.now())
   const [notice, setNotice] = createSignal<string | null>(null)
@@ -135,10 +138,14 @@ export function StatusBar(props: { onOpenShortcuts: () => void }): JSX.Element {
 
       <Show when={breadth()}>
         {(value) => (
-          <span class="statusbar__text market-breadth">
+          <button
+            class="statusbar__text market-breadth market-report-open"
+            title="打开大盘资料"
+            onClick={() => props.onOpenMarketReport()}
+          >
             涨 <span class="tone-up">{value().up}</span> / 跌{' '}
             <span class="tone-down">{value().down}</span> / 平 {value().flat}
-          </span>
+          </button>
         )}
       </Show>
 

@@ -184,6 +184,22 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_parse_market_margin(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["N001", "N002", "sc", "N003", "N004", "N005", "N006", "N008", "N009"],
+                    "Content": [["2026-10-29", "603986", 1, "兆易创新", 100, 200, 7.78, 300, 400]],
+                }
+            ],
+        }
+        table = tdx_f10.parse_market_payload(payload, "margin")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][0], "日期")
+        self.assertEqual(table["columns"][4], "融资余额")
+        self.assertEqual(table["columns"][6], "占流通市值%")
+
     def test_parse_lhb_market(self):
         payload = {
             "ErrorCode": 0,

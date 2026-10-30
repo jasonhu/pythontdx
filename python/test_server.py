@@ -97,6 +97,9 @@ class FakeBridge:
     def market_breadth(self):
         return {"up": 1, "down": 2, "flat": 3, "total": 6, "updatedAt": 0}
 
+    def f10_market(self, section="basic"):
+        return {"section": section, "count": 0, "columns": [], "rows": []}
+
     def f10_lhb_market(self):
         return {"section": "dragon_market", "count": 0, "columns": [], "rows": []}
 

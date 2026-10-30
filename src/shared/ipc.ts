@@ -97,6 +97,8 @@ export const IPC = {
   f10Trading: 'f10:trading',
   /** 沪深龙虎榜（invoke） */
   f10LhbMarket: 'f10:lhb-market',
+  /** 大盘资料（invoke） */
+  f10Market: 'f10:market',
   /** 全 A 股涨跌家数（invoke） */
   marketBreadth: 'market:breadth',
   /** 读取本地 .day 日线（invoke） */
@@ -254,6 +256,7 @@ export interface StockLensApi {
     news(code: string): Promise<F10NewsItem[]>
     trading(code: string, section: string): Promise<F10TradingTable>
     lhbMarket(): Promise<F10TradingTable>
+    market(section: string): Promise<F10TradingTable>
     statement(code: string, kind: string, full?: boolean): Promise<F10ProfileTable>
   }
   data: {

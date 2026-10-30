@@ -46,6 +46,7 @@ import {
   fetchF10Valuation,
   fetchF10Content,
   fetchF10LhbMarket,
+  fetchF10Market,
   fetchFiveDayTrend,
   fetchIndustries,
   fetchKline,
@@ -124,6 +125,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   )
 
   ipcMain.handle(IPC.f10LhbMarket, () => fetchF10LhbMarket())
+
+  ipcMain.handle(IPC.f10Market, (_event, section: string) => fetchF10Market(section))
 
   ipcMain.handle(IPC.marketBreadth, () => fetchMarketBreadth())
 

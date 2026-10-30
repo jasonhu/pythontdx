@@ -562,6 +562,74 @@ def parse_lhb_market_payload(payload: dict) -> dict:
     }
 
 
+MARKET_SECTIONS = {
+    "basic": ("CWServ.skef10_dpzx_jbxx", ["002", "000001"]),
+    "margin": ("CWServ.skef10_dpzx_rzrq", ["001", "000001"]),
+    "new": ("CWServ.skef10_dpzx_xgfx", ["002"]),
+    "capital": ("CWServ.skef10_dpzx_scgl", ["004"]),
+}
+
+MARKET_LABELS = {
+    "basic": {
+        "N001": "指数名称",
+        "N002": "简称",
+        "N003": "类型",
+        "N004": "发布日期",
+        "N005": "代码",
+        "N006": "成立日期",
+        "N007": "样本数",
+        "N009": "简介",
+    },
+    "margin": {
+        "N001": "日期",
+        "N002": "代码",
+        "sc": "市场",
+        "N003": "名称",
+        "N004": "融资余额",
+        "N005": "融券余额",
+        "N006": "占流通市值%",
+        "N008": "附加金额1",
+        "N009": "附加金额2",
+    },
+    "new": {
+        "N001": "日期",
+        "N002": "代码",
+        "sc": "市场",
+        "N003": "名称",
+        "N004": "发行价",
+        "N005": "发行市盈率",
+        "N007": "中签率",
+        "N008": "募资额",
+    },
+    "capital": {"N001": "代码", "N002": "名称", "N003": "内容", "N004": "状态"},
+}
+
+
+def parse_market_payload(payload: dict, section: str) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 大盘资料返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"section": section, "rawColumns": [], "columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    labels = MARKET_LABELS.get(section, {})
+    return {
+        "section": section,
+        "rawColumns": raw_columns,
+        "columns": [labels.get(name, name) for name in raw_columns],
+        "rows": table.get("Content") or [],
+        "count": len(table.get("Content") or []),
+    }
+
+
+def fetch_market(section: str = "basic") -> dict:
+    if section not in MARKET_SECTIONS:
+        raise F10Error(f"不支持的大盘资料分区：{section}")
+    entry, params = MARKET_SECTIONS[section]
+    return parse_market_payload(_post_tqlex(entry, {"Params": params}), section)
+
+
 def fetch_lhb_market() -> dict:
     """沪深龙虎榜（7615 大盘 F10，table0 含营业部买卖明细）。"""
     payload = _post_tqlex(

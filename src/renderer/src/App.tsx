@@ -45,6 +45,7 @@ import { MarketListPanel } from './components/MarketListPanel'
 import { UnusualPanel } from './components/UnusualPanel'
 import { DragonPanel } from './components/DragonPanel'
 import { BoardsPanel } from './components/BoardsPanel'
+import { MarketReportPanel } from './components/MarketReportPanel'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
 import {
   activeQuoteCode,
@@ -76,6 +77,7 @@ export default function App(): JSX.Element {
   const [unusualOpen, setUnusualOpen] = createSignal(false)
   const [dragonOpen, setDragonOpen] = createSignal(false)
   const [boardsOpen, setBoardsOpen] = createSignal(false)
+  const [marketReportOpen, setMarketReportOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
@@ -316,7 +318,10 @@ export default function App(): JSX.Element {
         </Show>
       </aside>
 
-      <StatusBar onOpenShortcuts={() => setShortcutsOpen(true)} />
+      <StatusBar
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenMarketReport={() => setMarketReportOpen(true)}
+      />
 
       <Show when={rankingOpen()}>
         <RankingPanel
@@ -387,6 +392,10 @@ export default function App(): JSX.Element {
             onClose={() => setAnnouncementsOpen(false)}
           />
         )}
+      </Show>
+
+      <Show when={marketReportOpen()}>
+        <MarketReportPanel onClose={() => setMarketReportOpen(false)} />
       </Show>
 
       <Show when={boardsOpen()}>

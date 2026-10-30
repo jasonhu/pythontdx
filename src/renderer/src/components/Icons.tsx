@@ -126,6 +126,24 @@ export function IconChart(props: IconProps): JSX.Element {
   )
 }
 
+export function IconColumns(props: IconProps): JSX.Element {
+  return (
+    <svg
+      width={props.size ?? 16}
+      height={props.size ?? 16}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.3"
+      aria-hidden="true"
+    >
+      <rect x="1.5" y="2.5" width="3.6" height="11" rx="0.8" />
+      <rect x="6.2" y="2.5" width="3.6" height="11" rx="0.8" />
+      <rect x="10.9" y="2.5" width="3.6" height="11" rx="0.8" />
+    </svg>
+  )
+}
+
 export function IconGrid(props: IconProps): JSX.Element {
   return (
     <svg {...svgProps(props)}>

@@ -17,6 +17,7 @@ import { EmptyState } from './components/EmptyState'
 import { F10Panel } from './components/F10Panel'
 import { FormulaPanel } from './components/FormulaPanel'
 import { MoneyFlow } from './components/MoneyFlow'
+import { MultiStockPanel } from './components/MultiStockPanel'
 import { OrderBook } from './components/OrderBook'
 import { QuoteHeader } from './components/QuoteHeader'
 import { RankingPanel } from './components/RankingPanel'
@@ -47,6 +48,7 @@ export default function App(): JSX.Element {
   const [formulaOpen, setFormulaOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
+  const [multiOpen, setMultiOpen] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow' | 'auction'>('book')
@@ -81,6 +83,7 @@ export default function App(): JSX.Element {
         onOpenRanking={() => setRankingOpen(true)}
         onOpenBlocks={() => setBlocksOpen(true)}
         onOpenScreener={() => setScreenerOpen(true)}
+        onOpenMulti={() => setMultiOpen(true)}
       />
 
       {/* 主区只有两块：行情头部 + 图表。图表用 flex 吃掉全部剩余高度 */}
@@ -241,6 +244,13 @@ export default function App(): JSX.Element {
             onClose={() => setReplayOpen(false)}
           />
         )}
+      </Show>
+
+      <Show when={multiOpen()}>
+        <MultiStockPanel
+          onClose={() => setMultiOpen(false)}
+          onSelect={(code) => setActiveCode(code)}
+        />
       </Show>
 
       <Show when={announcementsOpen() ? activeQuote() : undefined}>

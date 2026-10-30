@@ -288,6 +288,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               水平
             </button>
             <button
+              class="chip chart-draw-vertical"
+              data-active={drawMode() === 'vertical'}
+              title="点击图表放置垂直线"
+              onClick={() => setDrawMode((mode) => (mode === 'vertical' ? 'none' : 'vertical'))}
+            >
+              垂线
+            </button>
+            <button
               class="chip chart-draw-trend"
               data-active={drawMode() === 'trend'}
               title="点两下画趋势线"

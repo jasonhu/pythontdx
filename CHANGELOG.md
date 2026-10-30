@@ -60,6 +60,7 @@ StockLens 的所有重要变更都记录在这里。
 - **打包守卫**：beforePack 校验 sidecar 魔数，Linux 交叉打 Windows 包直接失败，避免 ELF sidecar 混入。
 - **第二主窗口**：TitleBar「新窗」；行情推送广播到所有窗口；active/settings BroadcastChannel 同步。
 - **窄窗适配**：1240px 以下隐藏自选迷你图、侧栏图标收窄、右栏可滚动，避免股票名压成一个字/买五被裁。
+- **垂直线画线**：单点放置、日期标签、按 code+period 持久化；截图 `kline-vertical.png`。
 - **MAC 资金流**：`0x1218` 今日主力/散户 + 5 日大单/中单；资金流页签补充卡；92 Python。
 - **公式函数扩充**：SUM/HHV/LLV/STD/IF，前后端同子集；183 TS + 91 Python。
 - **全表排序**：MAC 分批 400 只拉全 A 5,615 只报价，按涨幅/跌幅/成交额/现价重排；榜单首屏 *ST航图 +20.04%。

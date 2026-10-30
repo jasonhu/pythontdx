@@ -48,11 +48,11 @@ const MA_CONFIG = [
   { period: 20, color: '#c084fc' }
 ] as const
 
-export type DrawingMode = 'none' | 'horizontal' | 'trend'
+export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical'
 
 interface KLineDrawing {
   id: number
-  type: 'horizontal' | 'trend'
+  type: 'horizontal' | 'trend' | 'vertical'
   price?: number
   startIndex?: number
   startPrice?: number
@@ -283,6 +283,16 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       if (props.drawMode === 'horizontal') {
         drawingId += 1
         const next = [...drawings(), { id: drawingId, type: 'horizontal' as const, price }]
+        setDrawings(next)
+        persistDrawings(next)
+        return
+      }
+      if (props.drawMode === 'vertical') {
+        drawingId += 1
+        const next = [
+          ...drawings(),
+          { id: drawingId, type: 'vertical' as const, startIndex: index }
+        ]
         setDrawings(next)
         persistDrawings(next)
         return
@@ -654,6 +664,23 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                       text-anchor="end"
                     >
                       {fixed(drawing.price ?? 0)}
+                    </text>
+                  </>
+                ) : drawing.type === 'vertical' ? (
+                  <>
+                    <line
+                      class="chart-drawing"
+                      x1={geo().x(drawing.startIndex ?? 0)}
+                      x2={geo().x(drawing.startIndex ?? 0)}
+                      y1={geo().priceTop}
+                      y2={geo().volumeBottom}
+                    />
+                    <text
+                      class="chart-drawing-label"
+                      x={geo().x(drawing.startIndex ?? 0) + 4}
+                      y={geo().priceTop + 12}
+                    >
+                      {allBars()[drawing.startIndex ?? 0]?.date ?? ''}
                     </text>
                   </>
                 ) : (

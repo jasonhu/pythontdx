@@ -8,8 +8,10 @@ import type { KLineBar } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
 import {
   backtestFormula,
+  backtestPortfolio,
   evaluateFormula,
   type FormulaBacktest,
+  type FormulaPortfolioBacktest,
   type FormulaResult
 } from '@shared/formula'
 import { activeItems, appState, removeFormula, saveFormula } from '../stores/app'
@@ -58,6 +60,9 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
   const [formulaName, setFormulaName] = createSignal('')
   const [result, setResult] = createSignal<FormulaResult | null>(null)
   const [backtest, setBacktest] = createSignal<FormulaBacktest | null>(null)
+  const [portfolio, setPortfolio] = createSignal<FormulaPortfolioBacktest | null>(null)
+  const [portfolioLoading, setPortfolioLoading] = createSignal(false)
+  const [portfolioError, setPortfolioError] = createSignal<string | null>(null)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   const [scanning, setScanning] = createSignal(false)
@@ -83,6 +88,27 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
 
   const run = (): void => {
     calculate(bars())
+  }
+
+  const runPortfolio = async (): Promise<void> => {
+    if (portfolioLoading()) return
+    setPortfolioLoading(true)
+    setPortfolioError(null)
+    setPortfolio(null)
+    try {
+      const items = activeItems().slice(0, 20)
+      if (items.length === 0) throw new Error('自选池为空')
+      const series: Array<{ bars: KLineBar[]; result: FormulaResult }> = []
+      for (const item of items) {
+        const data = await api.trend.kline({ code: item.code, period: 'day', count: 120 })
+        series.push({ bars: data.bars, result: evaluateFormula(expression(), data.bars) })
+      }
+      setPortfolio(backtestPortfolio(series))
+    } catch (cause) {
+      setPortfolioError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setPortfolioLoading(false)
+    }
   }
 
   const save = (): void => {
@@ -235,6 +261,13 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
           >
             {scanning() ? '筛选中…' : '筛选自选'}
           </button>
+          <button
+            class="btn formula__portfolio-run"
+            disabled={portfolioLoading()}
+            onClick={() => void runPortfolio()}
+          >
+            {portfolioLoading() ? '组合回测…' : '自选组合回测'}
+          </button>
           <button class="btn formula__save" onClick={save}>
             保存公式
           </button>
@@ -363,6 +396,25 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
               <span>最大回撤 {fixed(data().maxDrawdown)}%</span>
             </div>
           )}
+        </Show>
+
+        <Show when={portfolio()}>
+          {(data) => (
+            <div class="formula__backtest formula__portfolio">
+              <span class="formula__backtest-title">自选等权组合</span>
+              <span>组合 {signedPct(data().strategyReturn)}</span>
+              <span>平均持有 {signedPct(data().holdReturn)}</span>
+              <span>最大回撤 {fixed(data().maxDrawdown)}%</span>
+              <span>
+                {data().stocks} 只 · {data().days} 天 · {data().trades} 次调仓
+              </span>
+            </div>
+          )}
+        </Show>
+        <Show when={portfolioError()}>
+          <div class="formula__error" role="alert">
+            {portfolioError()}
+          </div>
         </Show>
 
         <div class="formula__meta">

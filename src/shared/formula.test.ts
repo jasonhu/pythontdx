@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { backtestFormula, evaluateFormula, FormulaError } from './formula'
+import { backtestFormula, backtestPortfolio, evaluateFormula, FormulaError } from './formula'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -65,6 +65,21 @@ describe('evaluateFormula', () => {
     const backtest = backtestFormula(result, data)
     expect(backtest.holdReturn).toBeCloseTo(100, 1)
     expect(backtest.strategyReturn).toBeGreaterThan(90)
+  })
+
+  it('等权组合回测按日期平均收益', () => {
+    const first = bars([10, 11, 12])
+    const second = bars([20, 18, 22])
+    const items = [
+      { bars: first, result: evaluateFormula('CLOSE', first) },
+      { bars: second, result: evaluateFormula('CLOSE', second) }
+    ]
+    const result = backtestPortfolio(items)
+    expect(result.stocks).toBe(2)
+    expect(result.days).toBe(2)
+    expect(result.strategyReturn).toBeGreaterThan(0)
+    expect(result.trades).toBe(2)
+    expect(result.maxDrawdown).toBeGreaterThanOrEqual(0)
   })
 
   it('未知变量/函数与空公式报错', () => {

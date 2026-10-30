@@ -390,3 +390,81 @@ export function backtestFormula(
     equity: curve
   }
 }
+
+export interface FormulaPortfolioBacktest {
+  initial: number
+  finalEquity: number
+  strategyReturn: number
+  holdReturn: number
+  maxDrawdown: number
+  days: number
+  stocks: number
+  trades: number
+}
+
+/**
+ * 自选池等权组合回测（近似）。
+ *
+ * 每只股票按自己的交易日期计算“上一根信号 -> 当天收盘”的收益；
+ * 同一天有数据的股票等权平均，缺数据视为现金。手续费按每只股票每次调仓
+ * 从当天收益里扣，避免把组合手续费算成单只。
+ */
+export function backtestPortfolio(
+  items: ReadonlyArray<{ bars: readonly KLineBar[]; result: FormulaResult }>,
+  initial = 100_000,
+  feeRate = 0.0003
+): FormulaPortfolioBacktest {
+  const daily = new Map<string, number[]>()
+  let trades = 0
+  let holdSum = 0
+  let holdCount = 0
+  let stocks = 0
+
+  for (const item of items) {
+    const { bars, result } = item
+    if (bars.length < 2 || result.values.length !== bars.length) continue
+    stocks += 1
+    if (bars[0].close > 0 && bars[bars.length - 1].close > 0) {
+      holdSum += bars[bars.length - 1].close / bars[0].close
+      holdCount += 1
+    }
+    let previousPosition = false
+    for (let index = 1; index < bars.length; index += 1) {
+      if (bars[index - 1].close <= 0) continue
+      const position = Number.isFinite(result.values[index - 1]) && result.values[index - 1] > 0
+      let dayReturn = position ? bars[index].close / bars[index - 1].close - 1 : 0
+      if (position !== previousPosition) {
+        dayReturn -= feeRate
+        trades += 1
+        previousPosition = position
+      }
+      const bucket = daily.get(bars[index].date)
+      if (bucket) bucket.push(dayReturn)
+      else daily.set(bars[index].date, [dayReturn])
+    }
+  }
+
+  if (stocks === 0) throw new FormulaError('组合回测没有可用标的')
+  let equity = initial
+  let peak = initial
+  let maxDrawdown = 0
+  const dates = [...daily.keys()].sort()
+  for (const date of dates) {
+    const returns = daily.get(date) ?? []
+    if (returns.length === 0) continue
+    const average = returns.reduce((sum, value) => sum + value, 0) / returns.length
+    equity *= 1 + average
+    peak = Math.max(peak, equity)
+    maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - equity) / peak : 0)
+  }
+  return {
+    initial,
+    finalEquity: equity,
+    strategyReturn: (equity / initial - 1) * 100,
+    holdReturn: holdCount > 0 ? (holdSum / holdCount - 1) * 100 : 0,
+    maxDrawdown: maxDrawdown * 100,
+    days: dates.length,
+    stocks,
+    trades
+  }
+}

@@ -50,6 +50,7 @@ import {
   fetchF10Dividend,
   fetchF10ShareholderCount,
   fetchF10Capital,
+  fetchF10CirculatingShareholders,
   fetchF10Market,
   fetchFiveDayTrend,
   fetchIndustries,
@@ -138,6 +139,10 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.f10Capital, (_event, code: string, section: string) =>
     fetchF10Capital(code, section)
+  )
+
+  ipcMain.handle(IPC.f10CirculatingShareholders, (_event, code: string) =>
+    fetchF10CirculatingShareholders(code)
   )
 
   ipcMain.handle(IPC.marketBreadth, () => fetchMarketBreadth())

@@ -415,6 +415,39 @@ def fetch_capital_structure(code: str, section: str = "structure") -> dict:
     }
 
 
+CIRCULATING_SHAREHOLDER_LABELS = {
+    "rq": "报告期",
+    "gd": "股东名称",
+    "cgs": "持股数",
+    "xz": "股份性质",
+    "lb": "股东类别",
+    "pos": "排名",
+}
+
+
+def fetch_circulating_shareholders(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_gdyj",
+        {"Params": [symbol, "ltgd", "", "", "1", "1", "20"]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 十大流通股东返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if len(tables) < 2:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[1]
+    raw = [str(name) for name in (table.get("ColName") or [])]
+    wanted = [name for name in ("rq", "gd", "cgs", "lb", "pos", "xz") if name in raw]
+    indexes = [raw.index(name) for name in wanted]
+    rows = [row for row in (table.get("Content") or [])]
+    return {
+        "columns": [CIRCULATING_SHAREHOLDER_LABELS.get(name, name) for name in wanted],
+        "rows": [[row[index] for index in indexes] for row in rows],
+        "count": len(rows),
+    }
+
+
 SHAREHOLDER_COUNT_LABELS = {
     "T002": "报告期",
     "T003": "股东人数",

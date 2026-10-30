@@ -545,6 +545,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.market_breadth())
                 return
+            if parsed.path == "/api/f10_circulating_shareholders":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_circulating_shareholders(str(payload.get("code") or ""))
+                    )
+                return
             if parsed.path == "/api/f10_capital":
                 with self.server.lock:
                     self._ok(

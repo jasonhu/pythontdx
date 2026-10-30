@@ -25,6 +25,7 @@ type OnlineTab =
   | 'dividend'
   | 'shareholderCount'
   | 'capital'
+  | 'circulating'
   | 'statement'
   | 'news'
   | 'trading'
@@ -62,6 +63,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [capitalSection, setCapitalSection] = createSignal('structure')
   const [capitalLoading, setCapitalLoading] = createSignal(true)
   const [capitalError, setCapitalError] = createSignal<string | null>(null)
+  const [circulating, setCirculating] = createSignal<F10ProfileTable | null>(null)
+  const [circulatingLoading, setCirculatingLoading] = createSignal(true)
+  const [circulatingError, setCirculatingError] = createSignal<string | null>(null)
   const [statementKind, setStatementKind] = createSignal('zcfzb')
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
@@ -191,6 +195,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadCirculating = async (): Promise<void> => {
+    setCirculatingLoading(true)
+    setCirculatingError(null)
+    try {
+      setCirculating(await api.f10.circulatingShareholders(props.code))
+    } catch (cause) {
+      setCirculatingError(errorMessage(cause))
+    } finally {
+      setCirculatingLoading(false)
+    }
+  }
+
   const loadCapital = async (section: string): Promise<void> => {
     setCapitalLoading(true)
     setCapitalError(null)
@@ -255,6 +271,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadDividend()
     void loadShareholderCount()
     void loadCapital('structure')
+    void loadCirculating()
     void loadStatement('zcfzb')
     void loadNews()
     void loadTrading('margin')
@@ -351,6 +368,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('shareholderCount')}
           >
             股东人数
+          </button>
+          <button
+            class="online-tab online-circulating-tab"
+            data-active={tab() === 'circulating'}
+            onClick={() => setTab('circulating')}
+          >
+            流通股东
           </button>
           <button
             class="online-tab online-capital-tab"
@@ -676,6 +700,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table shareholder-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'circulating'}>
+              <Show
+                when={!circulatingLoading()}
+                fallback={<div class="announcements__empty">加载流通股东…</div>}
+              >
+                <Show
+                  when={!circulatingError()}
+                  fallback={<div class="announcements__error">{circulatingError()}</div>}
+                >
+                  <Show
+                    when={circulating()}
+                    fallback={<div class="announcements__empty">暂无流通股东数据</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table circulating-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

@@ -185,6 +185,23 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_circulating_shareholders_second_table(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {"ColName": ["rq"], "Content": [["2026-09-30"]]},
+                {
+                    "ColName": ["rq", "gd", "cgs", "lb", "pos", "xz", "gdid"],
+                    "Content": [["2026-09-30", "香港中央结算有限公司", 100, "北上资金", 1, "流通A股", "GD1"]],
+                },
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_circulating_shareholders("sz300059")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"], ["报告期", "股东名称", "持股数", "股东类别", "排名", "股份性质"])
+        self.assertEqual(table["rows"][0][1], "香港中央结算有限公司")
+
     def test_fetch_capital_structure_labels(self):
         payload = {
             "ErrorCode": 0,

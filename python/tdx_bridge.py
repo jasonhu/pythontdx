@@ -35,6 +35,7 @@ import json
 import os
 import re
 import socket
+import sqlite3
 import struct
 import sys
 import time
@@ -1473,6 +1474,115 @@ def normalize_tdx_stats(
     }
 
 
+def write_stats_db(
+    root: Path,
+    stat_by_date: dict[str, list[dict]],
+    stat2_by_date: dict[str, list[dict]],
+    source_sha256: str,
+    generated_at: str,
+) -> Path:
+    """把规范化行写入 SQLite 查询层（标准库，不引入 pyarrow/duckdb）。"""
+    database = root / "stats.db"
+    temporary = database.with_name(database.name + ".part")
+    temporary.unlink(missing_ok=True)
+    connection = sqlite3.connect(temporary)
+    try:
+        connection.executescript(
+            """
+            CREATE TABLE tdxstat (
+                stats_date TEXT NOT NULL,
+                market INTEGER,
+                code TEXT NOT NULL,
+                beta60 REAL,
+                pe_ttm REAL,
+                free_float_shares_10k REAL,
+                year_limit_up_days INTEGER,
+                limit_stat_days INTEGER,
+                limit_up_count INTEGER,
+                limit_up_streak_days INTEGER,
+                PRIMARY KEY (stats_date, market, code)
+            );
+            CREATE TABLE tdxstat2 (
+                stats_date TEXT NOT NULL,
+                market INTEGER,
+                code TEXT NOT NULL,
+                amount_10k REAL,
+                seal_amount_10k REAL,
+                prev_amount_10k REAL,
+                prev_seal_amount_10k REAL,
+                prev2_amount_10k REAL,
+                prev2_seal_amount_10k REAL,
+                open_volume_hand INTEGER,
+                prev_open_volume_hand INTEGER,
+                open_amount_10k REAL,
+                prev_open_amount_10k REAL,
+                PRIMARY KEY (stats_date, market, code)
+            );
+            CREATE INDEX idx_tdxstat_code ON tdxstat(code);
+            CREATE INDEX idx_tdxstat2_code ON tdxstat2(code);
+            CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+            """
+        )
+        stat_rows = [
+            (
+                row["statsDate"],
+                row["market"],
+                row["code"],
+                row["beta60"],
+                row["peTtm"],
+                row["freeFloatShares10k"],
+                row["yearLimitUpDays"],
+                row["limitStatDays"],
+                row["limitUpCount"],
+                row["limitUpStreakDays"],
+            )
+            for rows in stat_by_date.values()
+            for row in rows
+        ]
+        stat2_rows = [
+            (
+                row["statsDate"],
+                row["market"],
+                row["code"],
+                row["amount10k"],
+                row["sealAmount10k"],
+                row["prevAmount10k"],
+                row["prevSealAmount10k"],
+                row["prev2Amount10k"],
+                row["prev2SealAmount10k"],
+                row["openVolumeHand"],
+                row["prevOpenVolumeHand"],
+                row["openAmount10k"],
+                row["prevOpenAmount10k"],
+            )
+            for rows in stat2_by_date.values()
+            for row in rows
+        ]
+        connection.executemany(
+            "INSERT INTO tdxstat VALUES (?,?,?,?,?,?,?,?,?,?)", stat_rows
+        )
+        connection.executemany(
+            "INSERT INTO tdxstat2 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", stat2_rows
+        )
+        connection.executemany(
+            "INSERT INTO meta(key, value) VALUES (?, ?)",
+            [
+                ("schema_version", "1"),
+                ("parser", "tdxstat-v1"),
+                ("source", "zhb.zip"),
+                ("source_sha256", source_sha256),
+                ("generated_at", generated_at),
+                ("stat_count", str(len(stat_rows))),
+                ("stat2_count", str(len(stat2_rows))),
+            ],
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    os.replace(temporary, database)
+    return database
+
+
 def export_tdx_stats(zip_bytes: bytes, source_sha256: str = "") -> dict:
     """把 tdxstat/tdxstat2 写成按 trade_date 分区的 JSONL.gz + manifest。"""
     stat_by_date, stat2_by_date, skipped = normalize_tdx_stats(zip_bytes)
@@ -1521,6 +1631,10 @@ def export_tdx_stats(zip_bytes: bytes, source_sha256: str = "") -> dict:
         "partitions": partitions,
         "skipped": skipped,
     }
+    database = write_stats_db(
+        root, stat_by_date, stat2_by_date, sha, generated_at
+    )
+    manifest["database"] = database.name
     manifest_path = root / "manifest.json"
     temporary = manifest_path.with_name(manifest_path.name + ".part")
     temporary.write_text(
@@ -1530,6 +1644,7 @@ def export_tdx_stats(zip_bytes: bytes, source_sha256: str = "") -> dict:
     return {
         "normalizedTo": str(root),
         "manifest": str(manifest_path),
+        "database": str(database),
         "sha256": sha,
         "generatedAt": generated_at,
         "partitions": partitions,

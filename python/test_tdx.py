@@ -8,6 +8,7 @@ import gzip
 import io
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 import zipfile
@@ -342,6 +343,15 @@ class TestTdxStats(unittest.TestCase):
             row = json.loads(lines[0])
             self.assertEqual(row["code"], "000001")
             self.assertAlmostEqual(row["beta60"], 1.23)
+            database = sqlite3.connect(result["database"])
+            try:
+                count, beta = database.execute(
+                    "SELECT COUNT(*), MAX(beta60) FROM tdxstat"
+                ).fetchone()
+                self.assertEqual(count, 1)
+                self.assertAlmostEqual(beta, 1.23)
+            finally:
+                database.close()
 
 
 class TestMoneyFlow(unittest.TestCase):

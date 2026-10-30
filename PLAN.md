@@ -165,7 +165,8 @@
   并可「更早」按页向前拼接（展开后停止轮询、可回最新）；
   右侧栏竞价页签已接当日 `0x056a` 过程快照（188 点，虚拟匹配量）；
   F10 公司资料弹窗已接 `0x02cf/0x02d0`（16 段，GBK 正文）；
-  tdxstat 已按 `trade_date` 写 JSONL.gz + manifest（8100 行，主分区 8048 行）；
+  tdxstat 已按 `trade_date` 写 JSONL.gz + manifest（8100 行，主分区 8048 行），
+  并生成 SQLite 查询层（tdxstat/tdxstat2/meta，1.7 MB）；
   剩余 `0x0547` 推送触发验证、F10 在线资料、Parquet/DuckDB 数据湖。
 - **验收**：每个命令有真实 fixture + 探针记录；字段表进 `docs/03`；
   与 `0x053e` 做差分对照；限流/重连有测试。

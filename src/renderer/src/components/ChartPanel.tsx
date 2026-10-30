@@ -45,6 +45,12 @@ const TABS: { key: Tab; label: string }[] = [
 
 const MINUTE_PERIODS: KLinePeriod[] = ['5s', '15s', '1m', '5m', '10m', '15m', '20m', '30m', '60m']
 
+const EXT_PERIODS: Array<[KLinePeriod, string]> = [
+  ['2d', '2日'],
+  ['3d', '3日'],
+  ['45d', '45日']
+]
+
 const MA_LEGEND = [
   { label: 'MA5', color: '#f0b429' },
   { label: 'MA10', color: '#5b8cff' },
@@ -223,6 +229,23 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             )}
           </For>
         </div>
+
+        <Show when={!isTrend()}>
+          <select
+            class="chart-ext-select"
+            value={EXT_PERIODS.some(([period]) => period === tab()) ? tab() : ''}
+            aria-label="扩展周期"
+            onChange={(event) => {
+              const value = event.currentTarget.value
+              if (value) switchTab(value as KLinePeriod)
+            }}
+          >
+            <option value="">扩展</option>
+            <For each={EXT_PERIODS}>
+              {([period, label]) => <option value={period}>{label}</option>}
+            </For>
+          </select>
+        </Show>
 
         <Show when={!isTrend()}>
           <button

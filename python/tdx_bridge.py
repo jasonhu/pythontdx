@@ -148,6 +148,9 @@ PERIOD_RAW = {
     "day": 4,
     "week": 5,
     "month": 6,
+    "2d": 9,
+    "3d": 9,
+    "45d": 9,
     "quarter": 10,
     "year": 11,
 }
@@ -3025,7 +3028,7 @@ class Bridge:
                 safe_count,
                 {'none': 0, 'qfq': 1, 'hfq': 2}.get(str(adjust), 1),
                 0,
-                {'5s': 5, '15s': 15, '10m': 10, '20m': 20}.get(period, 1),
+                {'5s': 5, '15s': 15, '10m': 10, '20m': 20, '2d': 2, '3d': 3, '45d': 45}.get(period, 1),
             ),
         )
         return {

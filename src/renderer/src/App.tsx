@@ -29,6 +29,7 @@ import { StatsGrid } from './components/StatsGrid'
 import { StatusBar } from './components/StatusBar'
 import { TitleBar } from './components/TitleBar'
 import { TradeTape } from './components/TradeTape'
+import { PriceDistribution } from './components/PriceDistribution'
 import {
   activeQuoteCode,
   appReady,
@@ -53,7 +54,7 @@ export default function App(): JSX.Element {
   const [multiOpen, setMultiOpen] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
-  const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow' | 'auction'>('book')
+  const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'price' | 'flow' | 'auction'>('book')
 
   onMount(() => {
     void bootstrapAppState()
@@ -124,7 +125,7 @@ export default function App(): JSX.Element {
                       aria-selected={railTab() === 'book'}
                       onClick={() => setRailTab('book')}
                     >
-                      五档盘口
+                      五档
                     </button>
                     <button
                       class="rail-tab rail-tab--tape"
@@ -133,7 +134,16 @@ export default function App(): JSX.Element {
                       aria-selected={railTab() === 'tape'}
                       onClick={() => setRailTab('tape')}
                     >
-                      成交明细
+                      明细
+                    </button>
+                    <button
+                      class="rail-tab rail-tab--price"
+                      classList={{ 'rail-tab--active': railTab() === 'price' }}
+                      role="tab"
+                      aria-selected={railTab() === 'price'}
+                      onClick={() => setRailTab('price')}
+                    >
+                      分价
                     </button>
                     <button
                       class="rail-tab rail-tab--flow"
@@ -142,7 +152,7 @@ export default function App(): JSX.Element {
                       aria-selected={railTab() === 'flow'}
                       onClick={() => setRailTab('flow')}
                     >
-                      资金流
+                      资金
                     </button>
                     <button
                       class="rail-tab rail-tab--auction"
@@ -168,6 +178,9 @@ export default function App(): JSX.Element {
                   <Switch fallback={<OrderBook quote={quote()} />}>
                     <Match when={railTab() === 'tape'}>
                       <TradeTape code={quote().code} />
+                    </Match>
+                    <Match when={railTab() === 'price'}>
+                      <PriceDistribution code={quote().code} />
                     </Match>
                     <Match when={railTab() === 'flow'}>
                       <MoneyFlow code={quote().code} />

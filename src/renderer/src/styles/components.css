@@ -3610,3 +3610,60 @@
   opacity: 0.85;
   pointer-events: none;
 }
+
+.price-dist {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.price-dist__head {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+.price-dist__rows {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.price-dist__row {
+  display: grid;
+  grid-template-columns: 48px minmax(40px, 1fr) 56px 42px 38px;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  text-align: right;
+}
+
+.price-dist__price {
+  color: var(--text-1);
+}
+
+.price-dist__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel-active);
+  overflow: hidden;
+}
+
+.price-dist__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.price-dist__share,
+.price-dist__count {
+  color: var(--text-3);
+}

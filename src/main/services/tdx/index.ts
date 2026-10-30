@@ -204,6 +204,10 @@ export async function fetchStatsCsv(): Promise<StatsCsvExport> {
   return bridge.send<StatsCsvExport>('stats_csv', {}, 30_000)
 }
 
+export async function fetchDuckQuery(sql: string, limit = 200): Promise<StatsQueryResult> {
+  return bridge.send<StatsQueryResult>('stats_duck_query', { sql, limit }, 30_000)
+}
+
 const BLOCK_TIMEOUT_MS = 90_000
 
 /** 0x06b9 下载 block_*.dat 并解析板块成分。 */

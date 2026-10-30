@@ -47,6 +47,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from duckdb_query import run_duckdb_query
 from parquet_export import export_stats_parquet
 from tdx_f10 import (
     fetch_announcements,
@@ -2562,6 +2563,9 @@ class Bridge:
     def stats_parquet(self) -> dict:
         return export_stats_parquet()
 
+    def stats_duck_query(self, sql: str, limit: int = 200) -> dict:
+        return run_duckdb_query(sql, limit)
+
     def blocks(self, kind: str = "gn") -> dict:
         """下载并解析板块 .dat，返回板块名与成分代码（含市场前缀）。"""
         if kind not in BLOCK_FILES:
@@ -2924,6 +2928,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.stats_csv()
     if cmd == "stats_parquet":
         return bridge.stats_parquet()
+    if cmd == "stats_duck_query":
+        return bridge.stats_duck_query(
+            str(payload.get("sql") or ""),
+            int(payload.get("limit", 200)),
+        )
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

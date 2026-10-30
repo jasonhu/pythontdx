@@ -15,6 +15,7 @@ import {
   fetchAuctions,
   fetchBlocks,
   fetchCategoryQuotes,
+  fetchDuckQuery,
   fetchF10Announcements,
   fetchF10Business,
   fetchF10Reports,
@@ -93,6 +94,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   )
 
   ipcMain.handle(IPC.dataStatsCsv, () => fetchStatsCsv())
+
+  ipcMain.handle(IPC.dataDuckQuery, (_event, sql: string, limit?: number) =>
+    fetchDuckQuery(sql, limit)
+  )
 
   ipcMain.handle(IPC.blockList, (_event, kind: BlockKind) => fetchBlocks(kind))
 

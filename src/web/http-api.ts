@@ -295,7 +295,8 @@ export function createHttpApi(): StockLensApi {
       statsSummary: () => post<TdxStatsSummary>('/api/stats_summary', {}),
       statsExport: () => post<TdxStatsExport>('/api/stats_export', {}),
       statsQuery: (sql, limit) => post<StatsQueryResult>('/api/stats_query', { sql, limit }),
-      statsCsv: () => post<StatsCsvExport>('/api/stats_csv', {})
+      statsCsv: () => post<StatsCsvExport>('/api/stats_csv', {}),
+      duckQuery: (sql, limit) => post<StatsQueryResult>('/api/duck_query', { sql, limit })
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

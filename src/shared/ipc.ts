@@ -77,6 +77,8 @@ export const IPC = {
   dataStatsQuery: 'data:stats-query',
   /** stats.db 导出 CSV（invoke） */
   dataStatsCsv: 'data:stats-csv',
+  /** stats Parquet DuckDB 只读查询（invoke） */
+  dataDuckQuery: 'data:duck-query',
   /** 板块列表/成分（invoke） */
   blockList: 'block:list',
   /** 行业分类/成分（invoke） */
@@ -189,6 +191,7 @@ export interface StockLensApi {
     statsQuery(sql: string, limit?: number): Promise<StatsQueryResult>
     /** 把 tdxstat/tdxstat2 全量导出为 CSV */
     statsCsv(): Promise<StatsCsvExport>
+    duckQuery(sql: string, limit?: number): Promise<StatsQueryResult>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

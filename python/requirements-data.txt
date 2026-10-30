@@ -1,6 +1,9 @@
-# 可选：Parquet 数据湖导出（不进默认依赖）
+# 可选：数据湖（不进默认依赖）
 # 安装示例：
 #   python3 -m pip install --target .venv-data -r python/requirements-data.txt
-# 运行：
+# Parquet 导出：
 #   PYTHONPATH=.venv-data python3 python/parquet_export.py
+# DuckDB 查询由服务/桥接的 `duck_query` 命令使用：
+#   PYTHONPATH=.venv-data python3 python/tdx_server.py
 pyarrow>=22
+duckdb>=2.0

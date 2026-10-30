@@ -492,6 +492,15 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.stats_csv())
                 return
+            if parsed.path == "/api/duck_query":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.stats_duck_query(
+                            str(payload.get("sql") or ""),
+                            int(payload.get("limit", 200)),
+                        )
+                    )
+                return
             if parsed.path == "/api/blocks":
                 with self.server.lock:
                     self._ok(self.server.bridge.blocks(payload.get("kind", "gn")))

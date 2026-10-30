@@ -36,6 +36,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [querying, setQuerying] = createSignal(false)
   const [query, setQuery] = createSignal<StatsQueryResult | null>(null)
   const [queryError, setQueryError] = createSignal<string | null>(null)
+  const [engine, setEngine] = createSignal<'sqlite' | 'duckdb'>('sqlite')
   const [csvExporting, setCsvExporting] = createSignal(false)
   const [csvResult, setCsvResult] = createSignal<StatsCsvExport | null>(null)
 
@@ -85,7 +86,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setQuerying(true)
     setQueryError(null)
     try {
-      setQuery(await api.data.statsQuery(sql(), 100))
+      setQuery(
+        engine() === 'duckdb'
+          ? await api.data.duckQuery(sql(), 100)
+          : await api.data.statsQuery(sql(), 100)
+      )
     } catch (cause) {
       setQuery(null)
       setQueryError(errorMessage(cause))
@@ -299,6 +304,22 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               <div>
                 <strong>SQL 查询</strong>
                 <span>只读 SELECT/WITH，最多 500 行</span>
+              </div>
+              <div class="data__engines">
+                <button
+                  class="data__engine"
+                  data-active={engine() === 'sqlite'}
+                  onClick={() => setEngine('sqlite')}
+                >
+                  SQLite
+                </button>
+                <button
+                  class="data__engine data__duck"
+                  data-active={engine() === 'duckdb'}
+                  onClick={() => setEngine('duckdb')}
+                >
+                  DuckDB
+                </button>
               </div>
               <button
                 class="btn data__query-run"

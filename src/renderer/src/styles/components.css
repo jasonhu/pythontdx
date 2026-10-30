@@ -1597,6 +1597,28 @@
   border-color: var(--accent);
 }
 
+.data__engines {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.data__engine {
+  padding: 3px 8px;
+  border-radius: var(--r-xs);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.data__engine[data-active='true'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .data__query-error {
   margin-top: 6px;
   color: var(--down);

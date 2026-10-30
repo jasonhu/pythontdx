@@ -29,11 +29,14 @@ StockLens 的所有重要变更都记录在这里。
 - **服务器文件**：`0x06b9` 完整下载 + 原始 ZIP 落盘/SHA256；
   `tdx_stats` 解析 `zhb.zip` 内 `tdxstat.cfg` / `tdxstat2.cfg`
   （各 8,103 行，主日期 20261029）。
+- **只读 HTTP API**：`python/tdx_server.py` 用标准库提供行情、排行、逐笔、竞价、
+  资金流、F10、K 线、分时等 JSON 接口；默认只绑 `127.0.0.1:8765`，无鉴权，
+  所有 Bridge 调用串行化；WebSocket/Web UI 尚未接。
 - **数据湖规范化**：`tdx_stats_export` 写原始 ZIP + 按 `trade_date` 分区的
   `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
   分区计数、空日期跳过数）；另生成 SQLite 查询层 `stats.db`（tdxstat/tdxstat2/meta）。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 42。
+  Python 测试 17 → 47。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

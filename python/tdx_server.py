@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""StockLens 的只读 HTTP 行情 API。
+
+为什么还要这一层：
+  · Electron 桌面用 stdio sidecar；浏览器/Web 端需要一个普通的 HTTP 入口；
+  · 先把「协议 + 解析」复用成 JSON API，Web UI 才能和桌面共用同一套数据语义。
+
+实现刻意只用标准库：ThreadingHTTPServer + json。单用户本地服务，所有 Bridge
+调用串行化（TdxConnection 不是线程安全的），默认只绑 127.0.0.1。
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import threading
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from tdx_bridge import Bridge, TdxError
+
+MAX_BODY_BYTES = 1024 * 1024
+
+
+class TdxApiServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(self, address: tuple[str, int], bridge: Bridge):
+        super().__init__(address, ApiHandler)
+        self.bridge = bridge
+        self.lock = threading.Lock()
+
+
+class ApiHandler(BaseHTTPRequestHandler):
+    server: TdxApiServer
+
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+        print(f"[api] {self.address_string()} {format % args}", file=sys.stderr)
+
+    def _cors(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def _json(self, status: int, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _ok(self, result: Any) -> None:
+        self._json(HTTPStatus.OK, {"ok": True, "result": result})
+
+    def _error(self, status: int, message: str) -> None:
+        self._json(status, {"ok": False, "error": message})
+
+    def _body(self) -> dict[str, Any]:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError as error:
+            raise TdxError("Content-Length 不合法") from error
+        if length < 0 or length > MAX_BODY_BYTES:
+            raise TdxError("请求体过大或长度不合法")
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise TdxError("请求体不是合法 JSON") from error
+        if not isinstance(payload, dict):
+            raise TdxError("请求体必须是 JSON 对象")
+        return payload
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        self.send_response(HTTPStatus.NO_CONTENT)
+        self._cors()
+        self.end_headers()
+
+    def do_GET(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+        try:
+            if parsed.path == "/api/ping":
+                self._ok("pong")
+                return
+            if parsed.path == "/api/code_list":
+                with self.server.lock:
+                    self._ok(self.server.bridge.code_list())
+                return
+            if parsed.path == "/api/kline":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.kline(
+                            query.get("code", ""),
+                            query.get("period", "day"),
+                            int(query.get("count", "200")),
+                        )
+                    )
+                return
+            if parsed.path == "/api/minute":
+                with self.server.lock:
+                    self._ok(self.server.bridge.minute(query.get("code", "")))
+                return
+            if parsed.path == "/api/five_day":
+                with self.server.lock:
+                    self._ok(self.server.bridge.five_day(query.get("code", "")))
+                return
+            self._error(HTTPStatus.NOT_FOUND, f"未知路径：{parsed.path}")
+        except (TdxError, ValueError, TypeError) as error:
+            self._error(HTTPStatus.BAD_REQUEST, str(error))
+        except Exception as error:  # noqa: BLE001 - 服务端要给出可读错误
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+
+    def do_POST(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        try:
+            payload = self._body()
+            if parsed.path == "/api/ping":
+                self._ok("pong")
+                return
+            if parsed.path == "/api/quotes":
+                codes = payload.get("codes") or []
+                if not isinstance(codes, list):
+                    raise TdxError("codes 必须是数组")
+                with self.server.lock:
+                    self._ok(self.server.bridge.quotes(codes))
+                return
+            if parsed.path == "/api/category":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.category_quotes(
+                            category=int(payload.get("category", 6)),
+                            sort_type=int(
+                                payload.get("sortType", payload.get("sort_type", 0))
+                            ),
+                            start=int(payload.get("start", 0)),
+                            count=int(payload.get("count", 80)),
+                            ascending=bool(payload.get("ascending", False)),
+                            filter_raw=int(
+                                payload.get("filterRaw", payload.get("filter_raw", 0))
+                            ),
+                        )
+                    )
+                return
+            if parsed.path == "/api/trades":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.trades(
+                            payload.get("code", ""),
+                            start=int(payload.get("start", 0)),
+                            count=int(payload.get("count", 1800)),
+                            trading_date=payload.get("date") or None,
+                        )
+                    )
+                return
+            if parsed.path == "/api/auctions":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.auctions(
+                            payload.get("code", ""),
+                            trading_date=payload.get("date") or None,
+                            selector=int(payload.get("selector", 3)),
+                            start=int(payload.get("start", 0)),
+                            limit=int(payload.get("limit", 500)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/money_flow":
+                with self.server.lock:
+                    self._ok(self.server.bridge.money_flow(payload.get("code", "")))
+                return
+            if parsed.path == "/api/f10_catalog":
+                with self.server.lock:
+                    self._ok(self.server.bridge.f10_catalog(payload.get("code", "")))
+                return
+            if parsed.path == "/api/f10_content":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_content(
+                            payload.get("code", ""),
+                            payload.get("filename", ""),
+                            int(payload.get("start", 0)),
+                            int(payload.get("length", 0)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/stats_summary":
+                with self.server.lock:
+                    self._ok(self.server.bridge.tdx_stats())
+                return
+            self._error(HTTPStatus.NOT_FOUND, f"未知路径：{parsed.path}")
+        except (TdxError, ValueError, TypeError) as error:
+            self._error(HTTPStatus.BAD_REQUEST, str(error))
+        except Exception as error:  # noqa: BLE001 - 服务端要给出可读错误
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(error))
+
+
+def create_server(
+    host: str = "127.0.0.1", port: int = 8765, bridge: Bridge | None = None
+) -> TdxApiServer:
+    return TdxApiServer((host, port), bridge or Bridge())
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="StockLens 只读 HTTP 行情 API")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8765)
+    args = parser.parse_args()
+    server = create_server(args.host, args.port)
+    print(f"[api] listening on http://{args.host}:{server.server_port}", file=sys.stderr)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+        server.bridge.close()
+
+
+if __name__ == "__main__":
+    main()

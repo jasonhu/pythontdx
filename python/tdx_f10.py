@@ -468,6 +468,10 @@ TRADING_SECTIONS = {
     "north": ("islgt", ""),
     "reports": ("yxsbxx", ""),
     "kcb": ("checkkcb", ""),
+    "limit_up": ("ztfx", ""),
+    "limit_down": ("dtfx", ""),
+    "bonds": ("zrq", ""),
+    "main_force": ("zlpskcj", ""),
 }
 
 TRADING_LABELS = {
@@ -477,6 +481,26 @@ TRADING_LABELS = {
     "north": {"T001": "持股"},
     "reports": {},
     "kcb": {"sc": "科创板标记"},
+    "limit_up": {
+        "currq": "当日",
+        "lx": "类型",
+        "sT002": "日期",
+        "T011": "时间",
+        "fdje": "封单额",
+        "zt": "主题",
+        "yy": "原因",
+        "N005": "成交额",
+    },
+    "limit_down": {
+        "currq": "当日",
+        "lx": "类型",
+        "sT002": "日期",
+        "T011": "时间",
+        "fdje": "封单额",
+        "zt": "主题",
+        "yy": "原因",
+        "N005": "成交额",
+    },
 }
 
 

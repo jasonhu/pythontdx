@@ -8,7 +8,7 @@
 
 **当前状态**：v0.6 桌面版可用（源码验证通过，PyInstaller 打包待实测）；
 v0.7 双前端 + Python 服务化**规划中**。
-`npm run check` 全绿：**182 个 TS 测试 + 85 个 Python 协议/服务测试（2 skipped）**。
+`npm run check` 全绿：**182 个 TS 测试 + 86 个 Python 协议/服务测试（2 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -77,7 +77,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
 - 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 只读前端（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 182 个 TS 单元测试 + 85 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 182 个 TS 单元测试 + 86 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
@@ -165,7 +165,7 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run build:web`         | 构建 Web 产物到 `out/web/`                          |
 | `npm run check`             | 类型检查 + Lint + TS 测试 + Python 测试，一条命令   |
 | `npm run test`              | Vitest（173 个 TS 用例）                            |
-| `npm run test:python`       | Python 协议/HTTP 测试（85 个用例，真实 fixture）    |
+| `npm run test:python`       | Python 协议/HTTP 测试（86 个用例，真实 fixture）    |
 | `npm run build:python`      | PyInstaller 打行情桥接单文件（打包前必跑）          |
 | `npm run shot`              | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收 |
 | `npm run lint` / `lint:fix` | ESLint（含 Solid 响应式规则）                       |

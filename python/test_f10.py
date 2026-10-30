@@ -169,6 +169,21 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(table["count"], 1)
         self.assertEqual(table["columns"], ["交易日", "融资余额"])
 
+    def test_parse_limit_up(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["lx", "sT002", "T011", "fdje", "zt", "yy", "N005"],
+                    "Content": [["涨停", "2026-10-30", "09:25:01", 3780.86, "商业航天", "重整", 4565.78]],
+                }
+            ],
+        }
+        table = tdx_f10.parse_trading_payload(payload, "limit_up")
+        self.assertEqual(table["count"], 1)
+        self.assertIn("类型", table["columns"])
+        self.assertIn("封单额", table["columns"])
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

@@ -670,7 +670,11 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                       ['dragon', '龙虎榜'],
                       ['north', '沪股通'],
                       ['reports', '研报席位'],
-                      ['kcb', '科创']
+                      ['kcb', '科创'],
+                      ['limit_up', '涨停'],
+                      ['limit_down', '跌停'],
+                      ['bonds', '可转债'],
+                      ['main_force', '主力']
                     ] as Array<[string, string]>
                   }
                 >

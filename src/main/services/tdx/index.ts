@@ -182,6 +182,10 @@ export async function fetchF10Reports(code: string): Promise<F10ProfileTable> {
   return bridge.send<F10ProfileTable>('f10_reports', { code }, 20_000)
 }
 
+export async function fetchF10Statement(code: string, kind: string): Promise<F10ProfileTable> {
+  return bridge.send<F10ProfileTable>('f10_statement', { code, kind }, 20_000)
+}
+
 /* ---------------------------------------------------------------- 数据工具 */
 
 const DATA_TIMEOUT_MS = 180_000

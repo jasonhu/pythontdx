@@ -1176,6 +1176,28 @@
   border-bottom-color: var(--accent);
 }
 
+.statement-kinds {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.statement-kind {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text-3);
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.statement-kind[data-active='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

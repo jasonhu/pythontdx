@@ -115,6 +115,22 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(table["columns"], ["评级", "分析师", "日期", "记录ID", "标题"])
         self.assertEqual(table["rows"][0][-1], "点评标题")
 
+    def test_parse_statement(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["rq", "T048", "T083", "T093"],
+                    "Content": [["2026-09-30", 5952354000000, 5395653000000, 556701000000]],
+                },
+                {"ColName": ["rtype", "nhytype"], "Content": [["zcfzb", 1]]},
+            ],
+        }
+        table = tdx_f10.parse_statement_payload(payload, "zcfzb")
+        self.assertEqual(table["template"], 1)
+        self.assertEqual(table["columns"][:2], ["报告期", "资产总计"])
+        self.assertEqual(table["rows"][0][0], "2026-09-30")
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

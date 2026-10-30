@@ -19,6 +19,7 @@ BUSINESS_ENTRY = "CWServ.tdxf10_gg_jyfx"
 BUSINESS_PERIOD_ENTRY = "CWServ.tdxf10_gg_comreq"
 SHAREHOLDER_ENTRY = "CWServ.tdxf10_gg_gdyj"
 REPORT_ENTRY = "CWServ.tdxf10_gg_gszx"
+STATEMENT_ENTRY = "CWServ.tdxf10_gg_cwfx"
 
 FINANCE_LABELS = {
     "T002": "报告期",
@@ -35,6 +36,21 @@ FINANCE_LABELS = {
     "jlrhb": "净利润环比",
     "pjjzcsyl": "平均净资产收益率",
     "kfjlrhb": "扣非净利润环比",
+}
+
+STATEMENT_METRICS = {
+    "zcfzb": {
+        0: [("rq", "报告期"), ("T039", "资产总计"), ("T062", "负债合计"), ("T071", "所有者权益合计"), ("T007", "货币资金"), ("T016", "存货"), ("T010", "应收账款"), ("T040", "短期借款")],
+        1: [("rq", "报告期"), ("T048", "资产总计"), ("T083", "负债合计"), ("T093", "所有者权益合计"), ("T010", "现金及存放央行"), ("T028", "发放贷款及垫款"), ("T057", "吸收存款")],
+    },
+    "lyb": {
+        0: [("rq", "报告期"), ("T035", "营业总收入"), ("T064", "营业总成本"), ("T020", "营业利润"), ("T026", "利润总额"), ("T029", "净利润"), ("T030", "归母净利润")],
+        1: [("rq", "报告期"), ("T008", "营业收入"), ("T028", "营业支出"), ("T042", "营业利润"), ("T047", "利润总额"), ("T050", "净利润"), ("T051", "归母净利润")],
+    },
+    "xjllb": {
+        0: [("rq", "报告期"), ("T017", "经营活动净额"), ("T029", "投资活动净额"), ("T038", "筹资活动净额"), ("T041", "现金净增加")],
+        1: [("rq", "报告期"), ("T033", "经营活动净额"), ("T044", "投资活动净额"), ("T055", "筹资活动净额"), ("T058", "现金净增加")],
+    },
 }
 
 REPORT_LABELS = {
@@ -255,6 +271,45 @@ def parse_report_payload(payload: dict) -> dict:
         for values in (table.get("Content") or [])
     ][:20]
     return {"columns": columns, "rows": rows}
+
+
+def parse_statement_payload(payload: dict, kind: str) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    result_sets = payload.get("ResultSets") or []
+    if not result_sets:
+        return {"columns": [], "rows": []}
+    table = result_sets[0]
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    template = 0
+    if len(result_sets) > 1:
+        meta = result_sets[1]
+        meta_columns = [str(name) for name in (meta.get("ColName") or [])]
+        if "nhytype" in meta_columns and meta.get("Content"):
+            try:
+                template = int(meta["Content"][0][meta_columns.index("nhytype")] or 0)
+            except (ValueError, IndexError, TypeError):
+                template = 0
+    metrics = STATEMENT_METRICS.get(kind, {}).get(template)
+    if metrics:
+        indexes = [(raw_columns.index(key), label) for key, label in metrics if key in raw_columns]
+        columns = [label for _, label in indexes]
+        rows = [
+            [values[index] for index, _ in indexes]
+            for values in (table.get("Content") or [])[:4]
+        ]
+    else:
+        columns = raw_columns
+        rows = [list(values) for values in (table.get("Content") or [])[:4]]
+    return {"columns": columns, "rows": rows, "template": template, "kind": kind}
+
+
+def fetch_statement(code: str, kind: str = "zcfzb") -> dict:
+    _market, symbol = _market_of(code)
+    if kind not in {"zcfzb", "lyb", "xjllb"}:
+        raise F10Error(f"未知报表类型：{kind}")
+    payload = _post_tqlex(STATEMENT_ENTRY, {"Params": [symbol, kind, ""]})
+    return parse_statement_payload(payload, kind)
 
 
 def fetch_reports(code: str) -> dict:

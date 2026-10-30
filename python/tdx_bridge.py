@@ -56,6 +56,7 @@ from tdx_f10 import (
     fetch_profile,
     fetch_reports,
     fetch_shareholders,
+    fetch_statement,
     fetch_valuation,
 )
 
@@ -2469,6 +2470,10 @@ class Bridge:
         """7615 TQLEX 公司研报列表。"""
         return fetch_reports(code)
 
+    def f10_statement(self, code: str, kind: str = "zcfzb") -> dict:
+        """7615 TQLEX 财务报表关键科目。"""
+        return fetch_statement(code, kind)
+
     def _download_bytes(
         self,
         path: str,
@@ -2959,6 +2964,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_shareholders(payload.get("code", ""))
     if cmd == "f10_reports":
         return bridge.f10_reports(payload.get("code", ""))
+    if cmd == "f10_statement":
+        return bridge.f10_statement(
+            payload.get("code", ""),
+            str(payload.get("kind", "zcfzb")),
+        )
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

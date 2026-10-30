@@ -290,7 +290,8 @@ export function createHttpApi(): StockLensApi {
       finance: (code) => post<F10ProfileTable>('/api/f10_finance', { code }),
       business: (code) => post<F10ProfileTable>('/api/f10_business', { code }),
       shareholders: (code) => post<F10ProfileTable>('/api/f10_shareholders', { code }),
-      reports: (code) => post<F10ProfileTable>('/api/f10_reports', { code })
+      reports: (code) => post<F10ProfileTable>('/api/f10_reports', { code }),
+      statement: (code, kind) => post<F10ProfileTable>('/api/f10_statement', { code, kind })
     },
     data: {
       statsSummary: () => post<TdxStatsSummary>('/api/stats_summary', {}),

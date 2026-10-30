@@ -19,6 +19,7 @@ import {
   fetchF10Announcements,
   fetchF10Business,
   fetchF10Reports,
+  fetchF10Statement,
   fetchF10Shareholders,
   fetchF10Catalog,
   fetchF10Profile,
@@ -85,6 +86,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.f10Shareholders, (_event, code: string) => fetchF10Shareholders(code))
 
   ipcMain.handle(IPC.f10Reports, (_event, code: string) => fetchF10Reports(code))
+
+  ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string) =>
+    fetchF10Statement(code, kind)
+  )
 
   ipcMain.handle(IPC.dataStatsSummary, () => fetchTdxStatsSummary())
 

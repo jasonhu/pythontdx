@@ -15,7 +15,14 @@ interface AnnouncementsPanelProps {
 }
 
 type OnlineTab =
-  'announcements' | 'profile' | 'valuation' | 'finance' | 'business' | 'shareholders' | 'reports'
+  | 'announcements'
+  | 'profile'
+  | 'valuation'
+  | 'finance'
+  | 'business'
+  | 'shareholders'
+  | 'reports'
+  | 'statement'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -40,6 +47,10 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [reports, setReports] = createSignal<F10ProfileTable | null>(null)
   const [reportsLoading, setReportsLoading] = createSignal(true)
   const [reportsError, setReportsError] = createSignal<string | null>(null)
+  const [statementKind, setStatementKind] = createSignal('zcfzb')
+  const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
+  const [statementLoading, setStatementLoading] = createSignal(true)
+  const [statementError, setStatementError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -129,6 +140,19 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadStatement = async (kind: string): Promise<void> => {
+    setStatementKind(kind)
+    setStatementLoading(true)
+    setStatementError(null)
+    try {
+      setStatement(await api.f10.statement(props.code, kind))
+    } catch (cause) {
+      setStatementError(errorMessage(cause))
+    } finally {
+      setStatementLoading(false)
+    }
+  }
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -142,6 +166,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadBusiness()
     void loadShareholders()
     void loadReports()
+    void loadStatement('zcfzb')
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -221,6 +246,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('reports')}
           >
             研报
+          </button>
+          <button
+            class="online-tab online-statement-tab"
+            data-active={tab() === 'statement'}
+            onClick={() => setTab('statement')}
+          >
+            报表
           </button>
         </div>
 
@@ -493,6 +525,74 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                           </tbody>
                         </table>
                       </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'statement'}>
+              <div class="statement-kinds">
+                <button
+                  class="statement-kind"
+                  data-active={statementKind() === 'zcfzb'}
+                  onClick={() => void loadStatement('zcfzb')}
+                >
+                  资产负债
+                </button>
+                <button
+                  class="statement-kind"
+                  data-active={statementKind() === 'lyb'}
+                  onClick={() => void loadStatement('lyb')}
+                >
+                  利润
+                </button>
+                <button
+                  class="statement-kind"
+                  data-active={statementKind() === 'xjllb'}
+                  onClick={() => void loadStatement('xjllb')}
+                >
+                  现金流
+                </button>
+              </div>
+              <Show
+                when={!statementLoading()}
+                fallback={<div class="announcements__empty">加载报表…</div>}
+              >
+                <Show
+                  when={!statementError()}
+                  fallback={<div class="announcements__error">{statementError()}</div>}
+                >
+                  <Show
+                    when={statement()}
+                    fallback={<div class="announcements__empty">暂无报表</div>}
+                  >
+                    {(table) => (
+                      <>
+                        <div class="announcements__meta">
+                          最近 4 期 · 模板 {table().template ?? 0} · 关键科目
+                        </div>
+                        <div class="valuation-table-wrap">
+                          <table class="valuation-table finance-table">
+                            <thead>
+                              <tr>
+                                <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <For each={table().rows}>
+                                {(row) => (
+                                  <tr>
+                                    <For each={row}>
+                                      {(value) => <td class="num">{cell(value)}</td>}
+                                    </For>
+                                  </tr>
+                                )}
+                              </For>
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     )}
                   </Show>
                 </Show>

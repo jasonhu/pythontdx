@@ -210,6 +210,8 @@ export interface F10ProfileTable {
   columns: string[]
   rows: Array<Array<string | number | null>>
   reportDate?: string
+  template?: number
+  kind?: string
 }
 
 export interface F10Announcement {

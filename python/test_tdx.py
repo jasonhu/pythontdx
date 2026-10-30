@@ -4,7 +4,11 @@ fixture 是 2026-10-29 收盘后从 7709 主站抓的真实响应（hex）。
 运行：python3 -m unittest discover -s python -p 'test_*.py'
 """
 
+import io
+import os
+import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 import tdx_bridge as tdx
@@ -271,6 +275,46 @@ class TestFileRead(unittest.TestCase):
         chunk = tdx.parse_file_chunk(b"\x00\x00\x00\x00", "zhb.zip", 0, 64)
         self.assertEqual(chunk["chunkLen"], 0)
         self.assertTrue(chunk["isLast"])
+
+
+class TestTdxStats(unittest.TestCase):
+    def make_zip(self) -> bytes:
+        stat = [""] * 35
+        stat[0], stat[1] = "0", "000001"
+        stat[2], stat[3], stat[4] = "1.23", "5.6", "20261029"
+        stat[11], stat[26], stat[33] = "1000", "3", "2"
+        stat2 = [""] * 21
+        stat2[0], stat2[1], stat2[2] = "0", "000001", "20261029"
+        stat2[3], stat2[4], stat2[14] = "1234.5", "10", "20"
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("tdxstat.cfg", "|".join(stat) + "\n")
+            archive.writestr("tdxstat2.cfg", "|".join(stat2) + "\n")
+        return buffer.getvalue()
+
+    def test_parse_stats(self):
+        result = tdx.parse_tdx_stats(self.make_zip())
+        self.assertEqual(result["statCount"], 1)
+        self.assertEqual(result["stat2Count"], 1)
+        self.assertEqual(result["statsDate"], "20261029")
+        self.assertEqual(result["statSamples"][0]["code"], "000001")
+        self.assertAlmostEqual(result["statSamples"][0]["beta60"], 1.23)
+        self.assertEqual(result["stat2Samples"][0]["sealAmount10k"], 10.0)
+
+    def test_save_raw_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            old = os.environ.get("STOCKLENS_DATA_DIR")
+            os.environ["STOCKLENS_DATA_DIR"] = directory
+            try:
+                saved = tdx.save_raw_file("x.bin", b"abc")
+            finally:
+                if old is None:
+                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                else:
+                    os.environ["STOCKLENS_DATA_DIR"] = old
+            self.assertEqual(saved["bytes"], 3)
+            self.assertTrue(saved["savedTo"].endswith("raw/tdx/x.bin"))
+            self.assertTrue(Path(saved["savedTo"]).exists())
 
 
 class TestBars(unittest.TestCase):

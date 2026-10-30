@@ -28,14 +28,20 @@ StockLens 的通达信行情桥接进程。
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
+import os
 import re
 import socket
 import struct
 import sys
 import time
 import traceback
+import zipfile
 import zlib
+from collections import Counter
+from pathlib import Path
 
 # ---------------------------------------------------------------- 常量
 
@@ -80,6 +86,7 @@ AUCTION_LIMIT = 500
 FILE_PATH_FIELD = 300
 FILE_CHUNK = 30000
 MAX_FILE_CHUNK = 60000
+MAX_FILE_BYTES = 128 * 1024 * 1024
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
@@ -1099,6 +1106,110 @@ def parse_file_chunk(
     }
 
 
+def stocklens_data_dir() -> Path:
+    """原始数据目录；开发/测试可用 STOCKLENS_DATA_DIR 覆盖。"""
+    configured = os.environ.get("STOCKLENS_DATA_DIR")
+    if configured:
+        return Path(configured).expanduser()
+    return Path.home() / ".local" / "share" / "stocklens" / "data"
+
+
+def save_raw_file(name: str, data: bytes) -> dict:
+    safe_name = Path(name).name
+    if not safe_name:
+        raise TdxError("服务器文件名为空")
+    target_dir = stocklens_data_dir() / "raw" / "tdx"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / safe_name
+    temporary = target.with_name(f"{target.name}.part")
+    temporary.write_bytes(data)
+    os.replace(temporary, target)
+    return {
+        "savedTo": str(target),
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+
+
+def _stat_float(value: str) -> float | None:
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _stat_rows(text: str, minimum_columns: int) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        fields = line.split("|")
+        if len(fields) >= minimum_columns:
+            rows.append(fields)
+    return rows
+
+
+def parse_tdx_stats(zip_bytes: bytes) -> dict:
+    """解析 zhb.zip 里的 tdxstat.cfg / tdxstat2.cfg，返回摘要与前 3 行样本。"""
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(zip_bytes))
+    except zipfile.BadZipFile as error:
+        raise TdxError("zhb.zip 不是合法 ZIP") from error
+
+    names = set(archive.namelist())
+    for required in ("tdxstat.cfg", "tdxstat2.cfg"):
+        if required not in names:
+            raise TdxError(f"zhb.zip 缺少 {required}")
+        info = archive.getinfo(required)
+        if info.flag_bits & 0x1:
+            raise TdxError(f"{required} 是加密条目，不处理")
+
+    stat_rows = _stat_rows(archive.read("tdxstat.cfg").decode("gbk", "replace"), 35)
+    stat2_rows = _stat_rows(archive.read("tdxstat2.cfg").decode("gbk", "replace"), 21)
+    if not stat_rows or not stat2_rows:
+        raise TdxError("tdxstat.cfg / tdxstat2.cfg 没有有效行")
+
+    dates = [row[4].strip() for row in stat_rows if row[4].strip()]
+    date_counts = Counter(dates)
+    stats_date = date_counts.most_common(1)[0][0] if date_counts else None
+
+    def stat_sample(row: list[str]) -> dict:
+        return {
+            "market": int(row[0]) if row[0].isdigit() else None,
+            "code": row[1],
+            "beta60": _stat_float(row[2]),
+            "peTtm": _stat_float(row[3]),
+            "statsDate": row[4],
+            "freeFloatShares10k": _stat_float(row[11]),
+            "yearLimitUpDays": int(row[26]) if row[26].strip().isdigit() else None,
+            "limitUpStreakDays": int(row[33]) if row[33].strip().isdigit() else None,
+        }
+
+    def stat2_sample(row: list[str]) -> dict:
+        return {
+            "market": int(row[0]) if row[0].isdigit() else None,
+            "code": row[1],
+            "statsDate": row[2],
+            "amount10k": _stat_float(row[3]),
+            "sealAmount10k": _stat_float(row[4]),
+            "openAmount10k": _stat_float(row[14]),
+        }
+
+    return {
+        "zipBytes": len(zip_bytes),
+        "zipEntries": len(names),
+        "statCount": len(stat_rows),
+        "stat2Count": len(stat2_rows),
+        "statsDate": stats_date,
+        "statsDateTop": date_counts.most_common(3),
+        "statSamples": [stat_sample(row) for row in stat_rows[:3]],
+        "stat2Samples": [stat2_sample(row) for row in stat2_rows[:3]],
+    }
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1546,6 +1657,67 @@ class Bridge:
         )
         return parse_file_chunk(body, normalized, offset, size)
 
+    def _download_bytes(
+        self,
+        path: str,
+        chunk_size: int = FILE_CHUNK,
+        max_bytes: int = MAX_FILE_BYTES,
+    ) -> tuple[bytes, int]:
+        if chunk_size < 1 or chunk_size > MAX_FILE_CHUNK:
+            raise TdxError("下载块大小必须在 1~60000 字节之间")
+        if max_bytes < 1:
+            raise TdxError("下载上限必须大于 0")
+
+        normalized = path.strip().replace("\\", "/")
+        data = bytearray()
+        offset = 0
+        chunks = 0
+        while True:
+            body = self.conn.request(
+                CMD_FILE_CONTENT, file_content_data(normalized, offset, chunk_size)
+            )
+            chunk = parse_file_chunk(body, normalized, offset, chunk_size)
+            size = chunk["chunkLen"]
+            if len(data) + size > max_bytes:
+                raise TdxError("服务器文件超过下载上限")
+            data.extend(bytes.fromhex(chunk["contentHex"]))
+            chunks += 1
+            if size < chunk_size:
+                break
+            offset += size
+        return bytes(data), chunks
+
+    def file_download(
+        self,
+        path: str,
+        chunk_size: int = FILE_CHUNK,
+        max_bytes: int = MAX_FILE_BYTES,
+    ) -> dict:
+        """完整下载服务器文件并写入原始数据目录。"""
+        data, chunks = self._download_bytes(path, chunk_size, max_bytes)
+        saved = save_raw_file(Path(path).name, data)
+        return {
+            "path": path,
+            "bytes": len(data),
+            "chunks": chunks,
+            "sha256": saved["sha256"],
+            "savedTo": saved["savedTo"],
+        }
+
+    def tdx_stats(self) -> dict:
+        """下载 zhb.zip，保存原始 ZIP，并解析两份 tdxstat CFG 摘要。"""
+        data, chunks = self._download_bytes("zhb.zip")
+        saved = save_raw_file("zhb.zip", data)
+        summary = parse_tdx_stats(data)
+        summary.update(
+            {
+                "chunks": chunks,
+                "sha256": saved["sha256"],
+                "savedTo": saved["savedTo"],
+            }
+        )
+        return summary
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -1709,6 +1881,14 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             offset=int(payload.get("offset", 0)),
             size=int(payload.get("size", FILE_CHUNK)),
         )
+    if cmd == "file_download":
+        return bridge.file_download(
+            payload.get("path", ""),
+            chunk_size=int(payload.get("chunkSize", FILE_CHUNK)),
+            max_bytes=int(payload.get("maxBytes", MAX_FILE_BYTES)),
+        )
+    if cmd == "tdx_stats":
+        return bridge.tdx_stats()
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

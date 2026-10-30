@@ -12,6 +12,7 @@ import type {
   BlockList,
   CategoryQuote,
   F10Section,
+  IndustryList,
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
@@ -164,6 +165,11 @@ const BLOCK_TIMEOUT_MS = 90_000
 /** 0x06b9 下载 block_*.dat 并解析板块成分。 */
 export async function fetchBlocks(kind: BlockKind): Promise<BlockList> {
   return bridge.send<BlockList>('blocks', { kind }, BLOCK_TIMEOUT_MS)
+}
+
+/** tdxhy.cfg + incon.dat 通达信行业分类。 */
+export async function fetchIndustries(): Promise<IndustryList> {
+  return bridge.send<IndustryList>('industries', {}, BLOCK_TIMEOUT_MS)
 }
 
 /* ------------------------------------------------------------------ K 线 */

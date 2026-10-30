@@ -18,6 +18,7 @@ import {
   fetchF10Catalog,
   fetchF10Content,
   fetchFiveDayTrend,
+  fetchIndustries,
   fetchKline,
   fetchMinuteTrend,
   fetchMoneyFlow,
@@ -64,6 +65,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.dataStatsExport, () => fetchTdxStatsExport())
 
   ipcMain.handle(IPC.blockList, (_event, kind: BlockKind) => fetchBlocks(kind))
+
+  ipcMain.handle(IPC.blockIndustries, () => fetchIndustries())
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {
     poller.setSubscription(codes, intervalMs)

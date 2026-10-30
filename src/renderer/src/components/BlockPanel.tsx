@@ -4,7 +4,7 @@
  * 左栏是板块名，右栏是成分股；成分股行情用批量快照补齐，点击行切到主行情。
  */
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
-import type { BlockGroup, BlockKind, BlockList, Quote } from '@shared/types'
+import type { BlockGroup, BlockKind, BlockList, IndustryList, Quote } from '@shared/types'
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -14,7 +14,10 @@ interface BlockPanelProps {
   onSelect: (quote: Quote) => void
 }
 
-const TABS: Array<{ kind: BlockKind; label: string }> = [
+type BlockTabKind = BlockKind | 'industry'
+
+const TABS: Array<{ kind: BlockTabKind; label: string }> = [
+  { kind: 'industry', label: '行业' },
   { kind: 'gn', label: '概念' },
   { kind: 'fg', label: '风格' },
   { kind: 'zs', label: '指数' },
@@ -25,8 +28,8 @@ const QUOTE_LIMIT = 400
 const QUOTE_CHUNK = 80
 
 export function BlockPanel(props: BlockPanelProps): JSX.Element {
-  const [kind, setKind] = createSignal<BlockKind>('gn')
-  const [list, setList] = createSignal<BlockList | null>(null)
+  const [kind, setKind] = createSignal<BlockTabKind>('industry')
+  const [list, setList] = createSignal<BlockList | IndustryList | null>(null)
   const [selected, setSelected] = createSignal<BlockGroup | null>(null)
   const [quotes, setQuotes] = createSignal<Quote[]>([])
   const [filter, setFilter] = createSignal('')
@@ -67,14 +70,15 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
     }
   }
 
-  const load = async (nextKind: BlockKind): Promise<void> => {
+  const load = async (nextKind: BlockTabKind): Promise<void> => {
     const current = ++requestId
     setLoading(true)
     setError(null)
     setSelected(null)
     setQuotes([])
     try {
-      const data = await api.block.list(nextKind)
+      const data =
+        nextKind === 'industry' ? await api.block.industries() : await api.block.list(nextKind)
       if (current !== requestId) return
       setList(data)
       const first = data.blocks[0]
@@ -103,7 +107,9 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
       >
         <header class="block__head">
           <div>
-            <div class="block__eyebrow">0x06b9 · block_*.dat</div>
+            <div class="block__eyebrow">
+              {kind() === 'industry' ? 'tdxhy.cfg + incon.dat' : '0x06b9 · block_*.dat'}
+            </div>
             <h2 class="block__title">板块 / 概念</h2>
           </div>
           <button class="btn btn--icon btn--bare" title="关闭板块" onClick={() => props.onClose()}>

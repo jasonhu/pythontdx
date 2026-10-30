@@ -322,6 +322,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.blocks(payload.get("kind", "gn")))
                 return
+            if parsed.path == "/api/industries":
+                with self.server.lock:
+                    self._ok(self.server.bridge.industries())
+                return
             self._error(HTTPStatus.NOT_FOUND, f"未知路径：{parsed.path}")
         except (TdxError, ValueError, TypeError) as error:
             self._error(HTTPStatus.BAD_REQUEST, str(error))

@@ -1712,6 +1712,49 @@ def parse_block_dat(data: bytes, kind: str) -> list[dict]:
     return blocks
 
 
+def parse_incon_sections(text: str) -> dict[str, list[tuple[str, str]]]:
+    """解析 incon.dat 的 `#SECTION` + `code|name` 段。"""
+    sections: dict[str, list[tuple[str, str]]] = {}
+    current: str | None = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("######"):
+            current = None
+            continue
+        if line.startswith("#"):
+            current = line[1:].strip()
+            sections.setdefault(current, [])
+            continue
+        if current and "|" in line:
+            code, name = line.split("|", 1)
+            if code.strip() and name.strip():
+                sections[current].append((code.strip(), name.strip()))
+    return sections
+
+
+def parse_tdxhy(text: str) -> list[dict]:
+    """解析 tdxhy.cfg：market|symbol|TDX行业|…|TDXRSHY。"""
+    rows: list[dict] = []
+    for raw in text.splitlines():
+        parts = raw.strip().split("|")
+        if len(parts) < 3:
+            continue
+        market, symbol, tdx_code = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        if not symbol or not tdx_code:
+            continue
+        rows.append(
+            {
+                "market": market,
+                "symbol": symbol,
+                "tdxCode": tdx_code,
+                "rsCode": parts[5].strip() if len(parts) > 5 else "",
+            }
+        )
+    return rows
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1977,6 +2020,7 @@ class Bridge:
         self.index = CodeIndex()
         self.finance_cache: dict[str, tuple[float, dict]] = {}
         self.block_cache: dict[str, tuple[float, dict]] = {}
+        self.industry_cache: tuple[float, dict] | None = None
 
     def close(self) -> None:
         self.conn.close()
@@ -2352,6 +2396,79 @@ class Bridge:
         self.block_cache[kind] = (time.time() + 600, result)
         return result
 
+    def industries(self) -> dict:
+        """用 tdxhy.cfg + incon.dat 生成通达信行业分类与成分股。"""
+        if self.industry_cache and self.industry_cache[0] > time.time():
+            return self.industry_cache[1]
+
+        cfg_bytes, chunks = self._download_bytes("tdxhy.cfg")
+        cfg_saved = save_raw_file("tdxhy.cfg", cfg_bytes)
+        zhb_bytes, zhb_chunks = self._download_bytes("zhb.zip")
+        zhb_saved = save_raw_file("zhb.zip", zhb_bytes)
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(zhb_bytes))
+            if "incon.dat" not in archive.namelist():
+                raise TdxError("zhb.zip 缺少 incon.dat")
+            incon = archive.read("incon.dat").decode("gbk", "replace")
+        except zipfile.BadZipFile as error:
+            raise TdxError("zhb.zip 不是合法 ZIP") from error
+
+        names = dict(parse_incon_sections(incon).get("TDXNHY", []))
+        self.index.ensure(self.conn)
+        by_symbol: dict[str, list[dict]] = {}
+        for item in self.index.all:
+            by_symbol.setdefault(item["symbol"], []).append(item)
+
+        groups: dict[str, dict] = {}
+        for row in parse_tdxhy(cfg_bytes.decode("gbk", "replace")):
+            symbol = row["symbol"]
+            candidates = by_symbol.get(symbol, [])
+            chosen = next(
+                (item for item in candidates if item.get("kind") == "GP-A"),
+                candidates[0] if candidates else None,
+            )
+            if chosen:
+                code, name = chosen["code"], chosen.get("name") or symbol
+            elif symbol.startswith("6"):
+                code, name = f"sh{symbol}", symbol
+            elif symbol.startswith(("0", "3")):
+                code, name = f"sz{symbol}", symbol
+            else:
+                code, name = f"bj{symbol}", symbol
+            group = groups.setdefault(
+                row["tdxCode"],
+                {
+                    "id": f"industry-{row['tdxCode']}",
+                    "name": names.get(row["tdxCode"], row["tdxCode"]),
+                    "kind": "industry",
+                    "count": 0,
+                    "codes": [],
+                    "names": {},
+                },
+            )
+            if code not in group["codes"]:
+                group["codes"].append(code)
+                group["names"][code] = name
+                group["count"] = len(group["codes"])
+
+        blocks = list(groups.values())
+        result = {
+            "kind": "industry",
+            "label": "行业",
+            "file": "tdxhy.cfg",
+            "bytes": len(cfg_bytes),
+            "chunks": chunks,
+            "sha256": cfg_saved["sha256"],
+            "savedTo": cfg_saved["savedTo"],
+            "inconFrom": zhb_saved["savedTo"],
+            "zhbChunks": zhb_chunks,
+            "blockCount": len(blocks),
+            "codeCount": sum(len(group["codes"]) for group in blocks),
+            "blocks": blocks,
+        }
+        self.industry_cache = (time.time() + 600, result)
+        return result
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -2527,6 +2644,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.tdx_stats_export()
     if cmd == "blocks":
         return bridge.blocks(str(payload.get("kind") or "gn"))
+    if cmd == "industries":
+        return bridge.industries()
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

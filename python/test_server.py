@@ -47,6 +47,9 @@ class FakeBridge:
     def blocks(self, kind):
         return {"kind": kind, "blockCount": 1, "blocks": [{"name": "测试板块"}]}
 
+    def industries(self):
+        return {"kind": "industry", "blockCount": 1, "blocks": [{"name": "银行"}]}
+
 
 class TestHttpApi(unittest.TestCase):
     def setUp(self):
@@ -109,6 +112,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/blocks", {"kind": "gn"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["blocks"][0]["name"], "测试板块")
+        status, payload, _ = self.request("POST", "/api/industries", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["blocks"][0]["name"], "银行")
 
     def test_bad_json(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)

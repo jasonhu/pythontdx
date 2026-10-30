@@ -365,6 +365,25 @@ class TestBlocks(unittest.TestCase):
         self.assertEqual(blocks[0]["codes"][0], "000408")
 
 
+class TestIndustry(unittest.TestCase):
+    def test_parse_incon_sections(self):
+        text = "#TDXNHY\nT01|能源\nT0101|煤炭\n######\n#SWHY\n110000|农业\n######\n"
+        sections = tdx.parse_incon_sections(text)
+        self.assertEqual(sections["TDXNHY"][0], ("T01", "能源"))
+        self.assertEqual(sections["TDXNHY"][1], ("T0101", "煤炭"))
+        self.assertEqual(sections["SWHY"][0], ("110000", "农业"))
+
+    def test_parse_tdxhy(self):
+        rows = tdx.parse_tdxhy(
+            "0|000001|T1001|||X500102\n1|600519|T020301|||X3201\n#comment\n"
+        )
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["symbol"], "000001")
+        self.assertEqual(rows[0]["tdxCode"], "T1001")
+        self.assertEqual(rows[0]["rsCode"], "X500102")
+        self.assertEqual(rows[1]["tdxCode"], "T020301")
+
+
 class TestMoneyFlow(unittest.TestCase):
     def test_money_flow_request(self):
         data = tdx.money_flow_data(1, "600519")

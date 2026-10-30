@@ -48,7 +48,8 @@ const api: StockLensApi = {
     statsExport: () => ipcRenderer.invoke(IPC.dataStatsExport)
   },
   block: {
-    list: (kind) => ipcRenderer.invoke(IPC.blockList, kind)
+    list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),
+    industries: () => ipcRenderer.invoke(IPC.blockIndustries)
   },
   trend: {
     minute: (code) => ipcRenderer.invoke(IPC.trendMinute, code),

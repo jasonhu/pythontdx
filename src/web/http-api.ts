@@ -12,6 +12,7 @@ import type {
   BlockList,
   CategoryQuote,
   F10Section,
+  IndustryList,
   KLineSeries,
   MinuteTrend,
   MoneyFlowRecord,
@@ -222,7 +223,8 @@ export function createHttpApi(): StockLensApi {
       statsExport: () => post<TdxStatsExport>('/api/stats_export', {})
     },
     block: {
-      list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind })
+      list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),
+      industries: () => post<IndustryList>('/api/industries', {})
     },
     trend: {
       minute: (code) => request<MinuteTrend>(`/api/minute?code=${encodeURIComponent(code)}`),

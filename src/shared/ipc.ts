@@ -12,6 +12,7 @@ import type {
   BlockList,
   CategoryQuote,
   F10Section,
+  IndustryList,
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
@@ -54,6 +55,8 @@ export const IPC = {
   dataStatsExport: 'data:stats-export',
   /** 板块列表/成分（invoke） */
   blockList: 'block:list',
+  /** 行业分类/成分（invoke） */
+  blockIndustries: 'block:industries',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -150,6 +153,8 @@ export interface StockLensApi {
   block: {
     /** 0x06b9 下载并解析 block_*.dat */
     list(kind: BlockKind): Promise<BlockList>
+    /** tdxhy.cfg + incon.dat 行业分类 */
+    industries(): Promise<IndustryList>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

@@ -243,7 +243,7 @@ export type BlockKind = 'gn' | 'fg' | 'zs' | 'general'
 export interface BlockGroup {
   id: string
   name: string
-  kind: BlockKind
+  kind: BlockKind | 'industry'
   /** 文件里记录的股票数（含未解析的代码） */
   count: number
   /** 已解析成带市场前缀的代码 */
@@ -260,6 +260,22 @@ export interface BlockList {
   chunks: number
   sha256: string
   savedTo: string
+  blockCount: number
+  codeCount: number
+  blocks: BlockGroup[]
+}
+
+export interface IndustryList {
+  kind: 'industry'
+  label: string
+  file: string
+  bytes: number
+  chunks: number
+  sha256: string
+  savedTo: string
+  /** incon.dat 在 zhb.zip 内的原始保存路径 */
+  inconFrom: string
+  zhbChunks: number
   blockCount: number
   codeCount: number
   blocks: BlockGroup[]

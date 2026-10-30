@@ -114,7 +114,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const outputPath = (): string => {
     const source = localPath().trim()
     if (!source) return ''
-    return `${source.replace(/\.[^.\\/]+$/, '')}.out.day`
+    const match = source.match(/\.[^.\\/]+$/)
+    if (!match) return `${source}.out.day`
+    return `${source.slice(0, -match[0].length)}.out${match[0].toLowerCase()}`
   }
 
   const runLocalWrite = async (): Promise<void> => {
@@ -123,7 +125,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setWriteLoading(true)
     setWriteError(null)
     try {
-      setWriteResult(await api.data.localDayWrite(outputPath(), data.bars))
+      const target = outputPath()
+      setWriteResult(
+        target.toLowerCase().endsWith('.day')
+          ? await api.data.localDayWrite(target, data.bars)
+          : await api.data.localMinWrite(target, data.bars)
+      )
     } catch (cause) {
       setWriteError(errorMessage(cause))
     } finally {
@@ -438,7 +445,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
           <section class="data__local">
             <div class="data__query-head">
               <div>
-                <strong>本地行情文件</strong>
+                <strong>本地行情文件（读/写）</strong>
                 <span>.day / .lc1 / .lc5 / .5；只读，成交量按手换算，最多 500 根</span>
               </div>
               <button
@@ -479,7 +486,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                       disabled={writeLoading()}
                       onClick={() => void runLocalWrite()}
                     >
-                      {writeLoading() ? '写入中…' : '写回 .day'}
+                      {writeLoading() ? '写入中…' : '写回文件'}
                     </button>
                   </div>
                   <div class="data__query-table-wrap">

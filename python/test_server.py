@@ -67,6 +67,9 @@ class FakeBridge:
     def f10_news(self, code):
         return [{"id": "1", "title": "新闻"}]
 
+    def local_min_write(self, path, bars):
+        return {"path": path, "count": len(bars)}
+
     def local_day_write(self, path, bars):
         return {"path": path, "count": len(bars)}
 
@@ -275,6 +278,11 @@ class TestHttpApi(unittest.TestCase):
         self.assertEqual(payload["result"]["rowCount"], 1)
         status, payload, _ = self.request(
             "POST", "/api/local_write", {"path": "/tmp/a.day", "bars": [{"date": "2026-01-01"}]}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["count"], 1)
+        status, payload, _ = self.request(
+            "POST", "/api/local_write_min", {"path": "/tmp/a.lc1", "bars": [{"date": "2026-01-01 09:30"}]}
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["count"], 1)

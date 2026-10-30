@@ -321,7 +321,9 @@ export function createHttpApi(): StockLensApi {
       localDay: (path, limit) => post<LocalDayResult>('/api/local_day', { path, limit }),
       localImport: (path) => post<LocalImportResult>('/api/local_import', { path }),
       localQuery: (sql, limit) => post<StatsQueryResult>('/api/local_query', { sql, limit }),
-      localDayWrite: (path, bars) => post<LocalDayWriteResult>('/api/local_write', { path, bars })
+      localDayWrite: (path, bars) => post<LocalDayWriteResult>('/api/local_write', { path, bars }),
+      localMinWrite: (path, bars) =>
+        post<LocalDayWriteResult>('/api/local_write_min', { path, bars })
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

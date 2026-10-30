@@ -284,6 +284,13 @@ export async function writeLocalDay(
   return bridge.send<LocalDayWriteResult>('local_day_write', { path, bars }, 20_000)
 }
 
+export async function writeLocalMin(
+  path: string,
+  bars: LocalDayBar[]
+): Promise<LocalDayWriteResult> {
+  return bridge.send<LocalDayWriteResult>('local_min_write', { path, bars }, 20_000)
+}
+
 export async function fetchLocalQuery(sql: string, limit = 200): Promise<StatsQueryResult> {
   return bridge.send<StatsQueryResult>('local_query', { sql, limit }, 20_000)
 }

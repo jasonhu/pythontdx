@@ -66,7 +66,8 @@ const api: StockLensApi = {
     localDay: (path, limit) => ipcRenderer.invoke(IPC.localDayRead, path, limit),
     localImport: (path) => ipcRenderer.invoke(IPC.localImport, path),
     localQuery: (sql, limit) => ipcRenderer.invoke(IPC.localQuery, sql, limit),
-    localDayWrite: (path, bars) => ipcRenderer.invoke(IPC.localDayWrite, path, bars)
+    localDayWrite: (path, bars) => ipcRenderer.invoke(IPC.localDayWrite, path, bars),
+    localMinWrite: (path, bars) => ipcRenderer.invoke(IPC.localMinWrite, path, bars)
   },
   block: {
     list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),

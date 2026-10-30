@@ -155,3 +155,53 @@ def write_day_file(path: str, bars: list[dict]) -> dict:
     temporary.replace(file)
     return {"path": str(file.resolve()), "count": len(records)}
 
+
+
+def _encode_date(date_text: str) -> int:
+    value = date_text[:10]
+    year, month, day = int(value[:4]), int(value[5:7]), int(value[8:10])
+    return (year - 2004) * 2048 + month * 100 + day
+
+
+def write_min_file(path: str, bars: list[dict]) -> dict:
+    """写 .lc1/.lc5（float32）或 .5（整数分），原子替换。"""
+    file = Path(path).expanduser()
+    suffix = file.suffix.lower()
+    if suffix not in {".lc1", ".lc5", ".5"}:
+        raise LocalDayError("输出文件必须使用 .lc1/.lc5/.5 扩展名")
+    if not bars:
+        raise LocalDayError("没有可写入的分钟线")
+    records = []
+    for bar in bars:
+        date_text = str(bar["date"])
+        clock = date_text[11:16] if len(date_text) >= 16 else "09:30"
+        try:
+            hour, minute = int(clock[:2]), int(clock[3:5])
+        except ValueError as error:
+            raise LocalDayError(f"非法时间：{bar['date']}") from error
+        date_num = _encode_date(date_text)
+        time_num = hour * 60 + minute
+        op, hi, lo, cl = (float(bar[key]) for key in ("open", "high", "low", "close"))
+        amount = float(bar.get("amount", 0))
+        volume = int(round(float(bar.get("volume", 0)) * 100))
+        if suffix == ".5":
+            records.append(
+                MIN_5.pack(
+                    date_num,
+                    time_num,
+                    int(round(op * 100)),
+                    int(round(hi * 100)),
+                    int(round(lo * 100)),
+                    int(round(cl * 100)),
+                    amount,
+                    volume,
+                    0,
+                )
+            )
+        else:
+            records.append(MIN_LC.pack(date_num, time_num, op, hi, lo, cl, amount, volume, 0))
+    file.parent.mkdir(parents=True, exist_ok=True)
+    temporary = file.with_suffix(".tmp")
+    temporary.write_bytes(b"".join(records))
+    temporary.replace(file)
+    return {"path": str(file.resolve()), "count": len(records)}

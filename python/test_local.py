@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tdx_local import LocalDayError, read_day_file, read_local_file, write_day_file
+from tdx_local import LocalDayError, read_day_file, read_local_file, write_day_file, write_min_file
 
 
 class TestLocalDay(unittest.TestCase):
@@ -41,6 +41,19 @@ class TestLocalDay(unittest.TestCase):
             result = write_day_file(str(path), bars)
             self.assertEqual(result["count"], 2)
             loaded = read_day_file(str(path))
+            self.assertEqual(loaded["count"], 2)
+            self.assertEqual(loaded["bars"][1]["close"], 10.5)
+            self.assertEqual(loaded["bars"][1]["volume"], 200)
+
+    def test_write_lc1_roundtrip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "out.lc1"
+            bars = [
+                {"date": "2026-10-30 09:30", "open": 10.0, "high": 10.5, "low": 9.8, "close": 10.2, "amount": 1000.0, "volume": 100},
+                {"date": "2026-10-30 09:31", "open": 10.2, "high": 10.6, "low": 10.1, "close": 10.5, "amount": 2000.0, "volume": 200},
+            ]
+            self.assertEqual(write_min_file(str(path), bars)["count"], 2)
+            loaded = read_local_file(str(path))
             self.assertEqual(loaded["count"], 2)
             self.assertEqual(loaded["bars"][1]["close"], 10.5)
             self.assertEqual(loaded["bars"][1]["volume"], 200)

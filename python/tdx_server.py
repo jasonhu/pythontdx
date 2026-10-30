@@ -476,6 +476,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/local_write_min":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.local_min_write(
+                            str(payload.get("path") or ""), payload.get("bars") or []
+                        )
+                    )
+                return
             if parsed.path == "/api/local_write":
                 with self.server.lock:
                     self._ok(

@@ -3708,3 +3708,48 @@
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
 }
+
+.trading-sections {
+  display: flex;
+  gap: 4px;
+  padding: 8px 24px 4px;
+}
+
+.trading-section {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.trading-section[data-active='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.trading-table td,
+.trading-table th {
+  white-space: nowrap;
+  font-size: var(--fs-2xs);
+}
+
+.trading-table {
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.trading-table th,
+.trading-table td {
+  padding: 3px 9px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.trading-table th {
+  color: var(--text-3);
+  font-weight: 500;
+}

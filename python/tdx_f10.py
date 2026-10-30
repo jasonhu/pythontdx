@@ -439,6 +439,60 @@ def fetch_profile(code: str) -> dict:
     return parse_profile_payload(payload)
 
 
+def parse_news_payload(payload: dict) -> list[dict]:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    result_sets = payload.get("ResultSets") or []
+    if not result_sets:
+        return []
+    table = result_sets[0]
+    columns = table.get("ColName") or []
+    rows: list[dict] = []
+    for values in table.get("Content") or []:
+        row = dict(zip(columns, values))
+        rows.append(
+            {
+                "id": str(row.get("rec_id") or ""),
+                "date": str(row.get("issue_date") or "")[:16],
+                "title": str(row.get("title") or ""),
+                "source": str(row.get("source") or ""),
+            }
+        )
+    return rows
+
+
+def fetch_news(code: str) -> list[dict]:
+    market, symbol = _market_of(code)
+    body = {
+        "action": "get",
+        "key": f"xw:{market}_{symbol}",
+        "bin": "1",
+        "qsid": "tdx",
+    }
+    request = Request(
+        f"{TQLEX_URL}?Entry=CWSearch.tzx_rcache",
+        data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "StockLens/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=12) as response:
+            raw = response.read()
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise F10Error(f"7615 新闻请求失败：{error}") from error
+    try:
+        parsed = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise F10Error("7615 新闻返回非 JSON") from error
+    if not isinstance(parsed, dict):
+        raise F10Error("7615 新闻返回结构异常")
+    return parse_news_payload(parsed)
+
+
 def fetch_announcements(code: str) -> list[dict]:
     market, symbol = _market_of(code)
     body = {

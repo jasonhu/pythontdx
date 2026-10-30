@@ -4,7 +4,7 @@
  * 只调用免费 HTTP 网关；公告详情交系统浏览器，不抓取研报正文，也不绕过授权。
  */
 import { createSignal, For, Match, onCleanup, onMount, Show, Switch, type JSX } from 'solid-js'
-import type { F10Announcement, F10ProfileTable } from '@shared/types'
+import type { F10Announcement, F10NewsItem, F10ProfileTable } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -23,6 +23,7 @@ type OnlineTab =
   | 'shareholders'
   | 'reports'
   | 'statement'
+  | 'news'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -52,6 +53,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [statementLoading, setStatementLoading] = createSignal(true)
   const [statementError, setStatementError] = createSignal<string | null>(null)
   const [statementFull, setStatementFull] = createSignal(false)
+  const [news, setNews] = createSignal<F10NewsItem[]>([])
+  const [newsLoading, setNewsLoading] = createSignal(true)
+  const [newsError, setNewsError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -155,6 +159,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadNews = async (): Promise<void> => {
+    setNewsLoading(true)
+    setNewsError(null)
+    try {
+      setNews(await api.f10.news(props.code))
+    } catch (cause) {
+      setNewsError(errorMessage(cause))
+    } finally {
+      setNewsLoading(false)
+    }
+  }
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -169,6 +185,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadShareholders()
     void loadReports()
     void loadStatement('zcfzb')
+    void loadNews()
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -255,6 +272,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('statement')}
           >
             报表
+          </button>
+          <button
+            class="online-tab online-news-tab"
+            data-active={tab() === 'news'}
+            onClick={() => setTab('news')}
+          >
+            新闻
           </button>
         </div>
 
@@ -604,6 +628,43 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                         </div>
                       </>
                     )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'news'}>
+              <Show
+                when={!newsLoading()}
+                fallback={<div class="announcements__empty">加载新闻…</div>}
+              >
+                <Show
+                  when={!newsError()}
+                  fallback={<div class="announcements__error">{newsError()}</div>}
+                >
+                  <Show
+                    when={news().length > 0}
+                    fallback={<div class="announcements__empty">暂无新闻</div>}
+                  >
+                    <div class="announcements__meta">共 {news().length} 条</div>
+                    <div class="announcements__list">
+                      <div class="announcement-row announcement-row--head">
+                        <span>时间</span>
+                        <span>标题</span>
+                        <span>来源</span>
+                        <span />
+                      </div>
+                      <For each={news()}>
+                        {(row) => (
+                          <div class="announcement-row">
+                            <span class="announcement-row__date num">{row.date}</span>
+                            <span class="announcement-row__title">{row.title}</span>
+                            <span class="announcement-row__source">{row.source}</span>
+                            <span />
+                          </div>
+                        )}
+                      </For>
+                    </div>
                   </Show>
                 </Show>
               </Show>

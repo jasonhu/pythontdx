@@ -64,6 +64,9 @@ class FakeBridge:
     def f10_reports(self, code):
         return {"columns": ["标题"], "rows": [["点评标题"]]}
 
+    def f10_news(self, code):
+        return [{"id": "1", "title": "新闻"}]
+
     def f10_statement(self, code, kind, full=False):
         return {"columns": ["报告期"], "rows": [["2026-09-30"]], "full": full}
 
@@ -214,6 +217,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/f10_reports", {"code": "sz000001"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["点评标题"]])
+        status, payload, _ = self.request("POST", "/api/f10_news", {"code": "sz000001"})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"][0]["title"], "新闻")
         status, payload, _ = self.request("POST", "/api/f10_statement", {"code": "sz000001", "kind": "zcfzb"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["2026-09-30"]])

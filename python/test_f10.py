@@ -143,6 +143,20 @@ class TestF10Announcements(unittest.TestCase):
         self.assertTrue(table["full"])
         self.assertEqual(table["columns"], ["rq", "T048", "T083"])
 
+    def test_parse_news(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["issue_date", "title", "rec_id", "source"],
+                    "Content": [["2026-10-29 21:56:27", "茅台新闻", "1", "证券时报"]],
+                }
+            ],
+        }
+        rows = tdx_f10.parse_news_payload(payload)
+        self.assertEqual(rows[0]["date"], "2026-10-29 21:56")
+        self.assertEqual(rows[0]["source"], "证券时报")
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

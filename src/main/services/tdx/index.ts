@@ -12,6 +12,7 @@ import type {
   BlockList,
   CategoryQuote,
   F10Announcement,
+  F10NewsItem,
   F10ProfileTable,
   FormulaScreenRequest,
   FormulaScreenResult,
@@ -183,6 +184,10 @@ export async function fetchF10Shareholders(code: string): Promise<F10ProfileTabl
 
 export async function fetchF10Reports(code: string): Promise<F10ProfileTable> {
   return bridge.send<F10ProfileTable>('f10_reports', { code }, 20_000)
+}
+
+export async function fetchF10News(code: string): Promise<F10NewsItem[]> {
+  return bridge.send<F10NewsItem[]>('f10_news', { code }, 20_000)
 }
 
 export async function fetchF10Statement(

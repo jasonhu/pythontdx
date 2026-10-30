@@ -24,6 +24,7 @@ import {
   fetchDuckQuery,
   fetchF10Announcements,
   fetchF10Business,
+  fetchF10News,
   fetchF10Reports,
   fetchF10Statement,
   fetchFormulaScreen,
@@ -93,6 +94,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.f10Shareholders, (_event, code: string) => fetchF10Shareholders(code))
 
   ipcMain.handle(IPC.f10Reports, (_event, code: string) => fetchF10Reports(code))
+
+  ipcMain.handle(IPC.f10News, (_event, code: string) => fetchF10News(code))
 
   ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>
     fetchF10Statement(code, kind, full)

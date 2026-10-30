@@ -241,6 +241,13 @@ export interface F10ProfileTable {
   full?: boolean
 }
 
+export interface F10NewsItem {
+  id: string
+  date: string
+  title: string
+  source: string
+}
+
 export interface F10Announcement {
   id: string
   date: string

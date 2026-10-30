@@ -65,6 +65,7 @@ StockLens 的所有重要变更都记录在这里。
 - **专注模式**：F 切换、Esc 退出，隐藏左右栏让图表占满；截图 `focus-mode.png`。
 - **窗口位置记忆**：第二主窗口、独立 K 线窗口分别持久化 bounds（主窗口原逻辑不变）。
 - **下载落盘**：主进程 will-download 显式写入系统下载目录，实存全市场 CSV（5,615 行/557 KB）。
+- **1024 宽复核**：F10 17 页签自动换行，scrollWidth=clientWidth=961。
 - **Web 写操作验证**：`state.patch` 实测新增分组并落 localStorage（2→3 组），非只读。
 - **Web 截图验收**：`scripts/web-shot.cjs` + `npm run shot:web`，1440×900 实拍 Web 只读页。
 - **选股股票池**：选股结果一键存为新自选分组（100 只），截图 `screener-pool.png`。
@@ -163,6 +164,7 @@ StockLens 的所有重要变更都记录在这里。
 - **专注模式**：F 切换、Esc 退出，隐藏左右栏让图表占满；截图 `focus-mode.png`。
 - **窗口位置记忆**：第二主窗口、独立 K 线窗口分别持久化 bounds（主窗口原逻辑不变）。
 - **下载落盘**：主进程 will-download 显式写入系统下载目录，实存全市场 CSV（5,615 行/557 KB）。
+- **1024 宽复核**：F10 17 页签自动换行，scrollWidth=clientWidth=961。
 - **Web 写操作验证**：`state.patch` 实测新增分组并落 localStorage（2→3 组），非只读。
 - **Web 截图验收**：`scripts/web-shot.cjs` + `npm run shot:web`，1440×900 实拍 Web 只读页。
 - **选股股票池**：选股结果一键存为新自选分组（100 只），截图 `screener-pool.png`。

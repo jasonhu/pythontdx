@@ -12,7 +12,7 @@ import {
   type FormulaBacktest,
   type FormulaResult
 } from '@shared/formula'
-import { appState, removeFormula, saveFormula } from '../stores/app'
+import { activeItems, appState, removeFormula, saveFormula } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -20,6 +20,7 @@ interface FormulaPanelProps {
   code: string
   name: string
   onClose: () => void
+  onSelect: (code: string) => void
 }
 
 const EXAMPLES = [
@@ -59,6 +60,12 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
   const [backtest, setBacktest] = createSignal<FormulaBacktest | null>(null)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+  const [scanning, setScanning] = createSignal(false)
+  const [scanResults, setScanResults] = createSignal<
+    Array<{ code: string; name: string; latest: number }>
+  >([])
+  const [scanError, setScanError] = createSignal<string | null>(null)
+  const [scanned, setScanned] = createSignal(false)
   let requestId = 0
 
   const calculate = (data: KLineBar[]): void => {
@@ -82,6 +89,33 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
     if (!expression().trim()) return
     saveFormula(formulaName(), expression())
     setFormulaName('')
+  }
+
+  const scanWatchlist = async (): Promise<void> => {
+    if (scanning()) return
+    setScanning(true)
+    setScanError(null)
+    setScanned(false)
+    const matches: Array<{ code: string; name: string; latest: number }> = []
+    try {
+      for (const item of activeItems().slice(0, 20)) {
+        try {
+          const series = await api.trend.kline({ code: item.code, period: 'day', count: 120 })
+          const evaluated = evaluateFormula(expression(), series.bars)
+          if (evaluated.latest !== null && evaluated.latest > 0) {
+            matches.push({ code: item.code, name: item.name, latest: evaluated.latest })
+          }
+        } catch {
+          // 单只失败不影响其余自选
+        }
+      }
+      setScanResults(matches)
+      setScanned(true)
+    } catch (cause) {
+      setScanError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setScanning(false)
+    }
   }
 
   const load = async (): Promise<void> => {
@@ -194,10 +228,37 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
             value={formulaName()}
             onInput={(event) => setFormulaName(event.currentTarget.value)}
           />
+          <button
+            class="btn formula__scan"
+            disabled={scanning() || loading()}
+            onClick={() => void scanWatchlist()}
+          >
+            {scanning() ? '筛选中…' : '筛选自选'}
+          </button>
           <button class="btn formula__save" onClick={save}>
             保存公式
           </button>
         </div>
+
+        <Show when={scanError()}>{(message) => <div class="formula__error">{message()}</div>}</Show>
+        <Show when={scanned()}>
+          <div class="formula__matches">
+            <span>自选池匹配 {scanResults().length} 只</span>
+            <For each={scanResults()}>
+              {(match) => (
+                <button
+                  class="formula__match"
+                  onClick={() => {
+                    props.onSelect(match.code)
+                    props.onClose()
+                  }}
+                >
+                  {match.name} <code>{match.code.toUpperCase()}</code> {fixed(match.latest)}
+                </button>
+              )}
+            </For>
+          </div>
+        </Show>
 
         <Show when={appState.formulas.length > 0}>
           <div class="formula__saved">

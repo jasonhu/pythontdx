@@ -269,6 +269,10 @@ export default function App(): JSX.Element {
             code={quote().code}
             name={quote().name}
             onClose={() => setFormulaOpen(false)}
+            onSelect={(code) => {
+              setActiveCode(code)
+              setFormulaOpen(false)
+            }}
           />
         )}
       </Show>

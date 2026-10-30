@@ -2753,6 +2753,36 @@
   font-size: 14px;
 }
 
+.formula__matches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 24px 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.formula__match {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  color: var(--text-2);
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.formula__match:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.formula__match code {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
 .formula__saved-delete:hover {
   color: var(--down);
   background: var(--down-soft);

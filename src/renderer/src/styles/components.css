@@ -3557,3 +3557,23 @@
 .indicator-subchart__axis {
   stroke: var(--border);
 }
+
+.formula__portfolio-curve {
+  flex: 1 1 100%;
+  width: 100%;
+  height: 56px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.formula__portfolio {
+  flex-wrap: wrap;
+}
+
+.formula__portfolio .formula__portfolio-curve {
+  display: block;
+  flex: 1 1 100%;
+  width: 100%;
+  height: 64px;
+  margin-top: 2px;
+}

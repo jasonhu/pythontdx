@@ -79,6 +79,7 @@ describe('evaluateFormula', () => {
     expect(result.days).toBe(2)
     expect(result.strategyReturn).toBeGreaterThan(0)
     expect(result.trades).toBe(2)
+    expect(result.curve).toHaveLength(result.days + 1)
     expect(result.maxDrawdown).toBeGreaterThanOrEqual(0)
   })
 

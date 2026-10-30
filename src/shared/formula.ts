@@ -400,6 +400,7 @@ export interface FormulaPortfolioBacktest {
   days: number
   stocks: number
   trades: number
+  curve: number[]
 }
 
 /**
@@ -448,12 +449,14 @@ export function backtestPortfolio(
   let equity = initial
   let peak = initial
   let maxDrawdown = 0
+  const curve: number[] = [initial]
   const dates = [...daily.keys()].sort()
   for (const date of dates) {
     const returns = daily.get(date) ?? []
     if (returns.length === 0) continue
     const average = returns.reduce((sum, value) => sum + value, 0) / returns.length
     equity *= 1 + average
+    curve.push(equity)
     peak = Math.max(peak, equity)
     maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - equity) / peak : 0)
   }
@@ -465,6 +468,7 @@ export function backtestPortfolio(
     maxDrawdown: maxDrawdown * 100,
     days: dates.length,
     stocks,
-    trades
+    trades,
+    curve
   }
 }

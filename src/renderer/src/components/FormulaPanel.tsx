@@ -90,6 +90,12 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
     calculate(bars())
   }
 
+  const portfolioCurve = createMemo(() => {
+    const curve = portfolio()?.curve ?? []
+    if (curve.length < 2) return ''
+    return linePath(curve, Math.min(...curve), Math.max(...curve))
+  })
+
   const runPortfolio = async (): Promise<void> => {
     if (portfolioLoading()) return
     setPortfolioLoading(true)
@@ -408,6 +414,13 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
               <span>
                 {data().stocks} 只 · {data().days} 天 · {data().trades} 次调仓
               </span>
+              <svg
+                class="formula__portfolio-curve"
+                viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+                preserveAspectRatio="none"
+              >
+                <path d={portfolioCurve()} fill="none" stroke="var(--accent)" stroke-width="2" />
+              </svg>
             </div>
           )}
         </Show>

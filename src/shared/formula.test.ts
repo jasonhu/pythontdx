@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { evaluateFormula, FormulaError } from './formula'
+import { backtestFormula, evaluateFormula, FormulaError } from './formula'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -37,6 +37,17 @@ describe('evaluateFormula', () => {
   it('CROSS 只在穿越那根为 1', () => {
     const cross = evaluateFormula('CROSS(CLOSE,2.5)', bars([1, 2, 3, 2, 4]))
     expect(cross.values).toEqual([0, 0, 1, 0, 1])
+  })
+
+  it('回测按上一根信号成交并计算收益/回撤', () => {
+    const data = bars([10, 11, 12, 11])
+    const result = evaluateFormula('CLOSE', data)
+    const backtest = backtestFormula(result, data)
+    expect(backtest.trades).toBe(1)
+    expect(backtest.strategyReturn).toBeGreaterThan(0)
+    expect(backtest.holdReturn).toBeGreaterThan(0)
+    expect(backtest.maxDrawdown).toBeGreaterThanOrEqual(0)
+    expect(backtest.equity).toHaveLength(data.length)
   })
 
   it('未知变量/函数与空公式报错', () => {

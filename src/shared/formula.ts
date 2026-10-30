@@ -311,3 +311,64 @@ export function evaluateFormula(expression: string, bars: readonly KLineBar[]): 
     max: finite.length > 0 ? Math.max(...finite) : null
   }
 }
+
+export interface FormulaBacktest {
+  initial: number
+  finalEquity: number
+  strategyReturn: number
+  holdReturn: number
+  trades: number
+  maxDrawdown: number
+  equity: number[]
+}
+
+/**
+ * 单标的公式回测。
+ *
+ * 用上一根 K 线的信号决定今天是否持仓，按今天开盘价进/出、收盘价计权益，
+ * 避免“当天收盘信号当天成交”的未来函数。手续费按单边 0.03% 估算。
+ */
+export function backtestFormula(
+  result: FormulaResult,
+  bars: readonly KLineBar[],
+  initial = 100_000,
+  feeRate = 0.0003
+): FormulaBacktest {
+  if (bars.length < 2) throw new FormulaError('回测至少需要 2 根 K 线')
+  if (result.values.length !== bars.length) throw new FormulaError('公式长度与 K 线不一致')
+  let equity = initial
+  let previousPosition = false
+  let trades = 0
+  let peak = initial
+  let maxDrawdown = 0
+  const curve: number[] = [initial]
+  const holdCurve: number[] = [initial]
+
+  for (let index = 1; index < bars.length; index += 1) {
+    const position = Number.isFinite(result.values[index - 1]) && result.values[index - 1] > 0
+    if (position !== previousPosition) {
+      equity *= 1 - feeRate
+      trades += 1
+      previousPosition = position
+    }
+    if (position && bars[index].open > 0) {
+      equity *= bars[index].close / bars[index].open
+    }
+    curve.push(equity)
+    holdCurve.push(bars[0].open > 0 ? initial * (bars[index].close / bars[0].open) : initial)
+    peak = Math.max(peak, equity)
+    maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - equity) / peak : 0)
+  }
+
+  const finalEquity = curve[curve.length - 1]
+  const holdFinal = holdCurve[holdCurve.length - 1]
+  return {
+    initial,
+    finalEquity,
+    strategyReturn: (finalEquity / initial - 1) * 100,
+    holdReturn: (holdFinal / initial - 1) * 100,
+    trades,
+    maxDrawdown: maxDrawdown * 100,
+    equity: curve
+  }
+}

@@ -6,7 +6,12 @@
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
-import { evaluateFormula, type FormulaResult } from '@shared/formula'
+import {
+  backtestFormula,
+  evaluateFormula,
+  type FormulaBacktest,
+  type FormulaResult
+} from '@shared/formula'
 import { appState, removeFormula, saveFormula } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -51,18 +56,26 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
   const [expression, setExpression] = createSignal('MA(CLOSE,20)')
   const [formulaName, setFormulaName] = createSignal('')
   const [result, setResult] = createSignal<FormulaResult | null>(null)
+  const [backtest, setBacktest] = createSignal<FormulaBacktest | null>(null)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
 
-  const run = (): void => {
+  const calculate = (data: KLineBar[]): void => {
     try {
-      setResult(evaluateFormula(expression(), bars()))
+      const next = evaluateFormula(expression(), data)
+      setResult(next)
+      setBacktest(backtestFormula(next, data))
       setError(null)
     } catch (cause) {
       setResult(null)
+      setBacktest(null)
       setError(cause instanceof Error ? cause.message : String(cause))
     }
+  }
+
+  const run = (): void => {
+    calculate(bars())
   }
 
   const save = (): void => {
@@ -79,7 +92,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
       const series = await api.trend.kline({ code: props.code, period: 'day', count: 320 })
       if (current !== requestId) return
       setBars(series.bars)
-      setResult(evaluateFormula(expression(), series.bars))
+      calculate(series.bars)
     } catch (cause) {
       if (current === requestId) setError(errorMessage(cause))
     } finally {
@@ -267,6 +280,28 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
           </Show>
         </div>
 
+        <Show when={backtest()}>
+          {(data) => (
+            <div class="formula__backtest">
+              <span class="formula__backtest-title">单标的回测</span>
+              <span>
+                策略{' '}
+                <span
+                  classList={{
+                    'tone-up': data().strategyReturn > 0,
+                    'tone-down': data().strategyReturn < 0
+                  }}
+                >
+                  {signedPct(data().strategyReturn)}
+                </span>
+              </span>
+              <span>买入持有 {signedPct(data().holdReturn)}</span>
+              <span>交易 {data().trades} 次</span>
+              <span>最大回撤 {fixed(data().maxDrawdown)}%</span>
+            </div>
+          )}
+        </Show>
+
         <div class="formula__meta">
           <Show when={result()}>
             {(data) => (
@@ -282,7 +317,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
 
         <footer class="formula__foot">
           <span>仅支持 MA/EMA/REF/ABS/MAX/MIN/CROSS 与四则运算</span>
-          <span>不保存公式、不执行任意代码</span>
+          <span>回测按上一根信号成交 · 手续费 0.03%</span>
         </footer>
       </section>
     </div>

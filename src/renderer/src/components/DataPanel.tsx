@@ -12,10 +12,11 @@ import type {
   TdxStatsSummary,
   LocalDayResult,
   LocalImportResult,
-  LocalDayWriteResult
+  LocalDayWriteResult,
+  KLineExportResult
 } from '@shared/types'
 import { thousands } from '@shared/format'
-import { appState, updateSettings } from '../stores/app'
+import { appState, updateSettings, watchCodes } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -47,6 +48,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [parquetExporting, setParquetExporting] = createSignal(false)
   const [parquetResult, setParquetResult] = createSignal<StatsParquetExport | null>(null)
   const [localPath, setLocalPath] = createSignal(appState.settings.localDayPath ?? '')
+  const [klineExporting, setKlineExporting] = createSignal(false)
+  const [klineExport, setKlineExport] = createSignal<KLineExportResult | null>(null)
+  const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
   const [localDay, setLocalDay] = createSignal<LocalDayResult | null>(null)
   const [localLoading, setLocalLoading] = createSignal(false)
   const [localError, setLocalError] = createSignal<string | null>(null)
@@ -56,6 +60,26 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [writeLoading, setWriteLoading] = createSignal(false)
   const [writeResult, setWriteResult] = createSignal<LocalDayWriteResult | null>(null)
   const [writeError, setWriteError] = createSignal<string | null>(null)
+
+  const runKlineExport = async (): Promise<void> => {
+    if (klineExporting()) return
+    setKlineExporting(true)
+    setKlineExportError(null)
+    try {
+      setKlineExport(
+        await api.data.exportKlines({
+          codes: watchCodes(),
+          period: 'day',
+          count: 240,
+          adjust: 'qfq'
+        })
+      )
+    } catch (cause) {
+      setKlineExportError(errorMessage(cause))
+    } finally {
+      setKlineExporting(false)
+    }
+  }
 
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
@@ -243,6 +267,49 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             下载官方 <code>zhb.zip</code>，先看摘要；规范化会写原始 ZIP、按交易日分区的
             JSONL.gz、SQLite 查询层和 manifest。
           </div>
+
+          <section class="data__kline">
+            <div>
+              <div class="data__label">自选 K 线导出</div>
+              <div class="data__sub">
+                最近 240 根日 K，CSV + JSONL.gz + manifest，写入数据目录。
+              </div>
+            </div>
+            <button
+              class="btn data__kline-export"
+              disabled={klineExporting() || watchCodes().length === 0}
+              onClick={() => void runKlineExport()}
+            >
+              {klineExporting() ? '导出中…' : `导出 ${watchCodes().length} 只`}
+            </button>
+          </section>
+          <Show when={klineExportError()}>
+            {(message) => <div class="data__query-error">{message()}</div>}
+          </Show>
+          <Show when={klineExport()}>
+            {(data) => (
+              <div class="data__summary data__summary--kline">
+                <div class="data__path">
+                  <span>K 线导出</span>
+                  <code>{data().dir}</code>
+                </div>
+                <div class="data__path">
+                  <span>结果</span>
+                  <code>
+                    {data().codes} 只 / {data().rows} 根 / {data().files.length} 个文件
+                  </code>
+                </div>
+                <Show when={data().failed.length > 0}>
+                  <div class="data__query-error">
+                    失败 {data().failed.length} 只：
+                    {data()
+                      .failed.map((item) => item.code)
+                      .join(', ')}
+                  </div>
+                </Show>
+              </div>
+            )}
+          </Show>
 
           <div class="data__actions">
             <button

@@ -59,6 +59,7 @@ from tdx_mac import (
     fetch_boards,
 )
 from local_import import import_local_file
+from kline_export import write_kline_export
 from tdx_f10 import (
     fetch_announcements,
     fetch_business,
@@ -2510,6 +2511,41 @@ class Bridge:
         """写本地 .lc1/.lc5/.5（原子替换）。"""
         return write_min_file(path, bars)
 
+    def export_klines(
+        self, codes: list[str], period: str = "day", count: int = 240, adjust: str = "qfq"
+    ) -> dict:
+        """批量导出 K 线到数据目录 exports/klines/<时间戳>/（CSV + JSONL.gz + manifest）。"""
+        unique = []
+        for raw in codes:
+            code = str(raw).strip().lower()
+            if code and code not in unique:
+                unique.append(code)
+        unique = unique[:50]
+        if not unique:
+            raise TdxError("没有可导出的代码")
+        safe_count = max(1, min(800, int(count)))
+        bars_by_code: dict[str, list[dict]] = {}
+        failed: list[dict] = []
+        for code in unique:
+            try:
+                result = self.kline(code, period, safe_count, adjust)
+                bars_by_code[code] = result["bars"]
+            except Exception as error:  # noqa: BLE001 - 单只失败不拖垮整批
+                failed.append({"code": code, "error": str(error)})
+        if not bars_by_code:
+            raise TdxError("全部代码导出失败")
+        stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+        generated_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        result = write_kline_export(
+            stocklens_data_dir() / "exports" / "klines" / stamp,
+            bars_by_code,
+            period,
+            adjust,
+            generated_at,
+        )
+        result["failed"] = failed
+        return result
+
     def local_import(self, path: str) -> dict:
         """把本地行情文件导入数据湖（原始 + JSONL.gz + SQLite + manifest）。"""
         return import_local_file(path, stocklens_data_dir() / "local")
@@ -3249,6 +3285,13 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.local_day_read(str(payload.get("path") or ""), int(payload.get("limit", 0)))
     if cmd == "local_import":
         return bridge.local_import(str(payload.get("path") or ""))
+    if cmd == "export_klines":
+        return bridge.export_klines(
+            payload.get("codes") or [],
+            str(payload.get("period") or "day"),
+            int(payload.get("count", 240)),
+            str(payload.get("adjust") or "qfq"),
+        )
     if cmd == "local_day_write":
         bars = payload.get("bars") or []
         if not isinstance(bars, list):

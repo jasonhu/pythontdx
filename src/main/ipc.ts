@@ -33,6 +33,7 @@ import {
   fetchLocalDay,
   fetchLocalImport,
   fetchLocalQuery,
+  exportKlines,
   writeLocalDay,
   writeLocalMin,
   fetchF10Reports,
@@ -146,6 +147,10 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.localMinWrite, (_event, path: string, bars: LocalDayBar[]) =>
     writeLocalMin(path, bars)
+  )
+
+  ipcMain.handle(IPC.exportKlines, (_event, req: Parameters<typeof exportKlines>[0]) =>
+    exportKlines(req)
   )
 
   ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>

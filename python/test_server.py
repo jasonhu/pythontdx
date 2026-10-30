@@ -79,6 +79,9 @@ class FakeBridge:
     def mac_quotes(self, codes):
         return []
 
+    def export_klines(self, codes, period="day", count=240, adjust="qfq"):
+        return {"dir": "/tmp", "files": [], "rows": 0, "codes": len(codes), "generatedAt": "", "failed": []}
+
     def local_min_write(self, path, bars):
         return {"path": path, "count": len(bars)}
 
@@ -304,6 +307,9 @@ class TestHttpApi(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["count"], 1)
+        status, payload, _ = self.request("POST", "/api/export_klines", {"codes": ["sh600519"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["codes"], 1)
         status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])

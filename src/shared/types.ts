@@ -316,6 +316,15 @@ export interface LocalDayWriteResult {
   count: number
 }
 
+export interface KLineExportResult {
+  dir: string
+  files: string[]
+  rows: number
+  codes: number
+  generatedAt: string
+  failed: Array<{ code: string; error: string }>
+}
+
 export interface LocalImportResult {
   code: string
   rows: number

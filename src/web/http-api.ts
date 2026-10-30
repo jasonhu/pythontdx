@@ -15,6 +15,7 @@ import type {
   F10NewsItem,
   F10TradingTable,
   LocalDayResult,
+  KLineExportResult,
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
@@ -335,7 +336,8 @@ export function createHttpApi(): StockLensApi {
       localQuery: (sql, limit) => post<StatsQueryResult>('/api/local_query', { sql, limit }),
       localDayWrite: (path, bars) => post<LocalDayWriteResult>('/api/local_write', { path, bars }),
       localMinWrite: (path, bars) =>
-        post<LocalDayWriteResult>('/api/local_write_min', { path, bars })
+        post<LocalDayWriteResult>('/api/local_write_min', { path, bars }),
+      exportKlines: (req) => post<KLineExportResult>('/api/export_klines', req)
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

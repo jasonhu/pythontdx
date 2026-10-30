@@ -16,6 +16,7 @@ import type {
   MarketBreadth,
   LocalDayBar,
   LocalDayResult,
+  KLineExportResult,
   LocalImportResult,
   LocalDayWriteResult,
   F10TradingTable,
@@ -302,6 +303,15 @@ export async function fetchFormulaScreen(
     },
     180_000
   )
+}
+
+export async function exportKlines(req: {
+  codes: string[]
+  period?: string
+  count?: number
+  adjust?: string
+}): Promise<KLineExportResult> {
+  return bridge.send<KLineExportResult>('export_klines', req, 60_000)
 }
 
 export async function writeLocalDay(

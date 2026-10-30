@@ -492,6 +492,17 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_quotes(payload.get("codes") or []))
                 return
+            if parsed.path == "/api/export_klines":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.export_klines(
+                            payload.get("codes") or [],
+                            str(payload.get("period") or "day"),
+                            int(payload.get("count", 240)),
+                            str(payload.get("adjust") or "qfq"),
+                        )
+                    )
+                return
             if parsed.path == "/api/local_write_min":
                 with self.server.lock:
                     self._ok(

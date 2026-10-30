@@ -180,7 +180,8 @@
   条件选股已接全市场五项指标扫描（5,579 只，结果最多 100）；
   日 K 复盘已接（逐根/播放，切片只到当前回放日期）；
   公式预览已接（安全表达式，MA/EMA/REF/ABS/MAX/MIN/CROSS），公式可保存/应用 + 单标的回测；
-  剩余 WebSocket、Web 写操作、`0x0547` 推送验证、F10 在线资料、Parquet/DuckDB。
+  **第 40 轮审计**：完成定义未达到；剩余 Parquet/DuckDB、WebSocket、F10 在线资料、
+  全市场公式选股、`0x0547` 推送验证、MAC 通道与打包复验。
 - **验收**：每个命令有真实 fixture + 探针记录；字段表进 `docs/03`；
   与 `0x053e` 做差分对照；限流/重连有测试。
 - **影响**：`python/tdx_bridge.py`、`python/test_tdx.py`、`src/shared` 类型、`docs/03`。

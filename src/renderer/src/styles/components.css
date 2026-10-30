@@ -663,3 +663,110 @@
   text-align: center;
   font-size: var(--fs-2xs);
 }
+
+/* ---------------------------------------------------------------- 资金流 */
+.flow {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  font-size: var(--fs-xs);
+}
+
+.flow__meta {
+  display: flex;
+  justify-content: space-between;
+  flex: none;
+  padding: 0 2px 4px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.flow__error {
+  flex: none;
+  padding: 6px 2px;
+  color: var(--down);
+  font-size: var(--fs-2xs);
+}
+
+.flow__retry {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.flow__head,
+.flow__row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 52px minmax(0, 1fr);
+  gap: 5px;
+  align-items: center;
+}
+
+.flow__head {
+  flex: none;
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.flow__rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.flow__row {
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.flow__row:hover {
+  background: var(--panel-hover);
+}
+
+.flow__row--positive {
+  color: var(--up);
+}
+
+.flow__row--negative {
+  color: var(--down);
+}
+
+.flow__date {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.flow__num {
+  text-align: right;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.flow__row .flow__num {
+  color: inherit;
+}
+
+.flow__empty {
+  padding: 28px 4px;
+  color: var(--text-3);
+  text-align: center;
+  font-size: var(--fs-2xs);
+}
+
+.flow__foot {
+  flex: none;
+  padding: 6px 2px 0;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

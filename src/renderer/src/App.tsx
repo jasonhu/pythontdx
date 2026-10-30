@@ -8,6 +8,7 @@ import { createEffect, createSignal, onMount, Show, type JSX } from 'solid-js'
 import type { Quote } from '@shared/types'
 import { ChartPanel } from './components/ChartPanel'
 import { EmptyState } from './components/EmptyState'
+import { MoneyFlow } from './components/MoneyFlow'
 import { OrderBook } from './components/OrderBook'
 import { QuoteHeader } from './components/QuoteHeader'
 import { RankingPanel } from './components/RankingPanel'
@@ -29,7 +30,7 @@ import { createSparklineLoader } from './stores/sparklines'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
-  const [railTab, setRailTab] = createSignal<'book' | 'tape'>('book')
+  const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow'>('book')
 
   onMount(() => {
     void bootstrapAppState()
@@ -97,13 +98,36 @@ export default function App(): JSX.Element {
                     >
                       成交明细
                     </button>
+                    <button
+                      class="rail-tab rail-tab--flow"
+                      classList={{ 'rail-tab--active': railTab() === 'flow' }}
+                      role="tab"
+                      aria-selected={railTab() === 'flow'}
+                      onClick={() => setRailTab('flow')}
+                    >
+                      资金流
+                    </button>
                   </div>
                   <span class="statusbar__text">
-                    {railTab() === 'book' ? '单位：手' : '最近 60 笔'}
+                    {railTab() === 'book'
+                      ? '单位：手'
+                      : railTab() === 'tape'
+                        ? '最近 60 笔'
+                        : '近 5 日'}
                   </span>
                 </div>
                 <div class="panel__body panel__body--fill">
-                  <Show when={railTab() === 'book'} fallback={<TradeTape code={quote().code} />}>
+                  <Show
+                    when={railTab() === 'book'}
+                    fallback={
+                      <Show
+                        when={railTab() === 'tape'}
+                        fallback={<MoneyFlow code={quote().code} />}
+                      >
+                        <TradeTape code={quote().code} />
+                      </Show>
+                    }
+                  >
                     <OrderBook quote={quote()} />
                   </Show>
                 </div>

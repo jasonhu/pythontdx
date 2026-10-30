@@ -130,6 +130,28 @@ export interface TradeTick {
   tradeAmount?: number
 }
 
+/** 0x0ffc 资金流日记录；接口固定最近 5 个交易日 */
+export interface MoneyFlowRecord {
+  code: string
+  market: Market
+  symbol: string
+  date: string
+  totalAmount: number
+  buckets: number[]
+  mainNet: number
+  mainRatio: number
+  mainBuyNet: number
+  mainBuyRatio: number
+  mainSuperLargeNet: number
+  mainLargeNet: number
+  mainMediumNet: number
+  mainSmallNet: number
+  mainBuySuperLargeNet: number
+  mainBuyLargeNet: number
+  mainBuyMediumNet: number
+  mainBuySmallNet: number
+}
+
 /* --------------------------------------------------------------- 分时图 */
 
 /** 分时的分钟点：价格为该分钟收盘价，avg 为当日累计均价 */

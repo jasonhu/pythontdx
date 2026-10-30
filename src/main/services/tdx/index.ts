@@ -11,6 +11,7 @@ import type {
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
+  MoneyFlowRecord,
   MultiDayTrend,
   Quote,
   SearchItem,
@@ -103,6 +104,11 @@ export async function fetchCategoryQuotes(request: CategoryRequest): Promise<Cat
 /** 0x0fc5 / 0x0fc6 成交明细；date 省略走当日。 */
 export async function fetchTrades(request: TradesRequest): Promise<TradeTick[]> {
   return bridge.send<TradeTick[]>('trades', { ...request }, QUOTES_TIMEOUT_MS)
+}
+
+/** 0x0ffc 资金流：最近 5 个交易日。 */
+export async function fetchMoneyFlow(code: string): Promise<MoneyFlowRecord[]> {
+  return bridge.send<MoneyFlowRecord[]>('money_flow', { code }, QUOTES_TIMEOUT_MS)
 }
 
 /* ------------------------------------------------------------------ K 线 */

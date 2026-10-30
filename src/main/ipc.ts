@@ -16,6 +16,7 @@ import {
   fetchFiveDayTrend,
   fetchKline,
   fetchMinuteTrend,
+  fetchMoneyFlow,
   fetchQuotes,
   fetchSearchHint,
   fetchTrades
@@ -39,6 +40,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   )
 
   ipcMain.handle(IPC.tradeTicks, (_event, request: TradesRequest) => fetchTrades(request))
+
+  ipcMain.handle(IPC.moneyFlow, (_event, code: string) => fetchMoneyFlow(code))
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {
     poller.setSubscription(codes, intervalMs)

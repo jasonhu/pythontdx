@@ -11,6 +11,7 @@ import type {
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
+  MoneyFlowRecord,
   MultiDayTrend,
   Quote,
   QuoteUpdate,
@@ -33,6 +34,8 @@ export const IPC = {
   quoteCategory: 'quote:category',
   /** 成交明细（invoke） */
   tradeTicks: 'trade:ticks',
+  /** 资金流日数据（invoke） */
+  moneyFlow: 'money:flow',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -105,6 +108,10 @@ export interface StockLensApi {
   trade: {
     /** 成交明细：不传 date 走当日 0x0fc5，传 date 走历史 0x0fc6 */
     ticks(req: TradesRequest): Promise<TradeTick[]>
+  }
+  money: {
+    /** 最近 5 日资金流（0x0ffc） */
+    flow(code: string): Promise<MoneyFlowRecord[]>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

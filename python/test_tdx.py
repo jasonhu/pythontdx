@@ -100,6 +100,54 @@ class TestQuotes(unittest.TestCase):
         self.assertEqual(quotes[0]["asks"], [])
 
 
+class TestSnapshotAndRefresh(unittest.TestCase):
+    ITEMS = [(1, "600519"), (0, "000858")]
+
+    def test_snapshot_request(self):
+        data = tdx.quote_data(self.ITEMS)
+        self.assertEqual(data[:8], tdx.QUOTE_LIST_PREFIX)
+        self.assertEqual(int.from_bytes(data[8:10], "little"), 2)
+        self.assertEqual(len(data), 10 + 7 * 2)
+
+    def test_refresh_request_with_cursor(self):
+        data = tdx.refresh_data(self.ITEMS, {"sh600519": 7})
+        self.assertEqual(len(data), 2 + 11 * 2)
+        self.assertEqual(int.from_bytes(data[:2], "little"), 2)
+        self.assertEqual(data[2], 1)
+        self.assertEqual(data[3:9], b"600519")
+        self.assertEqual(int.from_bytes(data[9:13], "little"), 7)
+        self.assertEqual(data[13], 0)
+        self.assertEqual(data[14:20], b"000858")
+
+    def test_snapshot_parser(self):
+        quotes = tdx.parse_snapshots(
+            fixture("snapshot2"), self.ITEMS, 1_700_000_000_000, SECURITIES
+        )
+        self.assertEqual([q["code"] for q in quotes], ["sh600519", "sz000858"])
+        maotai = quotes[0]
+        self.assertAlmostEqual(maotai["price"], 1372.0, places=2)
+        self.assertAlmostEqual(maotai["prevClose"], 1354.0, places=2)
+        self.assertAlmostEqual(maotai["open"], 1363.0, places=2)
+        self.assertEqual(maotai["volume"], 15182)
+        self.assertEqual(len(maotai["bids"]), 1)
+        self.assertEqual(maotai["bids"][0], {"price": 1371.18, "volume": 1})
+        self.assertEqual(maotai["asks"][0], {"price": 1372.27, "volume": 58})
+        self.assertAlmostEqual(quotes[1]["price"], 73.91, places=2)
+
+    def test_refresh_parser_five_levels(self):
+        quotes = tdx.parse_refresh(
+            fixture("refresh2"), self.ITEMS, 1_700_000_000_000, SECURITIES
+        )
+        self.assertEqual([q["code"] for q in quotes], ["sh600519", "sz000858"])
+        maotai = quotes[0]
+        self.assertAlmostEqual(maotai["price"], 1372.0, places=2)
+        self.assertEqual(len(maotai["bids"]), 5)
+        self.assertEqual(len(maotai["asks"]), 5)
+        self.assertEqual(maotai["bids"][0], {"price": 1371.18, "volume": 1})
+        self.assertEqual(maotai["bids"][4], {"price": 1370.3, "volume": 1})
+        self.assertEqual(maotai["asks"][0], {"price": 1372.27, "volume": 58})
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")

@@ -5,6 +5,7 @@ StockLens 的通达信行情桥接进程。
 职责：
   · 持有 7709 TCP 连接，完成握手、请求、超时、重连、主站 failover；
   · 解析五档行情 / K 线 / 分时 / 历史分时 / 代码表 / 财务；
+  · 支持 0x053e 旧版五档、0x054c 批量快照、0x0547 增量刷新（五档基线）；
   · 用 JSON Lines 与 Electron 主进程通信（stdin 收命令，stdout 回结果）。
 
 为什么是 sidecar 而不是把协议写在 Node 里：
@@ -56,12 +57,18 @@ FINANCE_TTL = 6 * 60 * 60
 CMD_HANDSHAKE = 0x000D
 CMD_HEARTBEAT = 0x0004
 CMD_QUOTES = 0x053E
+CMD_SNAPSHOT = 0x054C
+CMD_REFRESH = 0x0547
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
 CMD_SECURITY_COUNT = 0x044E
 CMD_SECURITY_LIST = 0x044D
 CMD_FINANCE = 0x0010
+
+# 0x054c / 0x053e 共用的请求前缀；0x0547 是另一套「代码 + 游标」布局
+QUOTE_LIST_PREFIX = b"\x05\x00\x00\x00\x00\x00\x00\x00"
+REFRESH_BATCH = 100
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
@@ -297,10 +304,28 @@ def quote_data(items: list[tuple[int, str]]) -> bytes:
     if len(items) > QUOTE_BATCH:
         raise TdxError("单次行情请求不能超过 80 只")
 
-    payload = bytearray(b"\x05\x00\x00\x00\x00\x00\x00\x00")
+    payload = bytearray(QUOTE_LIST_PREFIX)
     payload += struct.pack("<H", len(items))
     for market, symbol in items:
         payload += struct.pack("<B", market) + code_bytes(symbol)
+    return bytes(payload)
+
+
+def refresh_data(
+    items: list[tuple[int, str]], cursors: dict[str, int] | None = None
+) -> bytes:
+    """0x0547：每个代码 11 字节（市场 1 + 代码 6 + 游标 4），单次最多 100 只。"""
+    if not items:
+        raise TdxError("行情刷新请求不能为空")
+    if len(items) > REFRESH_BATCH:
+        raise TdxError("单次增量刷新不能超过 100 只")
+
+    payload = bytearray(struct.pack("<H", len(items)))
+    for market, symbol in items:
+        code = full_code(market, symbol)
+        cursor = int((cursors or {}).get(code, 0))
+        payload += struct.pack("<B", market) + code_bytes(symbol)
+        payload += struct.pack("<I", max(0, min(cursor, 0xFFFFFFFF)))
     return bytes(payload)
 
 
@@ -487,6 +512,248 @@ def parse_quotes(
 
         quotes.append(quote)
 
+    return quotes
+
+
+def _split_quote_records(data: bytes, items: list[tuple[int, str]]) -> list[bytes]:
+    """按「市场 + 6 位代码」标记切记录；记录长度可变，不能按固定长度切。"""
+    if not items:
+        return []
+    if len(items) == 1:
+        return [data]
+
+    starts: list[int] = []
+    search_from = 0
+    for market, symbol in items:
+        marker = struct.pack("<B", market) + code_bytes(symbol)
+        position = data.find(marker, search_from)
+        if position < 0:
+            raise TdxError("行情记录缺少代码标记")
+        starts.append(position)
+        search_from = position + len(marker)
+
+    return [data[start : (starts[index + 1] if index + 1 < len(starts) else len(data))]
+            for index, start in enumerate(starts)]
+
+
+def _read_k_prices(record: bytes, pos: int) -> tuple[tuple[int, int, int, int, int], int]:
+    """五个差分价格，统一换成 milli（1/1000 元）。"""
+    current_delta, pos = read_varint(record, pos)
+    last_close_delta, pos = read_varint(record, pos)
+    open_delta, pos = read_varint(record, pos)
+    high_delta, pos = read_varint(record, pos)
+    low_delta, pos = read_varint(record, pos)
+    current_milli = current_delta * 10
+    return (
+        (
+            current_milli,
+            (current_delta + last_close_delta) * 10,
+            (current_delta + open_delta) * 10,
+            (current_delta + high_delta) * 10,
+            (current_delta + low_delta) * 10,
+        ),
+        pos,
+    )
+
+
+def _build_quote(
+    market_id: int,
+    symbol: str,
+    received_at: int,
+    securities: dict[str, dict],
+    prices: tuple[int, int, int, int, int],
+    total_hand: int,
+    amount_raw: int,
+    bid_levels: list[tuple[int, int]],
+    ask_levels: list[tuple[int, int]],
+) -> dict:
+    current_milli, prev_milli, open_milli, high_milli, low_milli = prices
+    market = MARKET_NAMES[market_id]
+    key = full_code(market_id, symbol)
+    security = securities.get(key, {})
+    divisor = price_divisor(security.get("decimal"))
+    scale = 1000 * divisor
+    index_code = is_index_code(market_id, symbol)
+
+    prev_close = prev_milli / scale
+    price = current_milli / scale
+    if price <= 0:
+        price = prev_close
+    open_price = open_milli / scale
+    high = high_milli / scale
+    low = low_milli / scale
+    amount = decode_volume(amount_raw)
+    change = price - prev_close if prev_close > 0 else 0.0
+
+    def levels(raw_levels: list[tuple[int, int]]) -> list[dict]:
+        if index_code:
+            return []
+        return [
+            {"price": raw_price / scale, "volume": volume}
+            for raw_price, volume in raw_levels
+            if raw_price > 0
+        ]
+
+    quote: dict = {
+        "code": key,
+        "symbol": symbol,
+        "name": security.get("name") or symbol,
+        "market": market,
+        "price": price,
+        "prevClose": prev_close,
+        "open": open_price,
+        "high": high,
+        "low": low,
+        "change": change,
+        "changePct": (change / prev_close * 100) if prev_close > 0 else 0.0,
+        "volume": total_hand,
+        "amount": amount,
+        "currency": "CNY",
+        "time": received_at,
+        "receivedAt": received_at,
+        "bids": levels(bid_levels),
+        "asks": levels(ask_levels),
+    }
+    if prev_close > 0:
+        quote["amplitude"] = (high - low) / prev_close * 100
+    if not index_code and total_hand > 0 and amount > 0:
+        quote["avgPrice"] = amount / (total_hand * 100)
+    return quote
+
+
+def _parse_snapshot_record(
+    record: bytes,
+    market_id: int,
+    symbol: str,
+    received_at: int,
+    securities: dict[str, dict],
+) -> dict:
+    if len(record) < 9:
+        raise TdxError("0x054c 记录不完整")
+    prices, pos = _read_k_prices(record, 9)
+    _time_raw, pos = read_varint(record, pos)
+    _unknown_time, pos = read_varint(record, pos)
+    total_hand, pos = read_varint(record, pos)
+    _current_hand, pos = read_varint(record, pos)
+    amount_raw = _u32(record, pos)
+    pos += 4
+    _inside, pos = read_varint(record, pos)
+    _outside, pos = read_varint(record, pos)
+    _unknown_outer, pos = read_varint(record, pos)
+    _open_amount, pos = read_varint(record, pos)
+    bid_delta, pos = read_varint(record, pos)
+    ask_delta, pos = read_varint(record, pos)
+    bid_volume, pos = read_varint(record, pos)
+    ask_volume, pos = read_varint(record, pos)
+
+    current_milli = prices[0]
+    bid_milli = current_milli + bid_delta * 10
+    ask_milli = current_milli + ask_delta * 10
+    return _build_quote(
+        market_id,
+        symbol,
+        received_at,
+        securities,
+        prices,
+        total_hand,
+        amount_raw,
+        [(bid_milli, bid_volume)],
+        [(ask_milli, ask_volume)],
+    )
+
+
+def parse_snapshots(
+    body: bytes,
+    items: list[tuple[int, str]],
+    received_at: int,
+    securities: dict[str, dict],
+) -> list[dict]:
+    """0x054c：批量快照，盘口只稳定返回买一/卖一。"""
+    if len(body) < 4:
+        raise TdxError("0x054c 报文不完整")
+    count = _u16(body, 2)
+    if count == 0:
+        return []
+    if count > len(items):
+        raise TdxError("0x054c 返回数量超过请求数量")
+
+    records = _split_quote_records(body[4:], items[:count])
+    quotes: list[dict] = []
+    for (market, symbol), record in zip(items[:count], records):
+        quotes.append(
+            _parse_snapshot_record(record, market, symbol, received_at, securities)
+        )
+    return quotes
+
+
+def _parse_refresh_record(
+    record: bytes,
+    market_id: int,
+    symbol: str,
+    received_at: int,
+    securities: dict[str, dict],
+) -> dict:
+    if len(record) < 9:
+        raise TdxError("0x0547 记录不完整")
+    prices, pos = _read_k_prices(record, 9)
+    _update_time = _u32(record, pos)
+    pos += 4
+    _status, pos = read_varint(record, pos)
+    total_hand, pos = read_varint(record, pos)
+    _current_hand, pos = read_varint(record, pos)
+    amount_raw = _u32(record, pos)
+    pos += 4
+    _inside, pos = read_varint(record, pos)
+    _outside, pos = read_varint(record, pos)
+    _unknown_outer, pos = read_varint(record, pos)
+    _open_amount, pos = read_varint(record, pos)
+
+    current_milli = prices[0]
+    bid_levels: list[tuple[int, int]] = []
+    ask_levels: list[tuple[int, int]] = []
+    for _ in range(5):
+        bid_delta, pos = read_varint(record, pos)
+        ask_delta, pos = read_varint(record, pos)
+        bid_volume, pos = read_varint(record, pos)
+        ask_volume, pos = read_varint(record, pos)
+        bid_levels.append((current_milli + bid_delta * 10, bid_volume))
+        ask_levels.append((current_milli + ask_delta * 10, ask_volume))
+
+    return _build_quote(
+        market_id,
+        symbol,
+        received_at,
+        securities,
+        prices,
+        total_hand,
+        amount_raw,
+        bid_levels,
+        ask_levels,
+    )
+
+
+def parse_refresh(
+    body: bytes,
+    items: list[tuple[int, str]],
+    received_at: int,
+    securities: dict[str, dict],
+) -> list[dict]:
+    """0x0547：增量刷新页，payload 每字节 XOR 0x93，首次游标 0 给出五档基线。"""
+    decoded = bytes(byte ^ 0x93 for byte in body)
+    if len(decoded) < 2:
+        raise TdxError("0x0547 报文不完整")
+    count = _u16(decoded, 0)
+    if count == 0:
+        return []
+    if count > len(items):
+        raise TdxError("0x0547 返回数量超过请求数量")
+
+    records = _split_quote_records(decoded[2:], items[:count])
+    quotes: list[dict] = []
+    for (market, symbol), record in zip(items[:count], records):
+        quotes.append(
+            _parse_refresh_record(record, market, symbol, received_at, securities)
+        )
     return quotes
 
 
@@ -806,6 +1073,59 @@ class Bridge:
         by_code = {quote["code"]: quote for quote in quotes}
         return [by_code[code] for code in unique if code in by_code]
 
+    def _prepare_items(self, codes: list[str]) -> tuple[list[str], list[tuple[int, str]]]:
+        unique: list[str] = []
+        items: list[tuple[int, str]] = []
+        for raw in codes:
+            code = str(raw).strip().lower()
+            if not code or code in unique:
+                continue
+            unique.append(code)
+            try:
+                market, symbol = parse_code(code)
+            except TdxError:
+                continue
+            items.append((market, symbol))
+        if not items:
+            raise TdxError("当前数据源暂不支持港股/美股")
+        try:
+            self.index.ensure(self.conn)
+        except Exception as error:  # noqa: BLE001 - 代码表失败不该拖垮行情
+            print(f"[tdx] 代码表加载失败：{error}", file=sys.stderr)
+        return unique, items
+
+    def snapshots(self, codes: list[str]) -> list[dict]:
+        """0x054c 批量快照：现价 + 买一/卖一，适合初始化一批代码。"""
+        received_at = int(time.time() * 1000)
+        unique, items = self._prepare_items(codes)
+        quotes: list[dict] = []
+        for start in range(0, len(items), QUOTE_BATCH):
+            batch = items[start : start + QUOTE_BATCH]
+            body = self.conn.request(CMD_SNAPSHOT, quote_data(batch))
+            quotes.extend(
+                parse_snapshots(body, batch, received_at, self.index.by_code)
+            )
+        self._attach_finance(quotes)
+        by_code = {quote["code"]: quote for quote in quotes}
+        return [by_code[code] for code in unique if code in by_code]
+
+    def refresh_quotes(
+        self, codes: list[str], cursors: dict[str, int] | None = None
+    ) -> list[dict]:
+        """0x0547 增量刷新：首次游标 0 返回五档基线；单次最多 100 只。"""
+        received_at = int(time.time() * 1000)
+        unique, items = self._prepare_items(codes)
+        quotes: list[dict] = []
+        for start in range(0, len(items), REFRESH_BATCH):
+            batch = items[start : start + REFRESH_BATCH]
+            body = self.conn.request(
+                CMD_REFRESH, refresh_data(batch, cursors or {})
+            )
+            quotes.extend(parse_refresh(body, batch, received_at, self.index.by_code))
+        self._attach_finance(quotes)
+        by_code = {quote["code"]: quote for quote in quotes}
+        return [by_code[code] for code in unique if code in by_code]
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -933,6 +1253,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.code_list()
     if cmd == "quotes":
         return bridge.quotes(payload.get("codes") or [])
+    if cmd == "snapshots":
+        return bridge.snapshots(payload.get("codes") or [])
+    if cmd == "refresh":
+        return bridge.refresh_quotes(
+            payload.get("codes") or [], payload.get("cursors") or {}
+        )
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

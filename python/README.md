@@ -36,7 +36,9 @@ STOCKLENS_TDX_BRIDGE=/path/to/tdx-bridge npm run dev
 | --- | --- | --- |
 | `ping` | — | `"pong"` |
 | `code_list` | — | 全量代码表（约 5.2 万条） |
-| `quotes` | `{ codes: string[] }` | `Quote[]` |
+| `quotes` | `{ codes: string[] }` | `Quote[]`（`0x053e`，五档兼容） |
+| `snapshots` | `{ codes: string[] }` | `Quote[]`（`0x054c`，买一/卖一） |
+| `refresh` | `{ codes: string[], cursors?: Record<string, number> }` | `Quote[]`（`0x0547`，五档基线） |
 | `kline` | `{ code, period, count }` | `KLineSeries` |
 | `minute` | `{ code }` | `MinuteTrend` |
 | `five_day` | `{ code }` | `MultiDayTrend` |
@@ -53,7 +55,7 @@ python3 -m unittest discover -s python -p 'test_*.py' -v
 npm run test:python
 ```
 
-fixture 是 2026-10-29 收盘后抓的真实响应，放在 `python/fixtures/*.hex`。
+fixture 是 2026-10-29/30 实盘抓的真实响应，放在 `python/fixtures/*.hex`。
 
 ## 打包
 

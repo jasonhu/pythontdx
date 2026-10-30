@@ -29,6 +29,8 @@ StockLens 的所有重要变更都记录在这里。
 - **服务器文件**：`0x06b9` 完整下载 + 原始 ZIP 落盘/SHA256；
   `tdx_stats` 解析 `zhb.zip` 内 `tdxstat.cfg` / `tdxstat2.cfg`
   （各 8,103 行，主日期 20261029）。
+- **共享拼音搜索**：搜索实现移到 `src/shared/search.ts`，桌面与 Web 共用；
+  Web 首次搜索时才懒加载 pinyin-pro（独立 304 KB chunk），首屏不背词典。
 - **Web 单端口托管**：`tdx_server.py --web-dir out/web` 同时提供静态页与 API/SSE，
   SPA 路由回退 `index.html`，路径穿越返回 403，支持 GET/HEAD。
 - **Web SSE 行情流**：`GET /api/stream?codes=…&interval=…` 按 3 秒推送；

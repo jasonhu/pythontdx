@@ -169,7 +169,8 @@
   并生成 SQLite 查询层（tdxstat/tdxstat2/meta，1.7 MB）；
   只读 HTTP API 已起（`python/tdx_server.py`，默认 127.0.0.1:8765，无鉴权）；
   Web 只读页 + SSE 已可跑（`npm run dev:web`，复用同一套 SolidJS 渲染层）；
-  `--web-dir out/web` 可让 Python 服务单端口托管 Web；
+  `--web-dir out/web` 可让 Python 服务单端口托管 Web；搜索逻辑已移到 `src/shared/search.ts`，
+  Web 首次搜索懒加载 pinyin-pro；
   剩余 WebSocket、Web 写操作、`0x0547` 推送验证、F10 在线资料、Parquet/DuckDB。
 - **验收**：每个命令有真实 fixture + 探针记录；字段表进 `docs/03`；
   与 `0x053e` 做差分对照；限流/重连有测试。

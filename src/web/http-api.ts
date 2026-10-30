@@ -20,6 +20,7 @@ import type {
   TradeTick
 } from '@shared/types'
 import type { CategoryRequest, KLineRequest, StockLensApi, TradesRequest } from '@shared/ipc'
+import type { SearchEntry, SearchSecurity } from '@shared/search'
 import { DEFAULT_GROUP_ID, DEFAULT_SETTINGS, SEED_GROUPS, STATE_VERSION } from '@shared/types'
 
 const BASE = (import.meta.env.VITE_STOCKLENS_API ?? '').replace(/\/$/, '')
@@ -95,7 +96,8 @@ export function createHttpApi(): StockLensApi {
   let timer: number | undefined
   let stream: EventSource | undefined
   let pollId = 0
-  let searchCache: SearchItem[] | null = null
+  let searchCache: SearchEntry[] | null = null
+  let searchModule: Promise<typeof import('@shared/search')> | null = null
 
   const save = (): AppState => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
@@ -157,31 +159,15 @@ export function createHttpApi(): StockLensApi {
   }
 
   const searchHint = async (keyword: string): Promise<SearchItem[]> => {
-    const query = keyword.trim().toLowerCase()
-    if (!query) return []
+    if (!keyword.trim()) return []
+    // pinyin-pro 词典较大，首次搜索时才加载，避免拖慢首屏
+    searchModule ??= import('@shared/search')
+    const { buildSearchEntries, searchEntries } = await searchModule
     if (!searchCache) {
-      const all = await request<
-        Array<{
-          code: string
-          symbol: string
-          name: string
-          market: SearchItem['market']
-          kind: string
-        }>
-      >('/api/code_list')
-      searchCache = all.map((item) => ({
-        code: item.code,
-        symbol: item.symbol,
-        name: item.name,
-        market: item.market,
-        kind: item.kind
-      }))
+      const all = await request<SearchSecurity[]>('/api/code_list')
+      searchCache = buildSearchEntries(all)
     }
-    return searchCache
-      .filter(
-        (item) => item.code.toLowerCase().includes(query) || item.name.toLowerCase().includes(query)
-      )
-      .slice(0, 20)
+    return searchEntries(searchCache, keyword)
   }
 
   const api: StockLensApi = {

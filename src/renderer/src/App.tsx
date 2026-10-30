@@ -18,6 +18,7 @@ import { MoneyFlow } from './components/MoneyFlow'
 import { OrderBook } from './components/OrderBook'
 import { QuoteHeader } from './components/QuoteHeader'
 import { RankingPanel } from './components/RankingPanel'
+import { ReplayPanel } from './components/ReplayPanel'
 import { ScreenerPanel } from './components/ScreenerPanel'
 import { Sidebar } from './components/Sidebar'
 import { StatsGrid } from './components/StatsGrid'
@@ -40,6 +41,7 @@ export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
   const [blocksOpen, setBlocksOpen] = createSignal(false)
   const [screenerOpen, setScreenerOpen] = createSignal(false)
+  const [replayOpen, setReplayOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
@@ -83,7 +85,7 @@ export default function App(): JSX.Element {
           {(quote) => (
             <>
               <QuoteHeader quote={quote()} onOpenF10={() => setF10Open(true)} />
-              <ChartPanel code={quote().code} />
+              <ChartPanel code={quote().code} onOpenReplay={() => setReplayOpen(true)} />
             </>
           )}
         </Show>
@@ -217,6 +219,16 @@ export default function App(): JSX.Element {
 
       <Show when={dataOpen()}>
         <DataPanel onClose={() => setDataOpen(false)} />
+      </Show>
+
+      <Show when={replayOpen() ? activeQuote() : undefined}>
+        {(quote) => (
+          <ReplayPanel
+            code={quote().code}
+            name={quote().name}
+            onClose={() => setReplayOpen(false)}
+          />
+        )}
       </Show>
 
       <Show when={alertsOpen()}>

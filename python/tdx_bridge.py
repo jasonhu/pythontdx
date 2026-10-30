@@ -2792,6 +2792,11 @@ class Bridge:
         """7615 TQLEX 公司新闻列表。"""
         return fetch_news(code)
 
+    def f10_shareholder_count(self, code: str) -> dict:
+        from tdx_f10 import fetch_shareholder_count
+
+        return fetch_shareholder_count(code)
+
     def f10_dividend(self, code: str) -> dict:
         from tdx_f10 import fetch_dividend
 
@@ -3369,6 +3374,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_news(payload.get("code", ""))
     if cmd == "f10_lhb_market":
         return bridge.f10_lhb_market()
+    if cmd == "f10_shareholder_count":
+        return bridge.f10_shareholder_count(str(payload.get("code") or ""))
     if cmd == "f10_dividend":
         return bridge.f10_dividend(str(payload.get("code") or ""))
     if cmd == "f10_market":

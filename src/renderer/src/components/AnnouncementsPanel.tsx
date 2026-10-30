@@ -23,6 +23,7 @@ type OnlineTab =
   | 'shareholders'
   | 'reports'
   | 'dividend'
+  | 'shareholderCount'
   | 'statement'
   | 'news'
   | 'trading'
@@ -53,6 +54,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [dividend, setDividend] = createSignal<F10ProfileTable | null>(null)
   const [dividendLoading, setDividendLoading] = createSignal(true)
   const [dividendError, setDividendError] = createSignal<string | null>(null)
+  const [shareholderCount, setShareholderCount] = createSignal<F10ProfileTable | null>(null)
+  const [shareholderCountLoading, setShareholderCountLoading] = createSignal(true)
+  const [shareholderCountError, setShareholderCountError] = createSignal<string | null>(null)
   const [statementKind, setStatementKind] = createSignal('zcfzb')
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
@@ -182,6 +186,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadShareholderCount = async (): Promise<void> => {
+    setShareholderCountLoading(true)
+    setShareholderCountError(null)
+    try {
+      setShareholderCount(await api.f10.shareholderCount(props.code))
+    } catch (cause) {
+      setShareholderCountError(errorMessage(cause))
+    } finally {
+      setShareholderCountLoading(false)
+    }
+  }
+
   const loadDividend = async (): Promise<void> => {
     setDividendLoading(true)
     setDividendError(null)
@@ -220,6 +236,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadShareholders()
     void loadReports()
     void loadDividend()
+    void loadShareholderCount()
     void loadStatement('zcfzb')
     void loadNews()
     void loadTrading('margin')
@@ -309,6 +326,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('dividend')}
           >
             分红
+          </button>
+          <button
+            class="online-tab online-shcount-tab"
+            data-active={tab() === 'shareholderCount'}
+            onClick={() => setTab('shareholderCount')}
+          >
+            股东人数
           </button>
           <button
             class="online-tab online-statement-tab"
@@ -584,6 +608,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table report-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'shareholderCount'}>
+              <Show
+                when={!shareholderCountLoading()}
+                fallback={<div class="announcements__empty">加载股东人数…</div>}
+              >
+                <Show
+                  when={!shareholderCountError()}
+                  fallback={<div class="announcements__error">{shareholderCountError()}</div>}
+                >
+                  <Show
+                    when={shareholderCount()}
+                    fallback={<div class="announcements__empty">暂无股东人数</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

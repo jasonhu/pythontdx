@@ -185,6 +185,23 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_shareholder_count_labels(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["T002", "T003", "T004", "T005", "T006", "T007", "T012"],
+                    "Content": [["2026-06-30", 296404, 4217.49, 21.88, -18.1, 1185.49, 53245]],
+                }
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_shareholder_count("sh600519")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][0], "报告期")
+        self.assertEqual(table["columns"][1], "股东人数")
+        self.assertEqual(table["columns"][6], "股东人数变动")
+
     def test_fetch_dividend_labels(self):
         payload = {
             "ErrorCode": 0,

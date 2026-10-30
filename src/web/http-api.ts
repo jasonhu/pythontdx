@@ -323,6 +323,8 @@ export function createHttpApi(): StockLensApi {
       lhbMarket: () => post<F10TradingTable>('/api/f10_lhb_market', {}),
       market: (section) => post<F10TradingTable>('/api/f10_market', { section }),
       dividend: (code) => post<F10ProfileTable>('/api/f10_dividend', { code }),
+      shareholderCount: (code) =>
+        post<F10ProfileTable>('/api/f10_shareholder_count', { code }),
       statement: (code, kind) => post<F10ProfileTable>('/api/f10_statement', { code, kind })
     },
     data: {

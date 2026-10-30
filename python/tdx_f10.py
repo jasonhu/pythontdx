@@ -341,6 +341,37 @@ DIVIDEND_LABELS = {
 }
 
 
+SHAREHOLDER_COUNT_LABELS = {
+    "T002": "报告期",
+    "T003": "股东人数",
+    "T004": "户均持股数",
+    "T005": "股东人数环比%",
+    "T006": "户均持股数环比%",
+    "T007": "户均持股市值(万元)",
+    "T012": "股东人数变动",
+}
+
+
+def fetch_shareholder_count(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_gdyj",
+        {"Params": [symbol, "gdrs", "", "", "1", "1", "30"]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 股东人数返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw = [str(name) for name in (table.get("ColName") or [])]
+    return {
+        "columns": [SHAREHOLDER_COUNT_LABELS.get(name, name) for name in raw],
+        "rows": table.get("Content") or [],
+        "count": len(table.get("Content") or []),
+    }
+
+
 def fetch_dividend(code: str, section: str = "fh") -> dict:
     _market, symbol = _market_of(code)
     payload = _post_tqlex(

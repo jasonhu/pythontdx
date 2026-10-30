@@ -18,6 +18,8 @@ import type {
 import { thousands } from '@shared/format'
 import { appState, updateSettings, watchCodes } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
+import { downloadText } from '../lib/download'
+import { toCsv } from '@shared/csv'
 import { IconClose } from './Icons'
 
 interface DataPanelProps {
@@ -51,6 +53,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [klineExporting, setKlineExporting] = createSignal(false)
   const [klineExport, setKlineExport] = createSignal<KLineExportResult | null>(null)
   const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
+  const [snapshotExporting, setSnapshotExporting] = createSignal(false)
+  const [snapshotResult, setSnapshotResult] = createSignal<number | null>(null)
+  const [snapshotError, setSnapshotError] = createSignal<string | null>(null)
   const [localDay, setLocalDay] = createSignal<LocalDayResult | null>(null)
   const [localLoading, setLocalLoading] = createSignal(false)
   const [localError, setLocalError] = createSignal<string | null>(null)
@@ -60,6 +65,50 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [writeLoading, setWriteLoading] = createSignal(false)
   const [writeResult, setWriteResult] = createSignal<LocalDayWriteResult | null>(null)
   const [writeError, setWriteError] = createSignal<string | null>(null)
+
+  const runSnapshotExport = async (): Promise<void> => {
+    if (snapshotExporting()) return
+    setSnapshotExporting(true)
+    setSnapshotError(null)
+    try {
+      const catalog = await api.quote.catalog()
+      const codes = catalog
+        .filter(
+          (item) =>
+            item.kind === 'GP-A' &&
+            ((item.market === 'SH' && /^(600|601|603|605|688|689)/.test(item.symbol)) ||
+              (item.market === 'SZ' && /^(000|001|002|003|300|301|302)/.test(item.symbol)) ||
+              (item.market === 'BJ' && /^[489]/.test(item.symbol)))
+        )
+        .map((item) => item.code)
+      const quotes = []
+      for (let start = 0; start < codes.length; start += 500) {
+        quotes.push(...(await api.quote.macQuotes(codes.slice(start, start + 500))))
+      }
+      downloadText(
+        `stocklens-market-snapshot-${new Date().toISOString().slice(0, 10)}.csv`,
+        toCsv(
+          ['代码', '名称', '现价', '昨收', '涨跌幅', '成交额', '换手率', '量比', '涨速'],
+          quotes.map((quote) => [
+            quote.code,
+            quote.name,
+            quote.price,
+            quote.prevClose,
+            quote.changePct,
+            quote.amount,
+            quote.turnoverRate ?? '',
+            quote.volumeRatio ?? '',
+            quote.riseSpeed ?? ''
+          ])
+        )
+      )
+      setSnapshotResult(quotes.length)
+    } catch (cause) {
+      setSnapshotError(errorMessage(cause))
+    } finally {
+      setSnapshotExporting(false)
+    }
+  }
 
   const runKlineExport = async (): Promise<void> => {
     if (klineExporting()) return
@@ -307,6 +356,33 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                       .join(', ')}
                   </div>
                 </Show>
+              </div>
+            )}
+          </Show>
+
+          <section class="data__kline">
+            <div>
+              <div class="data__label">全市场快照</div>
+              <div class="data__sub">MAC 批量报价 5,615 只 A 股，导出 CSV 用于离线分析。</div>
+            </div>
+            <button
+              class="btn data__snapshot"
+              disabled={snapshotExporting()}
+              onClick={() => void runSnapshotExport()}
+            >
+              {snapshotExporting() ? '拉取中…' : '导出全市场 CSV'}
+            </button>
+          </section>
+          <Show when={snapshotError()}>
+            {(message) => <div class="data__query-error">{message()}</div>}
+          </Show>
+          <Show when={snapshotResult()}>
+            {(count) => (
+              <div class="data__summary data__summary--snapshot">
+                <div class="data__path">
+                  <span>全市场快照</span>
+                  <code>{count()} 只已下载 CSV</code>
+                </div>
               </div>
             )}
           </Show>

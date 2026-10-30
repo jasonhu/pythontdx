@@ -27,6 +27,7 @@ import type {
   LocalDayResult,
   LocalImportResult,
   LocalDayWriteResult,
+  MacMoneyFlow,
   MarketBreadth,
   MinuteTrend,
   MoneyFlowRecord,
@@ -62,6 +63,8 @@ export const IPC = {
   tradeTicks: 'trade:ticks',
   /** 资金流日数据（invoke） */
   moneyFlow: 'money:flow',
+  /** MAC 0x1218 资金流（invoke） */
+  moneyMac: 'money:mac',
   /** 集合竞价过程（invoke） */
   auctionSeries: 'auction:series',
   /** F10 段落目录（invoke） */
@@ -212,6 +215,7 @@ export interface StockLensApi {
   money: {
     /** 最近 5 日资金流（0x0ffc） */
     flow(code: string): Promise<MoneyFlowRecord[]>
+    macFlow(code: string): Promise<MacMoneyFlow>
   }
   auction: {
     /** 集合竞价过程快照（0x056a）；date 省略为当日 */

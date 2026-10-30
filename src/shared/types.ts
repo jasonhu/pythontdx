@@ -204,6 +204,18 @@ export interface TradeTick {
 }
 
 /** 0x0ffc 资金流日记录；接口固定最近 5 个交易日 */
+export interface MacMoneyFlow {
+  mainIn: number
+  mainOut: number
+  mainNet: number
+  retailIn: number
+  retailOut: number
+  retailNet: number
+  largeNet5d: number
+  midNet5d: number
+  receivedAt: number
+}
+
 export interface MoneyFlowRecord {
   code: string
   market: Market

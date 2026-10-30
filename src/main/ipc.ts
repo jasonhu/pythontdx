@@ -49,6 +49,7 @@ import {
   fetchIndustries,
   fetchKline,
   fetchMinuteTrend,
+  fetchMacMoneyFlow,
   fetchMoneyFlow,
   fetchQuotes,
   fetchScreen,
@@ -82,6 +83,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.tradeTicks, (_event, request: TradesRequest) => fetchTrades(request))
 
   ipcMain.handle(IPC.moneyFlow, (_event, code: string) => fetchMoneyFlow(code))
+
+  ipcMain.handle(IPC.moneyMac, (_event, code: string) => fetchMacMoneyFlow(code))
 
   ipcMain.handle(IPC.auctionSeries, (_event, code: string, date?: string) =>
     fetchAuctions(code, date)

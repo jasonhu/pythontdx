@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import json
 import socket
 import struct
 import time
@@ -246,3 +247,64 @@ def fetch_quotes(codes: list[str], timeout: float = 4.0, hosts: tuple[str, ...] 
         finally:
             sock.close()
     raise MacError(f"MAC 行情不可用：{last_error}")
+
+
+def _request_capital_flow(sock: socket.socket, market: int, symbol: str) -> bytes:
+    body = struct.pack("<H8s16x21s", market, symbol.encode("gbk"), b"Stock_ZJLX")
+    inner = struct.pack("<H", 0x1218) + body
+    header = struct.pack("<BIBHH", 2, 0, 1, len(inner), len(inner))
+    sock.sendall(header + inner)
+    return _read_response(sock)
+
+
+def parse_capital_flow(body: bytes) -> dict:
+    """解析 0x1218；服务端正文是 GBK JSON 两行数组。"""
+    if len(body) < 27:
+        raise MacError("MAC 资金流响应过短")
+    try:
+        data = json.loads(body[27:].decode("gbk", errors="ignore"))
+    except json.JSONDecodeError as error:
+        raise MacError(f"MAC 资金流 JSON 解析失败：{error}") from error
+    if not isinstance(data, list) or len(data) < 2:
+        raise MacError("MAC 资金流字段不足")
+    today = data[0] if isinstance(data[0], list) else []
+    five = data[1] if isinstance(data[1], list) else []
+
+    def value(seq: list, index: int) -> float:
+        try:
+            return float(seq[index])
+        except (IndexError, TypeError, ValueError):
+            return 0.0
+
+    return {
+        "mainIn": value(today, 0),
+        "mainOut": value(today, 1),
+        "mainNet": value(today, 0) - value(today, 1),
+        "retailIn": value(today, 2),
+        "retailOut": value(today, 3),
+        "retailNet": value(today, 2) - value(today, 3),
+        "largeNet5d": value(five, 3),
+        "midNet5d": value(five, 4),
+        "receivedAt": int(time.time() * 1000),
+    }
+
+
+def fetch_capital_flow(code: str, timeout: float = 4.0, hosts: tuple[str, ...] = MAC_HOSTS) -> dict:
+    text = code.strip().lower()
+    prefix, symbol = text[:2], text[2:]
+    market = {"sh": 1, "sz": 0, "bj": 2}.get(prefix)
+    if market is None or len(symbol) != 6 or not symbol.isdigit():
+        raise MacError("MAC 资金流只支持 A 股代码")
+    last_error: Exception | None = None
+    for host in hosts:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        try:
+            sock.connect((host, MAC_PORT))
+            _handshake(sock)
+            return parse_capital_flow(_request_capital_flow(sock, market, symbol))
+        except (OSError, MacError) as error:
+            last_error = error
+        finally:
+            sock.close()
+    raise MacError(f"MAC 资金流不可用：{last_error}")

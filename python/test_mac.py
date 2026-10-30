@@ -1,4 +1,5 @@
 """MAC 0x122B 报价解析测试（离线，不连网）。"""
+import json
 import struct
 import unittest
 
@@ -45,6 +46,17 @@ class TestMacQuotes(unittest.TestCase):
         self.assertEqual(quote["bids"][0]["price"], 1392.03)
         self.assertEqual(quote["bids"][0]["volume"], 2)
         self.assertEqual(quote["asks"][0]["price"], 1392.05)
+
+    def test_parse_capital_flow(self):
+        raw = json.dumps([
+            ["100", "40", "30", "20"],
+            ["0", "0", "0", "70", "-5", "0"],
+        ]).encode("gbk")
+        flow = tdx_mac.parse_capital_flow(b"x" * 27 + raw)
+        self.assertAlmostEqual(flow["mainNet"], 60.0)
+        self.assertAlmostEqual(flow["retailNet"], 10.0)
+        self.assertAlmostEqual(flow["largeNet5d"], 70.0)
+        self.assertAlmostEqual(flow["midNet5d"], -5.0)
 
     def test_empty_codes(self):
         self.assertEqual(tdx_mac.fetch_quotes([]), [])

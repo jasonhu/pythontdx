@@ -4,7 +4,7 @@
  * 服务端固定返回 5 天，不能翻页；盘口右侧栏「资金流」页签使用。
  */
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
-import type { MoneyFlowRecord } from '@shared/types'
+import type { MacMoneyFlow, MoneyFlowRecord } from '@shared/types'
 import { compactAmount, signedPct } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 
@@ -18,15 +18,20 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
   const [rows, setRows] = createSignal<MoneyFlowRecord[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+  const [mac, setMac] = createSignal<MacMoneyFlow | null>(null)
   let requestId = 0
 
   const load = async (code: string): Promise<void> => {
     const current = ++requestId
     setLoading(true)
     try {
-      const data = await api.money.flow(code)
+      const [data, macData] = await Promise.all([
+        api.money.flow(code),
+        api.money.macFlow(code).catch(() => null)
+      ])
       if (current !== requestId) return
       setRows(data)
+      setMac(macData)
       setError(null)
     } catch (cause) {
       if (current !== requestId) return
@@ -97,6 +102,32 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
       <div class="flow__foot">
         <span>0x0ffc · 主力 = 超大 + 大单</span>
       </div>
+
+      <Show when={mac()}>
+        {(data) => (
+          <div class="flow__mac">
+            <div class="flow__mac-title">MAC 0x1218 · 今日 / 5 日</div>
+            <div class="flow__mac-grid">
+              <span>主力净额</span>
+              <b class={data().mainNet >= 0 ? 'tone-up' : 'tone-down'}>
+                {compactAmount(data().mainNet)}
+              </b>
+              <span>散户净额</span>
+              <b class={data().retailNet >= 0 ? 'tone-up' : 'tone-down'}>
+                {compactAmount(data().retailNet)}
+              </b>
+              <span>5 日大单</span>
+              <b class={data().largeNet5d >= 0 ? 'tone-up' : 'tone-down'}>
+                {compactAmount(data().largeNet5d)}
+              </b>
+              <span>5 日中单</span>
+              <b class={data().midNet5d >= 0 ? 'tone-up' : 'tone-down'}>
+                {compactAmount(data().midNet5d)}
+              </b>
+            </div>
+          </div>
+        )}
+      </Show>
     </div>
   )
 }

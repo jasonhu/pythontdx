@@ -4469,3 +4469,32 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
+
+/* 资金流页签的 MAC 补充卡 */
+.flow__mac {
+  margin-top: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+
+.flow__mac-title {
+  margin-bottom: 5px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+}
+
+.flow__mac-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.flow__mac-grid b {
+  color: var(--text-1);
+  font-weight: 600;
+}

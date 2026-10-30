@@ -67,6 +67,9 @@ class FakeBridge:
     def f10_news(self, code):
         return [{"id": "1", "title": "新闻"}]
 
+    def mac_money_flow(self, code):
+        return {"mainNet": 1.0}
+
     def mac_quotes(self, codes):
         return []
 
@@ -292,6 +295,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])
+        status, payload, _ = self.request("POST", "/api/mac_money_flow", {"code": "sh600519"})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["mainNet"], 1.0)
         status, payload, _ = self.request("POST", "/api/f10_statement", {"code": "sz000001", "kind": "zcfzb"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["2026-09-30"]])

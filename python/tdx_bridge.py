@@ -51,7 +51,7 @@ from duckdb_query import run_duckdb_query
 from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
 from tdx_local import read_local_file, write_day_file, write_min_file
-from tdx_mac import MacError, fetch_quotes as fetch_mac_quotes
+from tdx_mac import MacError, fetch_capital_flow, fetch_quotes as fetch_mac_quotes
 from local_import import import_local_file
 from tdx_f10 import (
     fetch_announcements,
@@ -2311,6 +2311,10 @@ class Bridge:
         """显式走 MAC 0x122B；用于探测与手动切换。"""
         return fetch_mac_quotes(codes)
 
+    def mac_money_flow(self, code: str) -> dict:
+        """MAC 0x1218 今日/5 日资金流。"""
+        return fetch_capital_flow(code)
+
     def quotes(self, codes: list[str]) -> list[dict]:
         try:
             return self._quotes_7709(codes)
@@ -3135,6 +3139,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.snapshots(payload.get("codes") or [])
     if cmd == "mac_quotes":
         return bridge.mac_quotes(payload.get("codes") or [])
+    if cmd == "mac_money_flow":
+        return bridge.mac_money_flow(str(payload.get("code") or ""))
     if cmd == "refresh":
         return bridge.refresh_quotes(
             payload.get("codes") or [], payload.get("cursors") or {}

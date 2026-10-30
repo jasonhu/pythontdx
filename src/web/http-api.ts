@@ -17,6 +17,7 @@ import type {
   LocalDayResult,
   LocalImportResult,
   LocalDayWriteResult,
+  MacMoneyFlow,
   MarketBreadth,
   F10ProfileTable,
   FormulaScreenRequest,
@@ -288,7 +289,8 @@ export function createHttpApi(): StockLensApi {
       ticks: (req: TradesRequest) => post<TradeTick[]>('/api/trades', req)
     },
     money: {
-      flow: (code) => post<MoneyFlowRecord[]>('/api/money_flow', { code })
+      flow: (code) => post<MoneyFlowRecord[]>('/api/money_flow', { code }),
+      macFlow: (code) => post<MacMoneyFlow>('/api/mac_money_flow', { code })
     },
     auction: {
       series: (code, date) => post<AuctionPoint[]>('/api/auctions', { code, date })

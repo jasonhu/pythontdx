@@ -29,6 +29,7 @@ import type {
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
+  MacMoneyFlow,
   MoneyFlowRecord,
   MultiDayTrend,
   Quote,
@@ -141,6 +142,10 @@ export async function fetchMoneyFlow(code: string): Promise<MoneyFlowRecord[]> {
 }
 
 /** 0x056a 集合竞价过程；date 省略为当日。 */
+export async function fetchMacMoneyFlow(code: string): Promise<MacMoneyFlow> {
+  return bridge.send<MacMoneyFlow>('mac_money_flow', { code }, QUOTES_TIMEOUT_MS)
+}
+
 export async function fetchAuctions(code: string, date?: string): Promise<AuctionPoint[]> {
   return bridge.send<AuctionPoint[]>(
     'auctions',

@@ -27,14 +27,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 const PAGE_SIZE = 100
 
-type SortMode =
-  | 'default'
-  | 'change'
-  | 'changeAsc'
-  | 'amount'
-  | 'price'
-  | 'turnover'
-  | 'volume'
+type SortMode = 'default' | 'change' | 'changeAsc' | 'amount' | 'price' | 'turnover' | 'volume'
 
 function metric(map: Map<string, Quote>, mode: SortMode, item: SearchSecurity): number {
   const quote = map.get(item.code)
@@ -189,9 +182,7 @@ export function MarketListPanel(props: {
     void (async () => {
       try {
         const data =
-          sort() !== 'default'
-            ? await api.quote.macQuotes(codes)
-            : await api.quote.snapshot(codes)
+          sort() !== 'default' ? await api.quote.macQuotes(codes) : await api.quote.snapshot(codes)
         if (current !== requestId) return
         setQuotes(data)
         setError(null)
@@ -254,8 +245,8 @@ export function MarketListPanel(props: {
                   ['changeAsc', '跌幅'],
                   ['amount', '成交额'],
                   ['price', '现价'],
-                ['turnover', '换手'],
-                ['volume', '量比']
+                  ['turnover', '换手'],
+                  ['volume', '量比']
                 ] as Array<[SortMode, string]>
               }
             >

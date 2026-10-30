@@ -101,6 +101,8 @@ npm run build:win:setup     # 只要 NSIS 安装包
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
+> **平台范围**：只做 Linux；`build:win*` / `build:mac` 仅保留历史脚本，不验收、不产出。
+
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
 **打包提示**：产物在 `release/<版本号>/`。

@@ -40,9 +40,20 @@ class TestLocalQuery(unittest.TestCase):
             connection.execute("INSERT INTO bars VALUES('sh600519','2026-10-30',1392.05)")
             connection.commit()
             connection.close()
+            stats = Path(directory) / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+            stats.parent.mkdir(parents=True)
+            side = sqlite3.connect(stats)
+            side.execute("CREATE TABLE tdxstat(code TEXT, pe_ttm REAL)")
+            side.execute("INSERT INTO tdxstat VALUES('sh600519', 20.1)")
+            side.commit()
+            side.close()
             with patch.dict(os.environ, {"STOCKLENS_DATA_DIR": directory}):
                 result = tdx_bridge.run_local_query("SELECT code, close FROM bars")
                 self.assertEqual(result["rowCount"], 1)
+                joined = tdx_bridge.run_local_query(
+                    "SELECT b.code, s.pe_ttm FROM bars b JOIN stats.tdxstat s ON s.code = b.code"
+                )
+                self.assertEqual(joined["rows"], [["sh600519", 20.1]])
                 with self.assertRaises(tdx_bridge.TdxError):
                     tdx_bridge.run_local_query("UPDATE bars SET close = 0")
 

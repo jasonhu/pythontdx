@@ -352,6 +352,7 @@ export interface KLineGeometry {
   bodyWidth: number
   x(index: number): number
   yPrice(value: number): number
+  priceFromY(y: number): number
   yVolume(value: number): number
 }
 
@@ -422,6 +423,10 @@ export function buildKLineGeometry(
       useLog
         ? priceTop + ((Math.log(yMax) - Math.log(Math.max(value, safeMin))) / logSpan) * priceH
         : priceTop + ((yMax - value) / (yMax - safeMin)) * priceH,
+    priceFromY: (y: number) => {
+      const ratio = (priceBottom - y) / priceH
+      return useLog ? Math.exp(logMin + ratio * logSpan) : safeMin + ratio * (yMax - safeMin)
+    },
     yVolume: (value: number) => volumeBottom - (value / maxVolume) * volumeH
   }
 }

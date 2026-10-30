@@ -47,6 +47,18 @@ const MA_CONFIG = [
   { period: 20, color: '#c084fc' }
 ] as const
 
+export type DrawingMode = 'none' | 'horizontal' | 'trend'
+
+interface KLineDrawing {
+  id: number
+  type: 'horizontal' | 'trend'
+  price?: number
+  startIndex?: number
+  startPrice?: number
+  endIndex?: number
+  endPrice?: number
+}
+
 export interface KLineChartProps {
   series: KLineSeries
   /** 是否叠加 BOLL(20,2) */
@@ -56,6 +68,10 @@ export interface KLineChartProps {
   /** 区间统计选择模式 */
   rangeMode?: boolean
   onRangeStats?: (stats: KLineRangeStats | null) => void
+  /** 画线模式 */
+  drawMode?: DrawingMode
+  /** 改变时清空画线 */
+  clearDrawingsKey?: number
 }
 
 /** 默认档位：显示全部 K 线 */
@@ -88,6 +104,11 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [hovering, setHovering] = createSignal(false)
   const [rangeStart, setRangeStart] = createSignal<number | null>(null)
   const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
+  const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
+  const [pendingPoint, setPendingPoint] = createSignal<{ index: number; price: number } | null>(
+    null
+  )
+  let drawingId = 0
 
   /** 全量 K 线 */
   const allBars = (): KLineSeries['bars'] => props.series.bars
@@ -97,7 +118,20 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     void props.series.period
     setRangeStart(null)
     setRangeEnd(null)
+    setDrawings([])
+    setPendingPoint(null)
     props.onRangeStats?.(null)
+  })
+
+  createEffect(() => {
+    void props.clearDrawingsKey
+    setDrawings([])
+    setPendingPoint(null)
+  })
+
+  createEffect(() => {
+    void props.drawMode
+    setPendingPoint(null)
   })
   const total = (): number => allBars().length
 
@@ -203,9 +237,39 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   })
 
   const onPointerDown = (event: PointerEvent): void => {
-    if (!props.rangeMode) return
     const geo = geometry()
     if (!geo) return
+    if (props.drawMode && props.drawMode !== 'none') {
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
+      if (index === null) return
+      const price = geo.priceFromY(event.clientY - rect.top)
+      if (props.drawMode === 'horizontal') {
+        drawingId += 1
+        setDrawings((items) => [...items, { id: drawingId, type: 'horizontal', price }])
+        return
+      }
+      const pending = pendingPoint()
+      if (!pending) {
+        setPendingPoint({ index, price })
+        return
+      }
+      drawingId += 1
+      setDrawings((items) => [
+        ...items,
+        {
+          id: drawingId,
+          type: 'trend',
+          startIndex: pending.index,
+          startPrice: pending.price,
+          endIndex: index,
+          endPrice: price
+        }
+      ])
+      setPendingPoint(null)
+      return
+    }
+    if (!props.rangeMode) return
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
     if (index === null) return
@@ -530,6 +594,29 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             >
               {`↑↓ 缩放 · 近 ${win().count} 根`}
             </text>
+
+            {/* ---------- 画线 ---------- */}
+            <For each={drawings()}>
+              {(drawing) =>
+                drawing.type === 'horizontal' ? (
+                  <line
+                    class="chart-drawing"
+                    x1={geo().padding.left}
+                    x2={geo().width - geo().padding.right}
+                    y1={geo().yPrice(drawing.price ?? 0)}
+                    y2={geo().yPrice(drawing.price ?? 0)}
+                  />
+                ) : (
+                  <line
+                    class="chart-drawing"
+                    x1={geo().x(drawing.startIndex ?? 0)}
+                    y1={geo().yPrice(drawing.startPrice ?? 0)}
+                    x2={geo().x(drawing.endIndex ?? 0)}
+                    y2={geo().yPrice(drawing.endPrice ?? 0)}
+                  />
+                )
+              }
+            </For>
 
             {/* ---------- 区间统计选区 ---------- */}
             <Show when={rangeOverlay()}>

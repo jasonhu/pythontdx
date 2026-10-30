@@ -3602,3 +3602,11 @@
   color: var(--text-2);
   font-weight: 600;
 }
+
+.chart-drawing {
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+  pointer-events: none;
+}

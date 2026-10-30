@@ -26,6 +26,7 @@ import { ChartSkeleton } from './ChartSkeleton'
 import { TrendChart, type TrendHover } from './TrendChart'
 import { IconRefresh } from './Icons'
 import { IndicatorSubchart, type SubIndicator } from './IndicatorSubchart'
+import type { DrawingMode } from './KLineChart'
 
 type Tab = 'minute' | 'five' | KLinePeriod
 
@@ -72,6 +73,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
   const [rangeMode, setRangeMode] = createSignal(false)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
+  const [drawMode, setDrawMode] = createSignal<DrawingMode>('none')
+  const [clearDrawingsKey, setClearDrawingsKey] = createSignal(0)
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
   createEffect(() => {
@@ -244,6 +247,32 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             }}
           >
             {logScale() ? '对数' : '线性'}
+          </button>
+        </Show>
+
+        <Show when={!isTrend()}>
+          <button
+            class="chip chart-draw-horizontal"
+            data-active={drawMode() === 'horizontal'}
+            title="点击图表放置水平线"
+            onClick={() => setDrawMode((mode) => (mode === 'horizontal' ? 'none' : 'horizontal'))}
+          >
+            水平
+          </button>
+          <button
+            class="chip chart-draw-trend"
+            data-active={drawMode() === 'trend'}
+            title="点两下画趋势线"
+            onClick={() => setDrawMode((mode) => (mode === 'trend' ? 'none' : 'trend'))}
+          >
+            趋势
+          </button>
+          <button
+            class="chip chart-draw-clear"
+            title="清除所有画线"
+            onClick={() => setClearDrawingsKey((value) => value + 1)}
+          >
+            清线
           </button>
         </Show>
 
@@ -436,6 +465,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     logScale={logScale()}
                     rangeMode={rangeMode()}
                     onRangeStats={setRangeStats}
+                    drawMode={drawMode()}
+                    clearDrawingsKey={clearDrawingsKey()}
                   />
                 )}
               </Show>

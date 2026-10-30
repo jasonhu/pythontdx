@@ -65,6 +65,7 @@ const api: StockLensApi = {
     market: (section) => ipcRenderer.invoke(IPC.f10Market, section),
     dividend: (code) => ipcRenderer.invoke(IPC.f10Dividend, code),
     shareholderCount: (code) => ipcRenderer.invoke(IPC.f10ShareholderCount, code),
+    capital: (code, section) => ipcRenderer.invoke(IPC.f10Capital, code, section),
     statement: (code, kind, full) => ipcRenderer.invoke(IPC.f10Statement, code, kind, full)
   },
   data: {

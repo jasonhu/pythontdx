@@ -100,6 +100,9 @@ class FakeBridge:
     def market_breadth(self):
         return {"up": 1, "down": 2, "flat": 3, "total": 6, "updatedAt": 0}
 
+    def f10_capital(self, code, section="structure"):
+        return {"section": section, "columns": [], "rows": [], "count": 0}
+
     def f10_shareholder_count(self, code):
         return {"columns": [], "rows": [], "count": 0}
 

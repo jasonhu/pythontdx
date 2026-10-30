@@ -24,6 +24,7 @@ type OnlineTab =
   | 'reports'
   | 'dividend'
   | 'shareholderCount'
+  | 'capital'
   | 'statement'
   | 'news'
   | 'trading'
@@ -57,6 +58,10 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [shareholderCount, setShareholderCount] = createSignal<F10ProfileTable | null>(null)
   const [shareholderCountLoading, setShareholderCountLoading] = createSignal(true)
   const [shareholderCountError, setShareholderCountError] = createSignal<string | null>(null)
+  const [capital, setCapital] = createSignal<F10TradingTable | null>(null)
+  const [capitalSection, setCapitalSection] = createSignal('structure')
+  const [capitalLoading, setCapitalLoading] = createSignal(true)
+  const [capitalError, setCapitalError] = createSignal<string | null>(null)
   const [statementKind, setStatementKind] = createSignal('zcfzb')
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
@@ -186,6 +191,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadCapital = async (section: string): Promise<void> => {
+    setCapitalLoading(true)
+    setCapitalError(null)
+    try {
+      setCapital(await api.f10.capital(props.code, section))
+    } catch (cause) {
+      setCapitalError(errorMessage(cause))
+    } finally {
+      setCapitalLoading(false)
+    }
+  }
+
   const loadShareholderCount = async (): Promise<void> => {
     setShareholderCountLoading(true)
     setShareholderCountError(null)
@@ -237,6 +254,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadReports()
     void loadDividend()
     void loadShareholderCount()
+    void loadCapital('structure')
     void loadStatement('zcfzb')
     void loadNews()
     void loadTrading('margin')
@@ -333,6 +351,16 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('shareholderCount')}
           >
             股东人数
+          </button>
+          <button
+            class="online-tab online-capital-tab"
+            data-active={tab() === 'capital'}
+            onClick={() => {
+              setTab('capital')
+              void loadCapital(capitalSection())
+            }}
+          >
+            股本
           </button>
           <button
             class="online-tab online-statement-tab"
@@ -648,6 +676,72 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table shareholder-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'capital'}>
+              <div class="trading__sections">
+                <For
+                  each={
+                    [
+                      ['structure', '股本结构'],
+                      ['changes', '股本变动'],
+                      ['buyback', '股票回购'],
+                      ['restricted', '限售流通']
+                    ] as const
+                  }
+                >
+                  {([key, label]) => (
+                    <button
+                      class={`trading-section trading-section--${key}`}
+                      data-active={capitalSection() === key}
+                      onClick={() => {
+                        setCapitalSection(key)
+                        void loadCapital(key)
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )}
+                </For>
+                <span class="trading__count">{capital()?.count ?? 0} 行</span>
+              </div>
+              <Show
+                when={!capitalLoading()}
+                fallback={<div class="announcements__empty">加载股本…</div>}
+              >
+                <Show
+                  when={!capitalError()}
+                  fallback={<div class="announcements__error">{capitalError()}</div>}
+                >
+                  <Show
+                    when={capital()}
+                    fallback={<div class="announcements__empty">暂无股本数据</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table capital-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

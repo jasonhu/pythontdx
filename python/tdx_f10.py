@@ -341,6 +341,80 @@ DIVIDEND_LABELS = {
 }
 
 
+CAPITAL_SECTIONS = {
+    "structure": ("gbjg", "股本结构"),
+    "changes": ("gbbd", "股本变动"),
+    "buyback": ("gphg", "股票回购"),
+    "restricted": ("xslt", "限售流通"),
+}
+
+CAPITAL_LABELS = {
+    "structure": {
+        "T002": "截止日期",
+        "T003": "总股本",
+        "T004": "已流通股份",
+        "T005": "未流通/待流通",
+        "T010": "流通A股",
+        "T011": "无限售条件流通股",
+        "T019": "流通股份合计",
+        "N010": "其它统计口径",
+    },
+    "changes": {
+        "T002": "变动日期",
+        "T003": "变动后总股本",
+        "T004": "变动前总股本",
+        "T006": "变动数量",
+        "T007": "变动比例%",
+        "T008": "变动原因码",
+    },
+    "buyback": {
+        "N001": "公告日",
+        "N002": "进度",
+        "N004": "首次公告日",
+        "N005": "已回购数量",
+        "N006": "已回购占比%",
+        "N007": "回购均价",
+        "N008": "拟回购金额上限",
+        "N009": "回购起始日",
+        "N010": "回购截止日",
+        "N021": "回购用途",
+        "closep": "最新收盘价",
+    },
+    "restricted": {
+        "T003": "解禁日",
+        "T004": "解禁市值",
+        "T006": "股份来源",
+        "T010": "解禁数量",
+        "T012": "状态",
+        "T014": "解禁数量(万股)",
+    },
+}
+
+
+def fetch_capital_structure(code: str, section: str = "structure") -> dict:
+    if section not in CAPITAL_SECTIONS:
+        raise F10Error(f"不支持的股本分区：{section}")
+    raw, _label = CAPITAL_SECTIONS[section]
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_gbjg",
+        {"Params": [symbol, raw]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 股本结构返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"section": section, "columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    return {
+        "section": section,
+        "columns": [CAPITAL_LABELS.get(section, {}).get(name, name) for name in raw_columns],
+        "rows": table.get("Content") or [],
+        "count": len(table.get("Content") or []),
+    }
+
+
 SHAREHOLDER_COUNT_LABELS = {
     "T002": "报告期",
     "T003": "股东人数",

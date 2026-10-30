@@ -185,6 +185,22 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_capital_structure_labels(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["T002", "T003", "T004", "T011", "T019"],
+                    "Content": [["2026-06-30", 100, 90, 90, 90]],
+                }
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_capital_structure("sh600519", "structure")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][1], "总股本")
+        self.assertEqual(table["columns"][4], "流通股份合计")
+
     def test_fetch_shareholder_count_labels(self):
         payload = {
             "ErrorCode": 0,

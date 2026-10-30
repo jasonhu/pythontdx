@@ -15,7 +15,8 @@ import type {
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
-import { createGroupWithItems } from '../stores/app'
+import { appState, createGroupWithItems, updateSettings } from '../stores/app'
+import type { ScreenPreset } from '@shared/types'
 
 interface ScreenerPanelProps {
   onClose: () => void
@@ -208,6 +209,43 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
     }
   }
 
+  const savePreset = (): void => {
+    const preset: ScreenPreset = {
+      id: `p${Date.now().toString(36)}`,
+      name: `预设 ${new Date().toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 5)}`,
+      minChange: minChange(),
+      minAmountYi: minAmountYi(),
+      minTurnover: minTurnover(),
+      minAmplitude: minAmplitude(),
+      maxPrice: maxPrice(),
+      industry: industry(),
+      sortBy: sortBy(),
+      createdAt: Date.now()
+    }
+    updateSettings({
+      screenPresets: [preset, ...(appState.settings.screenPresets ?? [])].slice(0, 10)
+    })
+    setPoolNotice(`已保存预设：${preset.name}`)
+  }
+
+  const applyPreset = async (preset: ScreenPreset): Promise<void> => {
+    setMinChange(preset.minChange)
+    setMinAmountYi(preset.minAmountYi)
+    setMinTurnover(preset.minTurnover)
+    setMinAmplitude(preset.minAmplitude)
+    setMaxPrice(preset.maxPrice)
+    setIndustry(preset.industry)
+    setSortBy(preset.sortBy)
+    setPoolNotice(`已载入预设：${preset.name}`)
+    await run()
+  }
+
+  const removePreset = (id: string): void => {
+    updateSettings({
+      screenPresets: (appState.settings.screenPresets ?? []).filter((preset) => preset.id !== id)
+    })
+  }
+
   const saveAsPool = (): void => {
     const quotes = formulaResult()?.quotes ?? result()?.quotes ?? []
     if (quotes.length === 0) return
@@ -250,6 +288,33 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
         <Show when={poolNotice()}>
           {(message) => <div class="screener__pool-notice">{message()}</div>}
         </Show>
+
+        <div class="screener__presets">
+          <span class="screener__presets-label">条件预设</span>
+          <button class="btn screener__preset-save" onClick={savePreset}>
+            保存当前
+          </button>
+          <For each={appState.settings.screenPresets ?? []}>
+            {(preset) => (
+              <span class="screener__preset">
+                <button
+                  class="screener__preset-apply"
+                  title={`${preset.minChange}% / ${preset.minAmountYi}亿`}
+                  onClick={() => void applyPreset(preset)}
+                >
+                  {preset.name}
+                </button>
+                <button
+                  class="screener__preset-remove"
+                  title="删除预设"
+                  onClick={() => removePreset(preset.id)}
+                >
+                  ×
+                </button>
+              </span>
+            )}
+          </For>
+        </div>
 
         <div class="screener__filters">
           <label class="screener__field">

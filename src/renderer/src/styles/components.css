@@ -5243,3 +5243,44 @@
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
 }
+
+.screener__presets {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 6px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.screener__presets-label {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.screener__preset {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.screener__preset-apply {
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  color: var(--text-2);
+  background: transparent;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.screener__preset-remove {
+  width: 18px;
+  height: 22px;
+  border: 0;
+  color: var(--text-3);
+  background: transparent;
+  cursor: pointer;
+}

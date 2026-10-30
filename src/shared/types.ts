@@ -703,6 +703,21 @@ export interface AppSettings {
   railWidth?: number
   /** 自定义版面槽（最多 3 个） */
   layoutSlots?: LayoutSlot[]
+  /** 条件选股预设（最多 10 个） */
+  screenPresets?: ScreenPreset[]
+}
+
+export interface ScreenPreset {
+  id: string
+  name: string
+  minChange: string
+  minAmountYi: string
+  minTurnover: string
+  minAmplitude: string
+  maxPrice: string
+  industry: string
+  sortBy: ScreenSortBy
+  createdAt: number
 }
 
 export interface LayoutSlot {

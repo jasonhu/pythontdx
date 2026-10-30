@@ -19,6 +19,8 @@ import type {
   MultiDayTrend,
   Quote,
   QuoteUpdate,
+  ScreenRequest,
+  ScreenResult,
   SearchItem,
   TdxStatsExport,
   TdxStatsSummary,
@@ -227,6 +229,9 @@ export function createHttpApi(): StockLensApi {
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),
       industries: () => post<IndustryList>('/api/industries', {})
+    },
+    screen: {
+      run: (request: ScreenRequest) => post<ScreenResult>('/api/screen', request)
     },
     trend: {
       minute: (code) => request<MinuteTrend>(`/api/minute?code=${encodeURIComponent(code)}`),

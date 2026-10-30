@@ -326,6 +326,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.industries())
                 return
+            if parsed.path == "/api/screen":
+                nested = payload.get("filters")
+                filters = nested if isinstance(nested, dict) else payload
+                with self.server.lock:
+                    self._ok(self.server.bridge.screen(filters))
+                return
             self._error(HTTPStatus.NOT_FOUND, f"未知路径：{parsed.path}")
         except (TdxError, ValueError, TypeError) as error:
             self._error(HTTPStatus.BAD_REQUEST, str(error))

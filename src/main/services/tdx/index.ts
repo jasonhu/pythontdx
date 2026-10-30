@@ -19,6 +19,8 @@ import type {
   MoneyFlowRecord,
   MultiDayTrend,
   Quote,
+  ScreenRequest,
+  ScreenResult,
   SearchItem,
   TdxStatsExport,
   TdxStatsSummary,
@@ -170,6 +172,11 @@ export async function fetchBlocks(kind: BlockKind): Promise<BlockList> {
 /** tdxhy.cfg + incon.dat 通达信行业分类。 */
 export async function fetchIndustries(): Promise<IndustryList> {
   return bridge.send<IndustryList>('industries', {}, BLOCK_TIMEOUT_MS)
+}
+
+/** 全市场条件选股；后端按 60 秒缓存全市场分类行情。 */
+export async function fetchScreen(request: ScreenRequest): Promise<ScreenResult> {
+  return bridge.send<ScreenResult>('screen', { filters: request }, BLOCK_TIMEOUT_MS)
 }
 
 /* ------------------------------------------------------------------ K 线 */

@@ -21,6 +21,8 @@ import type {
   Quote,
   QuoteUpdate,
   SearchItem,
+  ScreenRequest,
+  ScreenResult,
   TdxStatsExport,
   TdxStatsSummary,
   TradeTick,
@@ -57,6 +59,8 @@ export const IPC = {
   blockList: 'block:list',
   /** 行业分类/成分（invoke） */
   blockIndustries: 'block:industries',
+  /** 全市场条件选股（invoke） */
+  screenRun: 'screen:run',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -157,6 +161,10 @@ export interface StockLensApi {
     list(kind: BlockKind): Promise<BlockList>
     /** tdxhy.cfg + incon.dat 行业分类 */
     industries(): Promise<IndustryList>
+  }
+  screen: {
+    /** 全市场扫描；结果最多 200 条 */
+    run(request: ScreenRequest): Promise<ScreenResult>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

@@ -50,6 +50,13 @@ class FakeBridge:
     def industries(self):
         return {"kind": "industry", "blockCount": 1, "blocks": [{"name": "银行"}]}
 
+    def screen(self, filters):
+        return {
+            "scanned": 10,
+            "matched": filters.get("minChangePct", 0),
+            "quotes": [{"code": "sh600519"}],
+        }
+
 
 class TestHttpApi(unittest.TestCase):
     def setUp(self):
@@ -115,6 +122,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/industries", {})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["blocks"][0]["name"], "银行")
+        status, payload, _ = self.request("POST", "/api/screen", {"minChangePct": 5})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["matched"], 5)
 
     def test_bad_json(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)

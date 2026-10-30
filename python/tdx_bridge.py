@@ -1776,6 +1776,49 @@ def parse_sector_indices(text: str) -> list[dict]:
     return rows
 
 
+SCREEN_FIELDS = ("price", "changePct", "amount", "turnoverRate", "amplitude")
+SCREEN_SORT_FIELDS = ("changePct", "amount", "turnoverRate", "amplitude")
+
+
+def apply_screen(quotes: list[dict], filters: dict) -> list[dict]:
+    """在本地对一页/全市场分类行情做条件过滤与排序。"""
+    result = []
+    for quote in quotes:
+        ok = True
+        for field in SCREEN_FIELDS:
+            minimum = filters.get(f"min{field[0].upper()}{field[1:]}")
+            maximum = filters.get(f"max{field[0].upper()}{field[1:]}")
+            if minimum is None and maximum is None:
+                continue
+            value = quote.get(field)
+            if value is None or not isinstance(value, (int, float)):
+                ok = False
+                break
+            if minimum is not None and value < float(minimum):
+                ok = False
+                break
+            if maximum is not None and value > float(maximum):
+                ok = False
+                break
+        if ok:
+            result.append(quote)
+
+    sort_by = filters.get("sortBy") or "changePct"
+    if sort_by not in SCREEN_SORT_FIELDS:
+        sort_by = "changePct"
+    ascending = bool(filters.get("ascending", False))
+    result.sort(
+        key=lambda quote: (
+            float(quote.get(sort_by))
+            if isinstance(quote.get(sort_by), (int, float))
+            else float("-inf")
+        ),
+        reverse=not ascending,
+    )
+    limit = max(1, min(200, int(filters.get("limit", 80))))
+    return result[:limit]
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -2043,6 +2086,7 @@ class Bridge:
         self.block_cache: dict[str, tuple[float, dict]] = {}
         self.industry_cache: tuple[float, dict] | None = None
         self.zhb_cache: tuple[float, bytes, dict, int] | None = None
+        self.screen_cache: tuple[float, list[dict]] | None = None
 
     def close(self) -> None:
         self.conn.close()
@@ -2180,6 +2224,37 @@ class Bridge:
         quotes = parse_category_quotes(body, received_at, self.index.by_code)
         self._attach_finance(quotes)
         return quotes
+
+    def _all_category_quotes(self) -> list[dict]:
+        if self.screen_cache and self.screen_cache[0] > time.time():
+            return self.screen_cache[1]
+        quotes: list[dict] = []
+        start = 0
+        while start < 6400:
+            page = self.category_quotes(
+                category=6,
+                sort_type=0x000E,
+                start=start,
+                count=80,
+            )
+            quotes.extend(page)
+            if len(page) < 80:
+                break
+            start += 80
+        self.screen_cache = (time.time() + 60, quotes)
+        return quotes
+
+    def screen(self, filters: dict) -> dict:
+        """全市场条件选股：价格/涨幅/成交额/换手/振幅。"""
+        quotes = self._all_category_quotes()
+        matched = apply_screen(quotes, filters)
+        return {
+            "scanned": len(quotes),
+            "matched": len(matched),
+            "quotes": matched,
+            "sortBy": filters.get("sortBy") or "changePct",
+            "generatedAt": int(time.time() * 1000),
+        }
 
     def trades(
         self,
@@ -2703,6 +2778,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.blocks(str(payload.get("kind") or "gn"))
     if cmd == "industries":
         return bridge.industries()
+    if cmd == "screen":
+        return bridge.screen(payload.get("filters") or {})
     if cmd == "money_flow":
         return bridge.money_flow(payload.get("code", ""))
     if cmd == "f10_catalog":

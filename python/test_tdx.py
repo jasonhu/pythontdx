@@ -393,6 +393,28 @@ class TestIndustry(unittest.TestCase):
         self.assertEqual(rows[1]["name"], "黑龙江")
 
 
+class TestScreener(unittest.TestCase):
+    QUOTES = [
+        {"code": "sh600519", "price": 1367.85, "changePct": 1.2, "amount": 3e9, "turnoverRate": 0.5, "amplitude": 2},
+        {"code": "sz300750", "price": 232.0, "changePct": 5.5, "amount": 8e9, "turnoverRate": 3.2, "amplitude": 6},
+        {"code": "sz000001", "price": 11.5, "changePct": -2.0, "amount": 1e8, "turnoverRate": 1.1, "amplitude": 3},
+        {"code": "sh688001", "price": 50.0, "changePct": 8.0, "amount": 2e8},
+    ]
+
+    def test_filter_and_sort(self):
+        result = tdx.apply_screen(
+            self.QUOTES,
+            {"minChangePct": 3, "minAmount": 1e8, "sortBy": "changePct", "limit": 10},
+        )
+        self.assertEqual([row["code"] for row in result], ["sh688001", "sz300750"])
+
+    def test_missing_metric_excluded(self):
+        result = tdx.apply_screen(
+            self.QUOTES, {"minTurnoverRate": 1.0, "sortBy": "amount"}
+        )
+        self.assertEqual([row["code"] for row in result], ["sz300750", "sz000001"])
+
+
 class TestMoneyFlow(unittest.TestCase):
     def test_money_flow_request(self):
         data = tdx.money_flow_data(1, "600519")

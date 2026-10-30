@@ -107,6 +107,33 @@ export interface CategoryQuote extends Quote {
   active2?: number
 }
 
+export type ScreenSortBy = 'changePct' | 'amount' | 'turnoverRate' | 'amplitude'
+
+/** 全市场条件选股；金额单位统一为元 */
+export interface ScreenRequest {
+  minPrice?: number
+  maxPrice?: number
+  minChangePct?: number
+  maxChangePct?: number
+  minAmount?: number
+  maxAmount?: number
+  minTurnoverRate?: number
+  maxTurnoverRate?: number
+  minAmplitude?: number
+  maxAmplitude?: number
+  sortBy?: ScreenSortBy
+  ascending?: boolean
+  limit?: number
+}
+
+export interface ScreenResult {
+  scanned: number
+  matched: number
+  quotes: CategoryQuote[]
+  sortBy: ScreenSortBy
+  generatedAt: number
+}
+
 /** 0x0fc5 / 0x0fc6 成交明细 */
 export type TradeSide = 'buy' | 'sell' | 'neutral' | `status_${number}`
 export type TradeEventKind = 'trade' | 'opening_match' | 'auction_snapshot'

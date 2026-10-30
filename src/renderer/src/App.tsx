@@ -18,6 +18,7 @@ import { MoneyFlow } from './components/MoneyFlow'
 import { OrderBook } from './components/OrderBook'
 import { QuoteHeader } from './components/QuoteHeader'
 import { RankingPanel } from './components/RankingPanel'
+import { ScreenerPanel } from './components/ScreenerPanel'
 import { Sidebar } from './components/Sidebar'
 import { StatsGrid } from './components/StatsGrid'
 import { StatusBar } from './components/StatusBar'
@@ -38,6 +39,7 @@ import { dismissLatestAlert, latestAlert } from './stores/alerts'
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
   const [blocksOpen, setBlocksOpen] = createSignal(false)
+  const [screenerOpen, setScreenerOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
@@ -72,6 +74,7 @@ export default function App(): JSX.Element {
       <Sidebar
         onOpenRanking={() => setRankingOpen(true)}
         onOpenBlocks={() => setBlocksOpen(true)}
+        onOpenScreener={() => setScreenerOpen(true)}
       />
 
       {/* 主区只有两块：行情头部 + 图表。图表用 flex 吃掉全部剩余高度 */}
@@ -197,6 +200,17 @@ export default function App(): JSX.Element {
             applyQuotes([quote])
             setActiveCode(quote.code)
             setBlocksOpen(false)
+          }}
+        />
+      </Show>
+
+      <Show when={screenerOpen()}>
+        <ScreenerPanel
+          onClose={() => setScreenerOpen(false)}
+          onSelect={(quote) => {
+            applyQuotes([quote])
+            setActiveCode(quote.code)
+            setScreenerOpen(false)
           }}
         />
       </Show>

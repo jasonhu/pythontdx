@@ -178,3 +178,11 @@ export function IconBell(props: IconProps): JSX.Element {
     </svg>
   )
 }
+
+export function IconFilter(props: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+    </svg>
+  )
+}

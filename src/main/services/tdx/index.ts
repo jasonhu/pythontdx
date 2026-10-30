@@ -249,7 +249,9 @@ export async function fetchFormulaScreen(
     {
       expression: request.expression,
       scope: request.scope,
-      limit: request.limit
+      limit: request.limit,
+      offset: request.offset,
+      batchSize: request.batchSize
     },
     180_000
   )

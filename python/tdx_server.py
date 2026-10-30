@@ -514,6 +514,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                             str(payload.get("expression") or ""),
                             int(payload.get("scope", 100)),
                             int(payload.get("limit", 100)),
+                            int(payload.get("offset", 0)),
+                            int(payload.get("batchSize", 100)),
                         )
                     )
                 return

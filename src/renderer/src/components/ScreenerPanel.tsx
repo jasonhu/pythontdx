@@ -45,19 +45,53 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
   const [formulaResult, setFormulaResult] = createSignal<FormulaScreenResult | null>(null)
   const [formulaLoading, setFormulaLoading] = createSignal(false)
   const [formulaError, setFormulaError] = createSignal<string | null>(null)
+  const [formulaProgress, setFormulaProgress] = createSignal<{
+    offset: number
+    total: number
+  } | null>(null)
+  let formulaCancelled = false
 
   const runFormula = async (): Promise<void> => {
-    if (formulaLoading()) return
+    if (formulaLoading()) {
+      formulaCancelled = true
+      return
+    }
+    formulaCancelled = false
     setFormulaLoading(true)
     setFormulaError(null)
+    setFormulaResult(null)
+    setFormulaProgress(null)
+    const matches: FormulaScreenResult['quotes'] = []
+    const expression = formula()
+    let offset = 0
+    let total: number
     try {
-      setFormulaResult(
-        await api.screen.formula({
-          expression: formula(),
+      do {
+        const data = await api.screen.formula({
+          expression,
           scope: Number(formulaScope()),
-          limit: 100
+          offset,
+          batchSize: 100,
+          limit: 200
         })
-      )
+        matches.push(...data.quotes)
+        total = data.total
+        offset = data.nextOffset
+        setFormulaProgress({ offset, total })
+        if (formulaCancelled) break
+      } while (offset < total)
+      if (!formulaCancelled) {
+        setFormulaResult({
+          scanned: total,
+          total,
+          nextOffset: offset,
+          done: true,
+          matched: matches.length,
+          quotes: matches,
+          expression,
+          generatedAt: Date.now()
+        })
+      }
     } catch (cause) {
       setFormulaResult(null)
       setFormulaError(errorMessage(cause))
@@ -232,14 +266,21 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
           <Show when={formulaScope() === '0'}>
             <span class="screener__formula-note">逐只拉日 K，期间没有进度条</span>
           </Show>
-          <button
-            class="btn screener__formula-run"
-            disabled={formulaLoading()}
-            onClick={() => void runFormula()}
-          >
-            {formulaLoading() ? '公式扫描…' : '公式选股'}
+          <button class="btn screener__formula-run" onClick={() => void runFormula()}>
+            {formulaLoading() ? '取消扫描' : '公式选股'}
           </button>
         </div>
+        <Show when={formulaLoading() && formulaProgress()}>
+          {(value) => (
+            <div class="screener__formula-meta">
+              公式扫描 {value().offset} / {value().total}
+            </div>
+          )}
+        </Show>
+        <Show when={formulaLoading() && !formulaProgress()}>
+          <div class="screener__formula-meta">公式扫描准备中…</div>
+        </Show>
+
         <Show when={formulaError()}>
           {(message) => <div class="screener__error">{message()}</div>}
         </Show>

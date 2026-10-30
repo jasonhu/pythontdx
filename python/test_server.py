@@ -85,8 +85,15 @@ class FakeBridge:
     def stats_duck_query(self, sql, limit):
         return {"columns": ["code"], "rows": [["600519"]], "rowCount": 1}
 
-    def formula_screen(self, expression, scope, limit):
-        return {"scanned": 3, "matched": 1, "quotes": [{"code": "sh600519"}]}
+    def formula_screen(self, expression, scope, limit, offset=0, batch_size=100):
+        return {
+            "scanned": 3,
+            "total": 3,
+            "nextOffset": 3,
+            "done": True,
+            "matched": 1,
+            "quotes": [{"code": "sh600519"}],
+        }
 
     def blocks(self, kind):
         return {"kind": kind, "blockCount": 1, "blocks": [{"name": "测试板块"}]}

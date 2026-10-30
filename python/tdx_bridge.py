@@ -2394,8 +2394,15 @@ class Bridge:
             "generatedAt": int(time.time() * 1000),
         }
 
-    def formula_screen(self, expression: str, scope: int = 100, limit: int = 100) -> dict:
-        """公式选股：默认按成交额取前 scope 只，scope<=0 扫全市场。"""
+    def formula_screen(
+        self,
+        expression: str,
+        scope: int = 100,
+        limit: int = 100,
+        offset: int = 0,
+        batch_size: int = 100,
+    ) -> dict:
+        """公式选股：按成交额取前 scope 只；offset/batch_size 支持分块扫描。"""
         quotes = self._all_category_quotes()
         ranked = sorted(
             (quote for quote in quotes if isinstance(quote.get("amount"), (int, float))),
@@ -2403,25 +2410,24 @@ class Bridge:
             reverse=True,
         )
         universe = ranked if scope <= 0 else ranked[: max(1, min(2000, int(scope)))]
+        total = len(universe)
+        start = max(0, min(total, int(offset)))
+        end = min(total, start + max(1, min(500, int(batch_size))))
         matches = []
-        scanned = 0
-        for quote in universe:
-            scanned += 1
+        for quote in universe[start:end]:
             try:
                 series = self.kline(quote["code"], "day", 120)
                 latest = evaluate_formula(expression, series["bars"])
             except (TdxError, FormulaError):
                 continue
             if latest > 0:
-                matches.append(
-                    {
-                        **quote,
-                        "formulaValue": latest,
-                    }
-                )
+                matches.append({**quote, "formulaValue": latest})
         matched = matches[: max(1, min(200, int(limit)))]
         return {
-            "scanned": scanned,
+            "scanned": end - start,
+            "total": total,
+            "nextOffset": end,
+            "done": end >= total,
             "matched": len(matches),
             "quotes": matched,
             "expression": expression,
@@ -3014,6 +3020,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("expression") or ""),
             int(payload.get("scope", 100)),
             int(payload.get("limit", 100)),
+            int(payload.get("offset", 0)),
+            int(payload.get("batchSize", 100)),
         )
     if cmd == "stats_query":
         return bridge.stats_query(

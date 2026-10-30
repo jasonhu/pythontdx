@@ -137,10 +137,17 @@ export interface FormulaScreenRequest {
   /** 按成交额取前 N；0 表示全市场 */
   scope?: number
   limit?: number
+  /** 分块扫描起点 */
+  offset?: number
+  /** 每块扫描数量 */
+  batchSize?: number
 }
 
 export interface FormulaScreenResult {
   scanned: number
+  total: number
+  nextOffset: number
+  done: boolean
   matched: number
   quotes: FormulaQuote[]
   expression: string

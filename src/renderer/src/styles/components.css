@@ -3479,3 +3479,30 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
 }
+
+.indicator-params {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px 8px;
+}
+
+.indicator-params label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.indicator-params input {
+  width: 52px;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--text-1);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}

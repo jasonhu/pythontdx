@@ -53,6 +53,20 @@ export function IndicatorPanel(props: {
   const [bars, setBars] = createSignal<KLineBar[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+  const [macdFast, setMacdFast] = createSignal('12')
+  const [macdSlow, setMacdSlow] = createSignal('26')
+  const [macdSignal, setMacdSignal] = createSignal('9')
+  const [kdjPeriod, setKdjPeriod] = createSignal('9')
+  const [kdjM1, setKdjM1] = createSignal('3')
+  const [kdjM2, setKdjM2] = createSignal('3')
+  const [rsiPeriod, setRsiPeriod] = createSignal('14')
+  const [bollPeriod, setBollPeriod] = createSignal('20')
+  const [bollK, setBollK] = createSignal('2')
+
+  const num = (value: () => string, fallback: number): number => {
+    const parsed = Number(value())
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(200, Math.floor(parsed)) : fallback
+  }
   let requestId = 0
 
   createEffect(() => {
@@ -81,7 +95,7 @@ export function IndicatorPanel(props: {
     const offset = Math.max(0, all.length - data.length)
     const slice = (values: number[]): number[] => values.slice(offset)
     if (tab() === 'macd') {
-      const values = macd(all)
+      const values = macd(all, num(macdFast, 12), num(macdSlow, 26), num(macdSignal, 9))
       const dif = slice(values.dif)
       const dea = slice(values.dea)
       const hist = slice(values.hist)
@@ -109,7 +123,7 @@ export function IndicatorPanel(props: {
       }
     }
     if (tab() === 'kdj') {
-      const values = kdj(all)
+      const values = kdj(all, num(kdjPeriod, 9), num(kdjM1, 3), num(kdjM2, 3))
       const k = slice(values.k)
       const d = slice(values.d)
       const j = slice(values.j)
@@ -131,7 +145,7 @@ export function IndicatorPanel(props: {
       }
     }
     if (tab() === 'rsi') {
-      const values = rsi(all)
+      const values = rsi(all, num(rsiPeriod, 14))
       const line = slice(values)
       return {
         lines: [{ label: 'RSI14', color: COLORS.rsi, path: linePath(line, 0, 100) }],
@@ -139,7 +153,7 @@ export function IndicatorPanel(props: {
         latest: [['RSI14', line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
-    const values = boll(all)
+    const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
     const lower = slice(values.lower)
@@ -207,6 +221,108 @@ export function IndicatorPanel(props: {
           </For>
         </div>
 
+        <div class="indicator-params">
+          <Show when={tab() === 'macd'}>
+            <label>
+              <span>快</span>
+              <input
+                type="number"
+                min="2"
+                max="60"
+                value={macdFast()}
+                onInput={(e) => setMacdFast(e.currentTarget.value)}
+              />
+            </label>
+            <label>
+              <span>慢</span>
+              <input
+                type="number"
+                min="3"
+                max="120"
+                value={macdSlow()}
+                onInput={(e) => setMacdSlow(e.currentTarget.value)}
+              />
+            </label>
+            <label>
+              <span>信号</span>
+              <input
+                type="number"
+                min="2"
+                max="60"
+                value={macdSignal()}
+                onInput={(e) => setMacdSignal(e.currentTarget.value)}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'kdj'}>
+            <label>
+              <span>N</span>
+              <input
+                type="number"
+                min="2"
+                max="60"
+                value={kdjPeriod()}
+                onInput={(e) => setKdjPeriod(e.currentTarget.value)}
+              />
+            </label>
+            <label>
+              <span>M1</span>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={kdjM1()}
+                onInput={(e) => setKdjM1(e.currentTarget.value)}
+              />
+            </label>
+            <label>
+              <span>M2</span>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                value={kdjM2()}
+                onInput={(e) => setKdjM2(e.currentTarget.value)}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'rsi'}>
+            <label>
+              <span>周期</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={rsiPeriod()}
+                onInput={(e) => setRsiPeriod(e.currentTarget.value)}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'boll'}>
+            <label>
+              <span>周期</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={bollPeriod()}
+                onInput={(e) => setBollPeriod(e.currentTarget.value)}
+              />
+            </label>
+            <label>
+              <span>倍数</span>
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                max="10"
+                value={bollK()}
+                onInput={(e) => setBollK(e.currentTarget.value)}
+              />
+            </label>
+          </Show>
+        </div>
+
         <div class="indicator__body">
           <Show
             when={!loading() && chart()}
@@ -262,7 +378,11 @@ export function IndicatorPanel(props: {
         </div>
 
         <footer class="indicator__foot">
-          <span>MACD(12,26,9) · KDJ(9,3,3) · RSI14 · BOLL(20,2)</span>
+          <span>
+            MACD({num(macdFast, 12)},{num(macdSlow, 26)},{num(macdSignal, 9)}) · KDJ(
+            {num(kdjPeriod, 9)},{num(kdjM1, 3)},{num(kdjM2, 3)}) · RSI{num(rsiPeriod, 14)} · BOLL(
+            {num(bollPeriod, 20)},{num(bollK, 2)})
+          </span>
           <span>不构成交易建议</span>
         </footer>
       </section>

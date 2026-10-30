@@ -6,7 +6,7 @@
 import { createEffect, createSignal } from 'solid-js'
 import type { ScreenPreset } from '@shared/types'
 import { api } from '../lib/ipc'
-import { appState, replaceGroupItems, updateSettings } from './app'
+import { appState, replaceGroupItems } from './app'
 
 const INTERVAL_MS = 60_000
 export const [screenTrackingAt, setScreenTrackingAt] = createSignal<number | null>(null)
@@ -43,25 +43,32 @@ async function tick(preset: ScreenPreset): Promise<void> {
 }
 
 /** App 启动时调用一次；settings 里 trackingPresetId 变化会重启计时器。 */
+function trackedIds(): string[] {
+  const settings = appState.settings
+  const explicit = settings.trackingPresetIds ?? []
+  if (explicit.length > 0) return explicit
+  return settings.trackingPresetId ? [settings.trackingPresetId] : []
+}
+
 export function startScreenTracking(): void {
   let timer: number | null = null
-  let activeId = ''
+  let activeKey = ''
 
   createEffect(() => {
-    const id = appState.settings.trackingPresetId ?? ''
-    if (id === activeId) return
-    activeId = id
+    const ids = trackedIds()
+    const key = ids.join(',')
+    if (key === activeKey) return
+    activeKey = key
     if (timer !== null) window.clearInterval(timer)
     timer = null
-    const preset = (appState.settings.screenPresets ?? []).find((item) => item.id === id)
-    if (!preset) {
-      if (id) updateSettings({ trackingPresetId: undefined })
-      return
+    if (ids.length === 0) return
+    const tickAll = (): void => {
+      for (const id of ids) {
+        const preset = (appState.settings.screenPresets ?? []).find((item) => item.id === id)
+        if (preset) void tick(preset)
+      }
     }
-    void tick(preset)
-    timer = window.setInterval(() => {
-      const latest = (appState.settings.screenPresets ?? []).find((item) => item.id === id)
-      if (latest) void tick(latest)
-    }, INTERVAL_MS)
+    tickAll()
+    timer = window.setInterval(tickAll, INTERVAL_MS)
   })
 }

@@ -365,7 +365,8 @@ function plainSettings(): AppSettings {
     ...state.settings,
     chartDrawings: state.settings.chartDrawings?.map((drawing) => ({ ...drawing })),
     layoutSlots: state.settings.layoutSlots?.map((slot) => ({ ...slot })),
-    screenPresets: state.settings.screenPresets?.map((preset) => ({ ...preset }))
+    screenPresets: state.settings.screenPresets?.map((preset) => ({ ...preset })),
+    trackingPresetIds: state.settings.trackingPresetIds?.slice()
   }
 }
 

@@ -240,17 +240,31 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
     await run()
   }
 
+  const tracked = (id: string): boolean => {
+    const settings = appState.settings
+    const ids = settings.trackingPresetIds ?? []
+    if (ids.length > 0) return ids.includes(id)
+    return settings.trackingPresetId === id
+  }
+
   const removePreset = (id: string): void => {
     updateSettings({
       screenPresets: (appState.settings.screenPresets ?? []).filter((preset) => preset.id !== id),
+      trackingPresetIds: (appState.settings.trackingPresetIds ?? []).filter((item) => item !== id),
       trackingPresetId:
         appState.settings.trackingPresetId === id ? undefined : appState.settings.trackingPresetId
     })
   }
 
   const toggleTracking = (preset: ScreenPreset): void => {
-    const active = appState.settings.trackingPresetId === preset.id
-    updateSettings({ trackingPresetId: active ? undefined : preset.id })
+    const active = tracked(preset.id)
+    const ids = new Set(
+      appState.settings.trackingPresetIds ??
+        (appState.settings.trackingPresetId ? [appState.settings.trackingPresetId] : [])
+    )
+    if (active) ids.delete(preset.id)
+    else ids.add(preset.id)
+    updateSettings({ trackingPresetIds: [...ids], trackingPresetId: undefined })
     setPoolNotice(
       active ? `已停止跟踪：${preset.name}` : `开始跟踪：${preset.name}（每 60 秒更新自动池）`
     )
@@ -315,11 +329,11 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
                   {preset.name}
                 </button>
                 <button
-                  class={`screener__preset-track ${appState.settings.trackingPresetId === preset.id ? 'is-tracking' : ''}`}
+                  class={`screener__preset-track ${tracked(preset.id) ? 'is-tracking' : ''}`}
                   title="每 60 秒重扫并更新自动池"
                   onClick={() => toggleTracking(preset)}
                 >
-                  {appState.settings.trackingPresetId === preset.id ? '跟踪中' : '跟踪'}
+                  {tracked(preset.id) ? '跟踪中' : '跟踪'}
                 </button>
                 <button
                   class="screener__preset-remove"

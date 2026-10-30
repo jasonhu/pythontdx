@@ -707,6 +707,8 @@ export interface AppSettings {
   screenPresets?: ScreenPreset[]
   /** 正在自动跟踪的预设 id；为空则不跟踪 */
   trackingPresetId?: string
+  /** 可同时跟踪多个预设 */
+  trackingPresetIds?: string[]
 }
 
 export interface ScreenPreset {

@@ -494,6 +494,12 @@ export interface IndicatorParams {
   bollK: number
 }
 
+export interface PortfolioPosition {
+  code: string
+  shares: number
+  cost: number
+}
+
 export interface ChartDrawing {
   id: string
   code: string
@@ -578,6 +584,8 @@ export interface AppState {
   alerts: AlertRule[]
   /** 本地保存的指标公式 */
   formulas: SavedFormula[]
+  /** 本地持仓（股数/成本） */
+  positions?: PortfolioPosition[]
 }
 
 /** 持久化数据的当前版本 */

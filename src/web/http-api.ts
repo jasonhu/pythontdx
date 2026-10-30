@@ -91,7 +91,8 @@ function loadState(): AppState {
           settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
           activeCode: parsed.activeCode ?? parsed.groups[0]?.items[0]?.code ?? null,
           alerts: Array.isArray(parsed.alerts) ? parsed.alerts : [],
-          formulas: Array.isArray(parsed.formulas) ? parsed.formulas : []
+          formulas: Array.isArray(parsed.formulas) ? parsed.formulas : [],
+          positions: Array.isArray(parsed.positions) ? parsed.positions : []
         }
       }
     }
@@ -106,7 +107,8 @@ function loadState(): AppState {
     settings: { ...DEFAULT_SETTINGS },
     activeCode: groups[0]?.items[0]?.code ?? null,
     alerts: [],
-    formulas: []
+    formulas: [],
+    positions: []
   }
 }
 

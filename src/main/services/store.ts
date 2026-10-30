@@ -55,7 +55,8 @@ function createDefaultState(): AppState {
     settings: { ...DEFAULT_SETTINGS },
     activeCode: SEED_GROUPS[0]?.items[0]?.code ?? null,
     alerts: [],
-    formulas: []
+    formulas: [],
+    positions: []
   }
 }
 
@@ -155,7 +156,8 @@ export class AppStore {
       settings: { ...fallback.settings, ...source.settings },
       activeCode: source.activeCode ?? fallback.activeCode,
       alerts: Array.isArray(source.alerts) ? source.alerts : [],
-      formulas: Array.isArray(source.formulas) ? source.formulas : []
+      formulas: Array.isArray(source.formulas) ? source.formulas : [],
+      positions: Array.isArray(source.positions) ? source.positions : []
     }
   }
 

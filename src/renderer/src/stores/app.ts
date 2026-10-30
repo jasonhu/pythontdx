@@ -14,6 +14,7 @@ import {
   type AppInfo,
   type AppSettings,
   type AppState,
+  type PortfolioPosition,
   type SavedFormula,
   type SearchItem,
   type WatchGroup,
@@ -83,7 +84,8 @@ export async function bootstrapAppState(): Promise<void> {
     settings: { ...DEFAULT_SETTINGS, ...persisted.settings },
     activeCode: persisted.activeCode ?? persisted.groups[0]?.items[0]?.code ?? null,
     alerts: Array.isArray(persisted.alerts) ? persisted.alerts : [],
-    formulas: Array.isArray(persisted.formulas) ? persisted.formulas : []
+    formulas: Array.isArray(persisted.formulas) ? persisted.formulas : [],
+    positions: Array.isArray(persisted.positions) ? persisted.positions : []
   })
   setAppInfo(info)
 
@@ -279,6 +281,14 @@ export function moveWatchItem(code: string, targetGroupId: string, targetIndex: 
 }
 
 /* ------------------------------------------------------------------ 设置 */
+
+export function savePositions(positions: PortfolioPosition[]): void {
+  const plain = positions
+    .filter((position) => position.shares > 0 && position.cost > 0)
+    .map((position) => ({ ...position }))
+  setState('positions', plain)
+  persist({ positions: plain })
+}
 
 export function updateSettings(patch: Partial<AppSettings>): void {
   setState('settings', patch)

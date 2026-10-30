@@ -4064,3 +4064,33 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
 }
+
+.portfolio__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.portfolio-edit,
+.portfolio-save {
+  height: 26px;
+  padding: 0 10px;
+  font-size: var(--fs-2xs);
+}
+
+.portfolio-input {
+  width: 74px;
+  height: 23px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--text-1);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.portfolio-table {
+  min-width: 700px;
+}

@@ -1,14 +1,20 @@
 /**
- * 组合分析：当前自选分组的当日快照。
+ * 组合分析：当前自选分组的当日快照 + 本地持仓盈亏。
  *
- * 只做当日等权统计，不把“等权平均涨幅”冒充组合净值曲线。
+ * 等权平均只是当日的横截面统计，不等于组合真实收益；真实盈亏看持仓表。
  */
-import { createMemo, For, type JSX } from 'solid-js'
-import type { Quote } from '@shared/types'
-import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
-import { activeItems } from '../stores/app'
+import { createMemo, createSignal, For, Show, type JSX } from 'solid-js'
+import type { PortfolioPosition, Quote } from '@shared/types'
+import { compactAmount, fixed, signedPct } from '@shared/format'
+import { computePortfolio } from '@shared/portfolio'
+import { activeItems, appState, savePositions } from '../stores/app'
 import { quoteOf } from '../stores/quotes'
 import { IconClose } from './Icons'
+
+interface Draft {
+  shares: string
+  cost: string
+}
 
 export function PortfolioPanel(props: {
   onClose: () => void
@@ -20,20 +26,71 @@ export function PortfolioPanel(props: {
       .filter((quote): quote is Quote => quote !== undefined)
   )
 
+  const [editing, setEditing] = createSignal(false)
+  const [draft, setDraft] = createSignal<Record<string, Draft>>({})
+
+  const draftFor = (code: string): Draft => {
+    const saved = appState.positions?.find((position) => position.code === code)
+    return (
+      draft()[code] ?? {
+        shares: saved && saved.shares > 0 ? String(saved.shares) : '',
+        cost: saved && saved.cost > 0 ? String(saved.cost) : ''
+      }
+    )
+  }
+
+  const setDraftValue = (code: string, key: keyof Draft, value: string): void => {
+    setDraft((current) => ({ ...current, [code]: { ...draftFor(code), [key]: value } }))
+  }
+
+  const draftPositions = createMemo<PortfolioPosition[]>(() =>
+    rows()
+      .map((quote) => draftFor(quote.code))
+      .map((value, index) => ({
+        code: rows()[index].code,
+        shares: Number(value.shares) || 0,
+        cost: Number(value.cost) || 0
+      }))
+      .filter((position) => position.shares > 0 && position.cost > 0)
+  )
+
+  const summary = createMemo(() => computePortfolio(rows(), draftPositions()))
+
   const stats = createMemo(() => {
     const list = rows()
     const valid = list.filter((quote) => Number.isFinite(quote.changePct))
-    const average =
-      valid.length > 0 ? valid.reduce((sum, quote) => sum + quote.changePct, 0) / valid.length : 0
     return {
       count: list.length,
       up: valid.filter((quote) => quote.changePct > 0).length,
       down: valid.filter((quote) => quote.changePct < 0).length,
       flat: valid.filter((quote) => quote.changePct === 0).length,
-      average,
+      average:
+        valid.length > 0
+          ? valid.reduce((sum, quote) => sum + quote.changePct, 0) / valid.length
+          : 0,
       amount: list.reduce((sum, quote) => sum + (quote.amount ?? 0), 0)
     }
   })
+
+  const startEditing = (): void => {
+    const positions = appState.positions ?? []
+    const next: Record<string, Draft> = {}
+    for (const quote of rows()) {
+      const saved = positions.find((position) => position.code === quote.code)
+      next[quote.code] = {
+        shares: saved?.shares ? String(saved.shares) : '',
+        cost: saved?.cost ? String(saved.cost) : ''
+      }
+    }
+    setDraft(next)
+    setEditing(true)
+  }
+
+  const save = (): void => {
+    savePositions(draftPositions())
+    setEditing(false)
+    setDraft({})
+  }
 
   return (
     <div class="portfolio-backdrop" onClick={() => props.onClose()}>
@@ -49,13 +106,27 @@ export function PortfolioPanel(props: {
             <div class="portfolio__eyebrow">当前自选分组 · 当日快照</div>
             <h2 class="portfolio__title">组合分析</h2>
           </div>
-          <button
-            class="btn btn--icon btn--bare"
-            title="关闭组合分析"
-            onClick={() => props.onClose()}
-          >
-            <IconClose size={16} />
-          </button>
+          <div class="portfolio__head-actions">
+            <Show
+              when={editing()}
+              fallback={
+                <button class="btn portfolio-edit" onClick={startEditing}>
+                  编辑持仓
+                </button>
+              }
+            >
+              <button class="btn portfolio-save" onClick={save}>
+                保存持仓
+              </button>
+            </Show>
+            <button
+              class="btn btn--icon btn--bare"
+              title="关闭组合分析"
+              onClick={() => props.onClose()}
+            >
+              <IconClose size={16} />
+            </button>
+          </div>
         </header>
 
         <div class="portfolio__stats">
@@ -77,12 +148,20 @@ export function PortfolioPanel(props: {
             </strong>
           </div>
           <div>
-            <span>标的数</span>
-            <strong>{stats().count}</strong>
+            <span>持仓市值</span>
+            <strong>{compactAmount(summary().totalValue)}</strong>
           </div>
           <div>
-            <span>成交额合计</span>
-            <strong>{compactAmount(stats().amount)}</strong>
+            <span>浮动盈亏</span>
+            <strong
+              classList={{
+                'tone-up': summary().pnl > 0,
+                'tone-down': summary().pnl < 0
+              }}
+            >
+              {compactAmount(summary().pnl)}
+              <small> {signedPct(summary().pnlPct)}</small>
+            </strong>
           </div>
         </div>
 
@@ -94,40 +173,95 @@ export function PortfolioPanel(props: {
                 <th>代码</th>
                 <th>现价</th>
                 <th>涨跌幅</th>
-                <th>成交额</th>
-                <th>成交量</th>
+                <Show when={editing()}>
+                  <th>持股</th>
+                  <th>成本</th>
+                </Show>
+                <th>市值</th>
+                <th>盈亏</th>
+                <th>权重</th>
               </tr>
             </thead>
             <tbody>
               <For each={rows()}>
-                {(quote) => (
-                  <tr
-                    onClick={() => {
-                      props.onSelect(quote)
-                      props.onClose()
-                    }}
-                  >
-                    <td>{quote.name}</td>
-                    <td class="num">{quote.code.toUpperCase()}</td>
-                    <td class="num">{fixed(quote.price)}</td>
-                    <td
-                      class="num"
-                      classList={{
-                        'tone-up': quote.changePct > 0,
-                        'tone-down': quote.changePct < 0
+                {(quote) => {
+                  const position = createMemo(() =>
+                    summary().rows.find((row) => row.code === quote.code)
+                  )
+                  return (
+                    <tr
+                      onClick={() => {
+                        if (!editing()) {
+                          props.onSelect(quote)
+                          props.onClose()
+                        }
                       }}
                     >
-                      {signedPct(quote.changePct)}
-                    </td>
-                    <td class="num">{compactAmount(quote.amount)}</td>
-                    <td class="num">{thousands(quote.volume)}</td>
-                  </tr>
-                )}
+                      <td>{quote.name}</td>
+                      <td class="num">{quote.code.toUpperCase()}</td>
+                      <td class="num">{fixed(quote.price)}</td>
+                      <td
+                        class="num"
+                        classList={{
+                          'tone-up': quote.changePct > 0,
+                          'tone-down': quote.changePct < 0
+                        }}
+                      >
+                        {signedPct(quote.changePct)}
+                      </td>
+                      <Show when={editing()}>
+                        <td>
+                          <input
+                            class="portfolio-input portfolio-shares"
+                            type="number"
+                            min="0"
+                            step="100"
+                            value={draftFor(quote.code).shares}
+                            onClick={(event) => event.stopPropagation()}
+                            onInput={(event) =>
+                              setDraftValue(quote.code, 'shares', event.currentTarget.value)
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            class="portfolio-input portfolio-cost"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={draftFor(quote.code).cost}
+                            onClick={(event) => event.stopPropagation()}
+                            onInput={(event) =>
+                              setDraftValue(quote.code, 'cost', event.currentTarget.value)
+                            }
+                          />
+                        </td>
+                      </Show>
+                      <td class="num">
+                        {position() ? compactAmount(position()!.marketValue) : '—'}
+                      </td>
+                      <td
+                        class="num"
+                        classList={{
+                          'tone-up': (position()?.pnl ?? 0) > 0,
+                          'tone-down': (position()?.pnl ?? 0) < 0
+                        }}
+                      >
+                        {position() ? compactAmount(position()!.pnl) : '—'}
+                      </td>
+                      <td class="num">{position() ? `${fixed(position()!.weight)}%` : '—'}</td>
+                    </tr>
+                  )
+                }}
               </For>
             </tbody>
           </table>
           <div class="portfolio__empty">
-            {rows().length === 0 ? '当前分组还没有行情，等待刷新…' : '点击行切换主行情'}
+            {rows().length === 0
+              ? '当前分组还没有行情，等待刷新…'
+              : editing()
+                ? '填持股数与成本后保存；空行视为未持仓'
+                : '点击行切换主行情；持仓成本只存在本机'}
           </div>
         </div>
       </section>

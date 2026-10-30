@@ -40,6 +40,8 @@ export interface CreateWindowOptions {
    * 「点完档位马上退出」那次就因此丢过设置（见 capture.ts）。
    */
   flushState?: () => Promise<void>
+  /** 第二个主窗口：不注册截图钩子，避免两个窗口互相抢捕获 */
+  secondary?: boolean
 }
 
 export function createMainWindow(options: CreateWindowOptions = {}): BrowserWindow {
@@ -82,7 +84,7 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
   })
 
   attachDiagnostics(window)
-  setupCapture(window, options.flushState)
+  if (!options.secondary) setupCapture(window, options.flushState)
 
   const reportBounds = debounce(() => {
     if (!window.isMaximized() && !window.isMinimized() && !window.isFullScreen()) {
@@ -112,6 +114,23 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
     void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  return window
+}
+
+export function createSecondaryWindow(): BrowserWindow {
+  const window = createMainWindow({ secondary: true })
+  const capturePath = process.env.STOCKLENS_CAPTURE_SECONDARY
+  if (capturePath) {
+    window.webContents.once('did-finish-load', () => {
+      setTimeout(() => {
+        void window.webContents
+          .capturePage()
+          .then((image) => writeFile(capturePath, image.toPNG()))
+          .then(() => console.log(`[capture] 第二窗口截图：${capturePath}`))
+          .catch((error) => console.error('[capture] 第二窗口截图失败', error))
+      }, 9000)
+    })
+  }
   return window
 }
 

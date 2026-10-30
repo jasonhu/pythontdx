@@ -26,6 +26,7 @@ interface TitleBarProps {
   onOpenData: () => void
   onOpenAlerts: () => void
   onOpenSettings: () => void
+  onOpenSecondary: () => void
 }
 
 export function TitleBar(props: TitleBarProps): JSX.Element {
@@ -52,6 +53,13 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
         </button>
         <button class="btn btn--bare data-open" title="数据工具" onClick={() => props.onOpenData()}>
           数据
+        </button>
+        <button
+          class="btn btn--bare window-secondary"
+          title="打开第二个主窗口"
+          onClick={() => props.onOpenSecondary()}
+        >
+          新窗
         </button>
         <button
           class="btn btn--icon btn--bare settings-open"

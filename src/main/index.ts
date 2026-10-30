@@ -113,8 +113,9 @@ function onReady(): void {
 
   poller = new QuotePoller({
     emit: (update) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(IPC.quoteUpdate, update)
+      // 多窗口：每扇窗都订阅了同一份行情流，不能只推主窗口。
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send(IPC.quoteUpdate, update)
       }
     },
     // 窗口不可见时跳过拉取，省流量也省上游压力（可在设置里关掉）

@@ -38,7 +38,7 @@ StockLens 的所有重要变更都记录在这里。
 - **WebSocket 行情**：`/ws` 文本帧订阅（codes/intervalMs），每周期推 `type=quote`；
   Web 优先 WebSocket，失败自动回退 SSE；Vite 开发代理支持 `/ws`。
 - **公式选股**：后端 Python 安全表达式（MA/EMA/REF/CROSS），按成交额前 100/500
-  或全市场逐只拉日 K；实测前 100 命中 37 只。
+  或全市场逐只拉日 K；前 100 命中 37 只；全市场 5,579 只实测约 99 秒。
 - **条件选股行业过滤**：输入通达信行业名（如“银行”），后端用 tdxhy 成分过滤；
   实测银行 42 只、返回成交额前 5。
 - **Linux 打包验证**：PyInstaller 6.22.3 + electron-builder linux-unpacked 与

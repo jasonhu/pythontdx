@@ -2388,6 +2388,13 @@
   font-size: var(--fs-2xs);
 }
 
+.screener__formula-note {
+  align-self: center;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
 .screener__formula-result {
   padding: 10px 24px 0;
 }

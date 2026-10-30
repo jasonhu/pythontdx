@@ -227,8 +227,11 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
           >
             <option value="100">成交额前 100</option>
             <option value="500">成交额前 500</option>
-            <option value="0">全市场（慢）</option>
+            <option value="0">全市场（约 1–2 分钟）</option>
           </select>
+          <Show when={formulaScope() === '0'}>
+            <span class="screener__formula-note">逐只拉日 K，期间没有进度条</span>
+          </Show>
           <button
             class="btn screener__formula-run"
             disabled={formulaLoading()}

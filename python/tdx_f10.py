@@ -461,6 +461,56 @@ def parse_news_payload(payload: dict) -> list[dict]:
     return rows
 
 
+TRADING_SECTIONS = {
+    "margin": ("rzrq", ""),
+    "block": ("dzjy", ""),
+    "dragon": ("lgt", "2"),
+    "north": ("islgt", ""),
+}
+
+TRADING_LABELS = {
+    "margin": {"T001": "交易日", "T003": "融资余额", "T004": "融资买入额", "T005": "融券余额", "ClosePrice": "收盘价"},
+    "block": {"yjl": "溢价率"},
+    "dragon": {"rq": "日期", "T006": "买入额", "T007": "卖出额"},
+    "north": {"T001": "持股"},
+}
+
+
+def parse_trading_payload(payload: dict, section: str) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    labels = TRADING_LABELS.get(section, {})
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"section": section, "rawColumns": [], "columns": [], "rows": [], "count": 0}
+    # 分区主表固定是 table0；空表就是“无记录”，不能拿调整因子/收盘价表凑数。
+    table = tables[0]
+    content = table.get("Content") or []
+    if not content:
+        return {"section": section, "rawColumns": [], "columns": [], "rows": [], "count": 0}
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    columns = [labels.get(name, name) for name in raw_columns]
+    return {
+        "section": section,
+        "rawColumns": raw_columns,
+        "columns": columns,
+        "rows": content,
+        "count": len(content),
+    }
+
+
+def fetch_trading(code: str, section: str = "margin") -> dict:
+    if section not in TRADING_SECTIONS:
+        raise F10Error(f"不支持的交易数据分区：{section}")
+    raw_section, arg = TRADING_SECTIONS[section]
+    market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_jyds",
+        {"Params": [symbol, raw_section, arg]},
+    )
+    return parse_trading_payload(payload, section)
+
+
 def fetch_news(code: str) -> list[dict]:
     market, symbol = _market_of(code)
     body = {

@@ -241,6 +241,14 @@ export interface F10ProfileTable {
   full?: boolean
 }
 
+export interface F10TradingTable {
+  section: string
+  rawColumns: string[]
+  columns: string[]
+  rows: Array<Array<string | number>>
+  count: number
+}
+
 export interface F10NewsItem {
   id: string
   date: string

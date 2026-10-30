@@ -13,6 +13,7 @@ import type {
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
+  F10TradingTable,
   F10ProfileTable,
   FormulaScreenRequest,
   FormulaScreenResult,
@@ -295,6 +296,7 @@ export function createHttpApi(): StockLensApi {
       shareholders: (code) => post<F10ProfileTable>('/api/f10_shareholders', { code }),
       reports: (code) => post<F10ProfileTable>('/api/f10_reports', { code }),
       news: (code) => post<F10NewsItem[]>('/api/f10_news', { code }),
+      trading: (code, section) => post<F10TradingTable>('/api/f10_trading', { code, section }),
       statement: (code, kind) => post<F10ProfileTable>('/api/f10_statement', { code, kind })
     },
     data: {

@@ -13,6 +13,7 @@ import type {
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
+  F10TradingTable,
   FormulaScreenRequest,
   FormulaScreenResult,
   F10ProfileTable,
@@ -76,6 +77,8 @@ export const IPC = {
   f10Reports: 'f10:reports',
   /** 7615 公司新闻（invoke） */
   f10News: 'f10:news',
+  /** 7615 两融/大宗/龙虎榜/沪深股通（invoke） */
+  f10Trading: 'f10:trading',
   /** 7615 财务报表关键科目（invoke） */
   f10Statement: 'f10:statement',
   /** tdxstat 摘要（invoke） */
@@ -197,6 +200,7 @@ export interface StockLensApi {
     shareholders(code: string): Promise<F10ProfileTable>
     reports(code: string): Promise<F10ProfileTable>
     news(code: string): Promise<F10NewsItem[]>
+    trading(code: string, section: string): Promise<F10TradingTable>
     statement(code: string, kind: string, full?: boolean): Promise<F10ProfileTable>
   }
   data: {

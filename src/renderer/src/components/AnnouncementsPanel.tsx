@@ -4,7 +4,7 @@
  * 只调用免费 HTTP 网关；公告详情交系统浏览器，不抓取研报正文，也不绕过授权。
  */
 import { createSignal, For, Match, onCleanup, onMount, Show, Switch, type JSX } from 'solid-js'
-import type { F10Announcement, F10NewsItem, F10ProfileTable } from '@shared/types'
+import type { F10Announcement, F10NewsItem, F10ProfileTable, F10TradingTable } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -24,6 +24,7 @@ type OnlineTab =
   | 'reports'
   | 'statement'
   | 'news'
+  | 'trading'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -56,6 +57,10 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [news, setNews] = createSignal<F10NewsItem[]>([])
   const [newsLoading, setNewsLoading] = createSignal(true)
   const [newsError, setNewsError] = createSignal<string | null>(null)
+  const [trading, setTrading] = createSignal<F10TradingTable | null>(null)
+  const [tradingSection, setTradingSection] = createSignal('margin')
+  const [tradingLoading, setTradingLoading] = createSignal(true)
+  const [tradingError, setTradingError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -159,6 +164,20 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadTrading = async (section: string): Promise<void> => {
+    setTradingSection(section)
+    setTradingLoading(true)
+    setTradingError(null)
+    try {
+      setTrading(await api.f10.trading(props.code, section))
+    } catch (cause) {
+      setTrading(null)
+      setTradingError(errorMessage(cause))
+    } finally {
+      setTradingLoading(false)
+    }
+  }
+
   const loadNews = async (): Promise<void> => {
     setNewsLoading(true)
     setNewsError(null)
@@ -186,6 +205,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadReports()
     void loadStatement('zcfzb')
     void loadNews()
+    void loadTrading('margin')
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -279,6 +299,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('news')}
           >
             新闻
+          </button>
+          <button
+            class="online-tab online-trading-tab"
+            data-active={tab() === 'trading'}
+            onClick={() => setTab('trading')}
+          >
+            交易
           </button>
         </div>
 
@@ -628,6 +655,73 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                         </div>
                       </>
                     )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'trading'}>
+              <div class="trading-sections">
+                <For
+                  each={
+                    [
+                      ['margin', '两融'],
+                      ['block', '大宗'],
+                      ['dragon', '龙虎榜'],
+                      ['north', '沪股通']
+                    ] as Array<[string, string]>
+                  }
+                >
+                  {([value, label]) => (
+                    <button
+                      class="trading-section"
+                      data-active={tradingSection() === value}
+                      onClick={() => void loadTrading(value)}
+                    >
+                      {label}
+                    </button>
+                  )}
+                </For>
+              </div>
+              <Show
+                when={!tradingLoading()}
+                fallback={<div class="announcements__empty">加载交易数据…</div>}
+              >
+                <Show
+                  when={!tradingError()}
+                  fallback={<div class="announcements__error">{tradingError()}</div>}
+                >
+                  <Show
+                    when={(trading()?.count ?? 0) > 0}
+                    fallback={
+                      <div class="announcements__empty">暂无记录（原始表 table0 为空）</div>
+                    }
+                  >
+                    <div class="announcements__meta">
+                      共 {trading()?.count ?? 0} 行 · 原始列 {trading()?.rawColumns.join(' / ')}
+                    </div>
+                    <div class="finance-table-wrap">
+                      <table class="finance-table trading-table">
+                        <thead>
+                          <tr>
+                            <For each={trading()?.columns ?? []}>
+                              {(column) => <th>{column}</th>}
+                            </For>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <For each={trading()?.rows ?? []}>
+                            {(row) => (
+                              <tr>
+                                <For each={row}>
+                                  {(value) => <td class="num">{String(value)}</td>}
+                                </For>
+                              </tr>
+                            )}
+                          </For>
+                        </tbody>
+                      </table>
+                    </div>
                   </Show>
                 </Show>
               </Show>

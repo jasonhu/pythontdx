@@ -59,6 +59,7 @@ from tdx_f10 import (
     fetch_reports,
     fetch_shareholders,
     fetch_statement,
+    fetch_trading,
     fetch_valuation,
 )
 
@@ -2555,6 +2556,10 @@ class Bridge:
         """7615 TQLEX 公司新闻列表。"""
         return fetch_news(code)
 
+    def f10_trading(self, code: str, section: str = "margin") -> dict:
+        """7615 TQLEX 两融/大宗/龙虎榜/沪深股通。"""
+        return fetch_trading(code, section)
+
     def f10_statement(self, code: str, kind: str = "zcfzb", full: bool = False) -> dict:
         """7615 TQLEX 财务报表；full=true 返回全部原始列。"""
         return fetch_statement(code, kind, full)
@@ -3071,6 +3076,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_reports(payload.get("code", ""))
     if cmd == "f10_news":
         return bridge.f10_news(payload.get("code", ""))
+    if cmd == "f10_trading":
+        return bridge.f10_trading(payload.get("code", ""), str(payload.get("section", "margin")))
     if cmd == "f10_statement":
         return bridge.f10_statement(
             payload.get("code", ""),

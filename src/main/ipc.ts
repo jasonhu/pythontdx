@@ -25,6 +25,7 @@ import {
   fetchF10Announcements,
   fetchF10Business,
   fetchF10News,
+  fetchF10Trading,
   fetchF10Reports,
   fetchF10Statement,
   fetchFormulaScreen,
@@ -96,6 +97,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.f10Reports, (_event, code: string) => fetchF10Reports(code))
 
   ipcMain.handle(IPC.f10News, (_event, code: string) => fetchF10News(code))
+
+  ipcMain.handle(IPC.f10Trading, (_event, code: string, section: string) =>
+    fetchF10Trading(code, section)
+  )
 
   ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>
     fetchF10Statement(code, kind, full)

@@ -157,6 +157,18 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(rows[0]["date"], "2026-10-29 21:56")
         self.assertEqual(rows[0]["source"], "证券时报")
 
+    def test_parse_trading(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {"ColName": ["T001", "T003"], "Content": [["20261029", "123"]]},
+                {"ColName": ["other"], "Content": [["x"]]},
+            ],
+        }
+        table = tdx_f10.parse_trading_payload(payload, "margin")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"], ["交易日", "融资余额"])
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

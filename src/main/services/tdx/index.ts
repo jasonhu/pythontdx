@@ -13,6 +13,7 @@ import type {
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
+  F10TradingTable,
   F10ProfileTable,
   FormulaScreenRequest,
   FormulaScreenResult,
@@ -188,6 +189,10 @@ export async function fetchF10Reports(code: string): Promise<F10ProfileTable> {
 
 export async function fetchF10News(code: string): Promise<F10NewsItem[]> {
   return bridge.send<F10NewsItem[]>('f10_news', { code }, 20_000)
+}
+
+export async function fetchF10Trading(code: string, section: string): Promise<F10TradingTable> {
+  return bridge.send<F10TradingTable>('f10_trading', { code, section }, 20_000)
 }
 
 export async function fetchF10Statement(

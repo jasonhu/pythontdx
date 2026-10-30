@@ -22,6 +22,7 @@ type OnlineTab =
   | 'business'
   | 'shareholders'
   | 'reports'
+  | 'dividend'
   | 'statement'
   | 'news'
   | 'trading'
@@ -49,6 +50,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [reports, setReports] = createSignal<F10ProfileTable | null>(null)
   const [reportsLoading, setReportsLoading] = createSignal(true)
   const [reportsError, setReportsError] = createSignal<string | null>(null)
+  const [dividend, setDividend] = createSignal<F10ProfileTable | null>(null)
+  const [dividendLoading, setDividendLoading] = createSignal(true)
+  const [dividendError, setDividendError] = createSignal<string | null>(null)
   const [statementKind, setStatementKind] = createSignal('zcfzb')
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
@@ -178,6 +182,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadDividend = async (): Promise<void> => {
+    setDividendLoading(true)
+    setDividendError(null)
+    try {
+      setDividend(await api.f10.dividend(props.code))
+    } catch (cause) {
+      setDividendError(errorMessage(cause))
+    } finally {
+      setDividendLoading(false)
+    }
+  }
+
   const loadNews = async (): Promise<void> => {
     setNewsLoading(true)
     setNewsError(null)
@@ -203,6 +219,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadBusiness()
     void loadShareholders()
     void loadReports()
+    void loadDividend()
     void loadStatement('zcfzb')
     void loadNews()
     void loadTrading('margin')
@@ -285,6 +302,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('reports')}
           >
             研报
+          </button>
+          <button
+            class="online-tab online-dividend-tab"
+            data-active={tab() === 'dividend'}
+            onClick={() => setTab('dividend')}
+          >
+            分红
           </button>
           <button
             class="online-tab online-statement-tab"
@@ -560,6 +584,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table report-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'dividend'}>
+              <Show
+                when={!dividendLoading()}
+                fallback={<div class="announcements__empty">加载分红…</div>}
+              >
+                <Show
+                  when={!dividendError()}
+                  fallback={<div class="announcements__error">{dividendError()}</div>}
+                >
+                  <Show
+                    when={dividend()}
+                    fallback={<div class="announcements__empty">暂无分红数据</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

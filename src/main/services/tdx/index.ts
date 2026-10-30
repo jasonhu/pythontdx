@@ -171,6 +171,10 @@ export async function fetchF10Catalog(code: string): Promise<F10Section[]> {
 }
 
 /** 0x02d0 F10 段落正文。 */
+export async function fetchF10Dividend(code: string): Promise<F10ProfileTable> {
+  return bridge.send<F10ProfileTable>('f10_dividend', { code }, QUOTES_TIMEOUT_MS)
+}
+
 export async function fetchF10Market(section: string): Promise<F10TradingTable> {
   return bridge.send<F10TradingTable>('f10_market', { section }, 20_000)
 }

@@ -185,6 +185,18 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_dividend_labels(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [{"ColName": ["rq", "T004", "T036", "glzfl"], "Content": [["2025-12-31", "10派3元", "实施", 42.5]]}],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_dividend("sh600519")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][0], "分红年度")
+        self.assertEqual(table["columns"][1], "分红方案")
+        self.assertEqual(table["columns"][3], "股利支付率%")
+
     def test_fetch_margin_history_uses_range_entry(self):
         payload = {
             "ErrorCode": 0,

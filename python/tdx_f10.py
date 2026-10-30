@@ -327,6 +327,40 @@ def fetch_reports(code: str) -> dict:
     return parse_report_payload(payload)
 
 
+DIVIDEND_LABELS = {
+    "rq": "分红年度",
+    "T003": "董事会日期",
+    "T004": "分红方案",
+    "T006": "每股收益",
+    "T026": "加权净资产收益率%",
+    "T021": "股权登记日",
+    "T023": "除权派息日",
+    "T036": "方案进度",
+    "glzfl": "股利支付率%",
+    "jdcode": "派发对象",
+}
+
+
+def fetch_dividend(code: str, section: str = "fh") -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_fhrz",
+        {"Params": [symbol, section]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 分红融资返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw = [str(name) for name in (table.get("ColName") or [])]
+    return {
+        "columns": [DIVIDEND_LABELS.get(name, name) for name in raw],
+        "rows": table.get("Content") or [],
+        "count": len(table.get("Content") or []),
+    }
+
+
 def fetch_shareholders(code: str) -> dict:
     _market, symbol = _market_of(code)
     payload = _post_tqlex(

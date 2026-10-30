@@ -92,6 +92,7 @@ export function createHttpApi(): StockLensApi {
   const listeners = new Set<(update: QuoteUpdate) => void>()
   let codes: string[] = []
   let timer: number | undefined
+  let stream: EventSource | undefined
   let pollId = 0
   let searchCache: SearchItem[] | null = null
 
@@ -121,7 +122,37 @@ export function createHttpApi(): StockLensApi {
   const stopPolling = (): void => {
     if (timer !== undefined) window.clearInterval(timer)
     timer = undefined
+    stream?.close()
+    stream = undefined
     pollId += 1
+  }
+
+  const startPolling = (intervalMs: number): void => {
+    timer = window.setInterval(() => void poll(), Math.max(1000, intervalMs || 3000))
+  }
+
+  const startStream = (intervalMs: number): void => {
+    const params = new URLSearchParams({
+      codes: codes.join(','),
+      interval: String(Math.max(1000, intervalMs || 3000))
+    })
+    stream = new EventSource(`${BASE}/api/stream?${params.toString()}`)
+    stream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as {
+          ok: boolean
+          result?: { quotes: Quote[]; at: number }
+        }
+        if (!payload.ok || !payload.result) return
+        const update: QuoteUpdate = {
+          quotes: payload.result.quotes,
+          at: payload.result.at
+        }
+        listeners.forEach((listener) => listener(update))
+      } catch {
+        // 单帧坏数据不打断连接
+      }
+    }
   }
 
   const searchHint = async (keyword: string): Promise<SearchItem[]> => {
@@ -160,7 +191,11 @@ export function createHttpApi(): StockLensApi {
         stopPolling()
         if (codes.length === 0) return
         await poll()
-        timer = window.setInterval(() => void poll(), Math.max(1000, intervalMs || 3000))
+        if (typeof EventSource === 'undefined') {
+          startPolling(intervalMs)
+          return
+        }
+        startStream(intervalMs)
       },
       unsubscribe: async () => {
         stopPolling()

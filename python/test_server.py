@@ -104,6 +104,19 @@ class TestHttpApi(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertFalse(payload["ok"])
 
+    def test_sse_stream(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        connection.request("GET", "/api/stream?codes=sh600519&interval=1000")
+        response = connection.getresponse()
+        self.assertEqual(response.status, 200)
+        self.assertIn("text/event-stream", response.getheader("Content-Type", ""))
+        line = response.readline().decode("utf-8")
+        self.assertTrue(line.startswith("data: "), line)
+        payload = json.loads(line[len("data: ") :])
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["result"]["quotes"][0]["code"], "sh600519")
+        connection.close()
+
 
 if __name__ == "__main__":
     unittest.main()

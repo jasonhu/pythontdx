@@ -17,7 +17,7 @@
 | -------- | ------------------------------------------------------------------------------- |
 | 版本     | `0.5.0`（v0.6 已收口；v0.7 规划中，版本号待发布时再改）                         |
 | 最近提交 | P0 官方功能基线：`docs/09` 功能矩阵 + 截图基线（2026-10-30）                  |
-| 健康度   | `npm run check` 全绿（157 TS + 47 Python）；2026-10-30 复核通过（见第二节）      |
+| 健康度   | `npm run check` 全绿（157 TS + 48 Python）；2026-10-30 复核通过（见第二节）      |
 | 目标     | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`）  |
 | 数据源   | 当前：通达信 7709（沪/深/北 A 股）；目标：7709 + MAC + 7615 + 文件下载/本地文件  |
 | 分发     | 旧版 Windows 便携版/安装包可用；v0.6 的 PyInstaller 打包**待实测**              |
@@ -168,8 +168,8 @@
   tdxstat 已按 `trade_date` 写 JSONL.gz + manifest（8100 行，主分区 8048 行），
   并生成 SQLite 查询层（tdxstat/tdxstat2/meta，1.7 MB）；
   只读 HTTP API 已起（`python/tdx_server.py`，默认 127.0.0.1:8765，无鉴权）；
-  Web 只读页已可跑（`npm run dev:web`，复用同一套 SolidJS 渲染层）；
-  剩余 WebSocket 推送、Web 写操作、`0x0547` 推送验证、F10 在线资料、Parquet/DuckDB。
+  Web 只读页 + SSE 已可跑（`npm run dev:web`，复用同一套 SolidJS 渲染层）；
+  剩余 WebSocket、Web 写操作、`0x0547` 推送验证、F10 在线资料、Parquet/DuckDB。
 - **验收**：每个命令有真实 fixture + 探针记录；字段表进 `docs/03`；
   与 `0x053e` 做差分对照；限流/重连有测试。
 - **影响**：`python/tdx_bridge.py`、`python/test_tdx.py`、`src/shared` 类型、`docs/03`。

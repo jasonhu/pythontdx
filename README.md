@@ -8,7 +8,7 @@
 
 **当前状态**：v0.6 桌面版可用（源码验证通过，PyInstaller 打包待实测）；
 v0.7 双前端 + Python 服务化**规划中**。
-`npm run check` 全绿：**157 个 TS 测试 + 47 个 Python 协议/服务测试**。
+`npm run check` 全绿：**157 个 TS 测试 + 48 个 Python 协议/服务测试**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -68,8 +68,8 @@ v0.7 双前端 + Python 服务化**规划中**。
 **工程**
 
 - 类型契约桌面 / Web / 后端共享，改错立刻编译报错
-- 只读 HTTP API（`python/tdx_server.py`）+ Web 只读前端（`src/web`，复用同一套 SolidJS 渲染层）；WebSocket 未接
-- 157 个 TS 单元测试 + 47 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 只读 HTTP API（`python/tdx_server.py`）+ Web 只读前端（`src/web`，复用同一套 SolidJS 渲染层）；SSE 行情流已接，WebSocket 未接
+- 157 个 TS 单元测试 + 48 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
@@ -79,7 +79,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 
 | 阶段 | 内容                                                          |
 | ---- | ------------------------------------------------------------- |
-| v0.7 | Web 只读页已落地；WebSocket/写操作、主机 `connect.cfg` + 探活待补     |
+| v0.7 | Web 只读页 + SSE 已落地；WebSocket/写操作、主机 `connect.cfg` + 探活待补 |
 | v0.8 | 离线数据 + 数据湖（官方 zip、本地文件、Parquet/DuckDB）       |
 | v0.9 | 逐笔/集合竞价、板块/排行/资金流、F10、预警、选股、复盘/多窗口 |
 | v1.0 | A 股协议全覆盖、双端稳定、数据可复现                          |
@@ -154,7 +154,7 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run build:web`         | 构建 Web 产物到 `out/web/`                          |
 | `npm run check`             | 类型检查 + Lint + TS 测试 + Python 测试，一条命令   |
 | `npm run test`              | Vitest（157 个 TS 用例）                            |
-| `npm run test:python`       | Python 协议/HTTP 测试（47 个用例，真实 fixture）    |
+| `npm run test:python`       | Python 协议/HTTP 测试（48 个用例，真实 fixture）    |
 | `npm run build:python`      | PyInstaller 打行情桥接单文件（打包前必跑）          |
 | `npm run shot`              | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收 |
 | `npm run lint` / `lint:fix` | ESLint（含 Solid 响应式规则）                       |

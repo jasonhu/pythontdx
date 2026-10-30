@@ -15,6 +15,7 @@ import argparse
 import json
 import sys
 import threading
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -60,6 +61,61 @@ class ApiHandler(BaseHTTPRequestHandler):
     def _ok(self, result: Any) -> None:
         self._json(HTTPStatus.OK, {"ok": True, "result": result})
 
+    def _stream(self, query: dict[str, str]) -> None:
+        """SSE 行情流：先落地推送语义，避免 Web 端只能 3 秒轮询。"""
+        codes = [
+            code.strip()
+            for code in query.get("codes", "").split(",")
+            if code.strip()
+        ]
+        if not codes:
+            self._error(HTTPStatus.BAD_REQUEST, "codes 不能为空")
+            return
+        try:
+            interval = max(1000, min(60_000, int(query.get("interval", "3000"))))
+        except ValueError:
+            self._error(HTTPStatus.BAD_REQUEST, "interval 不合法")
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("X-Accel-Buffering", "no")
+        self._cors()
+        self.end_headers()
+        self.close_connection = True
+        try:
+            while True:
+                try:
+                    with self.server.lock:
+                        quotes = self.server.bridge.quotes(codes)
+                    payload = {
+                        "ok": True,
+                        "result": {"quotes": quotes, "at": int(time.time() * 1000)},
+                    }
+                    self.wfile.write(
+                        f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode(
+                            "utf-8"
+                        )
+                    )
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+                except Exception as error:  # noqa: BLE001
+                    message = json.dumps(
+                        {"ok": False, "error": str(error)}, ensure_ascii=False
+                    )
+                    try:
+                        self.wfile.write(f"event: error\ndata: {message}\n\n".encode())
+                        self.wfile.flush()
+                    except OSError:
+                        pass
+                    return
+                time.sleep(interval)
+        finally:
+            self.close_connection = True
+
     def _error(self, status: int, message: str) -> None:
         self._json(status, {"ok": False, "error": message})
 
@@ -88,6 +144,9 @@ class ApiHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
         try:
+            if parsed.path == "/api/stream":
+                self._stream(query)
+                return
             if parsed.path == "/api/ping":
                 self._ok("pong")
                 return

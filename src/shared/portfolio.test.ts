@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PortfolioPosition, Quote } from './types'
-import { computePortfolio } from './portfolio'
+import { computePortfolio, simulatePositions } from './portfolio'
 
 function quote(code: string, price: number): Quote {
   return {
@@ -35,6 +35,25 @@ describe('computePortfolio', () => {
     expect(result.totalCost).toBe(2000)
     expect(result.pnl).toBe(800)
     expect(result.rows[0].weight).toBeCloseTo((2000 / 2800) * 100, 4)
+  })
+
+  it('按当前持股回溯市值曲线', () => {
+    const positions: PortfolioPosition[] = [{ code: 'sh600519', shares: 10, cost: 10 }]
+    const result = simulatePositions(
+      [
+        {
+          code: 'sh600519',
+          bars: [
+            { date: '2026-01-01', close: 10 },
+            { date: '2026-01-02', close: 20 }
+          ]
+        }
+      ],
+      positions
+    )
+    expect(result.curve).toEqual([100, 200])
+    expect(result.pnl).toBe(100)
+    expect(result.maxDrawdown).toBe(0)
   })
 
   it('忽略零/负持仓与缺行情', () => {

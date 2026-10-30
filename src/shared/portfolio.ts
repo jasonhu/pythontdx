@@ -60,3 +60,58 @@ export function computePortfolio(
     pnlPct: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0
   }
 }
+
+export interface PositionSimulation {
+  dates: string[]
+  curve: number[]
+  cost: number
+  finalValue: number
+  pnl: number
+  pnlPct: number
+  maxDrawdown: number
+}
+
+/**
+ * 按“当前持股数”回溯各标的收盘价，模拟持仓市值曲线。
+ *
+ * 不是历史成交回放：只回答“如果这些股数一直持有到现在，市值怎么走”。
+ * 停牌日沿用上一收盘；没有可用 K 线的标的按成本计入。
+ */
+export function simulatePositions(
+  series: ReadonlyArray<{ code: string; bars: ReadonlyArray<{ date: string; close: number }> }>,
+  positions: readonly PortfolioPosition[]
+): PositionSimulation {
+  const active = positions.filter((position) => position.shares > 0)
+  const cost = active.reduce((sum, position) => sum + position.shares * position.cost, 0)
+  const byCode = new Map(series.map((item) => [item.code, item.bars]))
+  const dateSet = new Set<string>()
+  for (const item of series) for (const bar of item.bars) dateSet.add(bar.date)
+  const dates = [...dateSet].sort()
+  const lastPrice = new Map<string, number>()
+  for (const position of active) lastPrice.set(position.code, position.cost)
+  const curve: number[] = []
+  let peak = 0
+  let maxDrawdown = 0
+  for (const date of dates) {
+    let value = 0
+    for (const position of active) {
+      const bars = byCode.get(position.code) ?? []
+      const bar = bars.find((item) => item.date === date)
+      if (bar && bar.close > 0) lastPrice.set(position.code, bar.close)
+      value += position.shares * (lastPrice.get(position.code) ?? position.cost)
+    }
+    curve.push(value)
+    peak = Math.max(peak, value)
+    maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - value) / peak : 0)
+  }
+  const finalValue = curve.at(-1) ?? cost
+  return {
+    dates,
+    curve,
+    cost,
+    finalValue,
+    pnl: finalValue - cost,
+    pnlPct: cost > 0 ? ((finalValue - cost) / cost) * 100 : 0,
+    maxDrawdown: maxDrawdown * 100
+  }
+}

@@ -6,9 +6,10 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { PortfolioPosition, Quote } from '@shared/types'
 import { compactAmount, fixed, signedPct } from '@shared/format'
-import { computePortfolio } from '@shared/portfolio'
+import { computePortfolio, simulatePositions, type PositionSimulation } from '@shared/portfolio'
 import { activeItems, appState, savePositions } from '../stores/app'
 import { quoteOf } from '../stores/quotes'
+import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
 interface Draft {
@@ -28,6 +29,9 @@ export function PortfolioPanel(props: {
 
   const [editing, setEditing] = createSignal(false)
   const [draft, setDraft] = createSignal<Record<string, Draft>>({})
+  const [simulation, setSimulation] = createSignal<PositionSimulation | null>(null)
+  const [simLoading, setSimLoading] = createSignal(false)
+  const [simError, setSimError] = createSignal<string | null>(null)
 
   const draftFor = (code: string): Draft => {
     const saved = appState.positions?.find((position) => position.code === code)
@@ -92,6 +96,49 @@ export function PortfolioPanel(props: {
     setDraft({})
   }
 
+  const runSimulation = async (): Promise<void> => {
+    if (simLoading()) return
+    const holdings = summary().rows.filter((row) => row.shares > 0)
+    if (holdings.length === 0) {
+      setSimError('先填写并保存持仓')
+      return
+    }
+    setSimLoading(true)
+    setSimError(null)
+    try {
+      const series: Array<{ code: string; bars: Array<{ date: string; close: number }> }> = []
+      for (const row of holdings) {
+        const data = await api.trend.kline({ code: row.code, period: 'day', count: 120 })
+        series.push({ code: row.code, bars: data.bars })
+      }
+      setSimulation(
+        simulatePositions(
+          series,
+          holdings.map((row) => ({ code: row.code, shares: row.shares, cost: row.cost }))
+        )
+      )
+    } catch (cause) {
+      setSimError(errorMessage(cause))
+    } finally {
+      setSimLoading(false)
+    }
+  }
+
+  const simulationPath = createMemo(() => {
+    const values = simulation()?.curve ?? []
+    if (values.length < 2) return ''
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const span = max - min || 1
+    return values
+      .map((value, index) => {
+        const x = 4 + (index / (values.length - 1)) * 592
+        const y = 104 - ((value - min) / span) * 96
+        return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
+      })
+      .join(' ')
+  })
+
   return (
     <div class="portfolio-backdrop" onClick={() => props.onClose()}>
       <section
@@ -107,6 +154,13 @@ export function PortfolioPanel(props: {
             <h2 class="portfolio__title">组合分析</h2>
           </div>
           <div class="portfolio__head-actions">
+            <button
+              class="btn portfolio-simulate"
+              disabled={simLoading()}
+              onClick={() => void runSimulation()}
+            >
+              {simLoading() ? '回溯中…' : '回溯 120 日'}
+            </button>
             <Show
               when={editing()}
               fallback={
@@ -256,6 +310,35 @@ export function PortfolioPanel(props: {
               </For>
             </tbody>
           </table>
+          <Show when={simulation()}>
+            {(value) => (
+              <div class="portfolio-simulation">
+                <div class="portfolio-simulation__head">
+                  <span>按当前持股回溯</span>
+                  <span>市值 {compactAmount(value().finalValue)}</span>
+                  <span
+                    classList={{
+                      'tone-up': value().pnl > 0,
+                      'tone-down': value().pnl < 0
+                    }}
+                  >
+                    盈亏 {compactAmount(value().pnl)} / {signedPct(value().pnlPct)}
+                  </span>
+                  <span>最大回撤 {fixed(value().maxDrawdown)}%</span>
+                </div>
+                <svg
+                  viewBox="0 0 600 110"
+                  preserveAspectRatio="none"
+                  class="portfolio-simulation__chart"
+                >
+                  <path d={simulationPath()} fill="none" stroke="var(--accent)" stroke-width="2" />
+                </svg>
+              </div>
+            )}
+          </Show>
+          <Show when={simError()}>
+            <div class="portfolio__empty tone-down">{simError()}</div>
+          </Show>
           <div class="portfolio__empty">
             {rows().length === 0
               ? '当前分组还没有行情，等待刷新…'

@@ -56,6 +56,7 @@ export interface ChartPanelProps {
   code: string
   onOpenReplay: () => void
   onOpenFormula: () => void
+  onOpenIndicators: () => void
 }
 
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
@@ -255,6 +256,13 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             )}
           </Show>
 
+          <button
+            class="btn btn--bare indicator-open"
+            title="技术指标"
+            onClick={() => props.onOpenIndicators()}
+          >
+            指标
+          </button>
           <button
             class="btn btn--bare formula-open"
             title="指标公式预览"

@@ -85,6 +85,8 @@ npm run test                # 只跑 TS 测试（157 个用例）
 npm run test:python         # 只跑 Python 协议/HTTP 测试（47 个用例）
 npm run build:python        # PyInstaller 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
+npm run dev:web             # Web 只读前端（需先起 python/tdx_server.py）
+npm run build:web           # 构建 Web 产物到 out/web/
 npm run icon                # 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）
 npm run build               # 生产构建（产物在 out/）
 npm run build:win           # Windows 打包：安装包 + 单文件便携版
@@ -96,8 +98,8 @@ npm run build:win:setup     # 只要 NSIS 安装包
 也可用 `STOCKLENS_PYTHON` 指定）。打包后的 exe 自带桥接程序，用户不需要 Python。
 打包前先 `pip install pyinstaller`。
 
-**v0.7 进行中**：只读 HTTP API 已可用（`python3 python/tdx_server.py`）；
-`npm run dev:web` / `npm run dev:server` **现在还不存在**，落地前不要写成可用命令。
+**v0.7 进行中**：只读 HTTP API 与 Web 只读页已可用（`python3 python/tdx_server.py`、`npm run dev:web`）；
+`npm run dev:server` **现在还不存在**，落地前不要写成可用命令。WebSocket 推送未接。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
@@ -139,7 +141,7 @@ docs/            说明文档（是什么、为什么）
 
 ## 五、当前阶段
 
-**v0.6 已收口（源码验证通过，打包待验）；v0.7 双前端 + Python 服务化——进行中：只读 HTTP API 已起，Web UI/WS 未接。**
+**v0.6 已收口（源码验证通过，打包待验）；v0.7 双前端 + Python 服务化——进行中：HTTP API 与 Web 只读页已起，WS/写操作未接。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
 健康度 `npm run check` 全绿（157 个 TS 测试 + 47 个 Python 测试），

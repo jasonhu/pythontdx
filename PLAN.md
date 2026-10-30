@@ -168,7 +168,8 @@
   tdxstat 已按 `trade_date` 写 JSONL.gz + manifest（8100 行，主分区 8048 行），
   并生成 SQLite 查询层（tdxstat/tdxstat2/meta，1.7 MB）；
   只读 HTTP API 已起（`python/tdx_server.py`，默认 127.0.0.1:8765，无鉴权）；
-  剩余 Web 前端接 HTTP、`0x0547` 推送验证、F10 在线资料、Parquet/DuckDB。
+  Web 只读页已可跑（`npm run dev:web`，复用同一套 SolidJS 渲染层）；
+  剩余 WebSocket 推送、Web 写操作、`0x0547` 推送验证、F10 在线资料、Parquet/DuckDB。
 - **验收**：每个命令有真实 fixture + 探针记录；字段表进 `docs/03`；
   与 `0x053e` 做差分对照；限流/重连有测试。
 - **影响**：`python/tdx_bridge.py`、`python/test_tdx.py`、`src/shared` 类型、`docs/03`。

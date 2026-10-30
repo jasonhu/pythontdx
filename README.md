@@ -68,7 +68,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 **工程**
 
 - 类型契约桌面 / Web / 后端共享，改错立刻编译报错
-- 只读 HTTP API（`python/tdx_server.py`），Web 端复用同一套 Bridge；WebSocket / Web UI 未接
+- 只读 HTTP API（`python/tdx_server.py`）+ Web 只读前端（`src/web`，复用同一套 SolidJS 渲染层）；WebSocket 未接
 - 157 个 TS 单元测试 + 47 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
@@ -79,7 +79,7 @@ v0.7 双前端 + Python 服务化**规划中**。
 
 | 阶段 | 内容                                                          |
 | ---- | ------------------------------------------------------------- |
-| v0.7 | Web 端 + Python HTTP/WS 服务；主机 `connect.cfg` + 探活       |
+| v0.7 | Web 只读页已落地；WebSocket/写操作、主机 `connect.cfg` + 探活待补     |
 | v0.8 | 离线数据 + 数据湖（官方 zip、本地文件、Parquet/DuckDB）       |
 | v0.9 | 逐笔/集合竞价、板块/排行/资金流、F10、预警、选股、复盘/多窗口 |
 | v1.0 | A 股协议全覆盖、双端稳定、数据可复现                          |
@@ -150,6 +150,8 @@ npm run build:win     # 或 build:mac / build:linux
 | --------------------------- | --------------------------------------------------- |
 | `npm run dev`               | 开发模式（主进程重启 + 渲染层热更新 + Python 桥接） |
 | `python3 python/tdx_server.py --port 8765` | 只读 HTTP API（Web 端数据入口）          |
+| `npm run dev:web`           | Web 只读前端（需先起 HTTP API，默认 5174）          |
+| `npm run build:web`         | 构建 Web 产物到 `out/web/`                          |
 | `npm run check`             | 类型检查 + Lint + TS 测试 + Python 测试，一条命令   |
 | `npm run test`              | Vitest（157 个 TS 用例）                            |
 | `npm run test:python`       | Python 协议/HTTP 测试（47 个用例，真实 fixture）    |

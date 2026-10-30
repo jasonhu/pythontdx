@@ -55,7 +55,7 @@ function WindowControls(): JSX.Element {
   }
 
   return (
-    <Show when={appInfo()?.platform !== 'darwin'}>
+    <Show when={appInfo()?.platform !== 'darwin' && appInfo()?.platform !== 'web'}>
       <div class="win-controls">
         <button class="win-btn" title="最小化" onClick={() => control('minimize')}>
           <IconMinimize size={16} />

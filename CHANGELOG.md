@@ -29,6 +29,8 @@ StockLens 的所有重要变更都记录在这里。
 - **服务器文件**：`0x06b9` 完整下载 + 原始 ZIP 落盘/SHA256；
   `tdx_stats` 解析 `zhb.zip` 内 `tdxstat.cfg` / `tdxstat2.cfg`
   （各 8,103 行，主日期 20261029）。
+- **Web 只读前端**：`src/web` 注入 `window.api` HTTP 适配器，复用 `src/renderer`
+  与 `src/shared`；`npm run dev:web` / `build:web`；Web 仍为 3 秒轮询、无写操作。
 - **只读 HTTP API**：`python/tdx_server.py` 用标准库提供行情、排行、逐笔、竞价、
   资金流、F10、K 线、分时等 JSON 接口；默认只绑 `127.0.0.1:8765`，无鉴权，
   所有 Bridge 调用串行化；WebSocket/Web UI 尚未接。

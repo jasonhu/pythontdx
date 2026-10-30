@@ -36,6 +36,7 @@ export default tseslint.config(
       'screenshots/**',
       'build/**',
       'resources/**',
+      'scripts/**/*.cjs',
       'package-lock.json'
     ]
   },

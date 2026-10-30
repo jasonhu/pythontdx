@@ -57,6 +57,7 @@ StockLens 的所有重要变更都记录在这里。
 - **F10 交易扩充**：新增研报席位/科创标记分区；截图工具指针操作后等待 300ms 以等异步表。
 - **托盘常驻**：默认关闭窗口隐藏；托盘菜单显示/退出；设置面板可关。
   关闭隐藏时 capturePage 会挂起，属预期。
+- **打包守卫**：beforePack 校验 sidecar 魔数，Linux 交叉打 Windows 包直接失败，避免 ELF sidecar 混入。
 - **本地跨库查询**：local 引擎 ATTACH stats.db，可 JOIN `stats.tdxstat`；拒绝写操作。
 - **写回分钟文件**：.lc1/.lc5 float32 与 .5 整数分；3 根 roundtrip。
 - **写回 .day**：原子替换，价格分/量股；3 根 roundtrip 验证。

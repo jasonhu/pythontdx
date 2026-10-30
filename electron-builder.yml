@@ -79,3 +79,5 @@ linux:
   target:
     - AppImage
     - deb
+
+beforePack: scripts/before-pack.cjs

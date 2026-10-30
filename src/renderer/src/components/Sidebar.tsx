@@ -45,6 +45,7 @@ interface SidebarProps {
   onOpenScreener: () => void
   onOpenMulti: () => void
   onOpenPortfolio: () => void
+  onOpenMarket: () => void
 }
 
 export function Sidebar(props: SidebarProps): JSX.Element {
@@ -150,6 +151,14 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           title="条件选股"
           aria-label="打开条件选股"
           onClick={() => props.onOpenScreener()}
+        >
+          <IconFilter size={13} />
+        </button>
+        <button
+          class="btn btn--icon btn--bare market-open"
+          title="全市场列表"
+          aria-label="打开全市场列表"
+          onClick={() => props.onOpenMarket()}
         >
           <IconFilter size={13} />
         </button>

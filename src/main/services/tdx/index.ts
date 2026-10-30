@@ -46,7 +46,7 @@ import type { CategoryRequest, TradesRequest } from '@shared/ipc'
 import { splitCode } from '@shared/market'
 import { TtlCache } from '../cache'
 import { CODE_LIST_TIMEOUT_MS, QUOTES_TIMEOUT_MS, TdxBridge, TdxError } from './bridge'
-import { buildSearchEntries, searchEntries, type SearchEntry } from './search'
+import { buildSearchEntries, searchEntries, type SearchEntry, type SearchSecurity } from './search'
 import type { SecurityInfo } from './types'
 
 const bridge = new TdxBridge()
@@ -358,6 +358,11 @@ export async function fetchFiveDayTrend(
 }
 
 /* ------------------------------------------------------------------ 搜索 */
+
+export async function fetchSecurityCatalog(): Promise<SearchSecurity[]> {
+  const index = await ensureCodeIndex()
+  return index.entries.map((entry) => ({ ...entry.info }))
+}
 
 export async function fetchSearchHint(keyword: string): Promise<SearchItem[]> {
   const trimmed = keyword.trim()

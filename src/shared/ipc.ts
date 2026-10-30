@@ -45,6 +45,7 @@ import type {
   WindowAction,
   WindowState
 } from './types'
+import type { SearchSecurity } from './search'
 
 export const IPC = {
   /** 主动拉取一次快照（invoke） */
@@ -131,6 +132,8 @@ export const IPC = {
 
   /** 股票联想搜索（invoke） */
   searchHint: 'search:hint',
+  /** 全量证券代码表（invoke） */
+  quoteCatalog: 'quote:catalog',
 
   /** 读取持久化状态（invoke） */
   stateGet: 'state:get',
@@ -141,6 +144,8 @@ export const IPC = {
   windowControl: 'window:control',
   /** 打开独立 K 线窗口（invoke） */
   windowChart: 'window:chart',
+  /** 打开第二个主窗口（invoke） */
+  windowSecondary: 'window:secondary',
   /** 窗口状态变化（on） */
   windowState: 'window:state',
 
@@ -195,6 +200,7 @@ export interface StockLensApi {
     onUpdate(listener: (update: QuoteUpdate) => void): () => void
     /** 服务端排序的一页分类行情（排行榜） */
     category(req: CategoryRequest): Promise<CategoryQuote[]>
+    catalog(): Promise<SearchSecurity[]>
   }
   trade: {
     /** 成交明细：不传 date 走当日 0x0fc5，传 date 走历史 0x0fc6 */
@@ -273,6 +279,7 @@ export interface StockLensApi {
   window: {
     control(action: WindowAction): Promise<WindowState>
     openChart(code: string): Promise<void>
+    openSecondary(): Promise<void>
     onStateChange(listener: (state: WindowState) => void): () => void
   }
   app: {

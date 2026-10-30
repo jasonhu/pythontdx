@@ -17,7 +17,7 @@ import type {
 } from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
-import { createChartWindow } from './window'
+import { createChartWindow, createSecondaryWindow } from './window'
 import type { QuotePoller } from './services/poller'
 import {
   fetchAuctions,
@@ -52,6 +52,7 @@ import {
   fetchQuotes,
   fetchScreen,
   fetchSearchHint,
+  fetchSecurityCatalog,
   fetchStatsCsv,
   fetchStatsParquet,
   fetchStatsQuery,
@@ -187,6 +188,8 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.searchHint, (_event, keyword: string) => fetchSearchHint(keyword))
 
+  ipcMain.handle(IPC.quoteCatalog, () => fetchSecurityCatalog())
+
   /* ------------------------------------------------------ 持久化 */
 
   ipcMain.handle(IPC.stateGet, () => store.state)
@@ -207,6 +210,10 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.windowChart, (_event, code: string) => {
     createChartWindow(code)
+  })
+
+  ipcMain.handle(IPC.windowSecondary, () => {
+    createSecondaryWindow()
   })
 
   ipcMain.handle(IPC.windowControl, (_event, action: string) => {

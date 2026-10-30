@@ -279,7 +279,8 @@ export function createHttpApi(): StockLensApi {
         listeners.add(listener)
         return () => listeners.delete(listener)
       },
-      category: (req: CategoryRequest) => post<CategoryQuote[]>('/api/category', req)
+      category: (req: CategoryRequest) => post<CategoryQuote[]>('/api/category', req),
+      catalog: () => request<SearchSecurity[]>('/api/code_list')
     },
     market,
     trade: {
@@ -365,6 +366,9 @@ export function createHttpApi(): StockLensApi {
       control: async () => ({ focused: true, maximized: false, platform: 'web' }),
       openChart: async () => {
         throw new Error('浏览器版不支持独立窗口')
+      },
+      openSecondary: async () => {
+        throw new Error('浏览器版不支持第二窗口')
       },
       onStateChange: () => () => undefined
     },

@@ -28,7 +28,8 @@ const api: StockLensApi = {
     subscribe: (codes, intervalMs) => ipcRenderer.invoke(IPC.quoteSubscribe, codes, intervalMs),
     unsubscribe: () => ipcRenderer.invoke(IPC.quoteUnsubscribe),
     onUpdate: (listener) => subscribe(IPC.quoteUpdate, listener),
-    category: (request) => ipcRenderer.invoke(IPC.quoteCategory, request)
+    category: (request) => ipcRenderer.invoke(IPC.quoteCategory, request),
+    catalog: () => ipcRenderer.invoke(IPC.quoteCatalog)
   },
   trade: {
     ticks: (request) => ipcRenderer.invoke(IPC.tradeTicks, request)
@@ -93,6 +94,7 @@ const api: StockLensApi = {
   window: {
     control: (action) => ipcRenderer.invoke(IPC.windowControl, action),
     openChart: (code) => ipcRenderer.invoke(IPC.windowChart, code),
+    openSecondary: () => ipcRenderer.invoke(IPC.windowSecondary),
     onStateChange: (listener) => subscribe<WindowState>(IPC.windowState, listener)
   },
   app: {

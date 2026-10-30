@@ -96,9 +96,32 @@ export async function bootstrapAppState(): Promise<void> {
 
 /* ------------------------------------------------------------------ 选中 */
 
+let windowChannel: BroadcastChannel | null = null
+
+function postWindow(message: unknown): void {
+  windowChannel?.postMessage(message)
+}
+
+export function initWindowSync(): void {
+  if (windowChannel || typeof BroadcastChannel === 'undefined') return
+  windowChannel = new BroadcastChannel('stocklens-windows')
+  windowChannel.onmessage = (event: MessageEvent) => {
+    const message = event.data as
+      { type: 'active'; code: string | null } | { type: 'settings'; settings: AppSettings }
+    if (message?.type === 'active') {
+      setState('activeCode', message.code)
+      persist({ activeCode: message.code })
+    } else if (message?.type === 'settings') {
+      setState('settings', message.settings)
+      persist({ settings: plainSettings() })
+    }
+  }
+}
+
 export function setActiveCode(code: string | null): void {
   setState('activeCode', code)
   persist({ activeCode: code })
+  postWindow({ type: 'active', code })
 }
 
 /* ---------------------------------------------------------------- 分组 */
@@ -290,15 +313,20 @@ export function savePositions(positions: PortfolioPosition[]): void {
   persist({ positions: plain })
 }
 
-export function updateSettings(patch: Partial<AppSettings>): void {
-  setState('settings', patch)
+function plainSettings(): AppSettings {
   // Solid store 的嵌套数组是代理，直接走 IPC 会 "could not be cloned"；
   // 设置里只有画线是对象数组，这里显式拍平。
-  const settings = {
+  return {
     ...state.settings,
     chartDrawings: state.settings.chartDrawings?.map((drawing) => ({ ...drawing }))
   }
+}
+
+export function updateSettings(patch: Partial<AppSettings>): void {
+  setState('settings', patch)
+  const settings = plainSettings()
   persist({ settings })
+  postWindow({ type: 'settings', settings })
 }
 
 export function toggleTheme(): void {

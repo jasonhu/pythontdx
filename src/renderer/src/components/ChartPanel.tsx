@@ -37,7 +37,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'five', label: '五日' },
   { key: 'day', label: '日K' },
   { key: 'week', label: '周K' },
-  { key: 'month', label: '月K' }
+  { key: 'month', label: '月K' },
+  { key: 'quarter', label: '季K' },
+  { key: 'year', label: '年K' }
 ]
 
 const MINUTE_PERIODS: KLinePeriod[] = ['5s', '15s', '1m', '5m', '15m', '30m', '60m']

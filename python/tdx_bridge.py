@@ -143,6 +143,8 @@ PERIOD_RAW = {
     "day": 4,
     "week": 5,
     "month": 6,
+    "quarter": 10,
+    "year": 11,
 }
 
 

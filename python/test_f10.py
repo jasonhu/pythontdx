@@ -185,6 +185,23 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_shareholder_changes_columns(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["qs", "jz", "T005", "T006", "T007", "T008", "T009", "T011", "T012"],
+                    "Content": [["2026.03.04", "2026.03.04", "程磊", 21.15, -2600000, 16776900, "二级市场买卖", "董事", None]],
+                }
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_shareholder_changes("sh600519")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][0], "变动起始日")
+        self.assertEqual(table["columns"][2], "股东名称")
+        self.assertEqual(table["columns"][6], "变动方式")
+
     def test_fetch_circulating_shareholders_second_table(self):
         payload = {
             "ErrorCode": 0,

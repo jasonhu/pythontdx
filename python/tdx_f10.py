@@ -415,6 +415,44 @@ def fetch_capital_structure(code: str, section: str = "structure") -> dict:
     }
 
 
+SHAREHOLDER_CHANGE_LABELS = {
+    "qs": "变动起始日",
+    "jz": "变动截止日",
+    "T003": "公告日",
+    "T005": "股东名称",
+    "T006": "成交均价",
+    "T007": "变动数量",
+    "T008": "变动后持股数",
+    "T009": "变动方式",
+    "T011": "身份",
+}
+
+SHAREHOLDER_CHANGE_COLUMNS = ("qs", "jz", "T005", "T006", "T007", "T008", "T009", "T011")
+
+
+def fetch_shareholder_changes(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_gdyj",
+        {"Params": [symbol, "cgbd", "", "", "1", "1", "20"]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 股东增减持返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw = [str(name) for name in (table.get("ColName") or [])]
+    wanted = [name for name in SHAREHOLDER_CHANGE_COLUMNS if name in raw]
+    indexes = [raw.index(name) for name in wanted]
+    rows = table.get("Content") or []
+    return {
+        "columns": [SHAREHOLDER_CHANGE_LABELS.get(name, name) for name in wanted],
+        "rows": [[row[index] for index in indexes] for row in rows],
+        "count": len(rows),
+    }
+
+
 CIRCULATING_SHAREHOLDER_LABELS = {
     "rq": "报告期",
     "gd": "股东名称",

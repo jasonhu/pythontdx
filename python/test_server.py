@@ -49,6 +49,9 @@ class FakeBridge:
     def f10_profile(self, code):
         return {"columns": ["股票类别"], "rows": [["A股"]]}
 
+    def f10_valuation(self, code):
+        return {"columns": ["日期"], "rows": [["20261029"]]}
+
     def tdx_stats(self):
         return {"statCount": 8100, "statSamples": []}
 
@@ -156,6 +159,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/f10_profile", {"code": "sz000001"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], [["A股"]])
+        status, payload, _ = self.request("POST", "/api/f10_valuation", {"code": "sz000001"})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["rows"], [["20261029"]])
 
     def test_bad_json(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)

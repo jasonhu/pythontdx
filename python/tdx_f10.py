@@ -13,6 +13,22 @@ from urllib.request import Request, urlopen
 TQLEX_URL = "http://static.tdx.com.cn:7615/TQLEX"
 ENTRY = "CWSearch.tzx_rcache"
 PROFILE_ENTRY = "CWServ.tdxf10_gg_gsgk"
+VALUATION_ENTRY = "HQServ.hq_nlp_gpsj"
+
+VALUATION_LABELS = {
+    "DATE": "日期",
+    "PETTM": "PE(TTM)",
+    "PEBFW": "PE 分位",
+    "PBMRQ": "PB(MRQ)",
+    "PBBFW": "PB 分位",
+    "PCFOCFTTM": "PCF(经营现金流 TTM)",
+    "PCFBFW": "PCF 分位",
+    "PSTTM": "PS(TTM)",
+    "PSBFW": "PS 分位",
+    "PEG": "PEG",
+    "AVGMVM": "平均市值",
+    "ALIQMV": "流通市值",
+}
 
 PROFILE_LABELS = {
     "T035": "股票类别",
@@ -84,6 +100,56 @@ def parse_profile_payload(payload: dict) -> dict:
     columns = [PROFILE_LABELS.get(str(name), str(name)) for name in raw_columns]
     rows = [list(values) for values in table.get("Content") or []]
     return {"columns": columns, "rows": rows}
+
+
+def parse_valuation_payload(payload: dict) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    result_sets = payload.get("ResultSets") or []
+    if len(result_sets) < 2:
+        return {"columns": [], "rows": []}
+    table = result_sets[1]
+    raw_columns = table.get("ColName") or [
+        str(des.get("Name") or "") for des in (table.get("ColDes") or [])
+    ]
+    columns = [VALUATION_LABELS.get(str(name), str(name)) for name in raw_columns]
+    rows = [list(values) for values in table.get("Content") or []]
+    return {"columns": columns, "rows": rows}
+
+
+def fetch_valuation(code: str) -> dict:
+    market, symbol = _market_of(code)
+    payload = {
+        "ReqId": "200191",
+        "Code": f"{symbol}|{market}",
+        "BeginDate": "0",
+        "EndDate": "0",
+        "Page": "0",
+        "PageSize": "20",
+        "modname": "mod_gpsj.dll",
+    }
+    request = Request(
+        f"{TQLEX_URL}?Entry={VALUATION_ENTRY}",
+        data=json.dumps([payload], separators=(",", ":")).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "StockLens/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=12) as response:
+            raw = response.read()
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise F10Error(f"7615 估值请求失败：{error}") from error
+    try:
+        parsed = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise F10Error("7615 估值返回非 JSON") from error
+    if not isinstance(parsed, dict):
+        raise F10Error("7615 估值返回结构异常")
+    return parse_valuation_payload(parsed)
 
 
 def fetch_profile(code: str) -> dict:

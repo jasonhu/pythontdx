@@ -59,6 +59,8 @@ export const IPC = {
   f10Announcements: 'f10:announcements',
   /** 7615 在线公司概况（invoke） */
   f10Profile: 'f10:profile',
+  /** 7615 在线估值（invoke） */
+  f10Valuation: 'f10:valuation',
   /** tdxstat 摘要（invoke） */
   dataStatsSummary: 'data:stats-summary',
   /** tdxstat 规范化导出（invoke） */
@@ -164,6 +166,7 @@ export interface StockLensApi {
     /** 7615 TQLEX 在线公告列表 */
     announcements(code: string): Promise<F10Announcement[]>
     profile(code: string): Promise<F10ProfileTable>
+    valuation(code: string): Promise<F10ProfileTable>
   }
   data: {
     /** 下载 zhb.zip 并返回 tdxstat 摘要 */

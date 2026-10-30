@@ -284,7 +284,8 @@ export function createHttpApi(): StockLensApi {
           length: section.length
         }),
       announcements: (code) => post<F10Announcement[]>('/api/f10_announcements', { code }),
-      profile: (code) => post<F10ProfileTable>('/api/f10_profile', { code })
+      profile: (code) => post<F10ProfileTable>('/api/f10_profile', { code }),
+      valuation: (code) => post<F10ProfileTable>('/api/f10_valuation', { code })
     },
     data: {
       statsSummary: () => post<TdxStatsSummary>('/api/stats_summary', {}),

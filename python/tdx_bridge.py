@@ -47,7 +47,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tdx_f10 import fetch_announcements, fetch_profile
+from tdx_f10 import fetch_announcements, fetch_profile, fetch_valuation
 
 # ---------------------------------------------------------------- 常量
 
@@ -2425,6 +2425,10 @@ class Bridge:
         """7615 TQLEX 在线公司概况。"""
         return fetch_profile(code)
 
+    def f10_valuation(self, code: str) -> dict:
+        """7615 TQLEX 在线估值。"""
+        return fetch_valuation(code)
+
     def _download_bytes(
         self,
         path: str,
@@ -2891,6 +2895,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_announcements(payload.get("code", ""))
     if cmd == "f10_profile":
         return bridge.f10_profile(payload.get("code", ""))
+    if cmd == "f10_valuation":
+        return bridge.f10_valuation(payload.get("code", ""))
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

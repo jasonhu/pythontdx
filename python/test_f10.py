@@ -44,6 +44,21 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(table["columns"], ["股票类别", "上市日期", "上市板块"])
         self.assertEqual(table["rows"][0][2], "深交所主板")
 
+    def test_parse_valuation(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {"Content": [["5", "1211"]]},
+                {
+                    "ColDes": [{"Name": "DATE"}, {"Name": "PETTM"}, {"Name": "PBMRQ"}],
+                    "Content": [["20261029", "5.15", "0.47"]],
+                },
+            ],
+        }
+        table = tdx_f10.parse_valuation_payload(payload)
+        self.assertEqual(table["columns"], ["日期", "PE(TTM)", "PB(MRQ)"])
+        self.assertEqual(table["rows"][0][1], "5.15")
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

@@ -3,7 +3,7 @@
  *
  * 只调用免费 HTTP 网关；公告详情交系统浏览器，不抓取研报正文，也不绕过授权。
  */
-import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import { createSignal, For, Match, onCleanup, onMount, Show, Switch, type JSX } from 'solid-js'
 import type { F10Announcement, F10ProfileTable } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -14,7 +14,7 @@ interface AnnouncementsPanelProps {
   onClose: () => void
 }
 
-type OnlineTab = 'announcements' | 'profile'
+type OnlineTab = 'announcements' | 'profile' | 'valuation'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -24,6 +24,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [profile, setProfile] = createSignal<F10ProfileTable | null>(null)
   const [profileLoading, setProfileLoading] = createSignal(true)
   const [profileError, setProfileError] = createSignal<string | null>(null)
+  const [valuation, setValuation] = createSignal<F10ProfileTable | null>(null)
+  const [valuationLoading, setValuationLoading] = createSignal(true)
+  const [valuationError, setValuationError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -53,6 +56,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadValuation = async (): Promise<void> => {
+    setValuationLoading(true)
+    setValuationError(null)
+    try {
+      setValuation(await api.f10.valuation(props.code))
+    } catch (cause) {
+      setValuationError(errorMessage(cause))
+    } finally {
+      setValuationLoading(false)
+    }
+  }
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -61,6 +76,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     onCleanup(() => window.removeEventListener('keydown', onKeyDown))
     void loadAnnouncements()
     void loadProfile()
+    void loadValuation()
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -106,12 +122,56 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
           >
             公司概况
           </button>
+          <button
+            class="online-tab online-valuation-tab"
+            data-active={tab() === 'valuation'}
+            onClick={() => setTab('valuation')}
+          >
+            估值
+          </button>
         </div>
 
         <div class="announcements__body">
-          <Show
-            when={tab() === 'announcements'}
-            fallback={
+          <Switch>
+            <Match when={tab() === 'announcements'}>
+              <Show when={!loading()} fallback={<div class="announcements__empty">加载公告…</div>}>
+                <Show when={!error()} fallback={<div class="announcements__error">{error()}</div>}>
+                  <Show
+                    when={rows().length > 0}
+                    fallback={<div class="announcements__empty">暂无公告</div>}
+                  >
+                    <div class="announcements__meta">共 {rows().length} 条 · 点击标题打开原文</div>
+                    <div class="announcements__list">
+                      <div class="announcement-row announcement-row--head">
+                        <span>日期</span>
+                        <span>标题</span>
+                        <span>类型</span>
+                        <span>来源</span>
+                      </div>
+                      <For each={rows()}>
+                        {(row) => (
+                          <div class="announcement-row">
+                            <span class="announcement-row__date num">{row.date}</span>
+                            <button
+                              class="announcement-row__title"
+                              title={row.url || row.title}
+                              disabled={!row.url}
+                              onClick={() => void api.app.openExternal(row.url)}
+                            >
+                              {row.title}
+                            </button>
+                            <span class="announcement-row__type">{row.type}</span>
+                            <span class="announcement-row__source">{row.source}</span>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'profile'}>
               <Show
                 when={!profileLoading()}
                 fallback={<div class="announcements__empty">加载公司概况…</div>}
@@ -139,44 +199,48 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                   </Show>
                 </Show>
               </Show>
-            }
-          >
-            <Show when={!loading()} fallback={<div class="announcements__empty">加载公告…</div>}>
-              <Show when={!error()} fallback={<div class="announcements__error">{error()}</div>}>
+            </Match>
+
+            <Match when={tab() === 'valuation'}>
+              <Show
+                when={!valuationLoading()}
+                fallback={<div class="announcements__empty">加载估值…</div>}
+              >
                 <Show
-                  when={rows().length > 0}
-                  fallback={<div class="announcements__empty">暂无公告</div>}
+                  when={!valuationError()}
+                  fallback={<div class="announcements__error">{valuationError()}</div>}
                 >
-                  <div class="announcements__meta">共 {rows().length} 条 · 点击标题打开原文</div>
-                  <div class="announcements__list">
-                    <div class="announcement-row announcement-row--head">
-                      <span>日期</span>
-                      <span>标题</span>
-                      <span>类型</span>
-                      <span>来源</span>
-                    </div>
-                    <For each={rows()}>
-                      {(row) => (
-                        <div class="announcement-row">
-                          <span class="announcement-row__date num">{row.date}</span>
-                          <button
-                            class="announcement-row__title"
-                            title={row.url || row.title}
-                            disabled={!row.url}
-                            onClick={() => void api.app.openExternal(row.url)}
-                          >
-                            {row.title}
-                          </button>
-                          <span class="announcement-row__type">{row.type}</span>
-                          <span class="announcement-row__source">{row.source}</span>
-                        </div>
-                      )}
-                    </For>
-                  </div>
+                  <Show
+                    when={valuation()}
+                    fallback={<div class="announcements__empty">暂无估值</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
                 </Show>
               </Show>
-            </Show>
-          </Show>
+            </Match>
+          </Switch>
         </div>
 
         <footer class="announcements__foot">

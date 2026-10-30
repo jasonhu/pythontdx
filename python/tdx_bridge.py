@@ -60,6 +60,8 @@ CMD_QUOTES = 0x053E
 CMD_SNAPSHOT = 0x054C
 CMD_REFRESH = 0x0547
 CMD_CATEGORY = 0x054B
+CMD_TODAY_TICKS = 0x0FC5
+CMD_HISTORY_TICKS = 0x0FC6
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
@@ -70,6 +72,7 @@ CMD_FINANCE = 0x0010
 # 0x054c / 0x053e 共用的请求前缀；0x0547 是另一套「代码 + 游标」布局
 QUOTE_LIST_PREFIX = b"\x05\x00\x00\x00\x00\x00\x00\x00"
 REFRESH_BATCH = 100
+TRADE_PAGE = 1800
 
 MARKET_NAMES = {0: "SZ", 1: "SH", 2: "BJ"}
 MARKET_IDS = {"sz": 0, "sh": 1, "bj": 2}
@@ -358,6 +361,32 @@ def category_data(
         0,
     ]
     return b"".join(struct.pack("<H", value) for value in values)
+
+
+def trades_data(
+    market: int,
+    symbol: str,
+    start: int = 0,
+    count: int = TRADE_PAGE,
+    trading_date: str | None = None,
+) -> bytes:
+    """0x0fc5 当日 / 0x0fc6 历史成交明细；单页上限 1800。"""
+    if start < 0 or start > 0xFFFF:
+        raise TdxError("成交明细起点超出 u16 范围")
+    if count < 1 or count > TRADE_PAGE:
+        raise TdxError("单页成交明细必须在 1~1800 条之间")
+
+    if trading_date is None:
+        return struct.pack(
+            "<BB6sHH", market, 0, code_bytes(symbol), start, count
+        )
+
+    raw_date = trading_date.strip().replace("-", "")
+    if len(raw_date) != 8 or not raw_date.isdigit():
+        raise TdxError("历史成交日期必须是 YYYY-MM-DD 或 YYYYMMDD")
+    return struct.pack(
+        "<IH6sHH", int(raw_date), market, code_bytes(symbol), start, count
+    )
 
 
 def bars_data(market: int, symbol: str, period: int, count: int, adjust: int, start: int = 0) -> bytes:
@@ -883,6 +912,78 @@ def parse_category_quotes(
     return quotes
 
 
+def _trade_side(status: int) -> str:
+    return {0: "buy", 1: "sell", 2: "neutral"}.get(status, f"status_{status}")
+
+
+def parse_trades(
+    body: bytes,
+    market: int,
+    symbol: str,
+    start: int,
+    securities: dict[str, dict],
+    trading_date: str | None = None,
+) -> list[dict]:
+    """0x0fc5（当日）/ 0x0fc6（历史）成交明细。
+
+    价格是差分累计值；A 股 /100，可转债 /1000。status=8 是竞价快照，不是成交。
+    """
+    if len(body) < 2:
+        raise TdxError("成交明细报文不完整")
+    count = _u16(body, 0)
+    pos = 2
+    if trading_date is not None:
+        if len(body) < 6:
+            raise TdxError("历史成交明细缺少价格基数")
+        pos = 6  # 2 字节价格基数 f32，解析价格不需要它
+    if count == 0:
+        return []
+    if count > (len(body) - pos) // 7:
+        raise TdxError("成交明细数量与报文长度不符")
+
+    security = securities.get(full_code(market, symbol), {})
+    convertible = security.get("kind") == "ZQ" or symbol.startswith(("11", "12"))
+    price_scale = 1000.0 if convertible else 100.0
+    price_acc = 0
+    ticks: list[dict] = []
+
+    for index in range(count):
+        time_minutes = _u16(body, pos)
+        pos += 2
+        price_delta, pos = read_varint(body, pos)
+        volume, pos = read_varint(body, pos)
+        order_count, pos = read_varint(body, pos)
+        status, pos = read_varint(body, pos)
+        tail, pos = read_varint(body, pos)
+
+        price_acc += price_delta
+        price = price_acc / price_scale
+        event_kind = (
+            "auction_snapshot"
+            if status == 8
+            else "opening_match"
+            if time_minutes == 9 * 60 + 25
+            else "trade"
+        )
+        tick: dict = {
+            "index": start + index,
+            "timeMinutes": time_minutes,
+            "time": f"{time_minutes // 60:02d}:{time_minutes % 60:02d}",
+            "price": price,
+            "volume": volume,
+            "orderCount": order_count,
+            "status": status,
+            "side": _trade_side(status),
+            "eventKind": event_kind,
+            "tailRaw": tail,
+        }
+        if event_kind != "auction_snapshot" and price > 0 and volume > 0:
+            tick["tradeAmount"] = price * volume * 100
+        ticks.append(tick)
+
+    return ticks
+
+
 def is_record_start(buf: bytes, pos: int) -> bool:
     if pos + 7 > len(buf):
         return False
@@ -1282,6 +1383,28 @@ class Bridge:
         self._attach_finance(quotes)
         return quotes
 
+    def trades(
+        self,
+        code: str,
+        start: int = 0,
+        count: int = TRADE_PAGE,
+        trading_date: str | None = None,
+    ) -> list[dict]:
+        """成交明细：不传日期走 0x0fc5，传日期走 0x0fc6。"""
+        market, symbol = parse_code(code)
+        try:
+            self.index.ensure(self.conn)
+        except Exception as error:  # noqa: BLE001 - 代码表失败不该拖垮明细
+            print(f"[tdx] 代码表加载失败：{error}", file=sys.stderr)
+        command = CMD_HISTORY_TICKS if trading_date else CMD_TODAY_TICKS
+        body = self.conn.request(
+            command,
+            trades_data(market, symbol, start, count, trading_date),
+        )
+        return parse_trades(
+            body, market, symbol, start, self.index.by_code, trading_date
+        )
+
     def _attach_finance(self, quotes: list[dict]) -> None:
         if not quotes:
             return
@@ -1423,6 +1546,13 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             count=int(payload.get("count", 80)),
             ascending=bool(payload.get("ascending", False)),
             filter_raw=int(payload.get("filterRaw", payload.get("filter_raw", 0))),
+        )
+    if cmd == "trades":
+        return bridge.trades(
+            payload.get("code", ""),
+            start=int(payload.get("start", 0)),
+            count=int(payload.get("count", TRADE_PAGE)),
+            trading_date=payload.get("date") or None,
         )
     if cmd == "kline":
         return bridge.kline(

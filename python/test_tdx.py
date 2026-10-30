@@ -173,6 +173,47 @@ class TestCategoryQuotes(unittest.TestCase):
         self.assertEqual(last["asks"][0], {"price": 39.81, "volume": 61})
 
 
+class TestTrades(unittest.TestCase):
+    def test_today_request(self):
+        data = tdx.trades_data(1, "600519", 0, 20)
+        self.assertEqual(len(data), 12)
+        self.assertEqual(data[:2], b"\x01\x00")
+        self.assertEqual(data[2:8], b"600519")
+        self.assertEqual(int.from_bytes(data[8:10], "little"), 0)
+        self.assertEqual(int.from_bytes(data[10:12], "little"), 20)
+
+    def test_history_request(self):
+        data = tdx.trades_data(1, "600519", 0, 5, "2026-10-28")
+        self.assertEqual(len(data), 16)
+        self.assertEqual(int.from_bytes(data[:4], "little"), 20261028)
+        self.assertEqual(int.from_bytes(data[4:6], "little"), 1)
+        self.assertEqual(data[6:12], b"600519")
+
+    def test_today_ticks(self):
+        ticks = tdx.parse_trades(
+            fixture("trades-today"), 1, "600519", 0, {}
+        )
+        self.assertEqual(len(ticks), 20)
+        first = ticks[0]
+        self.assertEqual(first["time"], "10:11")
+        self.assertAlmostEqual(first["price"], 1370.68, places=2)
+        self.assertEqual(first["volume"], 13)
+        self.assertEqual(first["side"], "sell")
+        self.assertEqual(first["eventKind"], "trade")
+
+    def test_history_ticks(self):
+        ticks = tdx.parse_trades(
+            fixture("trades-history"), 1, "600519", 0, {}, "2026-10-28"
+        )
+        self.assertEqual(len(ticks), 5)
+        first = ticks[0]
+        self.assertEqual(first["time"], "15:06")
+        self.assertAlmostEqual(first["price"], 1330.75, places=2)
+        self.assertEqual(first["side"], "status_5")
+        self.assertEqual(first["status"], 5)
+        self.assertEqual(first["tradeAmount"], 133075.0)
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")

@@ -40,6 +40,7 @@ STOCKLENS_TDX_BRIDGE=/path/to/tdx-bridge npm run dev
 | `snapshots` | `{ codes: string[] }` | `Quote[]`（`0x054c`，买一/卖一） |
 | `refresh` | `{ codes: string[], cursors?: Record<string, number> }` | `Quote[]`（`0x0547`，五档基线） |
 | `category` | `{ category?, sortType?, start?, count?, ascending?, filterRaw? }` | `Quote[]`（`0x054b`，服务端排序） |
+| `trades` | `{ code, start?, count?, date? }` | `TradeTick[]`（`0x0fc5` / `0x0fc6`） |
 | `kline` | `{ code, period, count }` | `KLineSeries` |
 | `minute` | `{ code }` | `MinuteTrend` |
 | `five_day` | `{ code }` | `MultiDayTrend` |

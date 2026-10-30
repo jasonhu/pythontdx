@@ -10,6 +10,7 @@ import {
   DEFAULT_GROUP_ID,
   DEFAULT_SETTINGS,
   STATE_VERSION,
+  type AlertEvent,
   type AlertRule,
   type AppInfo,
   type AppSettings,
@@ -85,6 +86,7 @@ export async function bootstrapAppState(): Promise<void> {
     activeCode: persisted.activeCode ?? persisted.groups[0]?.items[0]?.code ?? null,
     alerts: Array.isArray(persisted.alerts) ? persisted.alerts : [],
     formulas: Array.isArray(persisted.formulas) ? persisted.formulas : [],
+    alertEvents: Array.isArray(persisted.alertEvents) ? persisted.alertEvents : [],
     positions: Array.isArray(persisted.positions) ? persisted.positions : []
   })
   setAppInfo(info)
@@ -367,6 +369,18 @@ export function toggleAlert(id: string): void {
 }
 
 /** 只更新触发过的规则；调用方传入 evaluateAlerts 的 updated。 */
+export function appendAlertEvents(events: readonly AlertEvent[]): void {
+  if (events.length === 0) return
+  const merged = [...events, ...(state.alertEvents ?? [])].slice(0, 50)
+  setState('alertEvents', merged)
+  persist({ alertEvents: merged })
+}
+
+export function clearAlertEventHistory(): void {
+  setState('alertEvents', [])
+  persist({ alertEvents: [] })
+}
+
 export function markAlertsTriggered(updated: readonly AlertRule[]): void {
   if (updated.length === 0) return
   const changed = new Map(updated.map((rule) => [rule.id, rule]))

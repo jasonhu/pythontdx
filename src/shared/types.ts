@@ -656,6 +656,8 @@ export interface AppState {
   alerts: AlertRule[]
   /** 本地保存的指标公式 */
   formulas: SavedFormula[]
+  /** 最近 50 条预警触发记录（跨重启保留） */
+  alertEvents?: AlertEvent[]
   /** 本地持仓（股数/成本） */
   positions?: PortfolioPosition[]
 }

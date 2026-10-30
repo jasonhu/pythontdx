@@ -157,6 +157,7 @@ export class AppStore {
       activeCode: source.activeCode ?? fallback.activeCode,
       alerts: Array.isArray(source.alerts) ? source.alerts : [],
       formulas: Array.isArray(source.formulas) ? source.formulas : [],
+      alertEvents: Array.isArray(source.alertEvents) ? source.alertEvents : [],
       positions: Array.isArray(source.positions) ? source.positions : []
     }
   }

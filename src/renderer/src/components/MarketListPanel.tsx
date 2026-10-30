@@ -199,7 +199,7 @@ export function MarketListPanel(props: {
                       }}
                     >
                       <td class="num">{item.code.toUpperCase()}</td>
-                      <td>{item.name}</td>
+                      <td>{quote()?.name || item.name}</td>
                       <td>{item.market}</td>
                       <td class="market__kind">{item.kind}</td>
                       <td class="num">{quote() ? fixed(quote()!.price) : '—'}</td>

@@ -56,7 +56,7 @@ import {
 import { applyQuotes, createQuoteStream, quoteOf, refreshQuotes } from './stores/quotes'
 import { api } from './lib/ipc'
 import { createSparklineLoader } from './stores/sparklines'
-import { dismissLatestAlert, latestAlert } from './stores/alerts'
+import { dismissLatestAlert, hydrateAlertEvents, latestAlert } from './stores/alerts'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
@@ -77,7 +77,7 @@ export default function App(): JSX.Element {
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'price' | 'flow' | 'auction'>('book')
 
   onMount(() => {
-    void bootstrapAppState()
+    void bootstrapAppState().then(() => hydrateAlertEvents())
     initWindowSync()
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!appReady() || event.metaKey || event.ctrlKey || event.altKey) return

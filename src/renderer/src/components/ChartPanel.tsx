@@ -25,6 +25,7 @@ import { KLineChart } from './KLineChart'
 import { ChartSkeleton } from './ChartSkeleton'
 import { TrendChart, type TrendHover } from './TrendChart'
 import { IconRefresh } from './Icons'
+import { IndicatorSubchart, type SubIndicator } from './IndicatorSubchart'
 
 type Tab = 'minute' | 'five' | KLinePeriod
 
@@ -63,6 +64,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<Tab>(appState.settings.chartTab ?? 'minute')
   const [adjust, setAdjust] = createSignal<KLineAdjust>(appState.settings.klineAdjust ?? 'qfq')
   const [showBoll, setShowBoll] = createSignal(appState.settings.showBoll ?? false)
+  const [subIndicator, setSubIndicator] = createSignal<'none' | SubIndicator>(
+    appState.settings.subIndicator ?? 'none'
+  )
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
   createEffect(() => {
@@ -76,6 +80,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   createEffect(() => {
     const savedBoll = appState.settings.showBoll
     if (savedBoll !== undefined && savedBoll !== showBoll()) setShowBoll(savedBoll)
+  })
+  createEffect(() => {
+    const saved = appState.settings.subIndicator
+    if (saved && saved !== subIndicator()) setSubIndicator(saved)
   })
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
@@ -216,6 +224,24 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           </button>
         </Show>
 
+        <Show when={!isTrend()}>
+          <select
+            class="chart-sub-select"
+            value={subIndicator()}
+            aria-label="K 线副图"
+            onChange={(event) => {
+              const value = event.currentTarget.value as 'none' | SubIndicator
+              setSubIndicator(value)
+              updateSettings({ subIndicator: value })
+            }}
+          >
+            <option value="none">副图</option>
+            <option value="macd">MACD</option>
+            <option value="kdj">KDJ</option>
+            <option value="rsi">RSI</option>
+          </select>
+        </Show>
+
         {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
         <div class="chart-headline">
           <Show
@@ -306,7 +332,12 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         </div>
       </div>
 
-      <div class="chart-card__body">
+      <div
+        class="chart-card__body"
+        classList={{
+          'chart-card__body--sub': subIndicator() !== 'none' && klineSeries() !== undefined
+        }}
+      >
         <Show
           when={!data.error}
           fallback={
@@ -335,6 +366,11 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               </Show>
               <Show when={klineSeries()}>
                 {(series) => <KLineChart series={series()} boll={showBoll()} />}
+              </Show>
+              <Show when={subIndicator() !== 'none' ? klineSeries() : undefined}>
+                {(series) => (
+                  <IndicatorSubchart bars={series().bars} kind={subIndicator() as SubIndicator} />
+                )}
               </Show>
             </Show>
           </Show>

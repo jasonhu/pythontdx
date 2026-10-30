@@ -500,6 +500,8 @@ export interface AppSettings {
   showBoll?: boolean
   /** 指标面板参数 */
   indicatorParams?: IndicatorParams
+  /** K 线副图 */
+  subIndicator?: 'none' | 'macd' | 'kdj' | 'rsi'
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

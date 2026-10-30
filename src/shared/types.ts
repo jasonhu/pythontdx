@@ -204,6 +204,15 @@ export interface F10Section {
   length: number
 }
 
+export interface F10Announcement {
+  id: string
+  date: string
+  title: string
+  type: string
+  source: string
+  url: string
+}
+
 /* --------------------------------------------------------------- 数据工具 */
 
 export interface TdxStatSample {

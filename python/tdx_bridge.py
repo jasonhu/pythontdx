@@ -47,6 +47,8 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+from tdx_f10 import fetch_announcements
+
 # ---------------------------------------------------------------- 常量
 
 ENDPOINTS = [
@@ -2415,6 +2417,10 @@ class Bridge:
         )
         return parse_f10_content(body)
 
+    def f10_announcements(self, code: str) -> list[dict]:
+        """7615 TQLEX 在线公告列表（免费资料，不碰研报正文）。"""
+        return fetch_announcements(code)
+
     def _download_bytes(
         self,
         path: str,
@@ -2877,6 +2883,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             int(payload.get("start", 0)),
             int(payload.get("length", 0)),
         )
+    if cmd == "f10_announcements":
+        return bridge.f10_announcements(payload.get("code", ""))
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

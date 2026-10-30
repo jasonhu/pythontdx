@@ -12,6 +12,7 @@ import { IconStar, IconStarFilled } from './Icons'
 export interface QuoteHeaderProps {
   quote: Quote
   onOpenF10: () => void
+  onOpenAnnouncements: () => void
 }
 
 export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
@@ -64,6 +65,13 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
               onClick={() => props.onOpenF10()}
             >
               F10
+            </button>
+            <button
+              class="btn btn--bare announcements-open"
+              title="在线公告"
+              onClick={() => props.onOpenAnnouncements()}
+            >
+              公告
             </button>
           </div>
 

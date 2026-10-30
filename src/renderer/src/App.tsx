@@ -11,6 +11,7 @@ import { AlertToast } from './components/AlertToast'
 import { AuctionTape } from './components/AuctionTape'
 import { BlockPanel } from './components/BlockPanel'
 import { ChartPanel } from './components/ChartPanel'
+import { AnnouncementsPanel } from './components/AnnouncementsPanel'
 import { DataPanel } from './components/DataPanel'
 import { EmptyState } from './components/EmptyState'
 import { F10Panel } from './components/F10Panel'
@@ -45,6 +46,7 @@ export default function App(): JSX.Element {
   const [replayOpen, setReplayOpen] = createSignal(false)
   const [formulaOpen, setFormulaOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
+  const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow' | 'auction'>('book')
@@ -86,7 +88,11 @@ export default function App(): JSX.Element {
         <Show when={activeQuote()} fallback={<EmptyState />}>
           {(quote) => (
             <>
-              <QuoteHeader quote={quote()} onOpenF10={() => setF10Open(true)} />
+              <QuoteHeader
+                quote={quote()}
+                onOpenF10={() => setF10Open(true)}
+                onOpenAnnouncements={() => setAnnouncementsOpen(true)}
+              />
               <ChartPanel
                 code={quote().code}
                 onOpenReplay={() => setReplayOpen(true)}
@@ -233,6 +239,16 @@ export default function App(): JSX.Element {
             code={quote().code}
             name={quote().name}
             onClose={() => setReplayOpen(false)}
+          />
+        )}
+      </Show>
+
+      <Show when={announcementsOpen() ? activeQuote() : undefined}>
+        {(quote) => (
+          <AnnouncementsPanel
+            code={quote().code}
+            name={quote().name}
+            onClose={() => setAnnouncementsOpen(false)}
           />
         )}
       </Show>

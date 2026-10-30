@@ -11,6 +11,7 @@ import type {
   BlockKind,
   BlockList,
   CategoryQuote,
+  F10Announcement,
   F10Section,
   IndustryList,
   KLinePeriod,
@@ -148,6 +149,11 @@ export async function fetchF10Content(code: string, section: F10Section): Promis
     },
     QUOTES_TIMEOUT_MS
   )
+}
+
+/** 7615 TQLEX 在线公告（免费，不拉研报正文）。 */
+export async function fetchF10Announcements(code: string): Promise<F10Announcement[]> {
+  return bridge.send<F10Announcement[]>('f10_announcements', { code }, 20_000)
 }
 
 /* ---------------------------------------------------------------- 数据工具 */

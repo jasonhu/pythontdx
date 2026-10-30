@@ -11,6 +11,7 @@ import type {
   BlockKind,
   BlockList,
   CategoryQuote,
+  F10Announcement,
   F10Section,
   IndustryList,
   KLineSeries,
@@ -280,7 +281,8 @@ export function createHttpApi(): StockLensApi {
           filename: section.filename,
           start: section.start,
           length: section.length
-        })
+        }),
+      announcements: (code) => post<F10Announcement[]>('/api/f10_announcements', { code })
     },
     data: {
       statsSummary: () => post<TdxStatsSummary>('/api/stats_summary', {}),

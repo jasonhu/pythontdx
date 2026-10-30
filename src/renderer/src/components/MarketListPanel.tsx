@@ -27,12 +27,13 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 const PAGE_SIZE = 100
 
-type SortMode = 'default' | 'change' | 'amount' | 'price'
+type SortMode = 'default' | 'change' | 'changeAsc' | 'amount' | 'price'
 
 function metric(map: Map<string, Quote>, mode: SortMode, item: SearchSecurity): number {
   const quote = map.get(item.code)
   if (!quote) return Number.NEGATIVE_INFINITY
   if (mode === 'change') return quote.changePct
+  if (mode === 'changeAsc') return -quote.changePct
   if (mode === 'amount') return quote.amount ?? 0
   return quote.price
 }
@@ -238,6 +239,7 @@ export function MarketListPanel(props: {
                 [
                   ['default', '默认'],
                   ['change', '涨幅'],
+                  ['changeAsc', '跌幅'],
                   ['amount', '成交额'],
                   ['price', '现价']
                 ] as Array<[SortMode, string]>

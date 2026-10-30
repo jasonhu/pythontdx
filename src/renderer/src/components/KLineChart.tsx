@@ -111,6 +111,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
   const [dragId, setDragId] = createSignal<number | null>(null)
+  const [dragPart, setDragPart] = createSignal<'start' | 'end'>('end')
   const [pendingPoint, setPendingPoint] = createSignal<{ index: number; price: number } | null>(
     null
   )
@@ -288,19 +289,38 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     return { index, price: geo.priceFromY(event.clientY - rect.top) }
   }
 
-  /** 在水平/垂直线上按下时进入拖动；趋势线暂不支持整条拖拽。 */
-  const hitDrawing = (event: PointerEvent, geo: KLineGeometry): KLineDrawing | null => {
+  /** 命中水平线/垂直线/趋势线端点时进入拖动。 */
+  const hitDrawing = (
+    event: PointerEvent,
+    geo: KLineGeometry
+  ): { drawing: KLineDrawing; part: 'start' | 'end' } | null => {
     if (props.rangeMode || props.drawMode !== 'none') return null
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
-    return (
-      drawings().find((drawing) => {
-        if (drawing.type === 'horizontal') return Math.abs(geo.yPrice(drawing.price ?? 0) - y) <= 6
-        if (drawing.type === 'vertical') return Math.abs(geo.x(drawing.startIndex ?? 0) - x) <= 6
-        return false
-      }) ?? null
-    )
+    for (const drawing of drawings()) {
+      if (drawing.type === 'horizontal' && Math.abs(geo.yPrice(drawing.price ?? 0) - y) <= 6) {
+        return { drawing, part: 'end' }
+      }
+      if (drawing.type === 'vertical' && Math.abs(geo.x(drawing.startIndex ?? 0) - x) <= 6) {
+        return { drawing, part: 'end' }
+      }
+      if (drawing.type === 'trend') {
+        const start = {
+          x: geo.x(drawing.startIndex ?? 0),
+          y: geo.yPrice(drawing.startPrice ?? 0)
+        }
+        const end = {
+          x: geo.x(drawing.endIndex ?? 0),
+          y: geo.yPrice(drawing.endPrice ?? 0)
+        }
+        const distance = (point: { x: number; y: number }): number =>
+          Math.hypot(point.x - x, point.y - y)
+        if (distance(start) <= 8) return { drawing, part: 'start' }
+        if (distance(end) <= 8) return { drawing, part: 'end' }
+      }
+    }
+    return null
   }
 
   const onPointerDown = (event: PointerEvent): void => {
@@ -308,7 +328,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (!geo) return
     const hit = hitDrawing(event, geo)
     if (hit) {
-      setDragId(hit.id)
+      setDragId(hit.drawing.id)
+      setDragPart(hit.part)
       try {
         ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
       } catch {
@@ -399,13 +420,17 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       const point = localPoint(event, geo)
       if (!point) return
       setDrawings((current) =>
-        current.map((drawing) =>
-          drawing.id === drag
-            ? drawing.type === 'horizontal'
-              ? { ...drawing, price: point.price }
-              : { ...drawing, startIndex: point.index }
-            : drawing
-        )
+        current.map((drawing) => {
+          if (drawing.id !== drag) return drawing
+          if (drawing.type === 'horizontal') return { ...drawing, price: point.price }
+          if (drawing.type === 'vertical') return { ...drawing, startIndex: point.index }
+          if (drawing.type === 'trend') {
+            return dragPart() === 'start'
+              ? { ...drawing, startIndex: point.index, startPrice: point.price }
+              : { ...drawing, endIndex: point.index, endPrice: point.price }
+          }
+          return drawing
+        })
       )
       return
     }

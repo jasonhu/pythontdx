@@ -30,6 +30,7 @@ import type {
   KLineSeries,
   MinuteTrend,
   MacMoneyFlow,
+  MacBoard,
   MacUnusualItem,
   MoneyFlowRecord,
   MultiDayTrend,
@@ -143,6 +144,10 @@ export async function fetchMoneyFlow(code: string): Promise<MoneyFlowRecord[]> {
 }
 
 /** 0x056a 集合竞价过程；date 省略为当日。 */
+export async function fetchMacBoards(boardType = 255): Promise<MacBoard[]> {
+  return bridge.send<MacBoard[]>('mac_boards', { boardType }, QUOTES_TIMEOUT_MS)
+}
+
 export async function fetchMacUnusual(count = 600): Promise<MacUnusualItem[]> {
   return bridge.send<MacUnusualItem[]>('mac_unusual', { count }, QUOTES_TIMEOUT_MS)
 }

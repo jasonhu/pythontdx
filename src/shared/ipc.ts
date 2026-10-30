@@ -28,6 +28,7 @@ import type {
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
+  MacBoard,
   MacUnusualItem,
   MarketBreadth,
   MinuteTrend,
@@ -68,6 +69,8 @@ export const IPC = {
   moneyMac: 'money:mac',
   /** MAC 0x1237 异动（invoke） */
   macUnusual: 'mac:unusual',
+  /** MAC 0x1231 板块列表（invoke） */
+  macBoards: 'mac:boards',
   /** 集合竞价过程（invoke） */
   auctionSeries: 'auction:series',
   /** F10 段落目录（invoke） */
@@ -225,6 +228,8 @@ export interface StockLensApi {
   mac: {
     /** 沪深异动（0x1237） */
     unusual(count?: number): Promise<MacUnusualItem[]>
+    /** 板块列表（0x1231） */
+    boards(boardType?: number): Promise<MacBoard[]>
   }
   auction: {
     /** 集合竞价过程快照（0x056a）；date 省略为当日 */

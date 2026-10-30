@@ -418,3 +418,93 @@ def fetch_unusual(market: int, count: int = 600, timeout: float = 4.0, hosts: tu
         finally:
             sock.close()
     raise MacError(f"MAC 异动不可用：{last_error}")
+
+
+_BOARD_RECORD = "<H6s16s44sfffH6s16s44sfff"
+
+
+def _request_boards(sock: socket.socket, board_type: int, start: int, page_size: int) -> bytes:
+    body = struct.pack("<HHBBHH8x", page_size, board_type, 0, 0, start, 1)
+    inner = struct.pack("<H", 0x1231) + body
+    header = struct.pack("<BIBHH", 0x1C, 0, 1, len(inner), len(inner))
+    sock.sendall(header + inner)
+    return _read_response(sock)
+
+
+def parse_boards(body: bytes) -> list[dict]:
+    if len(body) < 4:
+        raise MacError("MAC 板块列表响应过短")
+    count_all, _total = struct.unpack_from("<HH", body, 0)
+    count = count_all // 2
+    if count > 500:
+        raise MacError("MAC 板块列表行数异常")
+    size = struct.calcsize(_BOARD_RECORD)
+    if len(body) < 4 + count * size:
+        raise MacError("MAC 板块列表长度不符")
+    boards: list[dict] = []
+    for index in range(count):
+        values = struct.unpack_from(_BOARD_RECORD, body, 4 + index * size)
+        (
+            market,
+            code_raw,
+            _pad1,
+            name_raw,
+            price,
+            rise_speed,
+            pre_close,
+            leader_market,
+            leader_code_raw,
+            _pad2,
+            leader_name_raw,
+            leader_price,
+            leader_rise_speed,
+            leader_pre_close,
+        ) = values
+        code = code_raw.decode("gbk", errors="ignore").rstrip("\x00")
+        if len(code) != 6 or not code.isdigit():
+            continue
+        boards.append(
+            {
+                "market": market,
+                "code": code,
+                "name": name_raw.decode("gbk", errors="ignore").rstrip("\x00"),
+                "price": round(price, 3),
+                "riseSpeed": round(rise_speed, 3),
+                "preClose": round(pre_close, 3),
+                "leaderMarket": leader_market,
+                "leaderCode": leader_code_raw.decode("gbk", errors="ignore").rstrip("\x00"),
+                "leaderName": leader_name_raw.decode("gbk", errors="ignore").rstrip("\x00"),
+                "leaderPrice": round(leader_price, 3),
+                "leaderRiseSpeed": round(leader_rise_speed, 3),
+                "leaderPreClose": round(leader_pre_close, 3),
+            }
+        )
+    return boards
+
+
+def fetch_boards(board_type: int = 255, timeout: float = 4.0, hosts: tuple[str, ...] = MAC_HOSTS) -> list[dict]:
+    last_error: Exception | None = None
+    for host in hosts:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        try:
+            sock.connect((host, MAC_PORT))
+            _handshake(sock)
+            boards: list[dict] = []
+            start = 0
+            while start < 2000:
+                chunk = parse_boards(_request_boards(sock, board_type, start, 150))
+                if not chunk:
+                    break
+                boards.extend(chunk)
+                start += len(chunk)
+                if len(chunk) < 150:
+                    break
+            for board in boards:
+                board["type"] = board_type
+            return boards
+        except (OSError, MacError) as error:
+            last_error = error
+        finally:
+            sock.close()
+    raise MacError(f"MAC 板块列表不可用：{last_error}")

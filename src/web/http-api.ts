@@ -18,6 +18,7 @@ import type {
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
+  MacBoard,
   MacUnusualItem,
   MarketBreadth,
   F10ProfileTable,
@@ -294,7 +295,8 @@ export function createHttpApi(): StockLensApi {
       macFlow: (code) => post<MacMoneyFlow>('/api/mac_money_flow', { code })
     },
     mac: {
-      unusual: (count) => post<MacUnusualItem[]>('/api/mac_unusual', { count })
+      unusual: (count) => post<MacUnusualItem[]>('/api/mac_unusual', { count }),
+      boards: (boardType) => post<MacBoard[]>('/api/mac_boards', { boardType })
     },
     auction: {
       series: (code, date) => post<AuctionPoint[]>('/api/auctions', { code, date })

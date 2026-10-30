@@ -40,7 +40,8 @@ const api: StockLensApi = {
     macFlow: (code) => ipcRenderer.invoke(IPC.moneyMac, code)
   },
   mac: {
-    unusual: (count) => ipcRenderer.invoke(IPC.macUnusual, count)
+    unusual: (count) => ipcRenderer.invoke(IPC.macUnusual, count),
+    boards: (boardType) => ipcRenderer.invoke(IPC.macBoards, boardType)
   },
   auction: {
     series: (code, date) => ipcRenderer.invoke(IPC.auctionSeries, code, date)

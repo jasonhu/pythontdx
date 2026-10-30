@@ -204,6 +204,22 @@ export interface TradeTick {
 }
 
 /** 0x0ffc 资金流日记录；接口固定最近 5 个交易日 */
+export interface MacBoard {
+  market: number
+  code: string
+  name: string
+  price: number
+  riseSpeed: number
+  preClose: number
+  leaderMarket: number
+  leaderCode: string
+  leaderName: string
+  leaderPrice: number
+  leaderRiseSpeed: number
+  leaderPreClose: number
+  type: number
+}
+
 export interface MacUnusualItem {
   market: Market
   code: string

@@ -56,6 +56,7 @@ from tdx_mac import (
     fetch_capital_flow,
     fetch_quotes as fetch_mac_quotes,
     fetch_unusual,
+    fetch_boards,
 )
 from local_import import import_local_file
 from tdx_f10 import (
@@ -2336,6 +2337,10 @@ class Bridge:
         """MAC 0x1218 今日/5 日资金流。"""
         return fetch_capital_flow(code)
 
+    def mac_boards(self, board_type: int = 255) -> list[dict]:
+        """MAC 0x1231 板块列表（含领涨股）。"""
+        return fetch_boards(board_type)
+
     def mac_unusual(self, count: int = 600) -> list[dict]:
         """MAC 0x1237 沪深异动；两个市场合并后按时间倒序。"""
         items: list[dict] = []
@@ -3183,6 +3188,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.mac_money_flow(str(payload.get("code") or ""))
     if cmd == "mac_unusual":
         return bridge.mac_unusual(int(payload.get("count", 600)))
+    if cmd == "mac_boards":
+        return bridge.mac_boards(int(payload.get("boardType", 255)))
     if cmd == "refresh":
         return bridge.refresh_quotes(
             payload.get("codes") or [], payload.get("cursors") or {}

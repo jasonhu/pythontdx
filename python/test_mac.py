@@ -73,6 +73,30 @@ class TestMacQuotes(unittest.TestCase):
         self.assertEqual(items[0]["time"], "09:20:30")
         self.assertEqual(items[0]["desc"], "加速拉升")
 
+    def test_parse_boards(self):
+        record = struct.pack(
+            "<H6s16s44sfffH6s16s44sfff",
+            1,
+            b"881429",
+            b"",
+            "酒店餐饮".encode("gbk").ljust(44, b"\x00"),
+            524.23,
+            0.0,
+            502.44,
+            1,
+            b"600258",
+            b"",
+            "首旅酒店".encode("gbk").ljust(44, b"\x00"),
+            12.43,
+            0.0,
+            11.3,
+        )
+        body = struct.pack("<HH", 2, 1) + record + b"\x00" * 160
+        boards = tdx_mac.parse_boards(body)
+        self.assertEqual(len(boards), 1)
+        self.assertEqual(boards[0]["name"], "酒店餐饮")
+        self.assertEqual(boards[0]["leaderName"], "首旅酒店")
+
     def test_empty_codes(self):
         self.assertEqual(tdx_mac.fetch_quotes([]), [])
 

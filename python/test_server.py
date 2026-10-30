@@ -67,6 +67,9 @@ class FakeBridge:
     def f10_news(self, code):
         return [{"id": "1", "title": "新闻"}]
 
+    def mac_boards(self, board_type=255):
+        return []
+
     def mac_unusual(self, count=600):
         return []
 
@@ -305,6 +308,9 @@ class TestHttpApi(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["mainNet"], 1.0)
         status, payload, _ = self.request("POST", "/api/mac_unusual", {"count": 10})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"], [])
+        status, payload, _ = self.request("POST", "/api/mac_boards", {"boardType": 255})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])
         status, payload, _ = self.request("POST", "/api/f10_statement", {"code": "sz000001", "kind": "zcfzb"})

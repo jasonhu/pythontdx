@@ -38,6 +38,15 @@ StockLens 的所有重要变更都记录在这里。
 - `npm run check` 现在包含 Python 测试；打包前自动跑 `build:python`（PyInstaller）。
 - `electron-builder.yml` 通过 `extraResources` 把桥接程序放进 `resources/tdx-bridge/`。
 
+### 文档
+
+- 新增 `docs/00-项目章程.md`：固化六条目标（G1~G6）、A 股范围、
+  双前端 + Python 后端目标架构、数据湖/ML 要求、功能对齐矩阵与决策优先级。
+- 新增 `docs/08-通达信资料索引.md`：A 股协议矩阵（7709 / MAC / 7615 / 文件 / 离线）、
+  主机与「最新 IP」策略、官方下载、参考项目与待验证清单。
+- README / AGENTS / PRINCIPLES / PLAN / docs 01·02·03·05·07 按新目标更新；
+  明确 Web 端与 Python 服务化仍是规划，不把目标写成现状。
+
 ### 验证（2026-10-30，Linux 开发机）
 
 - `npm run check` exit 0：类型检查、ESLint、157 个 TS 测试、17 个 Python 测试全绿。
@@ -51,6 +60,7 @@ StockLens 的所有重要变更都记录在这里。
 
 - 源码运行已验证；PyInstaller 单文件打包与 Windows 实机验证**尚未执行**
   （当前环境没有 PyInstaller / Windows）。
+- 港股/美股/期货/期权不做，7727 扩展行情不接入；这是范围决定，不是待办。
 - PE TTM、量比、涨跌停价暂缺，界面显示「—」。
 - `serverTimeRaw` 语义未确认，行情时间暂用接收时间。
 

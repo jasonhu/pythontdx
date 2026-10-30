@@ -221,9 +221,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <Show when={trendDays()}>
                 {(days) => <TrendChart days={days()} onHover={setHover} />}
               </Show>
-              <Show when={klineSeries()}>
-                {(series) => <KLineChart series={series()} />}
-              </Show>
+              <Show when={klineSeries()}>{(series) => <KLineChart series={series()} />}</Show>
             </Show>
           </Show>
         </Show>

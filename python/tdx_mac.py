@@ -19,7 +19,61 @@ SETUP_COMMANDS = (
     bytes.fromhex("0c031899000120002000db0fd5d0c9ccd6a4a8af0000008fc22540130000d500c9ccbdf0d7ea00000002"),
 )
 MARKET_IDS = {0: ("SZ", "sz"), 1: ("SH", "sh"), 2: ("BJ", "bj")}
-FIELD_BITS = (0, 1, 2, 3, 4, 5, 6, 7)
+INT_FIELDS = {5, 0x18, 0x19, 0x5D, 0x5E, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B}
+FIELD_BITS = (
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    0x11,
+    0x12,
+    0x18,
+    0x19,
+    0x48,
+    0x49,
+    0x5D,
+    0x5E,
+    0x80,
+    0x81,
+    0x82,
+    0x83,
+    0x84,
+    0x85,
+    0x86,
+    0x87,
+    0x88,
+    0x89,
+    0x8A,
+    0x8B,
+)
+# 位 -> (方向, 档位, 是数量)
+DEPTH_FIELDS = {
+    0x11: ("bid", 1, False),
+    0x12: ("ask", 1, False),
+    0x18: ("bid", 1, True),
+    0x19: ("ask", 1, True),
+    0x48: ("bid", 2, False),
+    0x49: ("ask", 2, False),
+    0x5D: ("bid", 2, True),
+    0x5E: ("ask", 2, True),
+    0x80: ("bid", 3, False),
+    0x81: ("bid", 4, False),
+    0x82: ("bid", 5, False),
+    0x83: ("ask", 3, False),
+    0x84: ("ask", 4, False),
+    0x85: ("ask", 5, False),
+    0x86: ("bid", 3, True),
+    0x87: ("bid", 4, True),
+    0x88: ("bid", 5, True),
+    0x89: ("ask", 3, True),
+    0x8A: ("ask", 4, True),
+    0x8B: ("ask", 5, True),
+}
+
 
 
 class MacError(RuntimeError):
@@ -108,13 +162,22 @@ def parse_quotes(body: bytes, received_at: int) -> list[dict]:
             continue
         values: dict[int, float] = {}
         for slot, bit in enumerate(slots):
-            fmt = "<I" if bit == 5 else "<f"
+            fmt = "<I" if bit in INT_FIELDS else "<f"
             values[bit] = struct.unpack_from(fmt, row, 68 + slot * 4)[0]
         pre_close = round(float(values.get(0, 0)), 2)
         price = round(float(values.get(4, 0)), 2)
         if price <= 0:
             price = pre_close
         change = round(price - pre_close, 2)
+        depth: dict[str, dict[int, dict[str, float]]] = {"bid": {}, "ask": {}}
+        for bit, (side, level, is_volume) in DEPTH_FIELDS.items():
+            if bit not in values:
+                continue
+            slot = depth[side].setdefault(level, {"price": 0.0, "volume": 0})
+            if is_volume:
+                slot["volume"] = int(values[bit])
+            else:
+                slot["price"] = round(float(values[bit]), 2)
         quotes.append(
             {
                 "code": f"{market[1]}{symbol}",
@@ -134,8 +197,16 @@ def parse_quotes(body: bytes, received_at: int) -> list[dict]:
                 "currency": "CNY",
                 "time": received_at,
                 "receivedAt": received_at,
-                "bids": [],
-                "asks": [],
+                "bids": [
+                    depth["bid"][level]
+                    for level in sorted(depth["bid"])
+                    if depth["bid"][level]["price"] > 0
+                ],
+                "asks": [
+                    depth["ask"][level]
+                    for level in sorted(depth["ask"])
+                    if depth["ask"][level]["price"] > 0
+                ],
             }
         )
     return quotes

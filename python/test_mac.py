@@ -9,7 +9,7 @@ import tdx_mac
 class TestMacQuotes(unittest.TestCase):
     def test_parse_quotes(self):
         bitmap = bytearray(20)
-        for bit in tdx_mac.FIELD_BITS:
+        for bit in range(8):
             bitmap[bit // 8] |= 1 << (bit % 8)
         row = bytearray()
         row += struct.pack("<H", 1)
@@ -27,6 +27,24 @@ class TestMacQuotes(unittest.TestCase):
         self.assertEqual(quote["price"], 1392.05)
         self.assertEqual(quote["volume"], 59927)
         self.assertAlmostEqual(quote["changePct"], 2.81, places=2)
+
+    def test_parse_depth(self):
+        bits = list(range(0, 8)) + [0x11, 0x12, 0x18, 0x19, 0x80, 0x86]
+        bitmap = bytearray(20)
+        for bit in bits:
+            bitmap[bit // 8] |= 1 << (bit % 8)
+        row = bytearray()
+        row += struct.pack("<H", 1)
+        row += b"600519".ljust(22, b"\x00")
+        row += "贵州茅台".encode("gbk").ljust(44, b"\x00")
+        values = [1354.0, 1363.0, 1393.37, 1352.98, 1392.05, 59927, 1.36, 8257381888.0, 1392.03, 1392.05, 2, 1, 1391.0, 2]
+        for index, value in enumerate(values):
+            row += struct.pack("<I" if index in (5, 10, 11, 13) else "<f", value)
+        body = bytes(bitmap) + struct.pack("<IH", 1, 1) + bytes(row)
+        quote = tdx_mac.parse_quotes(body, 123)[0]
+        self.assertEqual(quote["bids"][0]["price"], 1392.03)
+        self.assertEqual(quote["bids"][0]["volume"], 2)
+        self.assertEqual(quote["asks"][0]["price"], 1392.05)
 
     def test_empty_codes(self):
         self.assertEqual(tdx_mac.fetch_quotes([]), [])

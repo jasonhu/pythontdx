@@ -27,6 +27,7 @@ type OnlineTab =
   | 'capital'
   | 'circulating'
   | 'shareholderChanges'
+  | 'institutions'
   | 'statement'
   | 'news'
   | 'trading'
@@ -70,6 +71,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [shareholderChanges, setShareholderChanges] = createSignal<F10ProfileTable | null>(null)
   const [shareholderChangesLoading, setShareholderChangesLoading] = createSignal(true)
   const [shareholderChangesError, setShareholderChangesError] = createSignal<string | null>(null)
+  const [institutions, setInstitutions] = createSignal<F10ProfileTable | null>(null)
+  const [institutionsLoading, setInstitutionsLoading] = createSignal(true)
+  const [institutionsError, setInstitutionsError] = createSignal<string | null>(null)
   const [statementKind, setStatementKind] = createSignal('zcfzb')
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
@@ -199,6 +203,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadInstitutions = async (): Promise<void> => {
+    setInstitutionsLoading(true)
+    setInstitutionsError(null)
+    try {
+      setInstitutions(await api.f10.institutions(props.code))
+    } catch (cause) {
+      setInstitutionsError(errorMessage(cause))
+    } finally {
+      setInstitutionsLoading(false)
+    }
+  }
+
   const loadShareholderChanges = async (): Promise<void> => {
     setShareholderChangesLoading(true)
     setShareholderChangesError(null)
@@ -289,6 +305,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadCapital('structure')
     void loadCirculating()
     void loadShareholderChanges()
+    void loadInstitutions()
     void loadStatement('zcfzb')
     void loadNews()
     void loadTrading('margin')
@@ -385,6 +402,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('shareholderCount')}
           >
             股东人数
+          </button>
+          <button
+            class="online-tab online-institutions-tab"
+            data-active={tab() === 'institutions'}
+            onClick={() => setTab('institutions')}
+          >
+            机构持仓
           </button>
           <button
             class="online-tab online-cgbd-tab"
@@ -724,6 +748,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table shareholder-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'institutions'}>
+              <Show
+                when={!institutionsLoading()}
+                fallback={<div class="announcements__empty">加载机构持仓…</div>}
+              >
+                <Show
+                  when={!institutionsError()}
+                  fallback={<div class="announcements__error">{institutionsError()}</div>}
+                >
+                  <Show
+                    when={institutions()}
+                    fallback={<div class="announcements__empty">暂无机构持仓</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table institutions-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

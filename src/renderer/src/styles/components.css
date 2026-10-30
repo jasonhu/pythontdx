@@ -5200,3 +5200,8 @@
   background: transparent;
   cursor: pointer;
 }
+
+.online-tabs {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}

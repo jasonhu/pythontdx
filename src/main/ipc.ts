@@ -52,6 +52,7 @@ import {
   fetchF10Capital,
   fetchF10CirculatingShareholders,
   fetchF10ShareholderChanges,
+  fetchF10Institutions,
   fetchF10Market,
   fetchFiveDayTrend,
   fetchIndustries,
@@ -149,6 +150,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.f10ShareholderChanges, (_event, code: string) =>
     fetchF10ShareholderChanges(code)
   )
+
+  ipcMain.handle(IPC.f10Institutions, (_event, code: string) => fetchF10Institutions(code))
 
   ipcMain.handle(IPC.marketBreadth, () => fetchMarketBreadth())
 

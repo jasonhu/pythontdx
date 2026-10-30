@@ -415,6 +415,39 @@ def fetch_capital_structure(code: str, section: str = "structure") -> dict:
     }
 
 
+INSTITUTION_LABELS = {
+    "T002": "报告期",
+    "T003": "机构家数",
+    "T004": "家数变动",
+    "T005": "持股总数",
+    "T006": "变动股数",
+    "T007": "持股市值",
+    "T008": "持股占比%",
+    "T010": "市值占比%",
+    "T014": "户均持股",
+}
+
+
+def fetch_institutions(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_gdyj",
+        {"Params": [symbol, "jgcg", "", "", "1", "1", "20"]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 机构持仓返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw = [str(name) for name in (table.get("ColName") or [])]
+    return {
+        "columns": [INSTITUTION_LABELS.get(name, name) for name in raw],
+        "rows": table.get("Content") or [],
+        "count": len(table.get("Content") or []),
+    }
+
+
 SHAREHOLDER_CHANGE_LABELS = {
     "qs": "变动起始日",
     "jz": "变动截止日",

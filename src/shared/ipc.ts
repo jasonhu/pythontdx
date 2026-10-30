@@ -110,6 +110,8 @@ export const IPC = {
   f10CirculatingShareholders: 'f10:circulating-shareholders',
   /** 股东增减持（invoke） */
   f10ShareholderChanges: 'f10:shareholder-changes',
+  /** 机构持仓（invoke） */
+  f10Institutions: 'f10:institutions',
   /** 全 A 股涨跌家数（invoke） */
   marketBreadth: 'market:breadth',
   /** 读取本地 .day 日线（invoke） */
@@ -275,6 +277,7 @@ export interface StockLensApi {
     capital(code: string, section: string): Promise<F10TradingTable>
     circulatingShareholders(code: string): Promise<F10ProfileTable>
     shareholderChanges(code: string): Promise<F10ProfileTable>
+    institutions(code: string): Promise<F10ProfileTable>
     statement(code: string, kind: string, full?: boolean): Promise<F10ProfileTable>
   }
   data: {

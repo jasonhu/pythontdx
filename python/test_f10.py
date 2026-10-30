@@ -185,6 +185,22 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_institutions_labels(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["T002", "T003", "T004", "T005", "T006", "T007", "T008", "T010", "T014"],
+                    "Content": [["2026-09-30", 232, -649, 1911588301, -163212579, 34007155874.79, 14.27, -1.22, 17.79]],
+                }
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_institutions("sz300059")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][1], "机构家数")
+        self.assertEqual(table["columns"][6], "持股占比%")
+
     def test_fetch_shareholder_changes_columns(self):
         payload = {
             "ErrorCode": 0,

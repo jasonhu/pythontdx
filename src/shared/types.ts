@@ -625,6 +625,10 @@ export interface AppSettings {
   localDayPath?: string
   /** 关闭窗口时隐藏到托盘 */
   closeToTray?: boolean
+  /** 自选侧栏宽度（px） */
+  sidebarWidth?: number
+  /** 右侧盘口栏宽度（px） */
+  railWidth?: number
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'
@@ -693,7 +697,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   refreshInterval: 3000,
   theme: 'dark',
   pauseWhenHidden: true,
-  showSparkline: true
+  showSparkline: true,
+  sidebarWidth: 264,
+  railWidth: 318
 }
 
 /** 首次启动时的示例自选股，让界面一打开就是「满的」 */

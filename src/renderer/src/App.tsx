@@ -51,6 +51,7 @@ import {
   initWindowSync,
   setActiveCode,
   toggleTheme,
+  updateSettings,
   watchCodes
 } from './stores/app'
 import { applyQuotes, createQuoteStream, quoteOf, refreshQuotes } from './stores/quotes'
@@ -75,6 +76,8 @@ export default function App(): JSX.Element {
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'price' | 'flow' | 'auction'>('book')
+  const [widths, setWidths] = createSignal<{ sidebar: number; rail: number } | null>(null)
+  let stopResize: (() => void) | null = null
 
   onMount(() => {
     void bootstrapAppState().then(() => hydrateAlertEvents())
@@ -129,8 +132,49 @@ export default function App(): JSX.Element {
 
   const activeQuote = (): Quote | undefined => quoteOf(activeQuoteCode())
 
+  const currentWidths = (): { sidebar: number; rail: number } =>
+    widths() ?? {
+      sidebar: appState.settings.sidebarWidth ?? 264,
+      rail: appState.settings.railWidth ?? 318
+    }
+
+  const beginResize = (side: 'sidebar' | 'rail', event: PointerEvent): void => {
+    event.preventDefault()
+    stopResize?.()
+    const initialWidths = currentWidths()
+    const onMove = (moveEvent: PointerEvent): void => {
+      const next =
+        side === 'sidebar'
+          ? Math.min(380, Math.max(200, Math.round(moveEvent.clientX)))
+          : Math.min(460, Math.max(260, Math.round(window.innerWidth - moveEvent.clientX)))
+      setWidths({
+        sidebar: side === 'sidebar' ? next : initialWidths.sidebar,
+        rail: side === 'rail' ? next : initialWidths.rail
+      })
+    }
+    const finish = (): void => {
+      const value = widths()
+      if (value) updateSettings({ sidebarWidth: value.sidebar, railWidth: value.rail })
+      setWidths(null)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', finish)
+      stopResize = null
+    }
+    stopResize = finish
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', finish)
+  }
+
+  onCleanup(() => stopResize?.())
+
+  const appStyle = (): JSX.CSSProperties =>
+    ({
+      '--sidebar-w': `${currentWidths().sidebar}px`,
+      '--rail-w': `${currentWidths().rail}px`
+    }) as JSX.CSSProperties
+
   return (
-    <div class="app" classList={{ 'app--empty': !activeQuote() }}>
+    <div class="app" classList={{ 'app--empty': !activeQuote() }} style={appStyle()}>
       <TitleBar
         onOpenData={() => setDataOpen(true)}
         onOpenAlerts={() => setAlertsOpen(true)}
@@ -407,6 +451,20 @@ export default function App(): JSX.Element {
           />
         )}
       </Show>
+      <div
+        class="layout-resizer layout-resizer--sidebar"
+        role="separator"
+        aria-label="调整自选栏宽度"
+        onPointerDown={(event) => beginResize('sidebar', event)}
+        onDblClick={() => updateSettings({ sidebarWidth: 264 })}
+      />
+      <div
+        class="layout-resizer layout-resizer--rail"
+        role="separator"
+        aria-label="调整盘口栏宽度"
+        onPointerDown={(event) => beginResize('rail', event)}
+        onDblClick={() => updateSettings({ railWidth: 318 })}
+      />
     </div>
   )
 }

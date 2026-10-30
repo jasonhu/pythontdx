@@ -1237,3 +1237,46 @@
     min-height: 338px;
   }
 }
+
+/* ------------------------------------------------------------ 可拖拽栏宽 */
+.app {
+  position: relative;
+}
+
+.layout-resizer {
+  position: absolute;
+  z-index: 30;
+  top: var(--titlebar-h);
+  bottom: var(--statusbar-h);
+  width: 7px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.layout-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: transparent;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+.layout-resizer:hover::after,
+.layout-resizer:active::after {
+  background: var(--accent);
+}
+
+.layout-resizer--sidebar {
+  left: calc(var(--sidebar-w) - 3px);
+}
+
+.layout-resizer--rail {
+  right: calc(var(--rail-w) - 3px);
+}
+
+.app--empty .layout-resizer--rail {
+  display: none;
+}

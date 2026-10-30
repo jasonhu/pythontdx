@@ -28,6 +28,7 @@ type OnlineTab =
   | 'circulating'
   | 'shareholderChanges'
   | 'institutions'
+  | 'controller'
   | 'statement'
   | 'news'
   | 'trading'
@@ -74,6 +75,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [institutions, setInstitutions] = createSignal<F10ProfileTable | null>(null)
   const [institutionsLoading, setInstitutionsLoading] = createSignal(true)
   const [institutionsError, setInstitutionsError] = createSignal<string | null>(null)
+  const [controller, setController] = createSignal<F10ProfileTable | null>(null)
+  const [controllerLoading, setControllerLoading] = createSignal(true)
+  const [controllerError, setControllerError] = createSignal<string | null>(null)
   const [statementKind, setStatementKind] = createSignal('zcfzb')
   const [statement, setStatement] = createSignal<F10ProfileTable | null>(null)
   const [statementLoading, setStatementLoading] = createSignal(true)
@@ -203,6 +207,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadController = async (): Promise<void> => {
+    setControllerLoading(true)
+    setControllerError(null)
+    try {
+      setController(await api.f10.controller(props.code))
+    } catch (cause) {
+      setControllerError(errorMessage(cause))
+    } finally {
+      setControllerLoading(false)
+    }
+  }
+
   const loadInstitutions = async (): Promise<void> => {
     setInstitutionsLoading(true)
     setInstitutionsError(null)
@@ -306,6 +322,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadCirculating()
     void loadShareholderChanges()
     void loadInstitutions()
+    void loadController()
     void loadStatement('zcfzb')
     void loadNews()
     void loadTrading('margin')
@@ -402,6 +419,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('shareholderCount')}
           >
             股东人数
+          </button>
+          <button
+            class="online-tab online-controller-tab"
+            data-active={tab() === 'controller'}
+            onClick={() => setTab('controller')}
+          >
+            实控人
           </button>
           <button
             class="online-tab online-institutions-tab"
@@ -748,6 +772,46 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                     {(table) => (
                       <div class="valuation-table-wrap">
                         <table class="valuation-table shareholder-table">
+                          <thead>
+                            <tr>
+                              <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <For each={table().rows}>
+                              {(row) => (
+                                <tr>
+                                  <For each={row}>
+                                    {(value) => <td class="num">{cell(value)}</td>}
+                                  </For>
+                                </tr>
+                              )}
+                            </For>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'controller'}>
+              <Show
+                when={!controllerLoading()}
+                fallback={<div class="announcements__empty">加载实控人…</div>}
+              >
+                <Show
+                  when={!controllerError()}
+                  fallback={<div class="announcements__error">{controllerError()}</div>}
+                >
+                  <Show
+                    when={controller()}
+                    fallback={<div class="announcements__empty">暂无实控人数据</div>}
+                  >
+                    {(table) => (
+                      <div class="valuation-table-wrap">
+                        <table class="valuation-table shareholder-table controller-table">
                           <thead>
                             <tr>
                               <For each={table().columns}>{(column) => <th>{column}</th>}</For>

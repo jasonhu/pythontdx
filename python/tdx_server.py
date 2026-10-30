@@ -549,6 +549,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.market_breadth())
                 return
+            if parsed.path == "/api/f10_controller":
+                with self.server.lock:
+                    self._ok(self.server.bridge.f10_controller(str(payload.get("code") or "")))
+                return
             if parsed.path == "/api/f10_institutions":
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_institutions(str(payload.get("code") or "")))

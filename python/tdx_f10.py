@@ -415,6 +415,40 @@ def fetch_capital_structure(code: str, section: str = "structure") -> dict:
     }
 
 
+CONTROLLER_LABELS = {
+    "T001": "报告期",
+    "kggd": "控股股东",
+    "sjkzr": "实际控制人",
+    "T004": "控股股东持股比例%",
+    "T006": "合计持股比例%",
+    "T009": "控制关系",
+    "N006": "公司全称",
+}
+
+
+def fetch_controller(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_gdyj",
+        {"Params": [symbol, "kggd", "", "", "1", "1", "20"]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 控股股东返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw = [str(name) for name in (table.get("ColName") or [])]
+    wanted = [name for name in ("T001", "kggd", "sjkzr", "T004", "T006", "T009", "N006") if name in raw]
+    indexes = [raw.index(name) for name in wanted]
+    rows = table.get("Content") or []
+    return {
+        "columns": [CONTROLLER_LABELS.get(name, name) for name in wanted],
+        "rows": [[row[index] for index in indexes] for row in rows],
+        "count": len(rows),
+    }
+
+
 INSTITUTION_LABELS = {
     "T002": "报告期",
     "T003": "机构家数",

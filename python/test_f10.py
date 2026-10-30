@@ -185,6 +185,22 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_fetch_controller_columns(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["T001", "kggd", "sjkzr", "T004", "T006", "T009", "N006", "T008"],
+                    "Content": [["2025-12-31", "茅台集团", "贵州省国资委", 54.4, 48.96, "国资委→茅台集团→公司", "贵州茅台", None]],
+                }
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            table = tdx_f10.fetch_controller("sh600519")
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"], ["报告期", "控股股东", "实际控制人", "控股股东持股比例%", "合计持股比例%", "控制关系", "公司全称"])
+        self.assertEqual(table["rows"][0][2], "贵州省国资委")
+
     def test_fetch_institutions_labels(self):
         payload = {
             "ErrorCode": 0,

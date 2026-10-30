@@ -31,6 +31,7 @@ import {
   IconColumns,
   IconFilter,
   IconGrid,
+  IconInfo,
   IconPlus,
   IconStar
 } from './Icons'
@@ -43,6 +44,7 @@ interface SidebarProps {
   onOpenBlocks: () => void
   onOpenScreener: () => void
   onOpenMulti: () => void
+  onOpenPortfolio: () => void
 }
 
 export function Sidebar(props: SidebarProps): JSX.Element {
@@ -158,6 +160,14 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           onClick={() => props.onOpenBlocks()}
         >
           <IconGrid size={13} />
+        </button>
+        <button
+          class="btn btn--icon btn--bare portfolio-open"
+          title="组合分析"
+          aria-label="打开组合分析"
+          onClick={() => props.onOpenPortfolio()}
+        >
+          <IconInfo size={13} />
         </button>
         <button
           class="btn btn--icon btn--bare ranking-open"

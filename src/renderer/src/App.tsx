@@ -40,6 +40,7 @@ import { TitleBar } from './components/TitleBar'
 import { TradeTape } from './components/TradeTape'
 import { PriceDistribution } from './components/PriceDistribution'
 import { SettingsPanel } from './components/SettingsPanel'
+import { PortfolioPanel } from './components/PortfolioPanel'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
 import {
   activeQuoteCode,
@@ -63,6 +64,7 @@ export default function App(): JSX.Element {
   const [indicatorOpen, setIndicatorOpen] = createSignal(false)
   const [settingsOpen, setSettingsOpen] = createSignal(false)
   const [shortcutsOpen, setShortcutsOpen] = createSignal(false)
+  const [portfolioOpen, setPortfolioOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
@@ -134,6 +136,7 @@ export default function App(): JSX.Element {
         onOpenBlocks={() => setBlocksOpen(true)}
         onOpenScreener={() => setScreenerOpen(true)}
         onOpenMulti={() => setMultiOpen(true)}
+        onOpenPortfolio={() => setPortfolioOpen(true)}
       />
 
       {/* 主区只有两块：行情头部 + 图表。图表用 flex 吃掉全部剩余高度 */}
@@ -324,6 +327,13 @@ export default function App(): JSX.Element {
             onClose={() => setAnnouncementsOpen(false)}
           />
         )}
+      </Show>
+
+      <Show when={portfolioOpen()}>
+        <PortfolioPanel
+          onClose={() => setPortfolioOpen(false)}
+          onSelect={(quote) => setActiveCode(quote.code)}
+        />
       </Show>
 
       <Show when={shortcutsOpen()}>

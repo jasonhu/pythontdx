@@ -128,6 +128,25 @@ export interface ScreenRequest {
   limit?: number
 }
 
+export interface FormulaQuote extends CategoryQuote {
+  formulaValue: number
+}
+
+export interface FormulaScreenRequest {
+  expression: string
+  /** 按成交额取前 N；0 表示全市场 */
+  scope?: number
+  limit?: number
+}
+
+export interface FormulaScreenResult {
+  scanned: number
+  matched: number
+  quotes: FormulaQuote[]
+  expression: string
+  generatedAt: number
+}
+
 export interface ScreenResult {
   scanned: number
   matched: number

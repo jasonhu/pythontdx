@@ -13,6 +13,8 @@ import type {
   CategoryQuote,
   F10Announcement,
   F10ProfileTable,
+  FormulaScreenRequest,
+  FormulaScreenResult,
   F10Section,
   IndustryList,
   KLineSeries,
@@ -306,7 +308,9 @@ export function createHttpApi(): StockLensApi {
       industries: () => post<IndustryList>('/api/industries', {})
     },
     screen: {
-      run: (request: ScreenRequest) => post<ScreenResult>('/api/screen', request)
+      run: (request: ScreenRequest) => post<ScreenResult>('/api/screen', request),
+      formula: (request: FormulaScreenRequest) =>
+        post<FormulaScreenResult>('/api/formula_screen', request)
     },
     trend: {
       minute: (code) => request<MinuteTrend>(`/api/minute?code=${encodeURIComponent(code)}`),

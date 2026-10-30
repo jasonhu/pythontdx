@@ -13,6 +13,8 @@ import type {
   CategoryQuote,
   F10Announcement,
   F10ProfileTable,
+  FormulaScreenRequest,
+  FormulaScreenResult,
   F10Section,
   IndustryList,
   KLinePeriod,
@@ -232,6 +234,20 @@ export async function fetchIndustries(): Promise<IndustryList> {
 /** 全市场条件选股；后端按 60 秒缓存全市场分类行情。 */
 export async function fetchScreen(request: ScreenRequest): Promise<ScreenResult> {
   return bridge.send<ScreenResult>('screen', { filters: request }, BLOCK_TIMEOUT_MS)
+}
+
+export async function fetchFormulaScreen(
+  request: FormulaScreenRequest
+): Promise<FormulaScreenResult> {
+  return bridge.send<FormulaScreenResult>(
+    'formula_screen',
+    {
+      expression: request.expression,
+      scope: request.scope,
+      limit: request.limit
+    },
+    180_000
+  )
 }
 
 /* ------------------------------------------------------------------ K 线 */

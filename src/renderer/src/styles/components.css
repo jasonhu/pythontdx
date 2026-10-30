@@ -2354,6 +2354,51 @@
   border-bottom: 1px solid var(--border);
 }
 
+.screener__formula {
+  display: flex;
+  gap: 8px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.screener__formula-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-1);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  outline: none;
+}
+
+.screener__formula-input:focus {
+  border-color: var(--accent);
+}
+
+.screener__formula-scope {
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}
+
+.screener__formula-result {
+  padding: 10px 24px 0;
+}
+
+.screener__formula-meta {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  margin-bottom: 6px;
+}
+
 .screener__field {
   display: flex;
   align-items: center;

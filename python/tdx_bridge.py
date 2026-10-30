@@ -48,6 +48,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from duckdb_query import run_duckdb_query
+from formula import FormulaError, evaluate_formula
 from parquet_export import export_stats_parquet
 from tdx_f10 import (
     fetch_announcements,
@@ -2356,6 +2357,40 @@ class Bridge:
             "generatedAt": int(time.time() * 1000),
         }
 
+    def formula_screen(self, expression: str, scope: int = 100, limit: int = 100) -> dict:
+        """公式选股：默认按成交额取前 scope 只，scope<=0 扫全市场。"""
+        quotes = self._all_category_quotes()
+        ranked = sorted(
+            (quote for quote in quotes if isinstance(quote.get("amount"), (int, float))),
+            key=lambda quote: float(quote.get("amount") or 0),
+            reverse=True,
+        )
+        universe = ranked if scope <= 0 else ranked[: max(1, min(2000, int(scope)))]
+        matches = []
+        scanned = 0
+        for quote in universe:
+            scanned += 1
+            try:
+                series = self.kline(quote["code"], "day", 120)
+                latest = evaluate_formula(expression, series["bars"])
+            except (TdxError, FormulaError):
+                continue
+            if latest > 0:
+                matches.append(
+                    {
+                        **quote,
+                        "formulaValue": latest,
+                    }
+                )
+        matched = matches[: max(1, min(200, int(limit)))]
+        return {
+            "scanned": scanned,
+            "matched": len(matches),
+            "quotes": matched,
+            "expression": expression,
+            "generatedAt": int(time.time() * 1000),
+        }
+
     def trades(
         self,
         code: str,
@@ -2925,6 +2960,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.industries()
     if cmd == "screen":
         return bridge.screen(payload.get("filters") or {})
+    if cmd == "formula_screen":
+        return bridge.formula_screen(
+            str(payload.get("expression") or ""),
+            int(payload.get("scope", 100)),
+            int(payload.get("limit", 100)),
+        )
     if cmd == "stats_query":
         return bridge.stats_query(
             str(payload.get("sql") or ""),

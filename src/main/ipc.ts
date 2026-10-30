@@ -7,7 +7,13 @@
  *    渲染层由 lib/ipc.ts 的 safeInvoke 统一转成可读的中文提示。
  */
 import { ipcMain, app, shell, Notification, type BrowserWindow } from 'electron'
-import type { AppState, BlockKind, F10Section, ScreenRequest } from '@shared/types'
+import type {
+  AppState,
+  BlockKind,
+  F10Section,
+  FormulaScreenRequest,
+  ScreenRequest
+} from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
 import type { QuotePoller } from './services/poller'
@@ -20,6 +26,7 @@ import {
   fetchF10Business,
   fetchF10Reports,
   fetchF10Statement,
+  fetchFormulaScreen,
   fetchF10Shareholders,
   fetchF10Catalog,
   fetchF10Profile,
@@ -112,6 +119,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.blockIndustries, () => fetchIndustries())
 
   ipcMain.handle(IPC.screenRun, (_event, request: ScreenRequest) => fetchScreen(request))
+
+  ipcMain.handle(IPC.screenFormula, (_event, request: FormulaScreenRequest) =>
+    fetchFormulaScreen(request)
+  )
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {
     poller.setSubscription(codes, intervalMs)

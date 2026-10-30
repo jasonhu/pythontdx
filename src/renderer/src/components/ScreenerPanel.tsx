@@ -5,7 +5,7 @@
  * 不做未来函数、不生成交易指令。
  */
 import { createSignal, For, Show, type JSX } from 'solid-js'
-import type { CategoryQuote, ScreenResult, ScreenSortBy } from '@shared/types'
+import type { CategoryQuote, FormulaScreenResult, ScreenResult, ScreenSortBy } from '@shared/types'
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -40,6 +40,31 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   const [industry, setIndustry] = createSignal('')
+  const [formula, setFormula] = createSignal('CLOSE > MA(CLOSE,20)')
+  const [formulaScope, setFormulaScope] = createSignal('100')
+  const [formulaResult, setFormulaResult] = createSignal<FormulaScreenResult | null>(null)
+  const [formulaLoading, setFormulaLoading] = createSignal(false)
+  const [formulaError, setFormulaError] = createSignal<string | null>(null)
+
+  const runFormula = async (): Promise<void> => {
+    if (formulaLoading()) return
+    setFormulaLoading(true)
+    setFormulaError(null)
+    try {
+      setFormulaResult(
+        await api.screen.formula({
+          expression: formula(),
+          scope: Number(formulaScope()),
+          limit: 100
+        })
+      )
+    } catch (cause) {
+      setFormulaResult(null)
+      setFormulaError(errorMessage(cause))
+    } finally {
+      setFormulaLoading(false)
+    }
+  }
 
   const run = async (): Promise<void> => {
     if (loading()) return
@@ -187,6 +212,74 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
             )}
           </Show>
         </div>
+
+        <div class="screener__formula">
+          <input
+            class="screener__formula-input"
+            value={formula()}
+            placeholder="公式，如 CLOSE > MA(CLOSE,20)"
+            onInput={(event) => setFormula(event.currentTarget.value)}
+          />
+          <select
+            class="screener__formula-scope"
+            value={formulaScope()}
+            onChange={(event) => setFormulaScope(event.currentTarget.value)}
+          >
+            <option value="100">成交额前 100</option>
+            <option value="500">成交额前 500</option>
+            <option value="0">全市场（慢）</option>
+          </select>
+          <button
+            class="btn screener__formula-run"
+            disabled={formulaLoading()}
+            onClick={() => void runFormula()}
+          >
+            {formulaLoading() ? '公式扫描…' : '公式选股'}
+          </button>
+        </div>
+        <Show when={formulaError()}>
+          {(message) => <div class="screener__error">{message()}</div>}
+        </Show>
+        <Show when={formulaResult()}>
+          {(data) => (
+            <div class="screener__formula-result">
+              <div class="screener__formula-meta">
+                {data().expression} · 扫描 {data().scanned} 只 · 命中 {data().matched} 只
+              </div>
+              <div class="screener__table-wrap">
+                <table class="screener__table">
+                  <thead>
+                    <tr>
+                      <th>名称</th>
+                      <th>代码</th>
+                      <th class="num">价格</th>
+                      <th class="num">涨跌幅</th>
+                      <th class="num">公式值</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={data().quotes}>
+                      {(quote) => (
+                        <tr
+                          onClick={() => {
+                            props.onSelect(quote)
+                            props.onClose()
+                          }}
+                        >
+                          <td>{quote.name}</td>
+                          <td class="num">{quote.code.toUpperCase()}</td>
+                          <td class="num">{fixed(quote.price)}</td>
+                          <td class="num">{signedPct(quote.changePct)}</td>
+                          <td class="num">{fixed(quote.formulaValue)}</td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </Show>
 
         <div class="screener__table-wrap">
           <Show when={result()} fallback={<div class="screener__empty">结果会显示在这里</div>}>

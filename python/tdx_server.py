@@ -506,6 +506,16 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.stats_parquet())
                 return
+            if parsed.path == "/api/formula_screen":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.formula_screen(
+                            str(payload.get("expression") or ""),
+                            int(payload.get("scope", 100)),
+                            int(payload.get("limit", 100)),
+                        )
+                    )
+                return
             if parsed.path == "/api/duck_query":
                 with self.server.lock:
                     self._ok(

@@ -15,6 +15,7 @@ import { QuotePoller } from './services/poller'
 import { closeTdx } from './services/tdx'
 import { AppStore } from './services/store'
 import { createMainWindow } from './window'
+import { destroyTray, setupTray } from './tray'
 
 const APP_ID = 'com.stocklens.app'
 const APP_NAME = 'StockLens'
@@ -26,6 +27,7 @@ let mainWindow: BrowserWindow | null = null
 let store: AppStore | undefined
 let poller: QuotePoller | undefined
 let flushing = false
+let quitting = false
 
 /**
  * 便携版（electron-builder 的 portable 目标）会把 exe 所在目录注入到
@@ -73,15 +75,18 @@ function bootstrap(): void {
   app.on('second-instance', () => {
     if (!mainWindow) return
     if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
     mainWindow.focus()
   })
 
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+    if (process.platform !== 'darwin' && !store?.state.settings.closeToTray) app.quit()
   })
 
   // 退出前把内存里的状态落盘（写入是异步的，所以要先拦一下退出流程）
   app.on('before-quit', (event) => {
+    quitting = true
+    destroyTray()
     if (flushing || !store) return
     flushing = true
     event.preventDefault()
@@ -133,10 +138,20 @@ function onReady(): void {
     flushState: () => currentStore.flush()
   })
 
+  mainWindow.on('close', (event) => {
+    if (!quitting && currentStore.state.settings.closeToTray !== false) {
+      event.preventDefault()
+      console.log('[tray] 关闭窗口 -> 隐藏到托盘')
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
     poller?.stop()
   })
+
+  setupTray(mainWindow)
 
   // macOS 点 Dock 图标时重新开窗
   app.on('activate', () => {

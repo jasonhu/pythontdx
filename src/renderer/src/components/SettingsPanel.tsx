@@ -90,6 +90,18 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
 
           <label class="settings__row">
             <div>
+              <div class="settings__label">关闭窗口时隐藏到托盘</div>
+              <div class="settings__hint">点托盘菜单「退出」才会真正结束进程。</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={appState.settings.closeToTray !== false}
+              onChange={(event) => updateSettings({ closeToTray: event.currentTarget.checked })}
+            />
+          </label>
+
+          <label class="settings__row">
+            <div>
               <div class="settings__label">自选股迷你走势</div>
               <div class="settings__hint">侧栏每行显示当日分时缩略图。</div>
             </div>

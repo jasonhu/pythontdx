@@ -591,6 +591,8 @@ export interface AppSettings {
   chartDrawings?: ChartDrawing[]
   /** 上次读取的本地 .day 路径 */
   localDayPath?: string
+  /** 关闭窗口时隐藏到托盘 */
+  closeToTray?: boolean
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'
@@ -645,6 +647,7 @@ export const STATE_VERSION = 2
 export const DEFAULT_GROUP_ID = 'default'
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  closeToTray: true,
   refreshInterval: 3000,
   theme: 'dark',
   pauseWhenHidden: true,

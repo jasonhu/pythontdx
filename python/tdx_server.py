@@ -12,7 +12,11 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
+import socket
+import struct
 import mimetypes
 import sys
 import threading
@@ -54,6 +58,132 @@ class ApiHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def _ws_read(self) -> tuple[int, bytes]:
+        header = self.connection.recv(2)
+        if len(header) < 2:
+            raise ConnectionResetError("websocket closed")
+        first, second = header[0], header[1]
+        if not (first & 0x80):
+            raise ValueError("fragmented frames are not supported")
+        opcode = first & 0x0F
+        if not (second & 0x80):
+            raise ValueError("client frame must be masked")
+        length = second & 0x7F
+        if length == 126:
+            length = struct.unpack(">H", self._recv_exact(2))[0]
+        elif length == 127:
+            length = struct.unpack(">Q", self._recv_exact(8))[0]
+        if length > 1_000_000:
+            raise ValueError("websocket frame too large")
+        mask = self._recv_exact(4)
+        payload = bytearray(self._recv_exact(length))
+        for index in range(length):
+            payload[index] ^= mask[index % 4]
+        return opcode, bytes(payload)
+
+    def _recv_exact(self, count: int) -> bytes:
+        data = bytearray()
+        while len(data) < count:
+            chunk = self.connection.recv(count - len(data))
+            if not chunk:
+                raise ConnectionResetError("websocket closed")
+            data.extend(chunk)
+        return bytes(data)
+
+    def _ws_send(self, opcode: int, payload: bytes = b"") -> None:
+        header = bytes([0x80 | opcode])
+        length = len(payload)
+        if length < 126:
+            header += bytes([length])
+        elif length < 65536:
+            header += bytes([126]) + struct.pack(">H", length)
+        else:
+            header += bytes([127]) + struct.pack(">Q", length)
+        self.connection.sendall(header + payload)
+
+    def _websocket(self) -> None:
+        key = self.headers.get("Sec-WebSocket-Key", "")
+        version = self.headers.get("Sec-WebSocket-Version", "")
+        if not key or version != "13":
+            self._error(HTTPStatus.BAD_REQUEST, "WebSocket 握手缺少 Key/Version 13")
+            return
+        accept = base64.b64encode(
+            hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()
+        ).decode()
+        self.send_response(HTTPStatus.SWITCHING_PROTOCOLS)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", accept)
+        self.end_headers()
+        self.close_connection = True
+        self.connection.settimeout(0.2)
+        codes: list[str] = []
+        interval = 3.0
+        next_poll = 0.0
+        try:
+            while True:
+                now = time.time()
+                if codes and now >= next_poll:
+                    try:
+                        with self.server.lock:
+                            quotes = self.server.bridge.quotes(codes)
+                        self._ws_send(
+                            1,
+                            json.dumps(
+                                {
+                                    "type": "quote",
+                                    "quotes": quotes,
+                                    "at": int(time.time() * 1000),
+                                },
+                                ensure_ascii=False,
+                            ).encode(),
+                        )
+                    except Exception as error:  # noqa: BLE001
+                        self._ws_send(
+                            1,
+                            json.dumps(
+                                {"type": "error", "error": str(error)},
+                                ensure_ascii=False,
+                            ).encode(),
+                        )
+                    next_poll = time.time() + interval
+                try:
+                    opcode, payload = self._ws_read()
+                except socket.timeout:
+                    continue
+                except (ConnectionError, ValueError):
+                    return
+                if opcode == 8:
+                    return
+                if opcode == 9:
+                    self._ws_send(10, payload)
+                    continue
+                if opcode != 1:
+                    continue
+                try:
+                    message = json.loads(payload.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    self._ws_send(1, b'{"type":"error","error":"invalid json"}')
+                    continue
+                if not isinstance(message, dict) or message.get("type") != "subscribe":
+                    continue
+                raw_codes = message.get("codes")
+                if not isinstance(raw_codes, list):
+                    self._ws_send(1, b'{"type":"error","error":"codes must be an array"}')
+                    continue
+                codes = [str(code).strip().lower() for code in raw_codes if str(code).strip()][:500]
+                try:
+                    interval = max(1.0, min(60.0, float(message.get("intervalMs", 3000)) / 1000))
+                except (TypeError, ValueError):
+                    interval = 3.0
+                next_poll = 0.0
+                self._ws_send(
+                    1,
+                    json.dumps({"type": "subscribed", "codes": len(codes)}).encode(),
+                )
+        finally:
+            self.close_connection = True
 
     def _json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
@@ -193,6 +323,9 @@ class ApiHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
         try:
+            if parsed.path == "/ws":
+                self._websocket()
+                return
             if parsed.path == "/api/stream":
                 self._stream(query)
                 return

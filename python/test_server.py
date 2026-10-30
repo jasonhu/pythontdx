@@ -1,7 +1,12 @@
 """HTTP API 的路由与错误处理测试；用 FakeBridge，不连真实行情。"""
 
+import base64
+import hashlib
 import http.client
 import json
+import os
+import socket
+import struct
 import tempfile
 import threading
 import unittest
@@ -213,6 +218,76 @@ class TestStaticWeb(unittest.TestCase):
         self.assertIn("StockLens Web", body.decode())
         status, _, _ = self.get("/%2e%2e/%2e%2e/etc/passwd")
         self.assertEqual(status, 403)
+
+class TestWebSocket(unittest.TestCase):
+    def setUp(self):
+        self.server = create_server("127.0.0.1", 0, FakeBridge())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+
+    def recv_frame(self, sock):
+        header = sock.recv(2)
+        self.assertEqual(len(header), 2)
+        opcode = header[0] & 0x0F
+        length = header[1] & 0x7F
+        if length == 126:
+            length = struct.unpack(">H", sock.recv(2))[0]
+        elif length == 127:
+            length = struct.unpack(">Q", sock.recv(8))[0]
+        payload = b""
+        while len(payload) < length:
+            payload += sock.recv(length - len(payload))
+        return opcode, payload
+
+    def send_text(self, sock, text):
+        payload = text.encode()
+        mask = os.urandom(4)
+        masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        sock.sendall(bytes([0x81, 0x80 | len(payload)]) + mask + masked)
+
+    def test_ws_quote(self):
+        sock = socket.create_connection(("127.0.0.1", self.server.server_port), timeout=5)
+        key = base64.b64encode(os.urandom(16)).decode()
+        sock.sendall(
+            (
+                "GET /ws HTTP/1.1\r\n"
+                f"Host: 127.0.0.1:{self.server.server_port}\r\n"
+                "Upgrade: websocket\r\n"
+                "Connection: Upgrade\r\n"
+                f"Sec-WebSocket-Key: {key}\r\n"
+                "Sec-WebSocket-Version: 13\r\n\r\n"
+            ).encode()
+        )
+        response = b""
+        while b"\r\n\r\n" not in response:
+            response += sock.recv(4096)
+        self.assertIn(b"101 Switching Protocols", response)
+        expected = base64.b64encode(
+            hashlib.sha1(
+                (key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()
+            ).digest()
+        ).decode()
+        self.assertIn(f"Sec-WebSocket-Accept: {expected}".encode(), response)
+
+        self.send_text(
+            sock,
+            json.dumps({"type": "subscribe", "codes": ["sh600519"], "intervalMs": 1000}),
+        )
+        quote = None
+        for _ in range(4):
+            opcode, payload = self.recv_frame(sock)
+            message = json.loads(payload)
+            if message.get("type") == "quote":
+                quote = message
+                break
+        self.assertIsNotNone(quote)
+        self.assertEqual(quote["quotes"][0]["code"], "sh600519")
+        sock.close()
 
 
 if __name__ == "__main__":

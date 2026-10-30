@@ -108,6 +108,7 @@ export function createHttpApi(): StockLensApi {
   let codes: string[] = []
   let timer: number | undefined
   let stream: EventSource | undefined
+  let ws: WebSocket | undefined
   let pollId = 0
   let searchCache: SearchEntry[] | null = null
   let searchModule: Promise<typeof import('@shared/search')> | null = null
@@ -140,6 +141,8 @@ export function createHttpApi(): StockLensApi {
     timer = undefined
     stream?.close()
     stream = undefined
+    ws?.close()
+    ws = undefined
     pollId += 1
   }
 
@@ -147,7 +150,7 @@ export function createHttpApi(): StockLensApi {
     timer = window.setInterval(() => void poll(), Math.max(1000, intervalMs || 3000))
   }
 
-  const startStream = (intervalMs: number): void => {
+  const startSse = (intervalMs: number): void => {
     const params = new URLSearchParams({
       codes: codes.join(','),
       interval: String(Math.max(1000, intervalMs || 3000))
@@ -171,6 +174,51 @@ export function createHttpApi(): StockLensApi {
     }
   }
 
+  const startWs = (intervalMs: number): void => {
+    const origin = BASE || window.location.origin
+    const url = `${origin.replace(/^http/i, 'ws')}/ws`
+    const socket = new WebSocket(url)
+    ws = socket
+    socket.onopen = () => {
+      socket.send(
+        JSON.stringify({
+          type: 'subscribe',
+          codes,
+          intervalMs: Math.max(1000, intervalMs || 3000)
+        })
+      )
+    }
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as {
+          type: string
+          quotes?: Quote[]
+          at?: number
+          error?: string
+        }
+        if (payload.type !== 'quote' || !payload.quotes) return
+        const update: QuoteUpdate = {
+          quotes: payload.quotes,
+          at: payload.at ?? Date.now()
+        }
+        listeners.forEach((listener) => listener(update))
+      } catch {
+        // 单帧坏数据不打断连接
+      }
+    }
+    socket.onerror = () => {
+      socket.close()
+    }
+    socket.onclose = () => {
+      if (ws !== socket) return
+      ws = undefined
+      if (codes.length === 0) return
+      // WebSocket 不可用时退回 SSE/轮询，保证只读页仍能刷新
+      if (typeof EventSource !== 'undefined') startSse(intervalMs)
+      else startPolling(intervalMs)
+    }
+  }
+
   const searchHint = async (keyword: string): Promise<SearchItem[]> => {
     if (!keyword.trim()) return []
     // pinyin-pro 词典较大，首次搜索时才加载，避免拖慢首屏
@@ -191,11 +239,19 @@ export function createHttpApi(): StockLensApi {
         stopPolling()
         if (codes.length === 0) return
         await poll()
-        if (FORCE_POLLING || typeof EventSource === 'undefined') {
+        if (FORCE_POLLING) {
           startPolling(intervalMs)
           return
         }
-        startStream(intervalMs)
+        if (typeof WebSocket !== 'undefined') {
+          startWs(intervalMs)
+          return
+        }
+        if (typeof EventSource === 'undefined') {
+          startPolling(intervalMs)
+          return
+        }
+        startSse(intervalMs)
       },
       unsubscribe: async () => {
         stopPolling()

@@ -31,6 +31,8 @@ StockLens 的所有重要变更都记录在这里。
   （各 8,103 行，主日期 20261029）。
 - **板块指数 K 线**：880/881 按指数布局解析 `0x052d`；点击板块指数进入主图，
   实测银行指数日 K 可用。原先“K 线日期不合法”是把它当成了股票 K 线。
+- **WebSocket 行情**：`/ws` 文本帧订阅（codes/intervalMs），每周期推 `type=quote`；
+  Web 优先 WebSocket，失败自动回退 SSE；Vite 开发代理支持 `/ws`。
 - **自选导入/导出**：状态栏 JSON 备份；导出全部分组，导入追加分组，
   ID 冲突自动改名，不覆盖现有自选。
 - **CSV 导出**：数据工具把 tdxstat / tdxstat2 全量导出为 UTF-8 BOM CSV，
@@ -74,7 +76,7 @@ StockLens 的所有重要变更都记录在这里。
   `tdxstat.jsonl.gz` / `tdxstat2.jsonl.gz` + manifest（源 SHA256、解析器版本、
   分区计数、空日期跳过数）；另生成 SQLite 查询层 `stats.db`（tdxstat/tdxstat2/meta）。
 - **批量快照 / 增量刷新**：`0x054c` 与 `0x0547` 的请求、解析、真实 fixture 落地；
-  Python 测试 17 → 57。
+  Python 测试 17 → 58。
 - 实时行情主链路从 `0x053e` 切到 `0x0547`；`0x053e` 保留兼容与差分。
 
 ---

@@ -133,9 +133,7 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.f10Dividend, (_event, code: string) => fetchF10Dividend(code))
 
-  ipcMain.handle(IPC.f10ShareholderCount, (_event, code: string) =>
-    fetchF10ShareholderCount(code)
-  )
+  ipcMain.handle(IPC.f10ShareholderCount, (_event, code: string) => fetchF10ShareholderCount(code))
 
   ipcMain.handle(IPC.marketBreadth, () => fetchMarketBreadth())
 

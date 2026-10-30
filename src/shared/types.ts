@@ -705,6 +705,8 @@ export interface AppSettings {
   layoutSlots?: LayoutSlot[]
   /** 条件选股预设（最多 10 个） */
   screenPresets?: ScreenPreset[]
+  /** 正在自动跟踪的预设 id；为空则不跟踪 */
+  trackingPresetId?: string
 }
 
 export interface ScreenPreset {

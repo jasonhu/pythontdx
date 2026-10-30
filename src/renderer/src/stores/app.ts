@@ -162,6 +162,28 @@ export function createGroupWithItems(
   return unique.length
 }
 
+/** 自动选股池：存在则整组替换，不存在则追加；不切当前分组。 */
+export function replaceGroupItems(
+  id: string,
+  name: string,
+  items: ReadonlyArray<Pick<WatchItem, 'code' | 'name' | 'market'>>
+): number {
+  const seen = new Set<string>()
+  const unique = items.filter((item) => {
+    if (!item.code || seen.has(item.code)) return false
+    seen.add(item.code)
+    return true
+  })
+  const groups = plainGroups(state.groups)
+  const index = groups.findIndex((group) => group.id === id)
+  const next = { id, name, items: unique.map((item) => ({ ...item })) }
+  if (index >= 0) groups[index] = next
+  else groups.push(next)
+  setState('groups', groups)
+  persist({ groups })
+  return unique.length
+}
+
 export function renameGroup(id: string, name: string): void {
   const trimmed = name.trim()
   if (!trimmed) return

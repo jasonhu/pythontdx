@@ -242,8 +242,18 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
 
   const removePreset = (id: string): void => {
     updateSettings({
-      screenPresets: (appState.settings.screenPresets ?? []).filter((preset) => preset.id !== id)
+      screenPresets: (appState.settings.screenPresets ?? []).filter((preset) => preset.id !== id),
+      trackingPresetId:
+        appState.settings.trackingPresetId === id ? undefined : appState.settings.trackingPresetId
     })
+  }
+
+  const toggleTracking = (preset: ScreenPreset): void => {
+    const active = appState.settings.trackingPresetId === preset.id
+    updateSettings({ trackingPresetId: active ? undefined : preset.id })
+    setPoolNotice(
+      active ? `已停止跟踪：${preset.name}` : `开始跟踪：${preset.name}（每 60 秒更新自动池）`
+    )
   }
 
   const saveAsPool = (): void => {
@@ -303,6 +313,13 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
                   onClick={() => void applyPreset(preset)}
                 >
                   {preset.name}
+                </button>
+                <button
+                  class={`screener__preset-track ${appState.settings.trackingPresetId === preset.id ? 'is-tracking' : ''}`}
+                  title="每 60 秒重扫并更新自动池"
+                  onClick={() => toggleTracking(preset)}
+                >
+                  {appState.settings.trackingPresetId === preset.id ? '跟踪中' : '跟踪'}
                 </button>
                 <button
                   class="screener__preset-remove"

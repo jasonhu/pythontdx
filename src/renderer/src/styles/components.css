@@ -5284,3 +5284,18 @@
   background: transparent;
   cursor: pointer;
 }
+
+.screener__preset-track {
+  height: 22px;
+  padding: 0 7px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  color: var(--text-3);
+  background: transparent;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.screener__preset-track.is-tracking {
+  color: var(--accent);
+}

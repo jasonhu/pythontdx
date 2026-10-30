@@ -62,6 +62,7 @@ import { applyQuotes, createQuoteStream, quoteOf, refreshQuotes } from './stores
 import { api } from './lib/ipc'
 import { createSparklineLoader } from './stores/sparklines'
 import { dismissLatestAlert, hydrateAlertEvents, latestAlert } from './stores/alerts'
+import { startScreenTracking } from './stores/screenTracking'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
@@ -90,6 +91,7 @@ export default function App(): JSX.Element {
 
   onMount(() => {
     void bootstrapAppState().then(() => hydrateAlertEvents())
+    startScreenTracking()
     initWindowSync()
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!appReady() || event.metaKey || event.ctrlKey || event.altKey) return

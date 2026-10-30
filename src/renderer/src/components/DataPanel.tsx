@@ -371,8 +371,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
           <section class="data__local">
             <div class="data__query-head">
               <div>
-                <strong>本地 .day</strong>
-                <span>只读解析；成交量按手换算，最多显示 500 根</span>
+                <strong>本地行情文件</strong>
+                <span>.day / .lc1 / .lc5 / .5；只读，成交量按手换算，最多 500 根</span>
               </div>
               <button
                 class="btn data__local-run"
@@ -385,7 +385,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             <input
               class="data__local-path"
               value={localPath()}
-              placeholder="/path/to/sh600519.day"
+              placeholder="/path/to/sh600519.day 或 .lc1"
               aria-label=".day 文件路径"
               onInput={(event) => setLocalPath(event.currentTarget.value)}
             />

@@ -527,6 +527,50 @@ def parse_trading_payload(payload: dict, section: str) -> dict:
     }
 
 
+LHB_LABELS = {
+    "N001": "日期",
+    "N002": "代码",
+    "sc": "市场",
+    "N003": "名称",
+    "N004": "收盘",
+    "N005": "涨跌幅",
+    "N006": "板块代码",
+    "N007": "行业代码",
+    "N008": "上榜原因",
+    "N009": "营业部",
+    "N010": "买入额",
+    "N011": "卖出额",
+    "N012": "方向",
+    "N013": "排名",
+}
+
+
+def parse_lhb_market_payload(payload: dict) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 龙虎榜返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"section": "dragon_market", "rawColumns": [], "columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    return {
+        "section": "dragon_market",
+        "rawColumns": raw_columns,
+        "columns": [LHB_LABELS.get(name, name) for name in raw_columns],
+        "rows": table.get("Content") or [],
+        "count": len(table.get("Content") or []),
+    }
+
+
+def fetch_lhb_market() -> dict:
+    """沪深龙虎榜（7615 大盘 F10，table0 含营业部买卖明细）。"""
+    payload = _post_tqlex(
+        "CWServ.skef10_dpzx_lhb",
+        {"Params": ["001", "1", "20"]},
+    )
+    return parse_lhb_market_payload(payload)
+
+
 def fetch_trading(code: str, section: str = "margin") -> dict:
     if section not in TRADING_SECTIONS:
         raise F10Error(f"不支持的交易数据分区：{section}")

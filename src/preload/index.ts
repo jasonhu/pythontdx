@@ -60,6 +60,7 @@ const api: StockLensApi = {
     reports: (code) => ipcRenderer.invoke(IPC.f10Reports, code),
     news: (code) => ipcRenderer.invoke(IPC.f10News, code),
     trading: (code, section) => ipcRenderer.invoke(IPC.f10Trading, code, section),
+    lhbMarket: () => ipcRenderer.invoke(IPC.f10LhbMarket),
     statement: (code, kind, full) => ipcRenderer.invoke(IPC.f10Statement, code, kind, full)
   },
   data: {

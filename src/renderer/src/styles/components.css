@@ -4686,3 +4686,135 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
 }
+
+/* ------------------------------------------------------------ 沪深龙虎榜 */
+.dragon-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 330;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(3, 5, 10, 0.64);
+  backdrop-filter: blur(9px);
+  -webkit-app-region: no-drag;
+}
+
+.dragon-panel {
+  width: min(1180px, 96vw);
+  height: min(760px, 90vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.dragon__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 15px 20px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dragon__eyebrow {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.05em;
+}
+
+.dragon__title {
+  margin: 2px 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+}
+
+.dragon__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.dragon__tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dragon__search {
+  width: 190px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-1);
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}
+
+.dragon__hint {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.dragon__table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 20px 12px;
+}
+
+.dragon__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-2xs);
+}
+
+.dragon__table th,
+.dragon__table td {
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dragon__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--text-3);
+  background: var(--panel-solid);
+  font-weight: 500;
+}
+
+.dragon__table th.num,
+.dragon__table td.num {
+  text-align: right;
+}
+
+.dragon__row--link {
+  cursor: pointer;
+}
+
+.dragon__row--link:hover {
+  background: var(--panel-hover);
+}
+
+.dragon__error {
+  padding: 6px 20px;
+  color: var(--down);
+  font-size: var(--fs-xs);
+}
+
+.dragon__loading {
+  padding: 8px 0;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

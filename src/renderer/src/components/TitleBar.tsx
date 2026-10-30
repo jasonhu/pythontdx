@@ -25,6 +25,7 @@ import { SearchBox } from './SearchBox'
 interface TitleBarProps {
   onOpenData: () => void
   onOpenUnusual: () => void
+  onOpenDragon: () => void
   onOpenAlerts: () => void
   onOpenSettings: () => void
   onOpenSecondary: () => void
@@ -58,6 +59,13 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
           onClick={() => props.onOpenUnusual()}
         >
           异动
+        </button>
+        <button
+          class="btn btn--bare dragon-open"
+          title="沪深龙虎榜"
+          onClick={() => props.onOpenDragon()}
+        >
+          龙虎
         </button>
         <button class="btn btn--bare data-open" title="数据工具" onClick={() => props.onOpenData()}>
           数据

@@ -184,6 +184,21 @@ class TestF10Announcements(unittest.TestCase):
         self.assertIn("类型", table["columns"])
         self.assertIn("封单额", table["columns"])
 
+    def test_parse_lhb_market(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["N001", "N002", "sc", "N003", "N004", "N005", "N008", "N009", "N010", "N011", "N012"],
+                    "Content": [["10月30日周五", "000530", 0, "冰山冷热", 7.92, -3.76, "换手率达20%", "机构专用", 100, 50, "B"]],
+                }
+            ],
+        }
+        table = tdx_f10.parse_lhb_market_payload(payload)
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"][0], "日期")
+        self.assertEqual(table["columns"][-1], "方向")
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

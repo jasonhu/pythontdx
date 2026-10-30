@@ -530,6 +530,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.market_breadth())
                 return
+            if parsed.path == "/api/f10_lhb_market":
+                with self.server.lock:
+                    self._ok(self.server.bridge.f10_lhb_market())
+                return
             if parsed.path == "/api/f10_trading":
                 with self.server.lock:
                     self._ok(

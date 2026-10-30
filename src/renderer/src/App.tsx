@@ -43,6 +43,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { PortfolioPanel } from './components/PortfolioPanel'
 import { MarketListPanel } from './components/MarketListPanel'
 import { UnusualPanel } from './components/UnusualPanel'
+import { DragonPanel } from './components/DragonPanel'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
 import {
   activeQuoteCode,
@@ -72,6 +73,7 @@ export default function App(): JSX.Element {
   const [portfolioOpen, setPortfolioOpen] = createSignal(false)
   const [marketOpen, setMarketOpen] = createSignal(false)
   const [unusualOpen, setUnusualOpen] = createSignal(false)
+  const [dragonOpen, setDragonOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
@@ -180,6 +182,7 @@ export default function App(): JSX.Element {
       <TitleBar
         onOpenData={() => setDataOpen(true)}
         onOpenUnusual={() => setUnusualOpen(true)}
+        onOpenDragon={() => setDragonOpen(true)}
         onOpenAlerts={() => setAlertsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSecondary={() => void api.window.openSecondary()}
@@ -381,6 +384,16 @@ export default function App(): JSX.Element {
             onClose={() => setAnnouncementsOpen(false)}
           />
         )}
+      </Show>
+
+      <Show when={dragonOpen()}>
+        <DragonPanel
+          onClose={() => setDragonOpen(false)}
+          onSelect={(code) => {
+            setActiveCode(code)
+            setDragonOpen(false)
+          }}
+        />
       </Show>
 
       <Show when={unusualOpen()}>

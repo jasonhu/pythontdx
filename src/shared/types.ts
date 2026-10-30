@@ -209,6 +209,7 @@ export interface F10Section {
 export interface F10ProfileTable {
   columns: string[]
   rows: Array<Array<string | number | null>>
+  reportDate?: string
 }
 
 export interface F10Announcement {

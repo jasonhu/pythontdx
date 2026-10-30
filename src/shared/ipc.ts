@@ -63,6 +63,8 @@ export const IPC = {
   f10Valuation: 'f10:valuation',
   /** 7615 财务主要指标（invoke） */
   f10Finance: 'f10:finance',
+  /** 7615 主营构成（invoke） */
+  f10Business: 'f10:business',
   /** tdxstat 摘要（invoke） */
   dataStatsSummary: 'data:stats-summary',
   /** tdxstat 规范化导出（invoke） */
@@ -170,6 +172,7 @@ export interface StockLensApi {
     profile(code: string): Promise<F10ProfileTable>
     valuation(code: string): Promise<F10ProfileTable>
     finance(code: string): Promise<F10ProfileTable>
+    business(code: string): Promise<F10ProfileTable>
   }
   data: {
     /** 下载 zhb.zip 并返回 tdxstat 摘要 */

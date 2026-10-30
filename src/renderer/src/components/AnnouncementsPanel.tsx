@@ -14,7 +14,7 @@ interface AnnouncementsPanelProps {
   onClose: () => void
 }
 
-type OnlineTab = 'announcements' | 'profile' | 'valuation' | 'finance'
+type OnlineTab = 'announcements' | 'profile' | 'valuation' | 'finance' | 'business'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -30,6 +30,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [finance, setFinance] = createSignal<F10ProfileTable | null>(null)
   const [financeLoading, setFinanceLoading] = createSignal(true)
   const [financeError, setFinanceError] = createSignal<string | null>(null)
+  const [business, setBusiness] = createSignal<F10ProfileTable | null>(null)
+  const [businessLoading, setBusinessLoading] = createSignal(true)
+  const [businessError, setBusinessError] = createSignal<string | null>(null)
   let requestId = 0
 
   const loadAnnouncements = async (): Promise<void> => {
@@ -83,6 +86,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadBusiness = async (): Promise<void> => {
+    setBusinessLoading(true)
+    setBusinessError(null)
+    try {
+      setBusiness(await api.f10.business(props.code))
+    } catch (cause) {
+      setBusinessError(errorMessage(cause))
+    } finally {
+      setBusinessLoading(false)
+    }
+  }
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -93,6 +108,7 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     void loadProfile()
     void loadValuation()
     void loadFinance()
+    void loadBusiness()
   })
 
   const cell = (value: string | number | null | undefined): string =>
@@ -151,6 +167,13 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('finance')}
           >
             财务
+          </button>
+          <button
+            class="online-tab online-business-tab"
+            data-active={tab() === 'business'}
+            onClick={() => setTab('business')}
+          >
+            主营
           </button>
         </div>
 
@@ -298,6 +321,51 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                           </tbody>
                         </table>
                       </div>
+                    )}
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+
+            <Match when={tab() === 'business'}>
+              <Show
+                when={!businessLoading()}
+                fallback={<div class="announcements__empty">加载主营构成…</div>}
+              >
+                <Show
+                  when={!businessError()}
+                  fallback={<div class="announcements__error">{businessError()}</div>}
+                >
+                  <Show
+                    when={business()}
+                    fallback={<div class="announcements__empty">暂无主营构成</div>}
+                  >
+                    {(table) => (
+                      <>
+                        <div class="announcements__meta">
+                          报告期 {table().reportDate ?? '—'} · 按地区/业务/产品拆分
+                        </div>
+                        <div class="valuation-table-wrap">
+                          <table class="valuation-table finance-table">
+                            <thead>
+                              <tr>
+                                <For each={table().columns}>{(column) => <th>{column}</th>}</For>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <For each={table().rows}>
+                                {(row) => (
+                                  <tr>
+                                    <For each={row}>
+                                      {(value) => <td class="num">{cell(value)}</td>}
+                                    </For>
+                                  </tr>
+                                )}
+                              </For>
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     )}
                   </Show>
                 </Show>

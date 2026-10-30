@@ -15,6 +15,8 @@ ENTRY = "CWSearch.tzx_rcache"
 PROFILE_ENTRY = "CWServ.tdxf10_gg_gsgk"
 VALUATION_ENTRY = "HQServ.hq_nlp_gpsj"
 FINANCE_ENTRY = "CWServ.tdxf10_gg_cwfx"
+BUSINESS_ENTRY = "CWServ.tdxf10_gg_jyfx"
+BUSINESS_PERIOD_ENTRY = "CWServ.tdxf10_gg_comreq"
 
 FINANCE_LABELS = {
     "T002": "报告期",
@@ -31,6 +33,18 @@ FINANCE_LABELS = {
     "jlrhb": "净利润环比",
     "pjjzcsyl": "平均净资产收益率",
     "kfjlrhb": "扣非净利润环比",
+}
+
+BUSINESS_LABELS = {
+    "N000": "分类",
+    "N002": "项目",
+    "N003": "营业收入",
+    "N004": "收入占比%",
+    "N005": "营业利润",
+    "N006": "利润占比%",
+    "N007": "营业成本",
+    "N008": "成本占比%",
+    "N009": "毛利率%",
 }
 
 VALUATION_LABELS = {
@@ -146,6 +160,64 @@ def parse_finance_payload(payload: dict) -> dict:
     columns = [FINANCE_LABELS.get(str(name), str(name)) for name in raw_columns]
     rows = [list(values) for values in table.get("Content") or []][:20]
     return {"columns": columns, "rows": rows}
+
+
+def parse_business_payload(payload: dict) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    result_sets = payload.get("ResultSets") or []
+    if not result_sets:
+        return {"columns": [], "rows": []}
+    table = result_sets[0]
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    indexes = [index for index, name in enumerate(raw_columns) if name in BUSINESS_LABELS]
+    columns = [BUSINESS_LABELS[raw_columns[index]] for index in indexes]
+    rows = [
+        [values[index] for index in indexes]
+        for values in (table.get("Content") or [])
+    ]
+    return {"columns": columns, "rows": rows}
+
+
+def _post_tqlex(entry: str, body: dict) -> dict:
+    request = Request(
+        f"{TQLEX_URL}?Entry={entry}",
+        data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "StockLens/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=12) as response:
+            raw = response.read()
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise F10Error(f"7615 请求失败：{error}") from error
+    try:
+        parsed = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise F10Error("7615 返回非 JSON") from error
+    if not isinstance(parsed, dict):
+        raise F10Error("7615 返回结构异常")
+    return parsed
+
+
+def fetch_business(code: str) -> dict:
+    _market, symbol = _market_of(code)
+    periods = _post_tqlex(BUSINESS_PERIOD_ENTRY, {"Params": ["zygcfx", symbol]})
+    tables = periods.get("ResultSets") or []
+    if not tables or not tables[0].get("Content"):
+        return {"columns": [], "rows": []}
+    report_date = str(tables[0]["Content"][0][0])
+    payload = _post_tqlex(
+        BUSINESS_ENTRY,
+        {"Params": [symbol, "zygc", report_date]},
+    )
+    result = parse_business_payload(payload)
+    result["reportDate"] = report_date
+    return result
 
 
 def fetch_finance(code: str) -> dict:

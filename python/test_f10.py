@@ -73,6 +73,20 @@ class TestF10Announcements(unittest.TestCase):
         self.assertEqual(table["columns"], ["报告期", "每股收益", "净利润"])
         self.assertEqual(table["rows"][0][0], "2026-09-30")
 
+    def test_parse_business(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["N000", "N001", "N002", "N003"],
+                    "Content": [["按地区", 3, "总部", 38896000000]],
+                }
+            ],
+        }
+        table = tdx_f10.parse_business_payload(payload)
+        self.assertEqual(table["columns"], ["分类", "项目", "营业收入"])
+        self.assertEqual(table["rows"][0][1], "总部")
+
     def test_error_and_bad_code(self):
         with self.assertRaises(tdx_f10.F10Error):
             tdx_f10.parse_announcements_payload({"ErrorCode": 3, "ResultSets": []})

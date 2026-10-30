@@ -282,7 +282,13 @@ export function moveWatchItem(code: string, targetGroupId: string, targetIndex: 
 
 export function updateSettings(patch: Partial<AppSettings>): void {
   setState('settings', patch)
-  persist({ settings: { ...state.settings } })
+  // Solid store 的嵌套数组是代理，直接走 IPC 会 "could not be cloned"；
+  // 设置里只有画线是对象数组，这里显式拍平。
+  const settings = {
+    ...state.settings,
+    chartDrawings: state.settings.chartDrawings?.map((drawing) => ({ ...drawing }))
+  }
+  persist({ settings })
 }
 
 export function toggleTheme(): void {

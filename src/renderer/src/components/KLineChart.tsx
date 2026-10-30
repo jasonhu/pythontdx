@@ -10,13 +10,14 @@ import {
   createEffect,
   createMemo,
   createSignal,
+  on,
   For,
   onCleanup,
   onMount,
   Show,
   type JSX
 } from 'solid-js'
-import type { KLineSeries } from '@shared/types'
+import type { ChartDrawing, KLineSeries } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { boll } from '@shared/indicators'
 import {
@@ -113,21 +114,56 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   /** 全量 K 线 */
   const allBars = (): KLineSeries['bars'] => props.series.bars
 
-  createEffect(() => {
-    void props.series.code
-    void props.series.period
-    setRangeStart(null)
-    setRangeEnd(null)
-    setDrawings([])
-    setPendingPoint(null)
-    props.onRangeStats?.(null)
-  })
+  const savedDrawings = (): ChartDrawing[] =>
+    (appState.settings.chartDrawings ?? []).filter(
+      (drawing) => drawing.code === props.series.code && drawing.period === props.series.period
+    )
 
-  createEffect(() => {
-    void props.clearDrawingsKey
-    setDrawings([])
-    setPendingPoint(null)
-  })
+  const persistDrawings = (next: KLineDrawing[]): void => {
+    const others = (appState.settings.chartDrawings ?? [])
+      .filter(
+        (drawing) => drawing.code !== props.series.code || drawing.period !== props.series.period
+      )
+      .map((drawing) => ({ ...drawing }))
+    const saved: ChartDrawing[] = next.map((drawing, index) => ({
+      id: `${props.series.code}:${props.series.period}:${drawingId}:${index}`,
+      code: props.series.code,
+      period: props.series.period,
+      type: drawing.type,
+      price: drawing.price,
+      startIndex: drawing.startIndex,
+      startPrice: drawing.startPrice,
+      endIndex: drawing.endIndex,
+      endPrice: drawing.endPrice
+    }))
+    updateSettings({ chartDrawings: [...others, ...saved].slice(-200) })
+  }
+
+  createEffect(
+    on(
+      () => `${props.series.code}:${props.series.period}`,
+      () => {
+        drawingId = 0
+        setRangeStart(null)
+        setRangeEnd(null)
+        setDrawings(savedDrawings().map((drawing) => ({ ...drawing, id: ++drawingId })))
+        setPendingPoint(null)
+        props.onRangeStats?.(null)
+      }
+    )
+  )
+
+  createEffect(
+    on(
+      () => props.clearDrawingsKey,
+      () => {
+        setDrawings([])
+        setPendingPoint(null)
+        persistDrawings([])
+      },
+      { defer: true }
+    )
+  )
 
   createEffect(() => {
     void props.drawMode
@@ -246,7 +282,9 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       const price = geo.priceFromY(event.clientY - rect.top)
       if (props.drawMode === 'horizontal') {
         drawingId += 1
-        setDrawings((items) => [...items, { id: drawingId, type: 'horizontal', price }])
+        const next = [...drawings(), { id: drawingId, type: 'horizontal' as const, price }]
+        setDrawings(next)
+        persistDrawings(next)
         return
       }
       const pending = pendingPoint()
@@ -255,17 +293,19 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         return
       }
       drawingId += 1
-      setDrawings((items) => [
-        ...items,
+      const next = [
+        ...drawings(),
         {
           id: drawingId,
-          type: 'trend',
+          type: 'trend' as const,
           startIndex: pending.index,
           startPrice: pending.price,
           endIndex: index,
           endPrice: price
         }
-      ])
+      ]
+      setDrawings(next)
+      persistDrawings(next)
       setPendingPoint(null)
       return
     }

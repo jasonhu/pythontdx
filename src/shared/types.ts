@@ -478,6 +478,18 @@ export interface IndicatorParams {
   bollK: number
 }
 
+export interface ChartDrawing {
+  id: string
+  code: string
+  period: KLinePeriod
+  type: 'horizontal' | 'trend'
+  price?: number
+  startIndex?: number
+  startPrice?: number
+  endIndex?: number
+  endPrice?: number
+}
+
 export interface AppSettings {
   /** 行情轮询间隔（ms） */
   refreshInterval: number
@@ -504,6 +516,8 @@ export interface AppSettings {
   subIndicator?: 'none' | 'macd' | 'kdj' | 'rsi'
   /** 价格坐标是否对数 */
   logScale?: boolean
+  /** K 线画线（按 code/period 保存） */
+  chartDrawings?: ChartDrawing[]
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

@@ -138,7 +138,9 @@ PERIOD_RAW = {
     "15s": 13,
     "1m": 7,
     "5m": 0,
+    "10m": 8,
     "15m": 1,
+    "20m": 8,
     "30m": 2,
     "60m": 3,
     "day": 4,
@@ -1968,7 +1970,7 @@ def parse_bars(body: bytes, kind: str, period_raw: int = 4) -> list[dict]:
             )
             date_text = moment.strftime("%Y-%m-%d %H:%M:%S")
             pos += 4
-        elif period_raw in {0, 1, 2, 3, 7}:
+        elif period_raw in {0, 1, 2, 3, 7, 8}:
             packed_date = _u16(body, pos)
             minute_of_day = _u16(body, pos + 2)
             year = (packed_date >> 11) + 2004
@@ -2929,7 +2931,7 @@ class Bridge:
                 safe_count,
                 {'none': 0, 'qfq': 1, 'hfq': 2}.get(str(adjust), 1),
                 0,
-                {'5s': 5, '15s': 15}.get(period, 1),
+                {'5s': 5, '15s': 15, '10m': 10, '20m': 20}.get(period, 1),
             ),
         )
         return {

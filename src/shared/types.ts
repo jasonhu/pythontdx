@@ -433,7 +433,20 @@ export interface MultiDayTrend {
 /* ----------------------------------------------------------------- K 线 */
 
 export type KLinePeriod =
-  '5s' | '15s' | '1m' | '5m' | '15m' | '30m' | '60m' | 'day' | 'week' | 'month' | 'quarter' | 'year'
+  | '5s'
+  | '15s'
+  | '1m'
+  | '5m'
+  | '10m'
+  | '15m'
+  | '20m'
+  | '30m'
+  | '60m'
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'quarter'
+  | 'year'
 export type KLineAdjust = 'none' | 'qfq' | 'hfq'
 
 export interface KLineBar {

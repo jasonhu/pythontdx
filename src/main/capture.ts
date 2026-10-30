@@ -218,7 +218,9 @@ async function drive(window: BrowserWindow): Promise<void> {
   // 只能自己算出来。人眼能看出来的东西，这里尽量也能量出来。
   const measure = process.env.STOCKLENS_CAPTURE_EVAL
   if (measure) {
-    console.log(`[capture] eval ${measure} → ${await evaluate(window, `String(${measure})`)}`)
+    console.log(
+      `[capture] eval ${measure} → ${await evaluate(window, `Promise.resolve(${measure})`)}`
+    )
   }
 }
 

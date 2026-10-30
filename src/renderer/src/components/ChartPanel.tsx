@@ -5,10 +5,20 @@
  * 图例会被替换成当前光标位置的 时间 / 价格 / 涨跌幅 / 均价 / 成交量，
  * 移开后又变回图例。这是专业行情软件的标配交互。
  */
-import { createMemo, createResource, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
+import {
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  For,
+  onCleanup,
+  Show,
+  type JSX
+} from 'solid-js'
 import type { KLineAdjust, KLinePeriod, KLineSeries, MinuteTrend } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { appState, updateSettings } from '../stores/app'
 import { KLINE_BARS_MAX } from '../lib/chart-geometry'
 import { toneOf } from '../lib/tone'
 import { KLineChart } from './KLineChart'
@@ -49,8 +59,18 @@ export interface ChartPanelProps {
 }
 
 export function ChartPanel(props: ChartPanelProps): JSX.Element {
-  const [tab, setTab] = createSignal<Tab>('minute')
-  const [adjust, setAdjust] = createSignal<KLineAdjust>('qfq')
+  const [tab, setTab] = createSignal<Tab>(appState.settings.chartTab ?? 'minute')
+  const [adjust, setAdjust] = createSignal<KLineAdjust>(appState.settings.klineAdjust ?? 'qfq')
+
+  // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
+  createEffect(() => {
+    const savedTab = appState.settings.chartTab
+    if (savedTab && savedTab !== tab()) setTab(savedTab)
+  })
+  createEffect(() => {
+    const savedAdjust = appState.settings.klineAdjust
+    if (savedAdjust && savedAdjust !== adjust()) setAdjust(savedAdjust)
+  })
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
 
@@ -115,6 +135,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const switchTab = (next: Tab): void => {
     setHover(null)
     setTab(next)
+    updateSettings({ chartTab: next })
   }
 
   return (
@@ -149,6 +170,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                   data-active={adjust() === item.value}
                   onClick={() => {
                     setAdjust(item.value)
+                    updateSettings({ klineAdjust: item.value })
                     setHover(null)
                   }}
                 >

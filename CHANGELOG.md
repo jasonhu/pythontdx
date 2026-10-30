@@ -43,6 +43,7 @@ StockLens 的所有重要变更都记录在这里。
   实测银行 42 只、返回成交额前 5。
 - **Linux 打包验证**：PyInstaller 6.22.3 + electron-builder linux-unpacked 与
   AppImage（130 MB）/ deb（106 MB）均启动成功，行情/图表正常；补 `homepage` 元数据。
+- **图表设置记忆**：上次停留的周期（分时/五日/1–60 分钟/日周月）与复权口径写入 AppSettings，跨重启恢复。
 - **分钟 K**：0x052d 接入 1/5/15/30/60 分钟；分钟时间戳按 packed date+minute 解码；
   图表头新增 1/5/15/30/60 快捷切换，5m 已截图。
 - **K 线复权开关**：日/周/月 K 可切不复权/前复权/后复权；0x052d adjust=0/1/2，

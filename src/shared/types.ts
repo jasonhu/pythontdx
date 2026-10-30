@@ -464,6 +464,10 @@ export interface AppSettings {
    * 档位表属于图表几何，不该复制一份到 shared 来（复制就一定会漂移）。
    */
   klineZoom?: number
+  /** 图表上次停留的周期 */
+  chartTab?: 'minute' | 'five' | KLinePeriod
+  /** 上次复权口径 */
+  klineAdjust?: KLineAdjust
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'

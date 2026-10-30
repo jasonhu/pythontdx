@@ -5348,3 +5348,35 @@
   margin-left: 4px;
   color: var(--text-3);
 }
+
+.flow__row {
+  cursor: pointer;
+}
+
+.flow__row[data-active='true'] {
+  background: var(--accent-soft);
+}
+
+.flow__detail {
+  margin: 6px 12px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.flow__detail-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.flow__tier {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+}

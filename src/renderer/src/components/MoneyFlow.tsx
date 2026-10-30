@@ -3,7 +3,16 @@
  *
  * 服务端固定返回 5 天，不能翻页；盘口右侧栏「资金流」页签使用。
  */
-import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onCleanup,
+  onMount,
+  Show,
+  type JSX
+} from 'solid-js'
 import type { MacMoneyFlow, MoneyFlowRecord } from '@shared/types'
 import { compactAmount, signedPct } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
@@ -19,6 +28,7 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   const [mac, setMac] = createSignal<MacMoneyFlow | null>(null)
+  const [selectedDate, setSelectedDate] = createSignal<string | null>(null)
   let requestId = 0
 
   const load = async (code: string): Promise<void> => {
@@ -32,6 +42,9 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
       if (current !== requestId) return
       setRows(data)
       setMac(macData)
+      if (data.length > 0 && !data.some((row) => row.date === selectedDate())) {
+        setSelectedDate(data[0].date)
+      }
       setError(null)
     } catch (cause) {
       if (current !== requestId) return
@@ -44,6 +57,10 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
   createEffect(() => {
     void load(props.code)
   })
+
+  const selected = createMemo(
+    () => rows().find((row) => row.date === selectedDate()) ?? rows()[0] ?? null
+  )
 
   onMount(() => {
     const timer = window.setInterval(() => void load(props.code), REFRESH_MS)
@@ -85,6 +102,8 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
                 'flow__row--negative': row.mainNet < 0
               }}
               title={`${row.date} · 成交额 ${compactAmount(row.totalAmount)}`}
+              onClick={() => setSelectedDate(row.date)}
+              data-active={selected()?.date === row.date}
             >
               <span class="flow__date num">{row.date.slice(5)}</span>
               <span class="flow__num">{compactAmount(row.mainNet)}</span>
@@ -97,6 +116,34 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
 
       <Show when={!loading() && rows().length === 0 && !error()}>
         <div class="flow__empty">暂无资金流</div>
+      </Show>
+
+      <Show when={selected()}>
+        {(row) => (
+          <div class="flow__detail">
+            <div class="flow__detail-head">
+              <span>四档明细 · {row().date.slice(5)}</span>
+              <span>成交 {compactAmount(row().totalAmount)}</span>
+            </div>
+            <For
+              each={
+                [
+                  ['超大单', row().mainSuperLargeNet],
+                  ['大单', row().mainLargeNet],
+                  ['中单', row().mainMediumNet],
+                  ['小单', row().mainSmallNet]
+                ] as const
+              }
+            >
+              {([label, value]) => (
+                <div class="flow__tier">
+                  <span>{label}</span>
+                  <b class={value >= 0 ? 'tone-up' : 'tone-down'}>{compactAmount(value)}</b>
+                </div>
+              )}
+            </For>
+          </div>
+        )}
       </Show>
 
       <div class="flow__foot">

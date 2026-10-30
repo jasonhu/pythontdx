@@ -392,6 +392,11 @@ class TestIndustry(unittest.TestCase):
         self.assertEqual(rows[0]["tdxCode"], "T1001")
         self.assertEqual(rows[1]["name"], "黑龙江")
 
+    def test_sector_index_code(self):
+        self.assertTrue(tdx.is_index_code(1, "880471"))
+        self.assertTrue(tdx.is_index_code(1, "881001"))
+        self.assertFalse(tdx.is_index_code(1, "600519"))
+
 
 class TestScreener(unittest.TestCase):
     QUOTES = [

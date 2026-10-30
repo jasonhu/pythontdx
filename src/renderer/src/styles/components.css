@@ -1506,10 +1506,20 @@
 }
 
 .block__index {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--r-sm);
   color: var(--text-2) !important;
+  background: transparent;
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.block__index:hover {
+  color: var(--accent) !important;
+  background: var(--accent-soft);
 }
 
 .block__loading {

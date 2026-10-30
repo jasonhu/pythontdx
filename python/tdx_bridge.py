@@ -206,7 +206,7 @@ def price_divisor(decimal: int | None) -> int:
 
 def is_index_code(market: int, symbol: str) -> bool:
     if market == 1:
-        return symbol.startswith("000") or symbol.startswith("999")
+        return symbol.startswith(("000", "999", "880", "881"))
     if market == 0:
         return symbol.startswith("399")
     return symbol.startswith("899")

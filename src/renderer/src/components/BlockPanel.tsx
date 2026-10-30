@@ -197,7 +197,11 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                       <strong>{block().name}</strong>
                       <Show when={indexQuote()}>
                         {(index) => (
-                          <span class="block__index">
+                          <button
+                            class="block__index"
+                            title="查看板块指数 K 线"
+                            onClick={() => props.onSelect(index())}
+                          >
                             指数 {fixed(index().price)}{' '}
                             <span
                               classList={{
@@ -207,7 +211,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                             >
                               {signedPct(index().changePct)}
                             </span>
-                          </span>
+                          </button>
                         )}
                       </Show>
                     </div>

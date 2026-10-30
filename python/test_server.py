@@ -79,6 +79,9 @@ class FakeBridge:
     def mac_quotes(self, codes):
         return []
 
+    def lake_archives(self, limit=20):
+        return []
+
     def archive_snapshot(self):
         return {"dir": "/tmp", "rows": 0, "sha256": "", "generatedAt": "", "tradeDate": ""}
 
@@ -340,6 +343,9 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/archive_snapshot", {})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], 0)
+        status, payload, _ = self.request("POST", "/api/lake_archives", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"], [])
         status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])

@@ -316,6 +316,15 @@ export interface LocalDayWriteResult {
   count: number
 }
 
+export interface SnapshotArchiveItem {
+  dir: string
+  tradeDate: string
+  rows: number
+  sha256: string
+  generatedAt: string
+  size: number
+}
+
 export interface SnapshotArchiveResult {
   dir: string
   rows: number

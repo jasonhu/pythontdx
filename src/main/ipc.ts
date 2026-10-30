@@ -35,6 +35,7 @@ import {
   fetchLocalQuery,
   exportKlines,
   archiveSnapshot,
+  fetchLakeArchives,
   writeLocalDay,
   writeLocalMin,
   fetchF10Reports,
@@ -185,6 +186,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   )
 
   ipcMain.handle(IPC.archiveSnapshot, () => archiveSnapshot())
+
+  ipcMain.handle(IPC.lakeArchives, (_event, limit?: number) => fetchLakeArchives(limit))
 
   ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>
     fetchF10Statement(code, kind, full)

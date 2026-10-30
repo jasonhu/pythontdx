@@ -16,6 +16,7 @@ import type {
   F10TradingTable,
   LocalDayResult,
   KLineExportResult,
+  SnapshotArchiveItem,
   SnapshotArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
@@ -348,7 +349,8 @@ export function createHttpApi(): StockLensApi {
       localMinWrite: (path, bars) =>
         post<LocalDayWriteResult>('/api/local_write_min', { path, bars }),
       exportKlines: (req) => post<KLineExportResult>('/api/export_klines', req),
-      archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {})
+      archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {}),
+      lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit })
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

@@ -14,7 +14,8 @@ import type {
   LocalImportResult,
   LocalDayWriteResult,
   KLineExportResult,
-  SnapshotArchiveResult
+  SnapshotArchiveResult,
+  SnapshotArchiveItem
 } from '@shared/types'
 import { thousands } from '@shared/format'
 import { appState, updateSettings, watchCodes } from '../stores/app'
@@ -60,6 +61,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [archiving, setArchiving] = createSignal(false)
   const [archive, setArchive] = createSignal<SnapshotArchiveResult | null>(null)
   const [archiveError, setArchiveError] = createSignal<string | null>(null)
+  const [archives, setArchives] = createSignal<SnapshotArchiveItem[]>([])
+  const [archivesLoading, setArchivesLoading] = createSignal(false)
+  const [archivesError, setArchivesError] = createSignal<string | null>(null)
   const [localDay, setLocalDay] = createSignal<LocalDayResult | null>(null)
   const [localLoading, setLocalLoading] = createSignal(false)
   const [localError, setLocalError] = createSignal<string | null>(null)
@@ -70,12 +74,25 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [writeResult, setWriteResult] = createSignal<LocalDayWriteResult | null>(null)
   const [writeError, setWriteError] = createSignal<string | null>(null)
 
+  const loadArchives = async (): Promise<void> => {
+    setArchivesLoading(true)
+    setArchivesError(null)
+    try {
+      setArchives(await api.data.lakeArchives(20))
+    } catch (cause) {
+      setArchivesError(errorMessage(cause))
+    } finally {
+      setArchivesLoading(false)
+    }
+  }
+
   const runArchive = async (): Promise<void> => {
     if (archiving()) return
     setArchiving(true)
     setArchiveError(null)
     try {
       setArchive(await api.data.archiveSnapshot())
+      await loadArchives()
     } catch (cause) {
       setArchiveError(errorMessage(cause))
     } finally {
@@ -428,6 +445,49 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
             )}
           </Show>
+
+          <section class="data__lake">
+            <div class="data__lake-head">
+              <div>
+                <div class="data__label">数据湖归档历史</div>
+                <div class="data__sub">lake/quotes 下最近 20 个 trade_date 分区。</div>
+              </div>
+              <button
+                class="btn data__lake-refresh"
+                disabled={archivesLoading()}
+                onClick={() => void loadArchives()}
+              >
+                {archivesLoading() ? '读取中…' : '刷新归档'}
+              </button>
+            </div>
+            <Show when={archivesError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={archives().length > 0}>
+              <table class="data__table data__lake-table">
+                <thead>
+                  <tr>
+                    <th>分区</th>
+                    <th class="num">行数</th>
+                    <th class="num">大小</th>
+                    <th>SHA256</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={archives()}>
+                    {(item) => (
+                      <tr>
+                        <td>{item.tradeDate}</td>
+                        <td class="num">{thousands(item.rows)}</td>
+                        <td class="num">{formatBytes(item.size)}</td>
+                        <td class="data__lake-sha">{item.sha256.slice(0, 12)}…</td>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </Show>
+          </section>
 
           <Show when={snapshotError()}>
             {(message) => <div class="data__query-error">{message()}</div>}

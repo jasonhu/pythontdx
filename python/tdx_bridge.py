@@ -60,7 +60,7 @@ from tdx_mac import (
 )
 from local_import import import_local_file
 from kline_export import write_kline_export
-from snapshot_archive import write_snapshot_archive
+from snapshot_archive import list_snapshot_archives, write_snapshot_archive
 from tdx_f10 import (
     fetch_announcements,
     fetch_business,
@@ -2512,6 +2512,9 @@ class Bridge:
         """写本地 .lc1/.lc5/.5（原子替换）。"""
         return write_min_file(path, bars)
 
+    def lake_archives(self, limit: int = 20) -> list[dict]:
+        return list_snapshot_archives(stocklens_data_dir() / "lake" / "quotes", limit)
+
     def archive_snapshot(self) -> dict:
         """把全市场 A 股快照归档到数据湖 lake/quotes/trade_date=/。"""
         codes = []
@@ -3359,6 +3362,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.local_import(str(payload.get("path") or ""))
     if cmd == "archive_snapshot":
         return bridge.archive_snapshot()
+    if cmd == "lake_archives":
+        return bridge.lake_archives(int(payload.get("limit", 20)))
     if cmd == "export_klines":
         return bridge.export_klines(
             payload.get("codes") or [],

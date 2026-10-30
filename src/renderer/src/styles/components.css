@@ -5217,3 +5217,29 @@
   color: var(--accent);
   font-size: var(--fs-2xs);
 }
+
+.data__lake {
+  margin: 8px 0 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+
+.data__lake-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.data__lake-table {
+  margin-top: 4px;
+}
+
+.data__lake-sha {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}

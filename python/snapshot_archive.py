@@ -62,3 +62,34 @@ def write_snapshot_archive(
         "generatedAt": generated_at,
         "tradeDate": trade_date,
     }
+
+
+def list_snapshot_archives(root: Path, limit: int = 20) -> list[dict]:
+    """列出已归档分区；按 tradeDate 倒序，供数据工具核对。"""
+    if not root.is_dir():
+        return []
+    items: list[dict] = []
+    for child in root.iterdir():
+        if not child.is_dir() or not child.name.startswith("trade_date="):
+            continue
+        manifest_path = child / "manifest.json"
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text("utf-8"))
+        except (OSError, ValueError):
+            continue
+        files = [child / name for name in manifest.get("files") or []]
+        size = sum(path.stat().st_size for path in files if path.is_file())
+        items.append(
+            {
+                "dir": str(child.resolve()),
+                "tradeDate": str(manifest.get("tradeDate") or child.name.split("=", 1)[1]),
+                "rows": int(manifest.get("rows") or 0),
+                "sha256": str(manifest.get("sha256") or ""),
+                "generatedAt": str(manifest.get("generatedAt") or ""),
+                "size": size,
+            }
+        )
+    items.sort(key=lambda item: (item["tradeDate"], item["generatedAt"]), reverse=True)
+    return items[: max(1, min(100, int(limit)))]

@@ -17,6 +17,7 @@ import type {
   LocalDayBar,
   LocalDayResult,
   KLineExportResult,
+  SnapshotArchiveItem,
   SnapshotArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
@@ -336,6 +337,10 @@ export async function fetchFormulaScreen(
     },
     180_000
   )
+}
+
+export async function fetchLakeArchives(limit = 20): Promise<SnapshotArchiveItem[]> {
+  return bridge.send<SnapshotArchiveItem[]>('lake_archives', { limit }, 20_000)
 }
 
 export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {

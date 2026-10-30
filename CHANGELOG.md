@@ -70,6 +70,7 @@ StockLens 的所有重要变更都记录在这里。
 - **Web 截图验收**：`scripts/web-shot.cjs` + `npm run shot:web`，1440×900 实拍 Web 只读页。
 - **选股股票池**：选股结果一键存为新自选分组（100 只），截图 `screener-pool.png`。
 - **矩阵复核**：校正公告/财务/龙虎榜/盘后下载/本地行情/数据湖等过期状态；124 个截图引用全部存在。
+- **数据湖归档历史**：列最新 20 个 trade_date、行数/大小/SHA；108 Python。
 - **F10 增减持计划**：7615 `gdzjcjh` 6 行，金额区间/进度/已增持；107 Python。
 - **F10 实控人**：7615 `kggd` 控股股东/实际控制人/控制关系；106 Python。
 - **数据湖快照归档**：`lake/quotes/trade_date=/` JSONL.gz+CSV+manifest，5,615 行；105 Python。
@@ -170,6 +171,7 @@ StockLens 的所有重要变更都记录在这里。
 - **Web 截图验收**：`scripts/web-shot.cjs` + `npm run shot:web`，1440×900 实拍 Web 只读页。
 - **选股股票池**：选股结果一键存为新自选分组（100 只），截图 `screener-pool.png`。
 - **矩阵复核**：校正公告/财务/龙虎榜/盘后下载/本地行情/数据湖等过期状态；124 个截图引用全部存在。
+- **数据湖归档历史**：列最新 20 个 trade_date、行数/大小/SHA；108 Python。
 - **F10 增减持计划**：7615 `gdzjcjh` 6 行，金额区间/进度/已增持；107 Python。
 - **F10 实控人**：7615 `kggd` 控股股东/实际控制人/控制关系；106 Python。
 - **数据湖快照归档**：`lake/quotes/trade_date=/` JSONL.gz+CSV+manifest，5,615 行；105 Python。

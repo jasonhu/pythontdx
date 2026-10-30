@@ -26,6 +26,7 @@ import type {
   LocalDayBar,
   LocalDayResult,
   KLineExportResult,
+  SnapshotArchiveItem,
   SnapshotArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
@@ -131,6 +132,8 @@ export const IPC = {
   exportKlines: 'data:export-klines',
   /** 全市场快照归档到数据湖（invoke） */
   archiveSnapshot: 'data:archive-snapshot',
+  /** 数据湖归档列表（invoke） */
+  lakeArchives: 'data:lake-archives',
   /** 写本地分钟文件（invoke） */
   localMinWrite: 'local:write-min',
   /** 7615 财务报表关键科目（invoke） */
@@ -312,6 +315,7 @@ export interface StockLensApi {
       adjust?: string
     }): Promise<KLineExportResult>
     archiveSnapshot(): Promise<SnapshotArchiveResult>
+    lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

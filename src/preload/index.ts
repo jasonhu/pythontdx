@@ -86,7 +86,8 @@ const api: StockLensApi = {
     localDayWrite: (path, bars) => ipcRenderer.invoke(IPC.localDayWrite, path, bars),
     localMinWrite: (path, bars) => ipcRenderer.invoke(IPC.localMinWrite, path, bars),
     exportKlines: (req) => ipcRenderer.invoke(IPC.exportKlines, req),
-    archiveSnapshot: () => ipcRenderer.invoke(IPC.archiveSnapshot)
+    archiveSnapshot: () => ipcRenderer.invoke(IPC.archiveSnapshot),
+    lakeArchives: (limit) => ipcRenderer.invoke(IPC.lakeArchives, limit)
   },
   block: {
     list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),

@@ -30,7 +30,7 @@ function describeConditions(rule: AlertRule): string {
         condition.value
       )}`
     })
-    .join(' 且 ')
+    .join(rule.conditionMode === 'or' ? ' 或 ' : ' 且 ')
 }
 
 export function AlertPanel(props: AlertPanelProps): JSX.Element {
@@ -41,6 +41,7 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
   const [extras, setExtras] = createSignal<
     Array<{ metric: AlertMetric; direction: AlertDirection; value: string }>
   >([])
+  const [conditionMode, setConditionMode] = createSignal<'and' | 'or'>('and')
 
   // 切换股票时用当前价/涨幅作为输入初值；只在 code 改变时重置
   createEffect(() => {
@@ -51,6 +52,7 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
     setMetric('price')
     setDirection('above')
     setExtras([])
+    setConditionMode('and')
     setError(null)
   })
 
@@ -83,7 +85,8 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
       metric: metric(),
       direction: direction(),
       value: parsed,
-      conditions
+      conditions,
+      conditionMode: extras().length > 0 ? conditionMode() : undefined
     })
     setError(null)
   }
@@ -239,6 +242,21 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
               </div>
             )}
           </For>
+
+          <Show when={extras().length > 0}>
+            <div class="alert__mode">
+              <span>组合关系</span>
+              <select
+                class="alert__select alert__mode-select"
+                value={conditionMode()}
+                aria-label="组合条件关系"
+                onChange={(event) => setConditionMode(event.currentTarget.value as 'and' | 'or')}
+              >
+                <option value="and">全部满足（且）</option>
+                <option value="or">任一满足（或）</option>
+              </select>
+            </div>
+          </Show>
 
           <button
             class="btn alert__add-condition"

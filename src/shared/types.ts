@@ -748,6 +748,8 @@ export interface AlertRule {
   value: number
   /** 可选：全部条件同时满足才触发；为空时使用顶层 metric/direction/value */
   conditions?: AlertCondition[]
+  /** 组合条件关系：默认且 */
+  conditionMode?: 'and' | 'or'
   enabled: boolean
   /** 最近一次触发的本地日期 YYYY-MM-DD；同一天不重复 */
   lastTriggeredDate?: string

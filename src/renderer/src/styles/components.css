@@ -5299,3 +5299,11 @@
 .screener__preset-track.is-tracking {
   color: var(--accent);
 }
+
+.alert__mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

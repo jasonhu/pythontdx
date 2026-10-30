@@ -75,7 +75,11 @@ export function evaluateAlerts(
     const conditions = ruleConditions(rule)
     const values = conditions.map((condition) => alertMetricValue(condition.metric, quote))
     if (values.some((value) => !Number.isFinite(value))) continue
-    if (!conditions.every((condition, index) => matches(condition, values[index]))) continue
+    const matched =
+      rule.conditionMode === 'or'
+        ? conditions.some((condition, index) => matches(condition, values[index]))
+        : conditions.every((condition, index) => matches(condition, values[index]))
+    if (!matched) continue
 
     const next = { ...rule, lastTriggeredDate: date }
     const description = conditions
@@ -86,7 +90,7 @@ export function evaluateAlerts(
           values[index]
         )} ${label} ${formatAlertValue(condition.metric, condition.value)}`
       })
-      .join(' 且 ')
+      .join(rule.conditionMode === 'or' ? ' 或 ' : ' 且 ')
     events.push({
       rule: next,
       quote,

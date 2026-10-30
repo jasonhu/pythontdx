@@ -390,6 +390,7 @@ function plainAlerts(): AlertRule[] {
 export function addAlert(
   input: Pick<AlertRule, 'code' | 'name' | 'metric' | 'direction' | 'value'> & {
     conditions?: AlertRule['conditions']
+    conditionMode?: AlertRule['conditionMode']
   }
 ): void {
   const rule: AlertRule = {

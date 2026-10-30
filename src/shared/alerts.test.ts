@@ -62,6 +62,20 @@ describe('evaluateAlerts', () => {
     expect(scan.events[0]?.message).toContain('且')
   })
 
+  it('「或」组合任一满足即触发，消息用「或」连接', () => {
+    const combo = rule({
+      conditionMode: 'or',
+      conditions: [
+        { metric: 'price', direction: 'above', value: 100 },
+        { metric: 'changePct', direction: 'above', value: 5 }
+      ]
+    })
+    const scan = evaluateAlerts([combo], [quote('sh600519', 150, 1.5)], NOW)
+    expect(scan.events).toHaveLength(1)
+    expect(scan.events[0]?.message).toContain('或')
+    expect(evaluateAlerts([combo], [quote('sh600519', 90, 1.5)], NOW).events).toHaveLength(0)
+  })
+
   it('三条件组合全部满足才触发', () => {
     const combo = rule({
       conditions: [

@@ -7,7 +7,7 @@
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc'
 import { registerIpcHandlers } from './ipc'
@@ -100,6 +100,13 @@ function bootstrap(): void {
 
 function onReady(): void {
   electronApp.setAppUserModelId(APP_ID)
+
+  // 数据导出走浏览器下载；显式落到系统下载目录，避免 Electron 默认行为随版本漂移。
+  session.defaultSession.on('will-download', (_event, item) => {
+    const target = join(app.getPath('downloads'), item.getFilename())
+    item.setSavePath(target)
+    console.log(`[download] ${target}`)
+  })
 
   // 开发模式下放开 F12 / Ctrl+R 之类的快捷键
   app.on('browser-window-created', (_event, window) => {

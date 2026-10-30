@@ -112,6 +112,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
   const [dragId, setDragId] = createSignal<number | null>(null)
   const [dragPart, setDragPart] = createSignal<'start' | 'end'>('end')
+  const [editing, setEditing] = createSignal<{
+    id: number
+    left: number
+    top: number
+    value: string
+  } | null>(null)
   const [pendingPoint, setPendingPoint] = createSignal<{ index: number; price: number } | null>(
     null
   )
@@ -328,6 +334,38 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       }
     }
     return null
+  }
+
+  const commitEditing = (): void => {
+    const edit = editing()
+    if (!edit) return
+    const next = drawings().map((drawing) =>
+      drawing.id === edit.id ? { ...drawing, text: edit.value } : drawing
+    )
+    setDrawings(next)
+    persistDrawings(next)
+    setEditing(null)
+  }
+
+  const onDoubleClick = (event: MouseEvent): void => {
+    const geo = geometry()
+    if (!geo || props.rangeMode || props.drawMode !== 'none') return
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    const target = drawings().find(
+      (drawing) =>
+        drawing.type === 'text' &&
+        Math.hypot(geo.x(drawing.startIndex ?? 0) - x, geo.yPrice(drawing.price ?? 0) - y) <= 12
+    )
+    if (!target) return
+    event.preventDefault()
+    setEditing({
+      id: target.id,
+      left: geo.x(target.startIndex ?? 0) + 8,
+      top: Math.max(2, geo.yPrice(target.price ?? 0) - 12),
+      value: target.text || ''
+    })
   }
 
   const onPointerDown = (event: PointerEvent): void => {
@@ -599,6 +637,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onDblClick={onDoubleClick}
       onPointerLeave={() => {
         // 指针离开就交还键盘、收起光标：别让「谁在响应键盘」含糊着
         setHovering(false)
@@ -930,6 +969,29 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
               )}
             </For>
           </div>
+        )}
+      </Show>
+
+      <Show when={editing()}>
+        {(edit) => (
+          <input
+            class="chart-edit-input"
+            style={{ left: `${edit().left}px`, top: `${edit().top}px` }}
+            value={edit().value}
+            maxlength="20"
+            autofocus
+            ref={(element) => queueMicrotask(() => element.focus())}
+            onInput={(event) =>
+              setEditing((current) =>
+                current ? { ...current, value: event.currentTarget.value } : current
+              )
+            }
+            onBlur={commitEditing}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitEditing()
+              if (event.key === 'Escape') setEditing(null)
+            }}
+          />
         )}
       </Show>
     </div>

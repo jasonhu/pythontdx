@@ -4561,3 +4561,17 @@
 .chart-host--dragging {
   cursor: grabbing;
 }
+
+.chart-edit-input {
+  position: absolute;
+  z-index: 4;
+  width: 128px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-xs);
+  color: var(--text-1);
+  background: var(--panel-solid);
+  font-size: var(--fs-xs);
+  box-shadow: var(--shadow-2);
+}

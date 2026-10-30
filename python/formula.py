@@ -16,7 +16,7 @@ SERIES = {
     "VOL": "volume",
     "VOLUME": "volume",
 }
-FUNCTIONS = {"MA", "EMA", "REF", "ABS", "MAX", "MIN", "CROSS"}
+FUNCTIONS = {"MA", "EMA", "REF", "ABS", "MAX", "MIN", "CROSS", "SUM", "HHV", "LLV", "STD", "IF"}
 
 
 class FormulaError(Exception):
@@ -196,6 +196,39 @@ def _evaluate(node, bars: list[dict]) -> list[float]:
         return result
     name = node[1]
     args = node[2]
+    if name in {"SUM", "HHV", "LLV", "STD"}:
+        if len(args) != 2:
+            raise FormulaError(f"{name} 需要 2 个参数")
+        values = _evaluate(args[0], bars)
+        count = _count(args[1], bars)
+        result = []
+        for index in range(len(values)):
+            if index + 1 < count:
+                result.append(math.nan)
+                continue
+            window = values[index - count + 1 : index + 1]
+            if not all(math.isfinite(value) for value in window):
+                result.append(math.nan)
+            elif name == "SUM":
+                result.append(sum(window))
+            elif name == "HHV":
+                result.append(max(window))
+            elif name == "LLV":
+                result.append(min(window))
+            else:
+                mean = sum(window) / count
+                result.append(math.sqrt(sum((value - mean) ** 2 for value in window) / count))
+        return result
+    if name == "IF":
+        if len(args) != 3:
+            raise FormulaError("IF 需要 3 个参数")
+        condition = _evaluate(args[0], bars)
+        when_true = _evaluate(args[1], bars)
+        when_false = _evaluate(args[2], bars)
+        return [
+            when_true[index] if math.isfinite(value) and value > 0 else when_false[index]
+            for index, value in enumerate(condition)
+        ]
     if name == "MA":
         if len(args) != 2:
             raise FormulaError("MA 需要 2 个参数")

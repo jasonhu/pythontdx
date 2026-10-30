@@ -30,7 +30,20 @@ const SERIES: Record<string, keyof KLineBar> = {
   VOLUME: 'volume'
 }
 
-const FUNCTIONS = new Set(['MA', 'EMA', 'REF', 'ABS', 'MAX', 'MIN', 'CROSS'])
+const FUNCTIONS = new Set([
+  'MA',
+  'EMA',
+  'REF',
+  'ABS',
+  'MAX',
+  'MIN',
+  'CROSS',
+  'SUM',
+  'HHV',
+  'LLV',
+  'STD',
+  'IF'
+])
 
 function tokenize(expression: string): Token[] {
   const tokens: Token[] = []
@@ -280,6 +293,33 @@ function evaluate(node: Node, bars: KLineBar[]): number[] {
             if (index === 0) return 0
             return value > right[index] && left[index - 1] <= right[index - 1] ? 1 : 0
           })
+        }
+        case 'SUM':
+        case 'HHV':
+        case 'LLV':
+        case 'STD': {
+          if (node.args.length !== 2) throw new FormulaError(`${node.name} 需要 2 个参数`)
+          const values = evaluate(node.args[0], bars)
+          const count = withCount(node.args[1], bars)
+          return values.map((_, index) => {
+            if (index + 1 < count) return Number.NaN
+            const window = values.slice(index - count + 1, index + 1)
+            if (window.some((value) => !Number.isFinite(value))) return Number.NaN
+            if (node.name === 'SUM') return window.reduce((sum, value) => sum + value, 0)
+            if (node.name === 'HHV') return Math.max(...window)
+            if (node.name === 'LLV') return Math.min(...window)
+            const mean = window.reduce((sum, value) => sum + value, 0) / count
+            return Math.sqrt(window.reduce((sum, value) => sum + (value - mean) ** 2, 0) / count)
+          })
+        }
+        case 'IF': {
+          if (node.args.length !== 3) throw new FormulaError('IF 需要 3 个参数')
+          const condition = evaluate(node.args[0], bars)
+          const whenTrue = evaluate(node.args[1], bars)
+          const whenFalse = evaluate(node.args[2], bars)
+          return condition.map((value, index) =>
+            Number.isFinite(value) && value > 0 ? whenTrue[index] : whenFalse[index]
+          )
         }
         default:
           throw new FormulaError(`未知函数：${node.name}`)

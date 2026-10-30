@@ -60,6 +60,7 @@ StockLens 的所有重要变更都记录在这里。
 - **打包守卫**：beforePack 校验 sidecar 魔数，Linux 交叉打 Windows 包直接失败，避免 ELF sidecar 混入。
 - **第二主窗口**：TitleBar「新窗」；行情推送广播到所有窗口；active/settings BroadcastChannel 同步。
 - **窄窗适配**：1240px 以下隐藏自选迷你图、侧栏图标收窄、右栏可滚动，避免股票名压成一个字/买五被裁。
+- **公式函数扩充**：SUM/HHV/LLV/STD/IF，前后端同子集；183 TS + 91 Python。
 - **全表排序**：MAC 分批 400 只拉全 A 5,615 只报价，按涨幅/跌幅/成交额/现价重排；榜单首屏 *ST航图 +20.04%。
 - **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `d32af6e5…`、deb 106 MB `f6ccdcef…`，AppImage 实机启动截图；包内全表排序已验证。
 - **MAC 报价兜底**：`0x122B` 三步握手 + 字段 0~7 + 五档；7709 报价失败时自动切 MAC，89 Python。

@@ -28,6 +28,15 @@ class TestFormula(unittest.TestCase):
         value = formula.evaluate_formula("EMA(CLOSE,2)", bars([1, 2, 3]))
         self.assertAlmostEqual(value, 2.555555, places=5)
 
+    def test_rolling_functions(self):
+        data = bars([1, 2, 3, 4, 5])
+        self.assertAlmostEqual(formula.evaluate_formula("SUM(CLOSE,2)", data), 9.0)
+        self.assertAlmostEqual(formula.evaluate_formula("HHV(CLOSE,3)", data), 5.0)
+        self.assertAlmostEqual(formula.evaluate_formula("LLV(CLOSE,3)", data), 3.0)
+        self.assertAlmostEqual(formula.evaluate_formula("STD(CLOSE,2)", data), 0.5)
+        self.assertEqual(formula.evaluate_formula("IF(CLOSE>3,1,0)", data), 1.0)
+        self.assertEqual(formula.evaluate_formula("IF(CLOSE>9,1,0)", data), 0.0)
+
     def test_errors(self):
         with self.assertRaises(formula.FormulaError):
             formula.evaluate_formula("FOO", bars([1]))

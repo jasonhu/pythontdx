@@ -83,6 +83,16 @@ describe('evaluateFormula', () => {
     expect(result.maxDrawdown).toBeGreaterThanOrEqual(0)
   })
 
+  it('SUM/HHV/LLV/STD/IF 滚动函数', () => {
+    const data = bars([1, 2, 3, 4, 5])
+    expect(evaluateFormula('SUM(CLOSE,2)', data).latest).toBe(9)
+    expect(evaluateFormula('HHV(CLOSE,3)', data).latest).toBe(5)
+    expect(evaluateFormula('LLV(CLOSE,3)', data).latest).toBe(3)
+    expect(evaluateFormula('STD(CLOSE,2)', data).latest).toBeCloseTo(0.5, 6)
+    expect(evaluateFormula('IF(CLOSE > 3, 1, 0)', data).latest).toBe(1)
+    expect(evaluateFormula('IF(CLOSE > 9, 1, 0)', data).latest).toBe(0)
+  })
+
   it('未知变量/函数与空公式报错', () => {
     expect(() => evaluateFormula('FOO', bars([1]))).toThrow(FormulaError)
     expect(() => evaluateFormula('MA(CLOSE)', bars([1]))).toThrow(FormulaError)

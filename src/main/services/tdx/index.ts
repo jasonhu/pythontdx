@@ -7,6 +7,7 @@
  *   · 维护代码表 + 拼音搜索索引。
  */
 import type {
+  CategoryQuote,
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
@@ -14,6 +15,7 @@ import type {
   Quote,
   SearchItem
 } from '@shared/types'
+import type { CategoryRequest } from '@shared/ipc'
 import { splitCode } from '@shared/market'
 import { TtlCache } from '../cache'
 import { CODE_LIST_TIMEOUT_MS, QUOTES_TIMEOUT_MS, TdxBridge, TdxError } from './bridge'
@@ -90,6 +92,11 @@ export async function fetchQuotes(codes: string[], signal?: AbortSignal): Promis
   return unique
     .map((code) => byCode.get(code))
     .filter((quote): quote is Quote => quote !== undefined)
+}
+
+/** 0x054b 服务端排序的一页分类行情；category=6 是沪深 A 股。 */
+export async function fetchCategoryQuotes(request: CategoryRequest): Promise<CategoryQuote[]> {
+  return bridge.send<CategoryQuote[]>('category', { ...request }, QUOTES_TIMEOUT_MS)
 }
 
 /* ------------------------------------------------------------------ K 线 */

@@ -96,6 +96,17 @@ export interface Quote {
   receivedAt: number
 }
 
+/** 0x054b 分类行情额外字段；榜单页使用，普通行情不保证存在 */
+export interface CategoryQuote extends Quote {
+  riseSpeed?: number
+  shortTurnover?: number
+  lockedAmount?: number
+  openingRush?: number
+  volRiseSpeed?: number
+  depth?: number
+  active2?: number
+}
+
 /* --------------------------------------------------------------- 分时图 */
 
 /** 分时的分钟点：价格为该分钟收盘价，avg 为当日累计均价 */

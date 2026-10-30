@@ -7,6 +7,7 @@
 import type {
   AppInfo,
   AppState,
+  CategoryQuote,
   KLinePeriod,
   KLineSeries,
   MinuteTrend,
@@ -27,6 +28,8 @@ export const IPC = {
   quoteUnsubscribe: 'quote:unsubscribe',
   /** 主进程 → 渲染进程的行情推送（on） */
   quoteUpdate: 'quote:update',
+  /** 分类行情/排行榜（invoke） */
+  quoteCategory: 'quote:category',
 
   /** 当日分时（invoke） */
   trendMinute: 'trend:minute',
@@ -61,6 +64,16 @@ export interface KLineRequest {
   count?: number
 }
 
+/** 0x054b 分类行情请求；category=6 是沪深 A 股 */
+export interface CategoryRequest {
+  category?: number
+  sortType?: number
+  start?: number
+  count?: number
+  ascending?: boolean
+  filterRaw?: number
+}
+
 /**
  * preload 通过 contextBridge 暴露给渲染进程的完整 API。
  * 渲染进程的 window.api 就是这个类型（见 src/preload/index.d.ts）。
@@ -74,6 +87,8 @@ export interface StockLensApi {
     unsubscribe(): Promise<void>
     /** 监听主进程推送，返回取消监听的函数 */
     onUpdate(listener: (update: QuoteUpdate) => void): () => void
+    /** 服务端排序的一页分类行情（排行榜） */
+    category(req: CategoryRequest): Promise<CategoryQuote[]>
   }
   trend: {
     minute(code: string): Promise<MinuteTrend>

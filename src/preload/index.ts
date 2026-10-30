@@ -27,7 +27,8 @@ const api: StockLensApi = {
     snapshot: (codes) => ipcRenderer.invoke(IPC.quoteSnapshot, codes),
     subscribe: (codes, intervalMs) => ipcRenderer.invoke(IPC.quoteSubscribe, codes, intervalMs),
     unsubscribe: () => ipcRenderer.invoke(IPC.quoteUnsubscribe),
-    onUpdate: (listener) => subscribe(IPC.quoteUpdate, listener)
+    onUpdate: (listener) => subscribe(IPC.quoteUpdate, listener),
+    category: (request) => ipcRenderer.invoke(IPC.quoteCategory, request)
   },
   trend: {
     minute: (code) => ipcRenderer.invoke(IPC.trendMinute, code),

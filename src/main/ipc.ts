@@ -8,10 +8,11 @@
  */
 import { ipcMain, app, shell, type BrowserWindow } from 'electron'
 import type { AppState } from '@shared/types'
-import { IPC, type KLineRequest } from '@shared/ipc'
+import { IPC, type CategoryRequest, type KLineRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
 import type { QuotePoller } from './services/poller'
 import {
+  fetchCategoryQuotes,
   fetchFiveDayTrend,
   fetchKline,
   fetchMinuteTrend,
@@ -31,6 +32,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   /* ---------------------------------------------------------- 行情 */
 
   ipcMain.handle(IPC.quoteSnapshot, (_event, codes: string[]) => fetchQuotes(codes))
+
+  ipcMain.handle(IPC.quoteCategory, (_event, request: CategoryRequest) =>
+    fetchCategoryQuotes(request)
+  )
 
   ipcMain.handle(IPC.quoteSubscribe, (_event, codes: string[], intervalMs: number) => {
     poller.setSubscription(codes, intervalMs)

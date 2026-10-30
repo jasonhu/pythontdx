@@ -25,12 +25,16 @@ import {
   setActiveGroup,
   setDraggingCode
 } from '../stores/app'
-import { IconClose, IconPlus, IconStar } from './Icons'
+import { IconChart, IconClose, IconPlus, IconStar } from './Icons'
 import { WatchRow } from './WatchRow'
 
 type DropSide = 'before' | 'after'
 
-export function Sidebar(): JSX.Element {
+interface SidebarProps {
+  onOpenRanking: () => void
+}
+
+export function Sidebar(props: SidebarProps): JSX.Element {
   const [editingId, setEditingId] = createSignal<string | null>(null)
   const [draft, setDraft] = createSignal('')
 
@@ -120,6 +124,14 @@ export function Sidebar(): JSX.Element {
           自选股
           <span class="badge">{totalCount()}</span>
         </div>
+        <button
+          class="btn btn--icon btn--bare ranking-open"
+          title="排行榜"
+          aria-label="打开 A 股排行榜"
+          onClick={() => props.onOpenRanking()}
+        >
+          <IconChart size={13} />
+        </button>
         <button
           class="btn btn--icon btn--bare"
           title="新建分组"

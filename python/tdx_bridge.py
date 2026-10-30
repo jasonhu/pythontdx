@@ -51,7 +51,12 @@ from duckdb_query import run_duckdb_query
 from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
 from tdx_local import read_local_file, write_day_file, write_min_file
-from tdx_mac import MacError, fetch_capital_flow, fetch_quotes as fetch_mac_quotes
+from tdx_mac import (
+    MacError,
+    fetch_capital_flow,
+    fetch_quotes as fetch_mac_quotes,
+    fetch_unusual,
+)
 from local_import import import_local_file
 from tdx_f10 import (
     fetch_announcements,
@@ -2315,6 +2320,20 @@ class Bridge:
         """MAC 0x1218 今日/5 日资金流。"""
         return fetch_capital_flow(code)
 
+    def mac_unusual(self, count: int = 600) -> list[dict]:
+        """MAC 0x1237 沪深异动；两个市场合并后按时间倒序。"""
+        items: list[dict] = []
+        seen: set[tuple[str, str, str]] = set()
+        for market in (0, 1):
+            for item in fetch_unusual(market, count):
+                key = (item["code"], item["time"], item["desc"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                items.append(item)
+        items.sort(key=lambda item: (item["time"], item["index"]), reverse=True)
+        return items
+
     def quotes(self, codes: list[str]) -> list[dict]:
         try:
             return self._quotes_7709(codes)
@@ -3141,6 +3160,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.mac_quotes(payload.get("codes") or [])
     if cmd == "mac_money_flow":
         return bridge.mac_money_flow(str(payload.get("code") or ""))
+    if cmd == "mac_unusual":
+        return bridge.mac_unusual(int(payload.get("count", 600)))
     if cmd == "refresh":
         return bridge.refresh_quotes(
             payload.get("codes") or [], payload.get("cursors") or {}

@@ -4575,3 +4575,114 @@
   font-size: var(--fs-xs);
   box-shadow: var(--shadow-2);
 }
+
+/* ------------------------------------------------------------ 沪深异动 */
+.unusual-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 329;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 5, 10, 0.64);
+  backdrop-filter: blur(9px);
+  -webkit-app-region: no-drag;
+}
+
+.unusual-panel {
+  width: min(760px, 94vw);
+  height: min(680px, 88vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.unusual__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.unusual__eyebrow {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+}
+
+.unusual__title {
+  margin: 3px 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 650;
+}
+
+.unusual__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.unusual__table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 20px 12px;
+}
+
+.unusual__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+}
+
+.unusual__table th,
+.unusual__table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.unusual__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--text-3);
+  background: var(--panel-solid);
+  font-weight: 500;
+}
+
+.unusual__table tbody tr {
+  cursor: pointer;
+}
+
+.unusual__table tbody tr:hover {
+  background: var(--panel-hover);
+}
+
+.unusual__num {
+  text-align: right;
+}
+
+.unusual__desc {
+  color: var(--accent);
+}
+
+.unusual__error {
+  padding: 6px 20px;
+  color: var(--down);
+  font-size: var(--fs-xs);
+}
+
+.unusual__loading {
+  padding: 8px 0;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

@@ -476,6 +476,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/mac_unusual":
+                with self.server.lock:
+                    self._ok(self.server.bridge.mac_unusual(int(payload.get("count", 600))))
+                return
             if parsed.path == "/api/mac_money_flow":
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_money_flow(str(payload.get("code") or "")))

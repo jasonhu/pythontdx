@@ -308,3 +308,113 @@ def fetch_capital_flow(code: str, timeout: float = 4.0, hosts: tuple[str, ...] =
         finally:
             sock.close()
     raise MacError(f"MAC 资金流不可用：{last_error}")
+
+
+def _describe_unusual(kind: int, data: bytes) -> tuple[str, str]:
+    if len(data) < 13:
+        return "", ""
+    v1, v2, v3, v4 = struct.unpack_from("<B2fI", data)
+    if kind == 0x03:
+        return f"主力{'买入' if v1 == 0 else '卖出'}", f"{v2:.2f}/{v3:.2f}"
+    if kind == 0x04:
+        return "加速拉升", f"{v2 * 100:.2f}%"
+    if kind == 0x05:
+        return "加速下跌", ""
+    if kind == 0x06:
+        return "低位反弹", f"{v2 * 100:.2f}%"
+    if kind == 0x07:
+        return "高位回落", f"{v2 * 100:.2f}%"
+    if kind == 0x08:
+        return "撑杆跳高", f"{v2 * 100:.2f}%"
+    if kind == 0x09:
+        return "平台跳水", f"{v2 * 100:.2f}%"
+    if kind == 0x0A:
+        return f"单笔冲{'跌' if v2 < 0 else '涨'}", f"{v2 * 100:.2f}%"
+    if kind == 0x0B:
+        direction = "平" if v3 == 0 else "跌" if v3 < 0 else "涨"
+        suffix = "" if v3 == 0 else f"{v3 * 100:.2f}%"
+        return f"区间放量{direction}", f"{v2:.1f}倍{suffix}"
+    if kind == 0x0C:
+        return "区间缩量", ""
+    if kind == 0x10:
+        return "大单托盘", f"{v4:.2f}/{v3:.2f}"
+    if kind == 0x11:
+        return "大单压盘", f"{v2:.2f}/{v3:.2f}"
+    if kind == 0x12:
+        return "大单锁盘", ""
+    if kind == 0x13:
+        return "竞价试买", f"{v2:.2f}/{v3:.2f}"
+    if kind == 0x14:
+        direction = "涨" if v1 == 0 else "跌"
+        sub_type, v2_alt, v3_alt = struct.unpack_from("<Bff", data, 1)
+        if sub_type == 0x01:
+            return f"逼近{direction}停", f"{v2_alt:.2f}/{v3_alt:.2f}"
+        if sub_type == 0x02:
+            return f"封{direction}停板", f"{v2_alt:.2f}/{v3_alt:.2f}"
+        if sub_type == 0x04:
+            return f"封{direction}大减", f"{v2_alt:.2f}/{v3_alt:.2f}"
+        if sub_type == 0x05:
+            return f"打开{direction}停", f"{v2_alt:.2f}/{v3_alt:.2f}"
+        return f"涨跌停({direction})", f"{v2_alt:.2f}/{v3_alt:.2f}"
+    return f"异动{kind:#04x}", ""
+
+
+def _request_unusual(sock: socket.socket, market: int, count: int) -> bytes:
+    body = struct.pack("<HH2xH2xH5H", market, 0, min(count, 600), 1, 200, 30, 40, 50, 200)
+    inner = struct.pack("<H", 0x1237) + body
+    header = struct.pack("<BIBHH", 0x1C, 0, 1, len(inner), len(inner))
+    sock.sendall(header + inner)
+    return _read_response(sock)
+
+
+def parse_unusual(body: bytes) -> list[dict]:
+    if len(body) < 2:
+        raise MacError("MAC 异动响应过短")
+    count = struct.unpack_from("<H", body, 0)[0]
+    if count > 600 or len(body) < 2 + count * 32:
+        raise MacError("MAC 异动行数异常")
+    names = body[2 + count * 32 :].decode("gbk", errors="ignore").strip(",").split(",")
+    items: list[dict] = []
+    for index in range(count):
+        offset = 2 + index * 32
+        market_id, raw_code, _z0, kind, _z1, sort_index, _z2 = struct.unpack_from(
+            "<H6sBBBHH", body, offset
+        )
+        market = MARKET_IDS.get(market_id)
+        if market is None:
+            continue
+        symbol = raw_code.decode("gbk", errors="ignore").rstrip("\x00")
+        if len(symbol) != 6 or not symbol.isdigit():
+            continue
+        desc, value = _describe_unusual(kind, body[offset + 15 : offset + 28])
+        hour, minute_second = struct.unpack_from("<BH", body, offset + 29)
+        items.append(
+            {
+                "market": market[0],
+                "code": f"{market[1]}{symbol}",
+                "symbol": symbol,
+                "name": names[index] if index < len(names) else "",
+                "time": f"{hour:02d}:{minute_second // 100:02d}:{minute_second % 100:02d}",
+                "desc": desc,
+                "value": value,
+                "type": kind,
+                "index": sort_index,
+            }
+        )
+    return items
+
+
+def fetch_unusual(market: int, count: int = 600, timeout: float = 4.0, hosts: tuple[str, ...] = MAC_HOSTS) -> list[dict]:
+    last_error: Exception | None = None
+    for host in hosts:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        try:
+            sock.connect((host, MAC_PORT))
+            _handshake(sock)
+            return parse_unusual(_request_unusual(sock, market, count))
+        except (OSError, MacError) as error:
+            last_error = error
+        finally:
+            sock.close()
+    raise MacError(f"MAC 异动不可用：{last_error}")

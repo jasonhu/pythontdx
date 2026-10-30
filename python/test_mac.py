@@ -58,6 +58,21 @@ class TestMacQuotes(unittest.TestCase):
         self.assertAlmostEqual(flow["largeNet5d"], 70.0)
         self.assertAlmostEqual(flow["midNet5d"], -5.0)
 
+    def test_parse_unusual(self):
+        record = bytearray()
+        record += struct.pack("<H", 1)
+        record += b"600519".ljust(6, b"\x00")
+        record += struct.pack("<BBBHH", 0, 0x04, 0, 0, 0)
+        record += struct.pack("<B2fI", 0, 0.025, 1.0, 0)
+        record += b"\x00"
+        record += struct.pack("<BH", 9, 2030)
+        body = struct.pack("<H", 1) + bytes(record) + "贵州茅台".encode("gbk")
+        items = tdx_mac.parse_unusual(body)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["code"], "sh600519")
+        self.assertEqual(items[0]["time"], "09:20:30")
+        self.assertEqual(items[0]["desc"], "加速拉升")
+
     def test_empty_codes(self):
         self.assertEqual(tdx_mac.fetch_quotes([]), [])
 

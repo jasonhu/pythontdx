@@ -10,6 +10,7 @@ import {
   DEFAULT_GROUP_ID,
   DEFAULT_SETTINGS,
   STATE_VERSION,
+  type AlertRule,
   type AppInfo,
   type AppSettings,
   type AppState,
@@ -24,7 +25,8 @@ const [state, setState] = createStore<AppState>({
   groups: [],
   activeGroupId: DEFAULT_GROUP_ID,
   settings: { ...DEFAULT_SETTINGS },
-  activeCode: null
+  activeCode: null,
+  alerts: []
 })
 
 const [appInfo, setAppInfo] = createSignal<AppInfo | null>(null)
@@ -76,7 +78,8 @@ export async function bootstrapAppState(): Promise<void> {
     groups: persisted.groups.length > 0 ? persisted.groups : [],
     activeGroupId: persisted.activeGroupId,
     settings: { ...DEFAULT_SETTINGS, ...persisted.settings },
-    activeCode: persisted.activeCode ?? persisted.groups[0]?.items[0]?.code ?? null
+    activeCode: persisted.activeCode ?? persisted.groups[0]?.items[0]?.code ?? null,
+    alerts: Array.isArray(persisted.alerts) ? persisted.alerts : []
   })
   setAppInfo(info)
 
@@ -271,6 +274,48 @@ export function updateSettings(patch: Partial<AppSettings>): void {
 
 export function toggleTheme(): void {
   updateSettings({ theme: state.settings.theme === 'dark' ? 'light' : 'dark' })
+}
+
+/* ------------------------------------------------------------------ 预警 */
+
+function plainAlerts(): AlertRule[] {
+  return state.alerts.map((rule) => ({ ...rule }))
+}
+
+export function addAlert(
+  input: Pick<AlertRule, 'code' | 'name' | 'metric' | 'direction' | 'value'>
+): void {
+  const rule: AlertRule = {
+    ...input,
+    id: `a${Date.now().toString(36)}`,
+    enabled: true
+  }
+  const alerts = [...plainAlerts(), rule]
+  setState('alerts', alerts)
+  persist({ alerts })
+}
+
+export function removeAlert(id: string): void {
+  const alerts = plainAlerts().filter((rule) => rule.id !== id)
+  setState('alerts', alerts)
+  persist({ alerts })
+}
+
+export function toggleAlert(id: string): void {
+  const alerts = plainAlerts().map((rule) =>
+    rule.id === id ? { ...rule, enabled: !rule.enabled } : rule
+  )
+  setState('alerts', alerts)
+  persist({ alerts })
+}
+
+/** 只更新触发过的规则；调用方传入 evaluateAlerts 的 updated。 */
+export function markAlertsTriggered(updated: readonly AlertRule[]): void {
+  if (updated.length === 0) return
+  const changed = new Map(updated.map((rule) => [rule.id, rule]))
+  const alerts = plainAlerts().map((rule) => changed.get(rule.id) ?? rule)
+  setState('alerts', alerts)
+  persist({ alerts })
 }
 
 /* ------------------------------------------------------------------ 落盘 */

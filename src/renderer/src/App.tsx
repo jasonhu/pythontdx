@@ -6,6 +6,8 @@
  */
 import { createEffect, createSignal, Match, onMount, Show, Switch, type JSX } from 'solid-js'
 import type { Quote } from '@shared/types'
+import { AlertPanel } from './components/AlertPanel'
+import { AlertToast } from './components/AlertToast'
 import { AuctionTape } from './components/AuctionTape'
 import { BlockPanel } from './components/BlockPanel'
 import { ChartPanel } from './components/ChartPanel'
@@ -31,12 +33,14 @@ import {
 } from './stores/app'
 import { applyQuotes, createQuoteStream, quoteOf } from './stores/quotes'
 import { createSparklineLoader } from './stores/sparklines'
+import { dismissLatestAlert, latestAlert } from './stores/alerts'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
   const [blocksOpen, setBlocksOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
+  const [alertsOpen, setAlertsOpen] = createSignal(false)
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'flow' | 'auction'>('book')
 
   onMount(() => {
@@ -64,7 +68,7 @@ export default function App(): JSX.Element {
 
   return (
     <div class="app" classList={{ 'app--empty': !activeQuote() }}>
-      <TitleBar onOpenData={() => setDataOpen(true)} />
+      <TitleBar onOpenData={() => setDataOpen(true)} onOpenAlerts={() => setAlertsOpen(true)} />
       <Sidebar
         onOpenRanking={() => setRankingOpen(true)}
         onOpenBlocks={() => setBlocksOpen(true)}
@@ -199,6 +203,27 @@ export default function App(): JSX.Element {
 
       <Show when={dataOpen()}>
         <DataPanel onClose={() => setDataOpen(false)} />
+      </Show>
+
+      <Show when={alertsOpen()}>
+        <AlertPanel
+          quote={activeQuote()}
+          onClose={() => setAlertsOpen(false)}
+          onSelect={(code) => {
+            setActiveCode(code)
+            setAlertsOpen(false)
+          }}
+        />
+      </Show>
+
+      <Show when={latestAlert()}>
+        {(event) => (
+          <AlertToast
+            event={event()}
+            onDismiss={dismissLatestAlert}
+            onSelect={(code) => setActiveCode(code)}
+          />
+        )}
       </Show>
     </div>
   )

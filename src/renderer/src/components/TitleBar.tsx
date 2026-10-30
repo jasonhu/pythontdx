@@ -10,11 +10,20 @@ import { createSignal, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { WindowAction } from '@shared/types'
 import { api } from '../lib/ipc'
 import { appInfo, toggleTheme, appState } from '../stores/app'
-import { IconClose, IconMaximize, IconMinimize, IconMoon, IconRestore, IconSun } from './Icons'
+import {
+  IconBell,
+  IconClose,
+  IconMaximize,
+  IconMinimize,
+  IconMoon,
+  IconRestore,
+  IconSun
+} from './Icons'
 import { SearchBox } from './SearchBox'
 
 interface TitleBarProps {
   onOpenData: () => void
+  onOpenAlerts: () => void
 }
 
 export function TitleBar(props: TitleBarProps): JSX.Element {
@@ -31,6 +40,14 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
       <div class="titlebar__drag" />
 
       <div class="titlebar__actions">
+        <button
+          class="btn btn--icon btn--bare alerts-open"
+          title="行情预警"
+          aria-label="打开行情预警"
+          onClick={() => props.onOpenAlerts()}
+        >
+          <IconBell size={15} />
+        </button>
         <button class="btn btn--bare data-open" title="数据工具" onClick={() => props.onOpenData()}>
           数据
         </button>

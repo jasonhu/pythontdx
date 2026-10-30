@@ -376,6 +376,28 @@ export interface AppSettings {
   klineZoom?: number
 }
 
+export type AlertMetric = 'price' | 'changePct'
+export type AlertDirection = 'above' | 'below'
+
+export interface AlertRule {
+  id: string
+  code: string
+  name: string
+  metric: AlertMetric
+  direction: AlertDirection
+  value: number
+  enabled: boolean
+  /** 最近一次触发的本地日期 YYYY-MM-DD；同一天不重复 */
+  lastTriggeredDate?: string
+}
+
+export interface AlertEvent {
+  rule: AlertRule
+  quote: Quote
+  at: number
+  message: string
+}
+
 export interface AppState {
   /** 数据结构版本，便于做迁移（v1 = 扁平 watchlist，v2 = 分组 groups） */
   version: number
@@ -385,6 +407,8 @@ export interface AppState {
   settings: AppSettings
   /** 当前选中的股票代码 */
   activeCode: string | null
+  /** 本地行情预警；不落交易指令 */
+  alerts: AlertRule[]
 }
 
 /** 持久化数据的当前版本 */

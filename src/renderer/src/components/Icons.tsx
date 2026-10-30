@@ -169,3 +169,12 @@ export function IconPlus(props: IconProps): JSX.Element {
     </svg>
   )
 }
+
+export function IconBell(props: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(props)}>
+      <path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9z" />
+      <path d="M10 21h4" />
+    </svg>
+  )
+}

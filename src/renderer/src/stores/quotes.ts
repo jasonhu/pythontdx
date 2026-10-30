@@ -10,6 +10,7 @@ import { createStore } from 'solid-js/store'
 import type { ConnectionStatus, Quote, QuoteUpdate } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
 import { renameWatchItem, watchItemOf } from './app'
+import { scanAlerts } from './alerts'
 
 const [quoteMap, setQuoteMap] = createStore<Record<string, Quote>>({})
 const [connection, setConnection] = createSignal<ConnectionStatus>('idle')
@@ -56,6 +57,7 @@ export function createQuoteStream(codes: Accessor<string[]>, intervalMs: Accesso
 
     setStreamError(null)
     applyQuotes(update.quotes)
+    scanAlerts(update.quotes)
     setConnection('live')
   })
 
@@ -83,7 +85,9 @@ export function createQuoteStream(codes: Accessor<string[]>, intervalMs: Accesso
 export async function refreshQuotes(codes: string[]): Promise<void> {
   if (codes.length === 0) return
   try {
-    applyQuotes(await api.quote.snapshot(codes))
+    const quotes = await api.quote.snapshot(codes)
+    applyQuotes(quotes)
+    scanAlerts(quotes)
     setStreamError(null)
     setConnection('live')
     setLastUpdateAt(Date.now())

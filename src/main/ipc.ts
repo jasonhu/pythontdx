@@ -29,6 +29,7 @@ import {
   fetchF10Trading,
   fetchMarketBreadth,
   fetchLocalDay,
+  fetchLocalImport,
   fetchF10Reports,
   fetchF10Statement,
   fetchFormulaScreen,
@@ -111,6 +112,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.localDayRead, (_event, path: string, limit?: number) =>
     fetchLocalDay(path, limit)
   )
+
+  ipcMain.handle(IPC.localImport, (_event, path: string) => fetchLocalImport(path))
 
   ipcMain.handle(IPC.f10Statement, (_event, code: string, kind: string, full?: boolean) =>
     fetchF10Statement(code, kind, full)

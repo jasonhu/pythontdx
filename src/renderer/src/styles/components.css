@@ -4168,3 +4168,22 @@
   padding: 2px 8px;
   font-size: var(--fs-2xs);
 }
+
+.data__local-imported {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel-solid);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__local-imported code {
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}

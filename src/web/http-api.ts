@@ -15,6 +15,7 @@ import type {
   F10NewsItem,
   F10TradingTable,
   LocalDayResult,
+  LocalImportResult,
   MarketBreadth,
   F10ProfileTable,
   FormulaScreenRequest,
@@ -316,7 +317,8 @@ export function createHttpApi(): StockLensApi {
       statsCsv: () => post<StatsCsvExport>('/api/stats_csv', {}),
       statsParquet: () => post<StatsParquetExport>('/api/stats_parquet', {}),
       duckQuery: (sql, limit) => post<StatsQueryResult>('/api/duck_query', { sql, limit }),
-      localDay: (path, limit) => post<LocalDayResult>('/api/local_day', { path, limit })
+      localDay: (path, limit) => post<LocalDayResult>('/api/local_day', { path, limit }),
+      localImport: (path) => post<LocalImportResult>('/api/local_import', { path })
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

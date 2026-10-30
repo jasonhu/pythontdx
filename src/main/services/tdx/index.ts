@@ -15,6 +15,7 @@ import type {
   F10NewsItem,
   MarketBreadth,
   LocalDayResult,
+  LocalImportResult,
   F10TradingTable,
   F10ProfileTable,
   FormulaScreenRequest,
@@ -272,6 +273,10 @@ export async function fetchFormulaScreen(
     },
     180_000
   )
+}
+
+export async function fetchLocalImport(path: string): Promise<LocalImportResult> {
+  return bridge.send<LocalImportResult>('local_import', { path }, 60_000)
 }
 
 export async function fetchLocalDay(path: string, limit = 0): Promise<LocalDayResult> {

@@ -476,6 +476,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/local_import":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.local_import(str(payload.get("path") or ""))
+                    )
+                return
             if parsed.path == "/api/local_day":
                 with self.server.lock:
                     self._ok(

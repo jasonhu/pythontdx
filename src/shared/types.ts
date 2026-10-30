@@ -269,6 +269,17 @@ export interface LocalDayBar {
   volume: number
 }
 
+export interface LocalImportResult {
+  code: string
+  rows: number
+  totalRows: number
+  sha256: string
+  rawPath: string
+  jsonlPath: string
+  database: string
+  manifest: string
+}
+
 export interface LocalDayResult {
   path: string
   count: number

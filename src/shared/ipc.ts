@@ -24,6 +24,7 @@ import type {
   KLinePeriod,
   KLineSeries,
   LocalDayResult,
+  LocalImportResult,
   MarketBreadth,
   MinuteTrend,
   MoneyFlowRecord,
@@ -86,6 +87,8 @@ export const IPC = {
   marketBreadth: 'market:breadth',
   /** 读取本地 .day 日线（invoke） */
   localDayRead: 'local:day',
+  /** 本地行情导入数据湖（invoke） */
+  localImport: 'local:import',
   /** 7615 财务报表关键科目（invoke） */
   f10Statement: 'f10:statement',
   /** tdxstat 摘要（invoke） */
@@ -229,6 +232,7 @@ export interface StockLensApi {
     statsParquet(): Promise<StatsParquetExport>
     duckQuery(sql: string, limit?: number): Promise<StatsQueryResult>
     localDay(path: string, limit?: number): Promise<LocalDayResult>
+    localImport(path: string): Promise<LocalImportResult>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

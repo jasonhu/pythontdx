@@ -10,7 +10,8 @@ import type {
   StatsQueryResult,
   TdxStatsExport,
   TdxStatsSummary,
-  LocalDayResult
+  LocalDayResult,
+  LocalImportResult
 } from '@shared/types'
 import { thousands } from '@shared/format'
 import { appState, updateSettings } from '../stores/app'
@@ -48,6 +49,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [localDay, setLocalDay] = createSignal<LocalDayResult | null>(null)
   const [localLoading, setLocalLoading] = createSignal(false)
   const [localError, setLocalError] = createSignal<string | null>(null)
+  const [importLoading, setImportLoading] = createSignal(false)
+  const [importResult, setImportResult] = createSignal<LocalImportResult | null>(null)
+  const [importError, setImportError] = createSignal<string | null>(null)
 
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
@@ -100,6 +104,25 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setError(errorMessage(cause))
     } finally {
       setParquetExporting(false)
+    }
+  }
+
+  const runLocalImport = async (): Promise<void> => {
+    if (importLoading()) return
+    const path = localPath().trim()
+    if (!path) {
+      setImportError('请先读取本地文件')
+      return
+    }
+    setImportLoading(true)
+    setImportError(null)
+    try {
+      setImportResult(await api.data.localImport(path))
+      updateSettings({ localDayPath: path })
+    } catch (cause) {
+      setImportError(errorMessage(cause))
+    } finally {
+      setImportLoading(false)
     }
   }
 
@@ -418,6 +441,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                     <button class="btn data__local-csv" onClick={exportLocalCsv}>
                       导出 CSV
                     </button>
+                    <button
+                      class="btn data__local-import"
+                      disabled={importLoading()}
+                      onClick={() => void runLocalImport()}
+                    >
+                      {importLoading() ? '导入中…' : '导入数据湖'}
+                    </button>
                   </div>
                   <div class="data__query-table-wrap">
                     <table class="data__query-table">
@@ -447,6 +477,20 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+            </Show>
+            <Show when={importError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={importResult()}>
+              {(data) => (
+                <div class="data__local-imported">
+                  <div>
+                    已导入 {data().rows} 行 · 累计 {data().totalRows} 行 · {data().code}
+                  </div>
+                  <code>{data().jsonlPath}</code>
+                  <code>{data().database}</code>
                 </div>
               )}
             </Show>

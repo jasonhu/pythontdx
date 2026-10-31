@@ -67,6 +67,9 @@ class FakeBridge:
     def f10_news(self, code):
         return [{"id": "1", "title": "新闻"}]
 
+    def f10_industry(self, code, section="summary"):
+        return {"section": section, "columns": ["家数", "行业"], "rows": [[48, "证券"]], "count": 1}
+
     def mac_boards(self, board_type=255):
         return []
 
@@ -235,6 +238,14 @@ class TestHttpApi(unittest.TestCase):
         self.assertEqual(
             [item["code"] for item in payload["result"]], ["sh600519", "sz000858"]
         )
+
+    def test_f10_industry(self):
+        status, payload, _ = self.request(
+            "POST", "/api/f10_industry", {"code": "sh600519", "section": "news"}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["section"], "news")
+        self.assertEqual(payload["result"]["count"], 1)
 
     def test_category_and_trades(self):
         status, payload, _ = self.request(

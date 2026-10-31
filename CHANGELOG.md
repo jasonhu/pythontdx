@@ -22,7 +22,14 @@ StockLens 的所有重要变更都记录在这里。
 - **本地数据清单**：扫描 raw/cache/lake/exports/normalized/local；
 - **默认刷新 1 秒**（旧配置保留用户已保存值）；
 - **自选名称完整显示**：去掉省略号，紧凑行宽；
-- **左侧栏伸缩**：拖拽 200–380、双击复位；提升把手可见性。
+- **左侧栏伸缩**：拖拽 200–380、双击复位；提升把手可见性；
+- **行情主站测速/选择**：19 台 Windows 通达信公开主站 TCP 测速，选择持久化并 failover；
+- **秒级逐笔**：MAC `0x122F` 真实秒，7709 分钟级兜底；历史日期与大小窗上下键；
+- **关键指标补全**：PE/PB/PS/PEG/分位、量比估算、涨跌停价；
+- **副图十字光标**：主图纵线延伸到副图；
+- **F10 排版**：目录 NUL 截断、竖线表转 HTML 表格；
+- **侧栏一键开关**：标题栏「侧栏」+ 隐藏后「自选 »」浮动按钮；
+- **主题下拉框**：`.chart-sub-select` / `.chart-ext-select` 跟随主题、深色不透明底。
 
 ### 变更
 
@@ -32,10 +39,12 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check`：213 TS + 112 Python（2 skipped）；
-- 包：AppImage 130 MB `39f71e50…05cf733` / deb 105 MB `a4d4f56a…6100ab3`；
+- `npm run check`：213 TS + 114 Python（2 skipped）；
+- 包：AppImage 130 MB `b0163cef…193b9d` / deb 105 MB `eee99feb…c3b2a11`；
 - 截图：`chart-5ma.png`、`f11-fullscreen.png`、`watchlist-full-24.png`、
-  `f10-markdown.png`、`data-offline.png`、`sidebar-resize.png`。
+  `f10-markdown.png`、`data-offline.png`、`sidebar-resize.png`；
+- 九项修复截图：`server-speed-test.png`、`stats-complete.png`、`history-ticks.png`、
+  `crosshair-subchart.png`、`f10-layout.png`、`sidebar-hidden.png`、`packaged-nine.png`。
 
 ---
 

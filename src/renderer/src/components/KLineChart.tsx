@@ -74,6 +74,8 @@ export interface KLineChartProps {
   /** 区间统计选择模式 */
   rangeMode?: boolean
   onRangeStats?: (stats: KLineRangeStats | null) => void
+  /** 光标绝对下标变化（用于副图十字线联动） */
+  onCursorChange?: (index: number | null) => void
   /** 画线模式 */
   drawMode?: DrawingMode
   /** 文字标注内容 */
@@ -199,6 +201,10 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const value = cursor()
     if (value === null || total() === 0) return null
     return Math.min(total() - 1, Math.max(0, value))
+  })
+
+  createEffect(() => {
+    props.onCursorChange?.(cursorIndex())
   })
 
   /** 真正参与绘制的切片 —— 几何层拿到它之后会自动重算蜡烛宽度 */

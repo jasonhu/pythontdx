@@ -6,6 +6,7 @@
  */
 import type {
   AppInfo,
+  ServerSpeedResult,
   GraphicsInfo,
   AppState,
   AuctionPoint,
@@ -431,6 +432,8 @@ export function createHttpApi(): StockLensApi {
         node: '—',
         platform: 'web'
       }),
+      serverSpeedTest: () => post<ServerSpeedResult>('/api/server_speed_test', {}),
+      selectServer: (host) => post<{ preferred: string }>('/api/select_server', { host }),
       openExternal: async (url) => {
         window.open(url, '_blank', 'noopener,noreferrer')
       },

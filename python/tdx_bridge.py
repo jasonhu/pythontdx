@@ -55,6 +55,7 @@ from tdx_mac import (
     MacError,
     fetch_capital_flow,
     fetch_quotes as fetch_mac_quotes,
+    fetch_transactions as fetch_mac_transactions,
     fetch_unusual,
     fetch_boards,
 )
@@ -88,13 +89,78 @@ def limit_percent(code: str, name: str) -> int:
     return 10
 
 
-ENDPOINTS = [
-    ("124.71.187.122", 7709),
+# 通达信 Windows 客户端当前公开行情主站列表（2026-10 核对，rustdx/pytdx 同源）。
+SERVER_HOSTS = [
+    ("115.238.56.198", 7709),
+    ("114.80.149.19", 7709),
+    ("114.80.149.22", 7709),
+    ("39.100.68.59", 7709),
+    ("115.238.90.165", 7709),
+    ("117.184.140.156", 7709),
+    ("119.147.164.60", 7709),
+    ("123.125.108.23", 7709),
+    ("123.125.108.24", 7709),
     ("180.153.18.170", 7709),
-    ("116.205.183.150", 7709),
-    ("111.230.186.52", 7709),
-    ("119.97.185.59", 7709),
+    ("180.153.18.171", 7709),
+    ("180.153.39.51", 7709),
+    ("218.108.47.69", 7709),
+    ("218.108.98.244", 7709),
+    ("218.75.126.9", 7709),
+    ("221.194.181.176", 7709),
+    ("60.12.136.250", 7709),
+    ("60.191.117.167", 7709),
+    ("61.152.249.56", 7709),
 ]
+ENDPOINTS = SERVER_HOSTS
+
+
+def _server_config_path() -> Path:
+    return stocklens_data_dir() / "server.json"
+
+
+def _preferred_host() -> str | None:
+    try:
+        payload = json.loads(_server_config_path().read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+    host = str(payload.get("preferredHost") or "").strip()
+    return host if any(item[0] == host for item in SERVER_HOSTS) else None
+
+
+def _ordered_endpoints(preferred: str | None = None) -> list[tuple[str, int]]:
+    selected = preferred or _preferred_host()
+    if not selected:
+        return list(SERVER_HOSTS)
+    found = [item for item in SERVER_HOSTS if item[0] == selected]
+    return found + [item for item in SERVER_HOSTS if item[0] != selected]
+
+
+def speed_test_hosts(timeout: float = 1.5) -> dict:
+    """测试公开行情主站 TCP 建连时延；只做只读连接，不发送隐私数据。"""
+    results: list[dict] = []
+    preferred = _preferred_host()
+    for host, port in SERVER_HOSTS:
+        started = time.perf_counter()
+        status = "ok"
+        error = ""
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                pass
+        except Exception as cause:  # noqa: BLE001 - 测速失败要逐站展示
+            status = "error"
+            error = str(cause)
+        results.append(
+            {
+                "host": host,
+                "port": port,
+                "latencyMs": round((time.perf_counter() - started) * 1000, 1),
+                "status": status,
+                "error": error,
+                "preferred": host == preferred,
+            }
+        )
+    results.sort(key=lambda item: (item["status"] != "ok", item["latencyMs"]))
+    return {"hosts": results, "preferred": preferred}
 
 # 0x0ffc 在普通行情节点上可能只返回日期、金额全 0；这些节点实测有完整分档。
 MONEY_FLOW_HOSTS = [
@@ -1355,11 +1421,18 @@ def parse_f10_catalog(body: bytes) -> list[dict]:
     sections: list[dict] = []
     for index in range(count):
         record = body[2 + index * F10_RECORD_SIZE : 2 + (index + 1) * F10_RECORD_SIZE]
-        name = record[:F10_NAME_SIZE].decode("gbk", "replace").rstrip("\x00").strip()
+        # 目录项是定长字段，名称后填充 NUL；必须先按 NUL 截断再解码，
+        # 否则末尾的替换字符会让导航出现「方框 + 一长串空白」。
+        name = (
+            record[:F10_NAME_SIZE]
+            .split(b"\x00", 1)[0]
+            .decode("gbk", "replace")
+            .strip()
+        )
         filename = (
             record[F10_NAME_SIZE : F10_NAME_SIZE + F10_FILENAME_SIZE]
+            .split(b"\x00", 1)[0]
             .decode("gbk", "replace")
-            .rstrip("\x00")
             .strip()
         )
         start, length = struct.unpack_from("<II", record, F10_NAME_SIZE + F10_FILENAME_SIZE)
@@ -2400,7 +2473,8 @@ def _read_kline_cache(code: str, period: str, count: int, adjust: str) -> dict |
 
 class Bridge:
     def __init__(self) -> None:
-        self.conn = TdxConnection()
+        self.preferred_host = _preferred_host()
+        self.conn = TdxConnection(_ordered_endpoints(self.preferred_host))
         self.money_conn: TdxConnection | None = None
         self.index = CodeIndex()
         self.finance_cache: dict[str, tuple[float, dict]] = {}
@@ -2413,6 +2487,25 @@ class Bridge:
         self.conn.close()
         if self.money_conn is not None:
             self.money_conn.close()
+
+    def server_speed_test(self) -> dict:
+        return speed_test_hosts()
+
+    def select_server(self, host: str) -> dict:
+        selected = str(host or "").strip()
+        if not any(item[0] == selected for item in SERVER_HOSTS):
+            raise TdxError("未知行情主站")
+        target = _server_config_path()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(target.name + ".part")
+        temporary.write_text(
+            json.dumps({"preferredHost": selected}, ensure_ascii=False) + "\n", "utf-8"
+        )
+        os.replace(temporary, target)
+        self.conn.close()
+        self.preferred_host = selected
+        self.conn = TdxConnection(_ordered_endpoints(selected))
+        return {"preferred": selected}
 
     # -- 代码表 ---------------------------------------------------------
 
@@ -2896,7 +2989,35 @@ class Bridge:
         count: int = TRADE_PAGE,
         trading_date: str | None = None,
     ) -> list[dict]:
-        """成交明细：不传日期走 0x0fc5，传日期走 0x0fc6。"""
+        """成交明细：优先走 MAC 0x122F（带真实秒），失败回退 0x0fc5/0x0fc6。"""
+        try:
+            rows: list[dict] = []
+            offset = start
+            remaining = count
+            while remaining > 0:
+                page = fetch_mac_transactions(
+                    code,
+                    trading_date,
+                    start=offset,
+                    count=min(1000, remaining),
+                )
+                if not page:
+                    break
+                rows.extend(page)
+                offset += len(page)
+                remaining -= len(page)
+                if len(page) < min(1000, remaining + len(page)):
+                    break
+            if rows:
+                rows.sort(
+                    key=lambda item: item.get(
+                        "timeSeconds", int(item.get("timeMinutes", 0)) * 60
+                    )
+                )
+                return rows
+        except Exception as error:  # noqa: BLE001 - MAC 失败时保留 7709 兜底
+            print(f"[tdx] MAC 秒级明细失败，回退 7709：{error}", file=sys.stderr)
+
         market, symbol = parse_code(code)
         try:
             self.index.ensure(self.conn)
@@ -3686,6 +3807,10 @@ class Bridge:
 def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
     if cmd == "ping":
         return "pong"
+    if cmd == "server_speed_test":
+        return bridge.server_speed_test()
+    if cmd == "select_server":
+        return bridge.select_server(str(payload.get("host") or ""))
     if cmd == "code_list":
         return bridge.code_list()
     if cmd == "quotes":

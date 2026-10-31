@@ -39,6 +39,8 @@ import {
   cacheFullKlines,
   dataInventory,
   limitReview,
+  speedTestServers,
+  selectServer,
   archiveSnapshot,
   fetchLakeArchives,
   writeLocalDay,
@@ -370,6 +372,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     node: process.versions.node,
     platform: process.platform
   }))
+
+  ipcMain.handle(IPC.serverSpeedTest, () => speedTestServers())
+
+  ipcMain.handle(IPC.serverSelect, (_event, host: string) => selectServer(host))
 
   ipcMain.handle(IPC.appOpenExternal, (_event, url: string) => {
     // 只允许 http/https，避免被注入 file:// 之类的协议

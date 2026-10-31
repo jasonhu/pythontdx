@@ -332,6 +332,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/ping":
                 self._ok("pong")
                 return
+            if parsed.path == "/api/server_speed_test":
+                with self.server.lock:
+                    self._ok(self.server.bridge.server_speed_test())
+                return
+            if parsed.path == "/api/select_server":
+                with self.server.lock:
+                    self._ok(self.server.bridge.select_server(str(payload.get("host") or "")))
+                return
             if parsed.path == "/api/code_list":
                 with self.server.lock:
                     self._ok(self.server.bridge.code_list())

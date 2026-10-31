@@ -26,6 +26,16 @@ interface TradeTapeProps {
 const PAGE_SIZE = 60
 const REFRESH_MS = 3000
 
+function previousTradingDate(): string {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+  while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() - 1)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function TickList(props: {
   rows: TradeTick[]
   selected: number
@@ -283,6 +293,16 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
               回今天
             </button>
           </Show>
+          <Show when={!date()}>
+            <button
+              class="tape__today tape__history"
+              disabled={loading()}
+              title="查看上一交易日逐笔"
+              onClick={() => chooseDate(previousTradingDate())}
+            >
+              历史
+            </button>
+          </Show>
           <button
             class="tape__today tape__large"
             disabled={ticks().length === 0}
@@ -331,7 +351,9 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
         <TickList rows={rows()} selected={selected()} onSelect={setSelected} onOpen={openLarge} />
 
         <Show when={!loading() && ticks().length === 0 && !error()}>
-          <div class="tape__empty">暂无成交</div>
+          <div class="tape__empty">
+            {date() ? '该日暂无成交（非交易日或历史数据未就绪）' : '暂无成交'}
+          </div>
         </Show>
       </div>
 

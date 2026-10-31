@@ -3,7 +3,7 @@
  *
  * 与指标面板共用 shared/indicators 的纯函数；只画最后 160 根，避免副图挤成噪声。
  */
-import { createMemo, For, type JSX } from 'solid-js'
+import { createMemo, For, Show, type JSX } from 'solid-js'
 import type { IndicatorParams, KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
 import { bias, cci, dmi, kdj, macd, obv, rsi, wr } from '@shared/indicators'
@@ -50,8 +50,18 @@ export function IndicatorSubchart(props: {
   bars: KLineBar[]
   kind: SubIndicator
   params?: IndicatorParams
+  cursorIndex?: number | null
 }): JSX.Element {
   const visible = createMemo(() => props.bars.slice(-VISIBLE))
+  const cursorX = createMemo(() => {
+    const index = props.cursorIndex
+    const data = visible()
+    if (index === undefined || index === null || data.length < 2) return null
+    const offset = props.bars.length - data.length
+    const local = index - offset
+    if (local < 0 || local >= data.length) return null
+    return PAD_X + (local / (data.length - 1)) * (W - PAD_X * 2)
+  })
 
   const chart = createMemo(() => {
     const data = visible()
@@ -200,6 +210,9 @@ export function IndicatorSubchart(props: {
           y2={H - PAD_Y}
           class="indicator-subchart__axis"
         />
+        <Show when={cursorX() !== null}>
+          <line x1={cursorX()!} y1={0} x2={cursorX()!} y2={H} class="indicator-subchart__cursor" />
+        </Show>
         <For each={chart()?.hist ?? []}>
           {(bar) => (
             <rect

@@ -125,6 +125,8 @@ const api: StockLensApi = {
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo),
     graphics: () => ipcRenderer.invoke(IPC.appGraphics),
+    serverSpeedTest: () => ipcRenderer.invoke(IPC.serverSpeedTest),
+    selectServer: (host) => ipcRenderer.invoke(IPC.serverSelect, host),
     openExternal: (url) => ipcRenderer.invoke(IPC.appOpenExternal, url),
     notify: (title, body) => ipcRenderer.invoke(IPC.appNotify, title, body)
   }

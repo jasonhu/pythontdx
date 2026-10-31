@@ -194,7 +194,9 @@ export interface TradeTick {
   /** 服务端分页内的绝对序号 */
   index: number
   timeMinutes: number
-  /** HH:MM */
+  /** MAC 0x122F 的当日秒数；7709 分钟级兜底时为空 */
+  timeSeconds?: number
+  /** HH:MM:SS（MAC）或 HH:MM（7709 兜底） */
   time: string
   price: number
   /** 手 */
@@ -939,6 +941,20 @@ export interface GraphicsInfo {
   requested: string
   platform: string
   gpuFeatureStatus: Record<string, string>
+}
+
+export interface ServerHostResult {
+  host: string
+  port: number
+  latencyMs: number
+  status: 'ok' | 'error'
+  error: string
+  preferred: boolean
+}
+
+export interface ServerSpeedResult {
+  hosts: ServerHostResult[]
+  preferred: string | null
 }
 
 export interface AppInfo {

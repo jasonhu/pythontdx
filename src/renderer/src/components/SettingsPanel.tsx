@@ -2,7 +2,13 @@
  * 设置面板：把散落在顶栏/状态栏/图表的开关集中到一处。
  */
 import { createSignal, For, onMount, Show, type JSX } from 'solid-js'
-import type { AppSettings, GraphicsInfo, LayoutSlot, ThemeMode } from '@shared/types'
+import type {
+  AppSettings,
+  GraphicsInfo,
+  LayoutSlot,
+  ServerSpeedResult,
+  ThemeMode
+} from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { appInfo, appState, toggleTheme, updateSettings } from '../stores/app'
 import { api } from '../lib/ipc'
@@ -20,6 +26,43 @@ const LAYOUTS = [
 
 export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
   const [graphics, setGraphics] = createSignal<GraphicsInfo | null>(null)
+  const [serverSpeed, setServerSpeed] = createSignal<ServerSpeedResult | null>(null)
+  const [serverLoading, setServerLoading] = createSignal(false)
+  const [serverError, setServerError] = createSignal<string | null>(null)
+  const [serverSelecting, setServerSelecting] = createSignal<string | null>(null)
+
+  const runServerSpeedTest = async (): Promise<void> => {
+    setServerLoading(true)
+    setServerError(null)
+    try {
+      setServerSpeed(await api.app.serverSpeedTest())
+    } catch (cause) {
+      setServerError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setServerLoading(false)
+    }
+  }
+
+  const chooseServer = async (host: string): Promise<void> => {
+    setServerSelecting(host)
+    setServerError(null)
+    try {
+      await api.app.selectServer(host)
+      setServerSpeed((current) =>
+        current
+          ? {
+              ...current,
+              preferred: host,
+              hosts: current.hosts.map((item) => ({ ...item, preferred: item.host === host }))
+            }
+          : current
+      )
+    } catch (cause) {
+      setServerError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setServerSelecting(null)
+    }
+  }
 
   onMount(() => {
     void api.app
@@ -299,6 +342,57 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
             <span class="settings__graphics">
               {graphics()?.wayland ? 'Wayland 会话' : 'X11 / Web'}
             </span>
+          </div>
+
+          <div class="settings__row settings__row--server">
+            <div>
+              <div class="settings__label">行情主站</div>
+              <div class="settings__hint">
+                Windows 通达信公开主站列表；测速后点击延迟最低的站点。
+                {serverSpeed()?.preferred ? ` 当前：${serverSpeed()!.preferred}` : ''}
+              </div>
+              <div class="settings__server-actions">
+                <button
+                  class="btn settings__server-test"
+                  disabled={serverLoading()}
+                  onClick={() => void runServerSpeedTest()}
+                >
+                  {serverLoading() ? '测速中…' : '测速'}
+                </button>
+                <Show when={serverError()}>
+                  {(message) => <span class="settings__server-error">{message()}</span>}
+                </Show>
+              </div>
+            </div>
+            <Show when={serverSpeed()}>
+              {(result) => (
+                <div class="settings__server-list">
+                  <For each={result().hosts}>
+                    {(host) => (
+                      <button
+                        class="settings__server-item"
+                        classList={{ 'settings__server-item--active': host.preferred }}
+                        disabled={host.status !== 'ok' || serverSelecting() !== null}
+                        title={host.error || `${host.host}:${host.port}`}
+                        onClick={() => void chooseServer(host.host)}
+                      >
+                        <span class="settings__server-host">{host.host}</span>
+                        <span class="settings__server-latency">
+                          {host.status === 'ok' ? `${host.latencyMs.toFixed(1)} ms` : '连接失败'}
+                        </span>
+                        <span class="settings__server-state">
+                          {host.preferred
+                            ? '使用中'
+                            : serverSelecting() === host.host
+                              ? '切换中'
+                              : '选择'}
+                        </span>
+                      </button>
+                    )}
+                  </For>
+                </div>
+              )}
+            </Show>
           </div>
 
           <div class="settings__row">

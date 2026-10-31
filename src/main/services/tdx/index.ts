@@ -38,6 +38,7 @@ import type {
   KLineAdjust,
   KLinePeriod,
   KLineSeries,
+  ServerSpeedResult,
   MinuteTrend,
   MacMoneyFlow,
   MacBoard,
@@ -364,6 +365,14 @@ export async function dataInventory(): Promise<DataInventory> {
 
 export async function limitReview(date: string): Promise<LimitReviewResult> {
   return bridge.send<LimitReviewResult>('limit_review', { date }, 120_000)
+}
+
+export async function speedTestServers(): Promise<ServerSpeedResult> {
+  return bridge.send<ServerSpeedResult>('server_speed_test', {}, 30_000)
+}
+
+export async function selectServer(host: string): Promise<{ preferred: string }> {
+  return bridge.send<{ preferred: string }>('select_server', { host }, 20_000)
 }
 
 export async function cacheKlines(req: {

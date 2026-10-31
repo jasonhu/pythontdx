@@ -238,6 +238,15 @@ export default function App(): JSX.Element {
           updateSettings({ sidebarHidden: !(appState.settings.sidebarHidden === true) })
         }
       />
+      <Show when={appState.settings.sidebarHidden === true}>
+        <button
+          class="sidebar-reveal"
+          title="展开自选栏"
+          onClick={() => updateSettings({ sidebarHidden: false })}
+        >
+          自选 »
+        </button>
+      </Show>
       <Sidebar
         onOpenRanking={() => setRankingOpen(true)}
         onOpenBlocks={() => setBlocksOpen(true)}

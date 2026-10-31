@@ -7,6 +7,7 @@
 import type {
   AppInfo,
   GraphicsInfo,
+  ServerSpeedResult,
   AppState,
   AuctionPoint,
   BlockKind,
@@ -213,7 +214,11 @@ export const IPC = {
   /** 系统通知（invoke） */
   appNotify: 'app:notify',
   /** 图形后端诊断（invoke） */
-  appGraphics: 'app:graphics'
+  appGraphics: 'app:graphics',
+  /** 行情主站测速（invoke） */
+  serverSpeedTest: 'app:server-speed-test',
+  /** 选择行情主站（invoke） */
+  serverSelect: 'app:server-select'
 } as const
 
 export interface KLineRequest {
@@ -390,6 +395,10 @@ export interface StockLensApi {
     info(): Promise<AppInfo>
     /** Linux 图形后端 / GPU 帧特性诊断 */
     graphics(): Promise<GraphicsInfo>
+    /** 测试通达信公开行情主站 TCP 时延 */
+    serverSpeedTest(): Promise<ServerSpeedResult>
+    /** 选择首选行情主站并持久化 */
+    selectServer(host: string): Promise<{ preferred: string }>
     /** 交给系统浏览器打开，避免在应用内弹出新窗口 */
     openExternal(url: string): Promise<void>
     /** 系统通知；不支持/未授权时静默失败 */

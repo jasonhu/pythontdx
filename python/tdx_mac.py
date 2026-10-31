@@ -217,6 +217,103 @@ def parse_quotes(body: bytes, received_at: int) -> list[dict]:
     return quotes
 
 
+def _request_transactions(
+    sock: socket.socket, market: int, symbol: str, ymd: int, start: int, count: int
+) -> bytes:
+    """0x122F：带真实秒字段的 MAC 成交明细，单页最多 1000 条。"""
+    body = struct.pack(
+        "<H22sIIH10x", market, symbol.encode("gbk"), ymd, start, count
+    )
+    inner = struct.pack("<H", 0x122F) + body
+    header = struct.pack("<BIBHH", 0x1C, 0, 1, len(inner), len(inner))
+    sock.sendall(header + inner)
+    return _read_response(sock)
+
+
+def parse_transactions(body: bytes, start: int = 0) -> list[dict]:
+    """解析 0x122F；记录起点 39，单条 18 字节，时间是真秒。"""
+    if len(body) < 31:
+        raise MacError("MAC 成交明细响应过短")
+    count = struct.unpack_from("<H", body, 29)[0]
+    if count > 2000 or len(body) < 39 + count * 18:
+        raise MacError("MAC 成交明细长度异常")
+    ticks: list[dict] = []
+    for index in range(count):
+        offset = 39 + index * 18
+        seconds, price, volume, trade_count, status = struct.unpack_from(
+            "<IfIIH", body, offset
+        )
+        if seconds >= 24 * 3600:
+            continue
+        hour, remainder = divmod(seconds, 3600)
+        minute, second = divmod(remainder, 60)
+        ticks.append(
+            {
+                "index": start + index,
+                "timeSeconds": seconds,
+                "timeMinutes": seconds // 60,
+                "time": f"{hour:02d}:{minute:02d}:{second:02d}",
+                "price": round(float(price), 3),
+                "volume": int(volume),
+                "orderCount": int(trade_count),
+                "status": int(status),
+                "side": _side(status),
+                "eventKind": "auction_snapshot"
+                if status == 8
+                else "opening_match"
+                if (hour, minute) == (9, 25)
+                else "trade",
+                "tradeAmount": round(float(price) * int(volume) * 100, 2)
+                if status != 8
+                else None,
+                "source": "mac-0x122f",
+            }
+        )
+    return ticks
+
+
+def _side(status: int) -> str:
+    return {0: "buy", 1: "sell", 2: "neutral"}.get(status, f"status_{status}")
+
+
+def fetch_transactions(
+    code: str,
+    trading_date: str | None = None,
+    start: int = 0,
+    count: int = 1000,
+    timeout: float = 4.0,
+    hosts: tuple[str, ...] = MAC_HOSTS,
+) -> list[dict]:
+    """MAC 0x122F 秒级成交明细；历史日期传 YYYYMMDD 或 YYYY-MM-DD。"""
+    text = code.strip().lower()
+    prefix, symbol = text[:2], text[2:]
+    market = {"sh": 1, "sz": 0, "bj": 2}.get(prefix)
+    if market is None or len(symbol) != 6 or not symbol.isdigit():
+        raise MacError("MAC 成交明细代码不合法")
+    ymd = 0
+    if trading_date:
+        raw = trading_date.strip().replace("-", "")
+        if len(raw) != 8 or not raw.isdigit():
+            raise MacError("MAC 成交日期必须是 YYYY-MM-DD 或 YYYYMMDD")
+        ymd = int(raw)
+    if count < 1 or count > 1000 or start < 0:
+        raise MacError("MAC 成交明细分页参数不合法")
+    last_error: Exception | None = None
+    for host in hosts:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        try:
+            sock.connect((host, MAC_PORT))
+            _handshake(sock)
+            body = _request_transactions(sock, market, symbol, ymd, start, count)
+            return parse_transactions(body, start)
+        except (OSError, MacError) as error:
+            last_error = error
+        finally:
+            sock.close()
+    raise MacError(f"MAC 成交易不可用：{last_error}")
+
+
 def fetch_quotes(codes: list[str], timeout: float = 4.0, hosts: tuple[str, ...] = MAC_HOSTS) -> list[dict]:
     """按沪深北代码批量取报价；任一主机成功即返回。"""
     stocks: list[tuple[int, str]] = []

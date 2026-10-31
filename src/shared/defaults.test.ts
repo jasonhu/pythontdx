@@ -12,6 +12,7 @@ describe('DEFAULT_SETTINGS', () => {
     expect(DEFAULT_SETTINGS.showBoll).toBe(false)
     expect(DEFAULT_SETTINGS.showDrawings).toBe(false)
     expect(DEFAULT_SETTINGS.showAverages).toBe(true)
+    expect(DEFAULT_SETTINGS.snapDrawings).toBe(true)
     expect(DEFAULT_SETTINGS.mainFormula).toBeUndefined()
   })
 })

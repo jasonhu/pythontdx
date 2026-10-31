@@ -872,6 +872,8 @@ export interface AppSettings {
   showDrawings?: boolean
   /** 是否显示均线；默认开启，可关闭只看裸 K/BOLL */
   showAverages?: boolean
+  /** 画线是否吸附开/高/低/收；默认开启 */
+  snapDrawings?: boolean
   /** 指标面板参数 */
   indicatorParams?: IndicatorParams
   /** K 线副图 */
@@ -1029,6 +1031,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showBoll: false,
   showDrawings: false,
   showAverages: true,
+  snapDrawings: true,
   sidebarHidden: false,
   sidebarWidth: 280,
   railWidth: 330

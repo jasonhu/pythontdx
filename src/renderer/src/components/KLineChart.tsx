@@ -109,6 +109,8 @@ export interface KLineChartProps {
   showDrawings?: boolean
   /** 是否显示均线（默认开启） */
   showAverages?: boolean
+  /** 画线是否吸附 OHLC（默认开启） */
+  snapDrawings?: boolean
   /** 改变时清空画线 */
   clearDrawingsKey?: number
 }
@@ -146,7 +148,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
   const [selectedId, setSelectedId] = createSignal<number | null>(null)
   const [dragId, setDragId] = createSignal<number | null>(null)
-  const [dragPart, setDragPart] = createSignal<'start' | 'end' | 'offset'>('end')
+  const [dragPart, setDragPart] = createSignal<'start' | 'end' | 'offset' | 'move'>('end')
+  const [dragOrigin, setDragOrigin] = createSignal<{
+    index: number
+    price: number
+    drawing: KLineDrawing
+  } | null>(null)
   const [editing, setEditing] = createSignal<{
     id: number
     left: number
@@ -160,6 +167,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     null
   )
   let drawingId = 0
+  let drawClipboard: KLineDrawing | null = null
 
   /** 全量 K 线 */
   const allBars = (): KLineSeries['bars'] => props.series.bars
@@ -472,11 +480,30 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     return { index, price: geo.priceFromY(event.clientY - rect.top) }
   }
 
+  const snapPoint = (
+    point: { index: number; price: number },
+    geo: KLineGeometry
+  ): { index: number; price: number } => {
+    if (props.snapDrawings === false) return point
+    const bar = allBars()[point.index]
+    if (!bar) return point
+    let best = point.price
+    let bestDistance = 8
+    for (const candidate of [bar.open, bar.high, bar.low, bar.close]) {
+      const distance = Math.abs(geo.yPrice(candidate) - geo.yPrice(point.price))
+      if (distance < bestDistance) {
+        bestDistance = distance
+        best = candidate
+      }
+    }
+    return { index: point.index, price: best }
+  }
+
   /** 命中水平线/垂直线/趋势线端点时进入拖动。 */
   const hitDrawing = (
     event: PointerEvent,
     geo: KLineGeometry
-  ): { drawing: KLineDrawing; part: 'start' | 'end' | 'offset' } | null => {
+  ): { drawing: KLineDrawing; part: 'start' | 'end' | 'offset' | 'move' } | null => {
     if (props.rangeMode || props.drawMode !== 'none') return null
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const x = event.clientX - rect.left
@@ -523,6 +550,18 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           }
           if (distance(offsetPoint) <= 8) return { drawing, part: 'offset' }
         }
+        const segmentDistance = (
+          a: { x: number; y: number },
+          b: { x: number; y: number }
+        ): number => {
+          const dx = b.x - a.x
+          const dy = b.y - a.y
+          const length = dx * dx + dy * dy
+          if (length === 0) return Math.hypot(x - a.x, y - a.y)
+          const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / length))
+          return Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy))
+        }
+        if (segmentDistance(start, end) <= 6) return { drawing, part: 'move' }
       }
     }
     return null
@@ -569,6 +608,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (!geo) return
     const hit = hitDrawing(event, geo)
     if (hit) {
+      const origin = localPoint(event, geo)
+      if (origin) setDragOrigin({ ...origin, drawing: { ...hit.drawing } })
       setSelectedId(hit.drawing.id)
       setDragId(hit.drawing.id)
       setDragPart(hit.part)
@@ -584,7 +625,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
       const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
       if (index === null) return
-      const price = geo.priceFromY(event.clientY - rect.top)
+      const snapped = snapPoint({ index, price: geo.priceFromY(event.clientY - rect.top) }, geo)
+      const price = snapped.price
       if (props.drawMode === 'horizontal') {
         drawingId += 1
         const next = [...drawings(), { id: drawingId, type: 'horizontal' as const, price }]
@@ -678,6 +720,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           endPrice: price
         }
       ]
+      setSelectedId(drawingId)
       setDrawings(next)
       persistDrawings(next)
       setPendingPoint(null)
@@ -703,11 +746,27 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (!geo) return
     const drag = dragId()
     if (drag !== null) {
-      const point = localPoint(event, geo)
-      if (!point) return
+      const rawPoint = localPoint(event, geo)
+      if (!rawPoint) return
+      const point = dragPart() === 'move' ? rawPoint : snapPoint(rawPoint, geo)
+      const origin = dragOrigin()
       setDrawings((current) =>
         current.map((drawing) => {
           if (drawing.id !== drag) return drawing
+          if (dragPart() === 'move' && origin) {
+            const indexDelta = point.index - origin.index
+            const priceDelta = point.price - origin.price
+            return {
+              ...drawing,
+              startIndex:
+                drawing.startIndex === undefined ? undefined : drawing.startIndex + indexDelta,
+              endIndex: drawing.endIndex === undefined ? undefined : drawing.endIndex + indexDelta,
+              startPrice:
+                drawing.startPrice === undefined ? undefined : drawing.startPrice + priceDelta,
+              endPrice: drawing.endPrice === undefined ? undefined : drawing.endPrice + priceDelta,
+              price: drawing.price === undefined ? undefined : drawing.price + priceDelta
+            }
+          }
           if (drawing.type === 'horizontal') return { ...drawing, price: point.price }
           if (drawing.type === 'vertical') return { ...drawing, startIndex: point.index }
           if (drawing.type === 'channel' && dragPart() === 'offset') {
@@ -744,6 +803,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const onPointerUp = (): void => {
     if (dragId() === null) return
     setDragId(null)
+    setDragOrigin(null)
     persistDrawings(drawings())
   }
 
@@ -862,6 +922,35 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (!owned) return
 
     if (document.activeElement !== host) host?.focus({ preventScroll: true })
+
+    const command = event.ctrlKey || event.metaKey
+    if (command && event.key.toLowerCase() === 'c') {
+      const selected = selectedDrawing()
+      if (selected) {
+        event.preventDefault()
+        drawClipboard = { ...selected }
+      }
+      return
+    }
+    if (command && event.key.toLowerCase() === 'v') {
+      if (!drawClipboard) return
+      event.preventDefault()
+      drawingId += 1
+      const source = drawClipboard
+      const next = [
+        ...drawings(),
+        {
+          ...source,
+          id: drawingId,
+          startIndex: source.startIndex === undefined ? undefined : source.startIndex + 3,
+          endIndex: source.endIndex === undefined ? undefined : source.endIndex + 3
+        }
+      ]
+      setSelectedId(drawingId)
+      setDrawings(next)
+      persistDrawings(next)
+      return
+    }
 
     switch (event.key) {
       case 'ArrowUp':

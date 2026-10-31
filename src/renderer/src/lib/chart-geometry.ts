@@ -221,7 +221,7 @@ export function buildTrendGeometry(
  */
 export function buildTrendLevels(days: MinuteTrend[], geo: TrendGeometry): AxisLevel[] {
   if (days.length > 1) {
-    const step = niceStep(geo.yMax - geo.yMin, 5)
+    const step = niceAxisStep(geo.yMax - geo.yMin, 12)
     const result: AxisLevel[] = []
     for (let value = Math.ceil(geo.yMin / step) * step; value <= geo.yMax; value += step) {
       result.push({ value: Number(value.toFixed(3)), pct: null })
@@ -233,7 +233,9 @@ export function buildTrendLevels(days: MinuteTrend[], geo: TrendGeometry): AxisL
   if (!(base > 0)) return []
 
   const rangePct = ((geo.yMax - geo.yMin) / base) * 100
-  const step = rangePct <= 2 ? 0.5 : rangePct <= 4 ? 1 : rangePct <= 9 ? 2 : rangePct <= 20 ? 5 : 10
+  // 右侧百分比刻度要密一些：目标约 8 条，同时避免 0.05% 这类过细标签。
+  const candidates = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20]
+  const step = candidates.find((value) => value >= rangePct / 14) ?? 20
 
   // 基准线一定在
   const result: AxisLevel[] = [{ value: base, pct: 0 }]
@@ -695,7 +697,7 @@ export function accumulateWheel(
 
 /** K 线纵轴刻度：用「好看的数字」取步长 */
 export function buildKLineLevels(geo: KLineGeometry): number[] {
-  const step = niceStep(geo.yMax - geo.yMin, 5)
+  const step = niceAxisStep(geo.yMax - geo.yMin, 12)
   const result: number[] = []
   for (let value = Math.ceil(geo.yMin / step) * step; value <= geo.yMax; value += step) {
     result.push(Number(value.toFixed(4)))
@@ -748,6 +750,17 @@ export function buildLinePath(points: ({ x: number; y: number } | null)[]): stri
 /* ============================================================ 小工具 */
 
 /** 取一个「好看」的刻度步长：1 / 2 / 5 × 10ⁿ */
+/** 更密的轴步长：允许 1/1.25/1.5/2/2.5/3/4/5/6/8/10，避免总跳到 5×10ⁿ。 */
+export function niceAxisStep(range: number, targetTicks = 12): number {
+  const raw = range / Math.max(1, targetTicks)
+  if (!Number.isFinite(raw) || raw <= 0) return 1
+  const magnitude = Math.pow(10, Math.floor(Math.log10(raw)))
+  const normalized = raw / magnitude
+  const steps = [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+  const step = steps.find((value) => value >= normalized - 1e-9) ?? 10
+  return step * magnitude
+}
+
 export function niceStep(range: number, targetTicks: number): number {
   const raw = range / targetTicks
   if (!Number.isFinite(raw) || raw <= 0) return 1

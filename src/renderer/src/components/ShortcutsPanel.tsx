@@ -23,6 +23,7 @@ const GROUPS: Array<{ title: string; items: Array<[string, string]> }> = [
       ['← / →', '移动十字光标'],
       ['End', '回到最新一根'],
       ['Delete', '删除选中的画线'],
+      ['Ctrl+C / Ctrl+V', '复制 / 粘贴选中的画线'],
       ['Esc', '收起十字光标']
     ]
   }

@@ -110,6 +110,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [showBoll, setShowBoll] = createSignal(appState.settings.showBoll ?? false)
   const [showDrawings, setShowDrawings] = createSignal(appState.settings.showDrawings ?? false)
   const [showAverages, setShowAverages] = createSignal(appState.settings.showAverages ?? true)
+  const [snapDrawings, setSnapDrawings] = createSignal(appState.settings.snapDrawings ?? true)
   const [drawMenuOpen, setDrawMenuOpen] = createSignal(false)
   const [subIndicator, setSubIndicator] = createSignal<'none' | SubIndicator>(
     appState.settings.subIndicator ?? 'none'
@@ -146,6 +147,12 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     const savedAverages = appState.settings.showAverages
     if (savedAverages !== undefined && savedAverages !== showAverages()) {
       setShowAverages(savedAverages)
+    }
+  })
+  createEffect(() => {
+    const savedSnap = appState.settings.snapDrawings
+    if (savedSnap !== undefined && savedSnap !== snapDrawings()) {
+      setSnapDrawings(savedSnap)
     }
   })
   const chooseDrawMode = (mode: DrawingMode): void => {
@@ -487,6 +494,18 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                       }}
                     />
                     显示画线
+                    <span class="chart-draw-menu__snap">
+                      <input
+                        type="checkbox"
+                        checked={snapDrawings()}
+                        onChange={(event) => {
+                          const next = event.currentTarget.checked
+                          setSnapDrawings(next)
+                          updateSettings({ snapDrawings: next })
+                        }}
+                      />
+                      吸附
+                    </span>
                   </label>
                   <div class="chart-draw-menu__tools">
                     <button
@@ -570,7 +589,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     >
                       清线
                     </button>
-                    <span>点击选中，Delete/右键删除单条</span>
+                    <span>拖线体平移 · Ctrl+C/V 复制 · Delete 删除</span>
                   </div>
                   <Show when={drawMode() === 'text'}>
                     <input
@@ -838,6 +857,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     onWindowChange={setSubWindow}
                     drawMode={drawMode()}
                     showDrawings={showDrawings()}
+                    snapDrawings={snapDrawings()}
                     overlayFormula={appState.settings.mainFormula}
                     dividends={dividends()}
                     clearDrawingsKey={clearDrawingsKey()}

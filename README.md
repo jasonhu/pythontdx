@@ -8,7 +8,7 @@
 
 **当前状态**：桌面 + Web 前端可用；Linux AppImage/deb 已实测；
 v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTTP 只读）。
-`npm run check` 全绿：**257 个 TS 测试 + 134 个 Python 协议/服务测试（1 skipped）**。
+`npm run check` 全绿：**258 个 TS 测试 + 134 个 Python 协议/服务测试（1 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -59,7 +59,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 默认刷新 1 秒；启动先读本地行情快照与 K 线缓存；行情预警：价格/涨幅/量比/换手/振幅本地规则，同日同规则只提示一次，应用内 toast + 系统通知；价格预警在分时/日 K 画目标线
 - 市场异动：异动列表 + 涨停/跌停/炸板本地判定（按主板/创业/科创/北交/ST 限制）+ 13 档全市场涨跌分布
 - 板块/概念/行业：行业 111、概念 269、风格 161、指数 117、一般 100；左栏分类、右栏成分股 + 880xxx 指数报价/K线，点击切股
-- 主图默认裸 K + 均线；均线/BOLL/画线均有独立开关，可只看 BOLL 或裸 K；画线工具收进「画线」下拉菜单，默认不显示已保存画线。
+- 主图默认裸 K + 均线；均线/BOLL/画线均有独立开关，可只看 BOLL 或裸 K；画线工具收进「画线」下拉菜单，默认不显示已保存画线；画线支持吸附、拖动平移、Ctrl+C/V 复制。
 - F10 公司资料：标题栏 F10 按钮或全局 **F10** 键打开；7709 目录按 NUL 截断（无方框填充）、GBK 正文中的竖线表转为对齐 HTML 表格；7615 在线公告/新闻/概况/估值/财务/主营/股东/研报/分红/股东人数/实控人/机构/增减持/流通股东/股本/报表/交易/行业/增减计划；页签按需加载；当前页签可格式化为 Markdown 并按标题/引用/表格规范渲染，支持复制/下载
 - 排行榜：涨幅 / 成交额 / 涨速 / 短换手 / 封单额；可切「全市场」按 MAC 排序 5,615 只（前 300），首屏 80 条可加载更多；「资金流」tab 批量补 MAC 0x1218，按主力净额排全市场（2026-10-31 实测 5,615/5,615），点击行查看
 - 关键指标：换手率、振幅、量比估算、PE(TTM/动态/静态)、PE 分位、PB/PB 分位、PS/PEG、EPS、ROE、毛利率、净利润/营收同比、财报期、总/流通市值、均价、涨跌停价、昨收；缺失字段显式显示「—」
@@ -80,7 +80,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
 - 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选/全 A 分批日 K + 1 分钟 K + 指数 K + 板块文件缓存（可跳过已有缓存续跑；日 K/1m/指数自动探测全部历史，写 *_all_none.parquet） + 网络失败回退；数据缓存统一为 Parquet(ZSTD)，DuckDB 负责读写/查询；pandas/pyarrow/numpy 供数据挖掘与 ML，sidecar 不打包
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 前端（本地状态可写）（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 257 个 TS 单元测试 + 134 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 258 个 TS 单元测试 + 134 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
@@ -176,7 +176,7 @@ python3 -m pip install -r requirements.txt
 | `npm run dev:web`                                | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174） |
 | `npm run build:web`                              | 构建 Web 产物到 `out/web/`                             |
 | `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
-| `npm run test`                                   | Vitest（257 个 TS 用例）                               |
+| `npm run test`                                   | Vitest（258 个 TS 用例）                               |
 | `npm run test:python`                            | Python 协议/HTTP 测试（134 个用例，真实 fixture）      |
 | `npm run audit:data`                             | 只读数据覆盖自检（27 项，覆盖清单见 docs/12）          |
 | `npm run build:python`                           | Nuitka 打行情桥接单文件（打包前必跑）                  |

@@ -28,6 +28,7 @@ import {
   movingAverage,
   nearestZoomLevel,
   nextZoomLevel,
+  niceAxisStep,
   niceStep,
   slotFromX,
   stepCursor,
@@ -231,6 +232,7 @@ describe('buildTrendLevels', () => {
     const baseline = levels.find((level) => level.pct === 0)
     expect(baseline).toBeDefined()
     expect(baseline!.value).toBeCloseTo(100, 6)
+    expect(levels.length).toBeGreaterThanOrEqual(5)
   })
 
   it('单日：围绕基准线上下成对出现', () => {
@@ -509,7 +511,7 @@ describe('buildKLineLevels', () => {
     const bars = makeBars([10, 12, 11, 13, 15, 14, 16, 18, 17, 19])
     const geo = buildKLineGeometry(bars, 800, 400)!
     const levels = buildKLineLevels(geo)
-    expect(levels.length).toBeGreaterThan(1)
+    expect(levels.length).toBeGreaterThanOrEqual(5)
     for (let i = 1; i < levels.length; i++) {
       expect(levels[i]).toBeGreaterThan(levels[i - 1])
     }
@@ -572,6 +574,14 @@ describe('buildLinePath', () => {
 })
 
 /* ------------------------------------------------------------ 工具 */
+
+describe('niceAxisStep', () => {
+  it('比 1/2/5 更细，能给出 25/30/40 等步长', () => {
+    expect(niceAxisStep(300, 12)).toBe(25)
+    expect(niceAxisStep(400, 12)).toBe(40)
+    expect(niceAxisStep(0, 12)).toBe(1)
+  })
+})
 
 describe('niceStep', () => {
   it('步长永远是 1 / 2 / 5 × 10ⁿ', () => {

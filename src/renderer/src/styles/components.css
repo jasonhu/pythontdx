@@ -5450,3 +5450,21 @@
   font-size: 9px;
   opacity: 0.8;
 }
+
+.data__kline-options {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.data__kline-period,
+.data__kline-count {
+  height: 25px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}

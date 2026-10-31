@@ -54,6 +54,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [localPath, setLocalPath] = createSignal(appState.settings.localDayPath ?? '')
   const [klineExporting, setKlineExporting] = createSignal(false)
   const [klineExport, setKlineExport] = createSignal<KLineExportResult | null>(null)
+  const [klinePeriod, setKlinePeriod] = createSignal('day')
+  const [klineCount, setKlineCount] = createSignal(240)
   const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
   const [snapshotExporting, setSnapshotExporting] = createSignal(false)
   const [snapshotResult, setSnapshotResult] = createSignal<number | null>(null)
@@ -152,8 +154,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setKlineExport(
         await api.data.exportKlines({
           codes: watchCodes(),
-          period: 'day',
-          count: 240,
+          period: klinePeriod(),
+          count: klineCount(),
           adjust: 'qfq'
         })
       )
@@ -355,16 +357,38 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             <div>
               <div class="data__label">自选 K 线导出</div>
               <div class="data__sub">
-                最近 240 根日 K，CSV + JSONL.gz + manifest，写入数据目录。
+                最近 {klineCount()} 根
+                {klinePeriod() === 'day' ? '日' : klinePeriod() === 'week' ? '周' : '月'} K，CSV +
+                JSONL.gz + manifest。
               </div>
             </div>
-            <button
-              class="btn data__kline-export"
-              disabled={klineExporting() || watchCodes().length === 0}
-              onClick={() => void runKlineExport()}
-            >
-              {klineExporting() ? '导出中…' : `导出 ${watchCodes().length} 只`}
-            </button>
+            <div class="data__kline-options">
+              <select
+                class="data__kline-period"
+                value={klinePeriod()}
+                onChange={(event) => setKlinePeriod(event.currentTarget.value)}
+              >
+                <option value="day">日 K</option>
+                <option value="week">周 K</option>
+                <option value="month">月 K</option>
+              </select>
+              <select
+                class="data__kline-count"
+                value={String(klineCount())}
+                onChange={(event) => setKlineCount(Number(event.currentTarget.value))}
+              >
+                <option value="120">120 根</option>
+                <option value="240">240 根</option>
+                <option value="480">480 根</option>
+              </select>
+              <button
+                class="btn data__kline-export"
+                disabled={klineExporting() || watchCodes().length === 0}
+                onClick={() => void runKlineExport()}
+              >
+                {klineExporting() ? '导出中…' : `导出 ${watchCodes().length} 只`}
+              </button>
+            </div>
           </section>
           <Show when={klineExportError()}>
             {(message) => <div class="data__query-error">{message()}</div>}

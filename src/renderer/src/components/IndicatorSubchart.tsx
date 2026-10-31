@@ -6,9 +6,9 @@
 import { createMemo, For, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { cci, kdj, macd, rsi, wr } from '@shared/indicators'
+import { bias, cci, kdj, macd, rsi, wr } from '@shared/indicators'
 
-export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci'
+export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias'
 
 const W = 900
 const H = 120
@@ -24,7 +24,10 @@ const COLORS = {
   j: '#c084fc',
   rsi: '#5b8cff',
   wr: '#22d3ee',
-  cci: '#f59e0b'
+  cci: '#f59e0b',
+  bias6: '#5b8cff',
+  bias12: '#f0b429',
+  bias24: '#c084fc'
 }
 
 function path(values: number[], min: number, max: number): string {
@@ -108,6 +111,23 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
         lines: [{ label: 'CCI14', color: COLORS.cci, d: path(values, min, max) }],
         hist: [],
         latest: `CCI14 ${fixed(values.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'bias') {
+      const b6 = slice(bias(all, 6))
+      const b12 = slice(bias(all, 12))
+      const b24 = slice(bias(all, 24))
+      const numbers = [...b6, ...b12, ...b24].filter(Number.isFinite)
+      const min = Math.min(...numbers)
+      const max = Math.max(...numbers)
+      return {
+        lines: [
+          { label: 'BIAS6', color: COLORS.bias6, d: path(b6, min, max) },
+          { label: 'BIAS12', color: COLORS.bias12, d: path(b12, min, max) },
+          { label: 'BIAS24', color: COLORS.bias24, d: path(b24, min, max) }
+        ],
+        hist: [],
+        latest: `6 ${fixed(b6.at(-1) ?? 0)} · 12 ${fixed(b12.at(-1) ?? 0)} · 24 ${fixed(b24.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all))

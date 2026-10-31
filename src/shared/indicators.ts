@@ -153,3 +153,18 @@ export function cci(bars: readonly KLineBar[], period = 14): number[] {
   }
   return result
 }
+
+/** 乖离率 BIAS：收盘价相对 N 日均线的偏离百分比。 */
+export function bias(bars: readonly KLineBar[], period = 6): number[] {
+  const result: number[] = []
+  for (let index = 0; index < bars.length; index += 1) {
+    if (index < period - 1) {
+      result.push(Number.NaN)
+      continue
+    }
+    const window = bars.slice(index - period + 1, index + 1)
+    const average = window.reduce((sum, bar) => sum + bar.close, 0) / period
+    result.push(average === 0 ? 0 : ((bars[index].close - average) / average) * 100)
+  }
+  return result
+}

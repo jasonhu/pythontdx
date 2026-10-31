@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { boll, ema, kdj, macd, rsi, wr, cci } from './indicators'
+import { boll, ema, kdj, macd, rsi, wr, cci, bias } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -68,5 +68,21 @@ describe('cci', () => {
     expect(Number.isNaN(values[12])).toBe(true)
     expect(values[13]).toBeTypeOf('number')
     expect(Number.isFinite(values[19])).toBe(true)
+  })
+})
+
+describe('bias', () => {
+  it('计算 BIAS 并保留前导空值', () => {
+    const bars = Array.from({ length: 12 }, (_, index) => ({
+      date: String(index),
+      open: 10,
+      high: 10,
+      low: 10,
+      close: 10 + index,
+      volume: 1
+    }))
+    const values = bias(bars, 6)
+    expect(Number.isNaN(values[4])).toBe(true)
+    expect(values[5]).toBeGreaterThan(0)
   })
 })

@@ -406,6 +406,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <option value="rsi">RSI</option>
               <option value="wr">WR</option>
               <option value="cci">CCI</option>
+              <option value="bias">BIAS</option>
             </select>
           </Show>
 

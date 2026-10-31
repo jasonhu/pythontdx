@@ -1,17 +1,17 @@
 /**
- * 技术指标面板：MACD / KDJ / RSI / WR / CCI / BOLL。
+ * 技术指标面板：MACD / KDJ / RSI / WR / CCI / BIAS / BOLL。
  *
  * 纯本地计算，不请求额外数据；图表只取最近 160 根日 K 显示。
  */
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { boll, cci, kdj, macd, rsi, wr } from '@shared/indicators'
+import { bias, boll, cci, kdj, macd, rsi, wr } from '@shared/indicators'
 import { api, errorMessage } from '../lib/ipc'
 import { appState, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
 
-type Tab = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'boll'
+type Tab = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'boll'
 
 const W = 900
 const H = 300
@@ -27,6 +27,9 @@ const COLORS = {
   rsi: '#5b8cff',
   wr: '#22d3ee',
   cci: '#f59e0b',
+  bias6: '#5b8cff',
+  bias12: '#f0b429',
+  bias24: '#c084fc',
   close: '#d7dce7',
   upper: '#f0b429',
   middle: '#5b8cff',
@@ -217,6 +220,27 @@ export function IndicatorPanel(props: {
         latest: [['CCI14', line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'bias') {
+      const b6 = slice(bias(all, 6))
+      const b12 = slice(bias(all, 12))
+      const b24 = slice(bias(all, 24))
+      const numbers = [...b6, ...b12, ...b24].filter(Number.isFinite)
+      const min = Math.min(...numbers)
+      const max = Math.max(...numbers)
+      return {
+        lines: [
+          { label: 'BIAS6', color: COLORS.bias6, path: linePath(b6, min, max) },
+          { label: 'BIAS12', color: COLORS.bias12, path: linePath(b12, min, max) },
+          { label: 'BIAS24', color: COLORS.bias24, path: linePath(b24, min, max) }
+        ],
+        hist: [],
+        latest: [
+          ['BIAS6', b6.at(-1)],
+          ['BIAS12', b12.at(-1)],
+          ['BIAS24', b24.at(-1)]
+        ] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -271,6 +295,7 @@ export function IndicatorPanel(props: {
                 ['rsi', 'RSI'],
                 ['wr', 'WR'],
                 ['cci', 'CCI'],
+                ['bias', 'BIAS'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }

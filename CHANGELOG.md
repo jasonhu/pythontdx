@@ -28,6 +28,8 @@ StockLens 的所有重要变更都记录在这里。
   服务器不再保留的日期仍可回看已归档内容。实测 `sh688499` 66 点归档并回读。
 - **批量/自动竞价归档**：新增 `auction_archive_batch`，数据工具「归档自选竞价」
   实测 7/7 只；收盘自动任务在原有开关下同时归档快照与自选竞价，单只失败不阻断其他项。
+- **竞价归档清单**：数据工具读取 `lake/auction` 最近 20 个文件，显示日期/代码/点数/大小；
+  实测列出 8 条，只读不修改原始数据。
 - **指标库扩展**：新增 ROC、PSY、VR、CR 四种副图指标（指标面板与 K 线副图共用）；
   共 12 种副图指标，周期参数均可编辑并记忆（ROC 6/PSY 12/VR 26/CR 26）；新增 3 个纯函数用例。
 - **多屏窗口放置**：设置面板列出 `screen.getAllDisplays()`，显示主屏/当前屏，
@@ -44,15 +46,16 @@ StockLens 的所有重要变更都记录在这里。
 
 - `npm run check` → **231 TS + 124 Python（2 skipped，22 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `02ce18e7…` / deb 105 MB `33a1007f…`；
+- Linux AppImage 130 MB `a9bfd6ed…` / deb 105 MB `8ae5489a…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
   `screenshots/packaged-ranking-flow.png`、`screenshots/packaged-formula-multi.png`、
   `screenshots/packaged-auction-archive.png`、`screenshots/data-auction-archive.png`、
-  `screenshots/indicator-roc.png`、`screenshots/indicator-roc-params.png`、
-  `screenshots/packaged-indicator-roc.png`、`screenshots/multi-screen.png`；
-- 矩阵（不含状态图例）：**313 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+  `screenshots/auction-archive-list.png`、`screenshots/indicator-roc.png`、
+  `screenshots/indicator-roc-params.png`、`screenshots/packaged-indicator-roc.png`、
+  `screenshots/multi-screen.png`；
+- 矩阵（不含状态图例）：**314 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

@@ -8,6 +8,7 @@ import type {
   StatsCsvExport,
   StatsParquetExport,
   StatsQueryResult,
+  AuctionArchiveItem,
   TdxStatsExport,
   TdxStatsSummary,
   LocalDayResult,
@@ -114,6 +115,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [archiveError, setArchiveError] = createSignal<string | null>(null)
   const [auctionArchiving, setAuctionArchiving] = createSignal(false)
   const [auctionArchiveNote, setAuctionArchiveNote] = createSignal<string | null>(null)
+  const [auctionArchives, setAuctionArchives] = createSignal<AuctionArchiveItem[]>([])
+  const [auctionArchivesLoading, setAuctionArchivesLoading] = createSignal(false)
+  const [auctionArchivesError, setAuctionArchivesError] = createSignal<string | null>(null)
   const [archives, setArchives] = createSignal<SnapshotArchiveItem[]>([])
   const [archivesLoading, setArchivesLoading] = createSignal(false)
   const [archivesError, setArchivesError] = createSignal<string | null>(null)
@@ -202,10 +206,23 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
           result.failedCount > 0 ? ` · ${result.failedCount} 只失败` : ''
         }`
       )
+      await loadAuctionArchives()
     } catch (cause) {
       setAuctionArchiveNote(`竞价归档失败：${errorMessage(cause)}`)
     } finally {
       setAuctionArchiving(false)
+    }
+  }
+
+  const loadAuctionArchives = async (): Promise<void> => {
+    setAuctionArchivesLoading(true)
+    setAuctionArchivesError(null)
+    try {
+      setAuctionArchives(await api.auction.archiveList(20))
+    } catch (cause) {
+      setAuctionArchivesError(errorMessage(cause))
+    } finally {
+      setAuctionArchivesLoading(false)
     }
   }
 
@@ -595,7 +612,10 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     }
   }
 
-  onMount(() => void loadInventory())
+  onMount(() => {
+    void loadInventory()
+    void loadAuctionArchives()
+  })
 
   return (
     <div class="data-backdrop" onClick={() => props.onClose()}>
@@ -1060,6 +1080,41 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
           </section>
           <Show when={auctionArchiveNote()}>
             {(note) => <div class="data__sub data__auction-note">{note()}</div>}
+          </Show>
+          <section class="data__kline">
+            <div>
+              <div class="data__label">竞价归档历史</div>
+              <div class="data__sub">lake/auction 最近 20 个文件；只读清单，不修改原始数据。</div>
+            </div>
+            <button
+              class="btn data__auction-list"
+              disabled={auctionArchivesLoading()}
+              onClick={() => void loadAuctionArchives()}
+            >
+              {auctionArchivesLoading() ? '读取中…' : '刷新'}
+            </button>
+          </section>
+          <Show when={auctionArchivesError()}>
+            {(message) => <div class="data__query-error">{message()}</div>}
+          </Show>
+          <div class="data__auction-archive-list">
+            <For each={auctionArchives()}>
+              {(item) => (
+                <div class="data__auction-archive-row">
+                  <span>{item.tradeDate}</span>
+                  <code>{item.code.toUpperCase()}</code>
+                  <span class="num">{thousands(item.rows)} 点</span>
+                  <span class="num">{formatBytes(item.bytes)}</span>
+                </div>
+              )}
+            </For>
+          </div>
+          <Show
+            when={
+              !auctionArchivesLoading() && auctionArchives().length === 0 && !auctionArchivesError()
+            }
+          >
+            <div class="data__sub">暂无竞价归档；先点「归档自选竞价」。</div>
           </Show>
           <label class="data__auto-archive">
             <input

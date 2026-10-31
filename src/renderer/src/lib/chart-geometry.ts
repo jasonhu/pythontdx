@@ -487,7 +487,9 @@ export function buildKLineGeometry(
  *
  * 最大档位同时是**取数上限**：不可能显示比拉回来的更多的 K 线。
  */
-export const KLINE_ZOOM_LEVELS = [30, 35, 40, 50, 60, 70, 85, 100, 120, 140, 160] as const
+export const KLINE_ZOOM_LEVELS = [
+  30, 35, 40, 50, 60, 70, 85, 100, 120, 140, 160, 200, 250, 300, 375, 450, 500
+] as const
 
 /** 默认（最大）档位：显示全部 K 线，与「引入缩放之前」的行为一致 */
 export const KLINE_BARS_MAX: number = KLINE_ZOOM_LEVELS[KLINE_ZOOM_LEVELS.length - 1]

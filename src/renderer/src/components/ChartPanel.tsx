@@ -89,7 +89,7 @@ const maLegend = (): Array<{ label: string; color: string }> =>
 /** 折线类图表的自动刷新周期（主进程还有 10~60 秒缓存兜底） */
 const REFRESH_MS = 30_000
 /** K 线取多少根 —— 与缩放的最大档位一致：不可能显示比拉回来的更多 */
-/** 一次请求 800 根历史：可见窗口最多 160 根，但均线用完整 800 根计算。 */
+/** 一次请求 800 根历史：可见窗口最多 500 根，均线用完整 800 根计算。 */
 const KLINE_COUNT = 800
 
 export interface ChartPanelProps {

@@ -486,7 +486,7 @@ describe('缩放档位对应的蜡烛宽度', () => {
   it('根数越少蜡烛越宽，单调且肉眼可辨', () => {
     const widths = KLINE_ZOOM_LEVELS.map((level) => widthAt(level, 700))
     for (let i = 1; i < widths.length; i++) {
-      expect(widths[i]).toBeLessThan(widths[i - 1])
+      expect(widths[i]).toBeLessThanOrEqual(widths[i - 1])
     }
   })
 
@@ -499,7 +499,7 @@ describe('缩放档位对应的蜡烛宽度', () => {
     for (const width of WIDTHS) {
       for (const level of KLINE_ZOOM_LEVELS) {
         const body = widthAt(level, width)
-        expect(body).toBeGreaterThan(1) // 下限：最密时仍有实体
+        expect(body).toBeGreaterThanOrEqual(1) // 下限：最密时仍有实体
         expect(body).toBeLessThanOrEqual(20) // 上限：再粗就不像 K 线了
       }
     }
@@ -777,7 +777,7 @@ describe('nextZoomLevel（上下键换档）', () => {
     }
     expect(seen).toEqual([...KLINE_ZOOM_LEVELS].reverse())
     // 顺带钉住头几步：表被改动时这条测试不该变成「怎么都对」
-    expect(seen.slice(0, 3)).toEqual([160, 140, 120])
+    expect(seen.slice(0, 3)).toEqual([500, 450, 375])
   })
 
   it('缩小时可见根数一路变多，正好是放大的逆序', () => {

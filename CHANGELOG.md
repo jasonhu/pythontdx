@@ -98,7 +98,7 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- 完成判定：非 ⛔ 功能矩阵 **334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔** 收口；
+- 状态：功能矩阵 **330 ✅ / 4 🟡 / 0 ⬜ / 5 ⛔**，4 项部分实现、5 项边界；
   `npm run check` 退出码 0（257 TS + 134 Python），Linux 包哈希与 `docs/07` 一致。
 - `0x0547` 休市探针（2026-10-31，sh600519）：cursor 0 / 1 / 0xFFFFFFFF
   均返回同一 129 字节快照（价格 1392.05、记录内 update=153001）；
@@ -121,7 +121,7 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/indicator-sar.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+- 矩阵（不含状态图例）：**330 ✅ / 4 🟡 / 0 ⬜ / 5 ⛔**。
 
 ---
 

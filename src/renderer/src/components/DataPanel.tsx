@@ -344,7 +344,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
           if (bulkCancel) break
           setBulkCurrent(code)
           try {
-            const dates = bulkTickAll() ? await api.data.tickArchiveDates(code) : [targetDate]
+            const dates = bulkTickAll()
+              ? await api.data.tickArchiveDates(code, undefined, undefined, 20)
+              : [targetDate]
             for (const date of dates) {
               if (bulkCancel) break
               setBulkCurrent(`${code} ${date}`)
@@ -930,8 +932,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               <div class="data__label">批量下载本地数据</div>
               <div class="data__sub">
                 日 K / 1 分钟 / 历史逐笔共用同一批处理与断点续跑；全 A 约 5,615
-                只，耗时较长，可随时取消。 逐笔默认遍历与 1 分钟 K 同起始日期的全部交易日；
-                取消勾选后只归档选定交易日。全市场全历史逐笔数据量极大，可随时停止。
+                只，耗时较长，可随时取消。 逐笔默认下载最近 20 个交易日（与 1 分钟 K
+                同一日期索引）； 取消勾选后只归档选定交易日。全市场 20
+                日逐笔数据量很大，可随时停止。
               </div>
             </div>
             <div class="data__bulk-grid">
@@ -956,7 +959,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                           disabled={bulkRunning()}
                           onChange={() => setBulkTickAll((value) => !value)}
                         />
-                        全部历史日期
+                        最近 20 个交易日
                       </label>
                       <input
                         class="data__bulk-scope"

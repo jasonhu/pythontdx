@@ -161,8 +161,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     fetchTickArchiveBatch(codes, date)
   )
 
-  ipcMain.handle(IPC.tickArchiveDates, (_event, code: string, start?: string, end?: string) =>
-    fetchTickArchiveDates(code, start, end)
+  ipcMain.handle(
+    IPC.tickArchiveDates,
+    (_event, code: string, start?: string, end?: string, days?: number) =>
+      fetchTickArchiveDates(code, start, end, days)
   )
 
   ipcMain.handle(IPC.tickArchiveList, (_event, limit?: number) => fetchTickArchiveList(limit))

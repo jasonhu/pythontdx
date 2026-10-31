@@ -474,6 +474,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                             str(payload.get("code") or ""),
                             str(payload.get("start") or "") or None,
                             str(payload.get("end") or "") or None,
+                            int(payload.get("days", 20)),
                         )
                     )
                 return

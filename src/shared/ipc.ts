@@ -416,7 +416,7 @@ export interface StockLensApi {
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
     tickArchiveSave(code: string, date: string): Promise<TickArchiveResult>
-    tickArchiveDates(code: string, start?: string, end?: string): Promise<string[]>
+    tickArchiveDates(code: string, start?: string, end?: string, days?: number): Promise<string[]>
     tickArchiveBatch(codes: string[], date: string): Promise<TickArchiveBatchResult>
     tickArchiveList(limit?: number): Promise<TickArchiveItem[]>
   }

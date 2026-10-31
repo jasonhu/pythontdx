@@ -3287,9 +3287,13 @@ class Bridge:
         return write_tick_archive(root, normalized_code, target_date, rows)
 
     def tick_archive_dates(
-        self, code: str, start_date: str | None = None, end_date: str | None = None
+        self,
+        code: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        days: int = 20,
     ) -> list[str]:
-        """用 1 分钟 K 的交易日做逐笔索引，和 1 分钟数据保持同一时间范围。"""
+        """用 1 分钟 K 的交易日做逐笔索引；默认只保留最近 20 个交易日。"""
         cached = _full_kline_cache_path(code, "1m", "none")
         if cached.is_file():
             try:
@@ -3310,6 +3314,8 @@ class Bridge:
             dates = [value for value in dates if value >= start_date]
         if end_date:
             dates = [value for value in dates if value <= end_date]
+        if days > 0:
+            dates = dates[-max(1, int(days)) :]
         return dates
 
     def tick_archive_read(
@@ -4425,6 +4431,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("code") or ""),
             str(payload.get("start") or "") or None,
             str(payload.get("end") or "") or None,
+            int(payload.get("days", 20)),
         )
     if cmd == "tick_archive_list":
         return bridge.tick_archive_list(int(payload.get("limit", 20)))

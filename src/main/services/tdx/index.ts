@@ -253,11 +253,12 @@ export async function fetchTickArchiveBatch(
 export async function fetchTickArchiveDates(
   code: string,
   start?: string,
-  end?: string
+  end?: string,
+  days = 20
 ): Promise<string[]> {
   return bridge.send<string[]>(
     'tick_archive_dates',
-    { code, start: start || undefined, end: end || undefined },
+    { code, start: start || undefined, end: end || undefined, days },
     120_000
   )
 }

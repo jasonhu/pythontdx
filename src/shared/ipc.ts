@@ -25,6 +25,8 @@ import type {
   KLineSeries,
   LocalDayBar,
   LocalDayResult,
+  DataInventory,
+  KLineCacheResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -132,6 +134,10 @@ export const IPC = {
   localDayWrite: 'local:write',
   /** 批量导出 K 线（invoke） */
   exportKlines: 'data:export-klines',
+  /** 预热自选 K 线本地缓存（invoke） */
+  cacheKlines: 'data:cache-klines',
+  /** 离线数据目录清单（invoke） */
+  dataInventory: 'data:inventory',
   /** 全市场快照归档到数据湖（invoke） */
   archiveSnapshot: 'data:archive-snapshot',
   /** 数据湖归档列表（invoke） */
@@ -319,6 +325,13 @@ export interface StockLensApi {
       count?: number
       adjust?: string
     }): Promise<KLineExportResult>
+    inventory(): Promise<DataInventory>
+    cacheKlines(req: {
+      codes: string[]
+      period?: string
+      count?: number
+      adjust?: string
+    }): Promise<KLineCacheResult>
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
   }

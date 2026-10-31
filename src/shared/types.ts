@@ -605,6 +605,33 @@ export interface KLineSeries {
   code: string
   period: KLinePeriod
   bars: KLineBar[]
+  /** network = 通达信实时；cache = 网络失败后的本地缓存 */
+  source?: 'network' | 'cache'
+  cachePath?: string
+}
+
+export interface DataInventorySection {
+  files: number
+  bytes: number
+  path: string
+}
+
+export interface DataInventory {
+  root: string
+  raw: DataInventorySection
+  cache: DataInventorySection
+  lake: DataInventorySection
+  exports: DataInventorySection
+  normalized: DataInventorySection
+  local: DataInventorySection
+}
+
+export interface KLineCacheResult {
+  cached: number
+  failed: Array<{ code: string; error: string }>
+  period: string
+  count: number
+  dir: string
 }
 
 /* ----------------------------------------------------------------- 搜索 */
@@ -712,7 +739,7 @@ export interface AppSettings {
   /** 主图叠加公式；为空则关闭 */
   mainFormula?: string
   /** 主图三条均线周期 */
-  maPeriods?: [number, number, number]
+  maPeriods?: number[]
   /** 最近搜索（最多 8 条） */
   recentSearches?: SearchItem[]
   /** 收盘后自动归档全市场快照 */
@@ -809,10 +836,13 @@ export const DEFAULT_GROUP_ID = 'default'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   closeToTray: true,
-  refreshInterval: 3000,
+  refreshInterval: 1000,
   theme: 'dark',
   pauseWhenHidden: true,
   showSparkline: true,
+  maPeriods: [5, 10, 20, 60, 120],
+  subIndicator: 'none',
+  showBoll: false,
   sidebarWidth: 264,
   railWidth: 318
 }
@@ -840,12 +870,15 @@ export const SEED_GROUPS: WatchGroup[] = [
 
 /* --------------------------------------------------------------- 窗口/应用 */
 
-export type WindowAction = 'minimize' | 'toggle-maximize' | 'close' | 'toggle-devtools'
+export type WindowAction =
+  'minimize' | 'toggle-maximize' | 'toggle-fullscreen' | 'close' | 'toggle-devtools'
 
 export interface WindowState {
   maximized: boolean
   focused: boolean
-  /** win32 / darwin / linux */
+  /** 是否处于系统全屏 */
+  fullscreen?: boolean
+  /** win32 / darwin / linux / web */
   platform: string
 }
 

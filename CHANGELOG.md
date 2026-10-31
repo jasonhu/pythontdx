@@ -10,6 +10,35 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [未发布] - P2 九项增强（2026-10-31）
+
+### 新增
+
+- **默认五均线**：5/10/20/60/120，默认只显示均线（副图 none、BOLL 关）；
+- **F11 全屏**：桌面 `BrowserWindow.setFullScreen`，Web `requestFullscreen`；
+- **全屏自选**：每页 24 只、分时缩略图、翻页、点击切股；侧栏入口；
+- **F10 Markdown**：当前页签预览、复制、下载 `.md`；
+- **离线缓存**：K 线请求成功落盘，失败自动回退 `source=cache`；自选 800 根预热；
+- **本地数据清单**：扫描 raw/cache/lake/exports/normalized/local；
+- **默认刷新 1 秒**（旧配置保留用户已保存值）；
+- **自选名称完整显示**：去掉省略号，紧凑行宽；
+- **左侧栏伸缩**：拖拽 200–380、双击复位；提升把手可见性。
+
+### 变更
+
+- **Nuitka 成为唯一 Python 打包后端**：移除 PyInstaller 回退；onefile 9,582,800 字节，不含 Python 源码；
+- Linux 图形后端默认 `wayland`；Chromium 当前不允许 Wayland 表面 + Vulkan，
+  `STOCKLENS_GRAPHICS=vulkan` 走 XWayland + ANGLE Vulkan（需真实驱动，失败要回退）。
+
+### 验证
+
+- `npm run check`：209 TS + 112 Python（2 skipped）；
+- 包：AppImage 130 MB `24ce0fde…f4f7a7` / deb 105 MB `b2406914…d5e02d`；
+- 截图：`chart-5ma.png`、`f11-fullscreen.png`、`watchlist-full-24.png`、
+  `f10-markdown.png`、`data-offline.png`、`sidebar-resize.png`。
+
+---
+
 ## [未发布] - P1 协议补齐（进行中）
 
 ### 新增
@@ -155,7 +184,7 @@ StockLens 的所有重要变更都记录在这里。
 - **MAC 资金流**：`0x1218` 今日主力/散户 + 5 日大单/中单；资金流页签补充卡；92 Python。
 - **公式函数扩充**：SUM/HHV/LLV/STD/IF，前后端同子集；183 TS + 91 Python。
 - **全表排序**：MAC 分批 400 只拉全 A 5,615 只报价，按涨幅/跌幅/成交额/现价重排；榜单首屏 *ST航图 +20.04%。
-- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `fc293c74…`、deb 106 MB `0bf8fa97…`，AppImage 实机启动截图；包内全表排序、MAC 资金流、组合预警（且/或）、垂直线/文字、多周期、F10 18 页签、条件预设、多预设自动池、浏览器通知、数据湖归档历史均已验证；Linux 桌面关联改为 stocklens。
+- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `24ce0fde…`、deb 105 MB `b2406914…`，AppImage 实机启动截图；包内全表排序、MAC 资金流、组合预警（且/或）、垂直线/文字、多周期、F10 18 页签、条件预设、多预设自动池、浏览器通知、数据湖归档历史均已验证；Linux 桌面关联改为 stocklens。
 - **MAC 报价兜底**：`0x122B` 三步握手 + 字段 0~7 + 五档；7709 报价失败时自动切 MAC，89 Python。
 - **REITs 分栏**：基金内按 508/180 前缀单列，101 条。
 - **F10 交易数据扩充**：涨停/跌停/可转债/主力盘口四个分区；涨停 30 行实测。

@@ -3,7 +3,7 @@
  *
  * 只做只读数据管理，不碰交易；导出路径由 Python 后端决定并在界面上明确展示。
  */
-import { createSignal, For, Show, type JSX } from 'solid-js'
+import { createSignal, For, onMount, Show, type JSX } from 'solid-js'
 import type {
   StatsCsvExport,
   StatsParquetExport,
@@ -13,6 +13,8 @@ import type {
   LocalDayResult,
   LocalImportResult,
   LocalDayWriteResult,
+  DataInventory,
+  KLineCacheResult,
   KLineExportResult,
   SnapshotArchiveResult,
   SnapshotArchiveItem
@@ -56,6 +58,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [klineExport, setKlineExport] = createSignal<KLineExportResult | null>(null)
   const [klinePeriod, setKlinePeriod] = createSignal('day')
   const [klineCount, setKlineCount] = createSignal(240)
+  const [cacheLoading, setCacheLoading] = createSignal(false)
+  const [cacheResult, setCacheResult] = createSignal<KLineCacheResult | null>(null)
+  const [cacheError, setCacheError] = createSignal<string | null>(null)
+  const [inventory, setInventory] = createSignal<DataInventory | null>(null)
+  const [inventoryLoading, setInventoryLoading] = createSignal(true)
+  const [inventoryError, setInventoryError] = createSignal<string | null>(null)
   const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
   const [snapshotExporting, setSnapshotExporting] = createSignal(false)
   const [snapshotResult, setSnapshotResult] = createSignal<number | null>(null)
@@ -75,6 +83,18 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [writeLoading, setWriteLoading] = createSignal(false)
   const [writeResult, setWriteResult] = createSignal<LocalDayWriteResult | null>(null)
   const [writeError, setWriteError] = createSignal<string | null>(null)
+
+  const loadInventory = async (): Promise<void> => {
+    setInventoryLoading(true)
+    setInventoryError(null)
+    try {
+      setInventory(await api.data.inventory())
+    } catch (cause) {
+      setInventoryError(errorMessage(cause))
+    } finally {
+      setInventoryLoading(false)
+    }
+  }
 
   const loadArchives = async (): Promise<void> => {
     setArchivesLoading(true)
@@ -163,6 +183,26 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setKlineExportError(errorMessage(cause))
     } finally {
       setKlineExporting(false)
+    }
+  }
+
+  const runCacheKlines = async (): Promise<void> => {
+    if (cacheLoading()) return
+    setCacheLoading(true)
+    setCacheError(null)
+    try {
+      setCacheResult(
+        await api.data.cacheKlines({
+          codes: watchCodes(),
+          period: 'day',
+          count: 800,
+          adjust: 'qfq'
+        })
+      )
+    } catch (cause) {
+      setCacheError(errorMessage(cause))
+    } finally {
+      setCacheLoading(false)
     }
   }
 
@@ -324,6 +364,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     }
   }
 
+  onMount(() => void loadInventory())
+
   return (
     <div class="data-backdrop" onClick={() => props.onClose()}>
       <section
@@ -352,6 +394,60 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             下载官方 <code>zhb.zip</code>，先看摘要；规范化会写原始 ZIP、按交易日分区的
             JSONL.gz、SQLite 查询层和 manifest。
           </div>
+
+          <section class="data__inventory">
+            <div class="data__inventory-head">
+              <div>
+                <div class="data__label">本地离线数据</div>
+                <div class="data__sub">
+                  扫描 raw / cache / lake / exports / normalized / local 六个目录。
+                </div>
+              </div>
+              <button
+                class="btn data__inventory-refresh"
+                disabled={inventoryLoading()}
+                onClick={() => void loadInventory()}
+              >
+                {inventoryLoading() ? '扫描中…' : '重新扫描'}
+              </button>
+            </div>
+            <Show when={inventoryError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={inventory()}>
+              {(data) => (
+                <>
+                  <div class="data__path">
+                    <span>数据根目录</span>
+                    <code>{data().root}</code>
+                  </div>
+                  <div class="data__inventory-grid">
+                    <For
+                      each={
+                        [
+                          ['raw', '原始报文'],
+                          ['cache', 'K 线缓存'],
+                          ['lake', '数据湖'],
+                          ['exports', '导出'],
+                          ['normalized', '规范化'],
+                          ['local', '本地文件']
+                        ] as const
+                      }
+                    >
+                      {([key, label]) => (
+                        <div class="data__metric">
+                          <span>{label}</span>
+                          <strong>
+                            {data()[key].files} 文件 / {formatBytes(data()[key].bytes)}
+                          </strong>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </>
+              )}
+            </Show>
+          </section>
 
           <section class="data__kline">
             <div>
@@ -390,6 +486,41 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </button>
             </div>
           </section>
+          <section class="data__cache">
+            <div>
+              <div class="data__label">离线 K 线缓存</div>
+              <div class="data__sub">
+                为自选股预热最近 800 根前复权日 K；行情失败时图表自动回退到本地缓存。
+              </div>
+            </div>
+            <button
+              class="btn data__cache-run"
+              disabled={cacheLoading() || watchCodes().length === 0}
+              onClick={() => void runCacheKlines()}
+            >
+              {cacheLoading() ? '缓存中…' : `缓存 ${watchCodes().length} 只`}
+            </button>
+          </section>
+          <Show when={cacheError()}>
+            {(message) => <div class="data__query-error">{message()}</div>}
+          </Show>
+          <Show when={cacheResult()}>
+            {(data) => (
+              <div class="data__summary data__summary--kline">
+                <div class="data__path">
+                  <span>缓存目录</span>
+                  <code>{data().dir}</code>
+                </div>
+                <div class="data__path">
+                  <span>结果</span>
+                  <code>
+                    {data().cached} 只 / {data().count} 根 / 失败 {data().failed.length} 只
+                  </code>
+                </div>
+              </div>
+            )}
+          </Show>
+
           <Show when={klineExportError()}>
             {(message) => <div class="data__query-error">{message()}</div>}
           </Show>

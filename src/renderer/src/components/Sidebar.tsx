@@ -33,6 +33,7 @@ import {
   IconGrid,
   IconInfo,
   IconList,
+  IconMaximize,
   IconPlus,
   IconStar
 } from './Icons'
@@ -47,6 +48,7 @@ interface SidebarProps {
   onOpenMulti: () => void
   onOpenPortfolio: () => void
   onOpenMarket: () => void
+  onOpenFullWatchlist: () => void
 }
 
 export function Sidebar(props: SidebarProps): JSX.Element {
@@ -139,6 +141,14 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           自选股
           <span class="badge">{totalCount()}</span>
         </div>
+        <button
+          class="btn btn--icon btn--bare watch-fullscreen-open"
+          title="全屏自选（每页 24 只）"
+          aria-label="打开全屏自选"
+          onClick={() => props.onOpenFullWatchlist()}
+        >
+          <IconMaximize size={13} />
+        </button>
         <button
           class="btn btn--icon btn--bare multi-open"
           title="多股同列"

@@ -35,6 +35,8 @@ import {
   fetchLocalImport,
   fetchLocalQuery,
   exportKlines,
+  cacheKlines,
+  dataInventory,
   archiveSnapshot,
   fetchLakeArchives,
   writeLocalDay,
@@ -190,6 +192,12 @@ export function registerIpcHandlers(context: IpcContext): void {
     exportKlines(req)
   )
 
+  ipcMain.handle(IPC.cacheKlines, (_event, req: Parameters<typeof cacheKlines>[0]) =>
+    cacheKlines(req)
+  )
+
+  ipcMain.handle(IPC.dataInventory, () => dataInventory())
+
   ipcMain.handle(IPC.archiveSnapshot, () => archiveSnapshot())
 
   ipcMain.handle(IPC.lakeArchives, (_event, limit?: number) => fetchLakeArchives(limit))
@@ -296,7 +304,9 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.windowControl, (_event, action: string) => {
     const window = getWindow()
-    if (!window) return { maximized: false, focused: false, platform: process.platform }
+    if (!window) {
+      return { maximized: false, focused: false, fullscreen: false, platform: process.platform }
+    }
 
     switch (action) {
       case 'minimize':
@@ -305,6 +315,9 @@ export function registerIpcHandlers(context: IpcContext): void {
       case 'toggle-maximize':
         if (window.isMaximized()) window.unmaximize()
         else window.maximize()
+        break
+      case 'toggle-fullscreen':
+        window.setFullScreen(!window.isFullScreen())
         break
       case 'close':
         window.close()
@@ -319,6 +332,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     return {
       maximized: window.isMaximized(),
       focused: window.isFocused(),
+      fullscreen: window.isFullScreen(),
       platform: process.platform
     }
   })

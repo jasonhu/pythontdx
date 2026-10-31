@@ -10,7 +10,7 @@ StockLens 的通达信行情桥接进程。
 
 为什么是 sidecar 而不是把协议写在 Node 里：
   · 用户希望通讯用 Python；
-  · 这个文件只依赖标准库，PyInstaller 可以打成单文件，
+  · 这个文件只依赖标准库，Nuitka 可以编译成单文件，
     不需要在用户机器上安装 Python，也不需要 pytdx/eltdx。
 
 协议要点（2026-10 实测）：
@@ -2268,6 +2268,82 @@ class CodeIndex:
         self.loaded = True
 
 
+
+# ---------------------------------------------------------------- K 线本地缓存
+
+def kline_cache_dir() -> Path:
+    target = stocklens_data_dir() / "cache" / "klines"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _dir_stats(target: Path) -> tuple[int, int]:
+    files = 0
+    total = 0
+    if target.exists():
+        for item in target.rglob("*"):
+            if item.is_file():
+                files += 1
+                try:
+                    total += item.stat().st_size
+                except OSError:
+                    pass
+    return files, total
+
+
+def data_inventory() -> dict:
+    """离线数据目录清单：只读扫描，不做删除或迁移。"""
+    root = stocklens_data_dir()
+    sections = {}
+    for name, relative in {
+        "raw": "raw",
+        "cache": "cache",
+        "lake": "lake",
+        "exports": "exports",
+        "normalized": "normalized",
+        "local": "local",
+    }.items():
+        files, size = _dir_stats(root / relative)
+        sections[name] = {"files": files, "bytes": size, "path": str(root / relative)}
+    return {"root": str(root), **sections}
+
+
+def _kline_cache_path(code: str, period: str, count: int, adjust: str) -> Path:
+    safe = f"{code.lower()}_{period}_{int(count)}_{adjust}.json"
+    return kline_cache_dir() / safe
+
+
+def _write_kline_cache(
+    code: str, period: str, count: int, adjust: str, bars: list[dict], source: str
+) -> Path:
+    target = _kline_cache_path(code, period, count, adjust)
+    payload = {
+        "code": code,
+        "period": period,
+        "count": int(count),
+        "adjust": adjust,
+        "source": source,
+        "fetchedAt": int(time.time() * 1000),
+        "bars": bars,
+    }
+    temporary = target.with_name(target.name + ".part")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), "utf-8")
+    os.replace(temporary, target)
+    return target
+
+
+def _read_kline_cache(code: str, period: str, count: int, adjust: str) -> dict | None:
+    target = _kline_cache_path(code, period, count, adjust)
+    try:
+        payload = json.loads(target.read_text("utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict) or not isinstance(payload.get("bars"), list):
+        return None
+    payload["source"] = "cache"
+    payload["cachePath"] = str(target)
+    return payload
+
 class Bridge:
     def __init__(self) -> None:
         self.conn = TdxConnection()
@@ -3259,23 +3335,48 @@ class Bridge:
             raise TdxError("K 线周期只支持 day / week / month")
 
         safe_count = max(1, min(800, int(count)))
+        safe_adjust = str(adjust) if str(adjust) in {"none", "qfq", "hfq"} else "qfq"
         kind = "index" if is_index_code(market, symbol) else "stock"
-        body = self.conn.request(
-            CMD_BARS,
-            bars_data(
-                market,
-                symbol,
-                PERIOD_RAW[period],
-                safe_count,
-                {'none': 0, 'qfq': 1, 'hfq': 2}.get(str(adjust), 1),
-                0,
-                {'5s': 5, '15s': 15, '2m': 2, '3m': 3, '4m': 4, '6m': 6, '8m': 8, '10m': 10, '12m': 12, '18m': 18, '20m': 20, '24m': 24, '36m': 36, '48m': 48, '2d': 2, '3d': 3, '4d': 4, '6d': 6, '9d': 9, '12d': 12, '18d': 18, '24d': 24, '45d': 45}.get(period, 1),
-            ),
-        )
+        try:
+            body = self.conn.request(
+                CMD_BARS,
+                bars_data(
+                    market,
+                    symbol,
+                    PERIOD_RAW[period],
+                    safe_count,
+                    {'none': 0, 'qfq': 1, 'hfq': 2}.get(safe_adjust, 1),
+                    0,
+                    {'5s': 5, '15s': 15, '2m': 2, '3m': 3, '4m': 4, '6m': 6, '8m': 8, '10m': 10, '12m': 12, '18m': 18, '20m': 20, '24m': 24, '36m': 36, '48m': 48, '2d': 2, '3d': 3, '4d': 4, '6d': 6, '9d': 9, '12d': 12, '18d': 18, '24d': 24, '45d': 45}.get(period, 1),
+                ),
+            )
+            bars = parse_bars(body, kind, PERIOD_RAW[period])
+            _write_kline_cache(code, period, safe_count, safe_adjust, bars, "network")
+            return {"code": code, "period": period, "bars": bars, "source": "network"}
+        except Exception:
+            cached = _read_kline_cache(code, period, safe_count, safe_adjust)
+            if cached is not None:
+                return cached
+            raise
+
+    def cache_klines(
+        self, codes: list[str], period: str = "day", count: int = 800, adjust: str = "qfq"
+    ) -> dict:
+        """批量预热自选 K 线缓存；单只失败不阻断其它股票。"""
+        cached = 0
+        failed: list[dict] = []
+        for code in codes:
+            try:
+                self.kline(code, period, count, adjust)
+                cached += 1
+            except Exception as error:  # noqa: BLE001 - 需要把每只的失败原因返回给 UI
+                failed.append({"code": code, "error": str(error)})
         return {
-            "code": code,
+            "cached": cached,
+            "failed": failed,
             "period": period,
-            "bars": parse_bars(body, kind, PERIOD_RAW[period]),
+            "count": max(1, min(800, int(count))),
+            "dir": str(kline_cache_dir()),
         }
 
     def _raw_daily(self, code: str, count: int, market: int, symbol: str) -> list[dict]:
@@ -3519,6 +3620,15 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             payload.get("code", ""),
             payload.get("period", "day"),
             payload.get("count", 200),
+            str(payload.get("adjust", "qfq")),
+        )
+    if cmd == "data_inventory":
+        return data_inventory()
+    if cmd == "cache_klines":
+        return bridge.cache_klines(
+            list(payload.get("codes") or []),
+            str(payload.get("period", "day")),
+            int(payload.get("count", 800)),
             str(payload.get("adjust", "qfq")),
         )
     if cmd == "minute":

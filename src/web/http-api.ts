@@ -15,6 +15,8 @@ import type {
   F10NewsItem,
   F10TradingTable,
   LocalDayResult,
+  DataInventory,
+  KLineCacheResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -350,6 +352,8 @@ export function createHttpApi(): StockLensApi {
       localMinWrite: (path, bars) =>
         post<LocalDayWriteResult>('/api/local_write_min', { path, bars }),
       exportKlines: (req) => post<KLineExportResult>('/api/export_klines', req),
+      cacheKlines: (req) => post<KLineCacheResult>('/api/cache_klines', req),
+      inventory: () => post<DataInventory>('/api/data_inventory', {}),
       archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {}),
       lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit })
     },
@@ -390,7 +394,12 @@ export function createHttpApi(): StockLensApi {
       }
     },
     window: {
-      control: async () => ({ focused: true, maximized: false, platform: 'web' }),
+      control: async () => ({
+        focused: true,
+        maximized: false,
+        fullscreen: false,
+        platform: 'web'
+      }),
       openChart: async () => {
         throw new Error('浏览器版不支持独立窗口')
       },

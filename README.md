@@ -8,7 +8,7 @@
 
 **当前状态**：桌面 + Web 前端可用；Linux AppImage/deb 已实测；
 v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTTP 只读）。
-`npm run check` 全绿：**202 个 TS 测试 + 110 个 Python 协议/服务测试（2 skipped）**。
+`npm run check` 全绿：**209 个 TS 测试 + 112 个 Python 协议/服务测试（2 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -44,7 +44,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 实时快照：多股批量拉取、主进程推送、价格跳变高亮
 - 分时图：面积渐变、均价线、成交量柱、十字光标、价格/涨跌幅双轴
 - 五日分时：按交易日分段上色、日期轴、日内分隔线
-- K 线除权除息日标记（D）；K 线均线周期可配；K 线：5s/15s + 1/5/10/15/20/30/60 分钟 + 2/3/4/6/8/10/12/18/20/24/36/48 分钟 + 2/3/4/6/9/12/18/24/45 日 + 日/周/月/季/年，蜡烛图 + MA5/10/20 + 成交量 + 浮层读数；主图 BOLL 叠加 + MACD/KDJ/RSI/WR/CCI/BIAS/DMI/OBV 副图 + 线性/对数坐标、区间统计、水平线/趋势线（持久化）、技术指标面板（参数可编辑、跨重启记忆）；周期/复权口径跨重启记忆
+- K 线默认 5/10/20/60/120 五条均线，默认只显示均线；K 线除权除息日标记（D）；K 线：5s/15s + 1/5/10/15/20/30/60 分钟 + 2/3/4/6/8/10/12/18/20/24/36/48 分钟 + 2/3/4/6/9/12/18/24/45 日 + 日/周/月/季/年，蜡烛图 + MA5/10/20 + 成交量 + 浮层读数；主图 BOLL 叠加 + MACD/KDJ/RSI/WR/CCI/BIAS/DMI/OBV 副图 + 线性/对数坐标、区间统计、水平线/趋势线（持久化）、技术指标面板（参数可编辑、跨重启记忆）；周期/复权口径跨重启记忆
   - `↑↓` / 滚轮缩放可见根数（以光标那一根为锚点，档位跨重启记忆）
   - `←→` 移动十字光标，`End` 回最新，`Esc` 收起
   - **指针停在图上就能用键盘**，不必先点一下
@@ -55,10 +55,10 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 公式预览：安全表达式 MA/EMA/REF/ABS/MAX/MIN/CROSS/SUM/HHV/LLV/STD/IF，叠加收盘价曲线，可保存/应用、做单标的回测（收盘到收盘、年化/胜率/回撤）+ 自选池/前 N/全市场等权组合回测（含净值曲线/进度取消）并筛选当前自选池；公式可归一化叠加到主图
 - 条件选股/预设/多预设自动股票池：价格/涨幅/成交额/换手/振幅 + 行业扫描；公式选股支持成交额前 N/全市场，分块进度/取消（后端安全表达式；全市场约 99 秒）
 - 复盘：日 K 逐根 / 当日分时逐分钟 / 当日/历史逐笔前进与播放，只把当前位置之前的切片喂给图表
-- 行情预警：价格/涨幅/量比/换手/振幅本地规则，同日同规则只提示一次，应用内 toast + 系统通知；价格预警在分时/日 K 画目标线
+- 默认刷新 1 秒；行情预警：价格/涨幅/量比/换手/振幅本地规则，同日同规则只提示一次，应用内 toast + 系统通知；价格预警在分时/日 K 画目标线
 - 市场异动：异动列表 + 涨停/跌停/炸板本地判定（按主板/创业/科创/北交/ST 限制）+ 13 档全市场涨跌分布
 - 板块/概念/行业：行业 111、概念 269、风格 161、指数 117、一般 100；左栏分类、右栏成分股 + 880xxx 指数报价/K线，点击切股
-- F10 公司资料：标题栏 F10 按钮，7709 目录 + GBK 正文；7615 在线公告/新闻/概况/估值/财务/主营/股东/研报/分红/股东人数/实控人/机构/增减持/流通股东/股本/报表/交易/行业/增减计划；页签按需加载
+- F10 公司资料：标题栏 F10 按钮，7709 目录 + GBK 正文；7615 在线公告/新闻/概况/估值/财务/主营/股东/研报/分红/股东人数/实控人/机构/增减持/流通股东/股本/报表/交易/行业/增减计划；页签按需加载；当前页签可格式化为 Markdown 预览/复制/下载
 - 排行榜：涨幅 / 成交额 / 涨速 / 短换手 / 封单额；可切「全市场」按 MAC 排序 5,615 只（前 300），首屏 80 条可加载更多，点击行查看
 - 关键指标：换手率、振幅、市净率、市值；PE TTM / 量比 / 涨跌停暂缺
 - 状态栏涨跌家数/涨停/跌停计数；交易时段感知：盘后自动降频到 30s+，窗口不可见时暂停请求
@@ -68,7 +68,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 多分组自选：新建 / 双击改名 / 删除（股票自动并入其它分组，不丢数据）
 - 拖拽排序：组内拖动改顺序，拖到分组标签上完成跨组移动
 - 行内迷你走势图：当日分时，和旁边涨跌幅同源同色
-- 搜索联想：240ms 防抖、键盘上下选择、支持拼音 / 中文 / 纯代码直加；最近搜索 8 条，支持键盘上下/回车打开（桌面与 Web 共用）
+- 全屏自选：每页 24 只、分时缩略图（侧栏 ▣）；F11 系统全屏；搜索联想：240ms 防抖、键盘上下选择、支持拼音 / 中文 / 纯代码直加；最近搜索 8 条，支持键盘上下/回车打开（桌面与 Web 共用）
 - 十字光标读数与图表标题区联动
 
 **工程**
@@ -76,13 +76,14 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 类型契约桌面 / Web / 后端共享，改错立刻编译报错
 - 组合分析（当日快照 + 本地持仓盈亏 + 持股回溯）、独立 K 线窗口、第二主窗口（状态广播/位置记忆）、当前窗口置顶、多股同列：当前分组 6/9 格切换，日 K / 当日分时迷你图，点击切换主图
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
-- 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
+- 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选 K 线缓存 + 网络失败回退；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 前端（本地状态可写）（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 202 个 TS 单元测试 + 110 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 209 个 TS 单元测试 + 112 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
-- Linux AppImage / deb / linux-unpacked，PyInstaller 桥接进程随包分发（Windows/macOS 不处理）
+- Linux AppImage / deb / linux-unpacked，Nuitka 编译的桥接进程随包分发（不含 Python 源码；Windows/macOS 不处理）
+- 图形后端：Wayland 原生优先；Vulkan 与 Wayland 表面当前不兼容，可用 `STOCKLENS_GRAPHICS=vulkan` 切 XWayland 尝试
 
 **仍为部分 / 非目标**
 
@@ -141,10 +142,7 @@ npm run build:win     # 或 build:mac / build:linux
 | Node.js     | ≥ 20.19 | 推荐 22 LTS 或更高                    |
 | npm         | ≥ 10    | 随 Node 安装                          |
 | Python      | ≥ 3.10  | 开发/打包需要；运行桌面版 exe 不需要  |
-| PyInstaller | 最新版  | 仅打包需要：`pip install pyinstaller` |
-
-> **Web 端尚未提供。** v0.7 才会加入 Web 端与服务端的开发命令（脚本名待定）；
-> 在脚本真正落地前，不要按计划中的命令操作。
+| Nuitka      | 4.x     | 仅打包需要：`pip install nuitka` + `patchelf` |
 
 > **平台范围**：当前只维护 Linux 运行与打包；Windows/macOS 打包不在范围内，命令仅保留参考。
 >
@@ -164,9 +162,9 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run dev:web`                                | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174） |
 | `npm run build:web`                              | 构建 Web 产物到 `out/web/`                             |
 | `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
-| `npm run test`                                   | Vitest（173 个 TS 用例）                               |
-| `npm run test:python`                            | Python 协议/HTTP 测试（86 个用例，真实 fixture）       |
-| `npm run build:python`                           | PyInstaller 打行情桥接单文件（打包前必跑）             |
+| `npm run test`                                   | Vitest（209 个 TS 用例）                               |
+| `npm run test:python`                            | Python 协议/HTTP 测试（112 个用例，真实 fixture）      |
+| `npm run build:python`                           | Nuitka 打行情桥接单文件（打包前必跑）                  |
 | `npm run shot`                                   | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收    |
 | `npm run lint` / `lint:fix`                      | ESLint（含 Solid 响应式规则）                          |
 | `npm run format`                                 | Prettier 格式化                                        |
@@ -177,7 +175,7 @@ npm run build:win     # 或 build:mac / build:linux
 ## 📦 打包
 
 ```bash
-pip install pyinstaller        # 只需一次
+pip install nuitka patchelf    # 只需一次（Linux）
 npm run build:win              # 安装包 + 单文件便携版
 npm run build:win:portable     # 只要单文件便携版
 npm run build:win:setup        # 只要 NSIS 安装包
@@ -273,7 +271,7 @@ src/
 python/
 ├── tdx_bridge.py          # 7709 协议 + JSON Lines 服务（仅标准库）
 ├── test_tdx.py            # 真实报文 fixture 的协议测试
-├── build.py               # PyInstaller 单文件打包
+├── build.py               # Nuitka 单文件打包（默认且唯一）
 ├── fixtures/              # 实盘抓包（hex）
 └── README.md              # 调试 / 测试 / 打包说明
 

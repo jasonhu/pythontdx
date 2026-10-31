@@ -16,6 +16,8 @@ import type {
   MarketBreadth,
   LocalDayBar,
   LocalDayResult,
+  DataInventory,
+  KLineCacheResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -349,6 +351,19 @@ export async function fetchLakeArchives(limit = 20): Promise<SnapshotArchiveItem
 
 export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {
   return bridge.send<SnapshotArchiveResult>('archive_snapshot', {}, 120_000)
+}
+
+export async function dataInventory(): Promise<DataInventory> {
+  return bridge.send<DataInventory>('data_inventory', {}, 20_000)
+}
+
+export async function cacheKlines(req: {
+  codes: string[]
+  period?: string
+  count?: number
+  adjust?: string
+}): Promise<KLineCacheResult> {
+  return bridge.send<KLineCacheResult>('cache_klines', req, 60_000)
 }
 
 export async function exportKlines(req: {

@@ -5587,3 +5587,236 @@
 .settings__import-input {
   display: none;
 }
+
+.watch-full {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 22px 16px;
+  background: var(--bg-base);
+  color: var(--text-1);
+}
+
+.watch-full__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+
+.watch-full__eyebrow {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+}
+
+.watch-full__title {
+  margin: 2px 0 0;
+  font-size: var(--fs-2xl);
+  font-weight: 650;
+}
+
+.watch-full__title span {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+
+.watch-full__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.watch-full__pager,
+.watch-full__loading {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.watch-full__error {
+  color: var(--down);
+  font-size: var(--fs-xs);
+}
+
+.watch-full__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+}
+
+.watch-full__card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 118px;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.watch-full__card:hover {
+  border-color: var(--accent);
+}
+
+.watch-full__card-head,
+.watch-full__quote,
+.watch-full__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.watch-full__name {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.watch-full__code,
+.watch-full__foot {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.watch-full__quote strong {
+  font-size: var(--fs-lg);
+}
+
+.watch-full__quote span {
+  font-size: var(--fs-xs);
+}
+
+.watch-full__spark {
+  width: 100%;
+  height: 38px;
+  margin: 2px 0;
+}
+
+.watch-full__spark path {
+  fill: none;
+  stroke: var(--up);
+  stroke-width: 1.2;
+}
+
+.watch-full__card--down .watch-full__spark path {
+  stroke: var(--down);
+}
+
+.watch-full__spark-empty {
+  height: 42px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.watch-full__empty {
+  color: var(--text-3);
+  padding: 40px;
+  text-align: center;
+}
+
+.announcements__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.f10-md-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 62%);
+}
+
+.f10-md {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 88vw);
+  max-height: 82vh;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-base);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 50%);
+}
+
+.f10-md__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.f10-md__head h3 {
+  margin: 3px 0 0;
+  font-size: var(--fs-lg);
+}
+
+.f10-md__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.f10-md__body {
+  overflow: auto;
+  margin: 0;
+  padding: 16px;
+  color: var(--text-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.chart-cache-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-full);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__inventory {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.data__inventory-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.data__inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.data__inventory-grid .data__metric strong {
+  font-size: var(--fs-xs);
+}

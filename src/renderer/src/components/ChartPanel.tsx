@@ -21,6 +21,7 @@ import { api, errorMessage } from '../lib/ipc'
 import { downloadText } from '../lib/download'
 import { toCsv } from '@shared/csv'
 import { appState, updateSettings } from '../stores/app'
+import { normalizeMaPeriods } from '@shared/ma'
 import { KLINE_BARS_MAX, type KLineRangeStats } from '../lib/chart-geometry'
 import { toneOf } from '../lib/tone'
 import { KLineChart } from './KLineChart'
@@ -69,10 +70,10 @@ const EXT_PERIODS: Array<[KLinePeriod, string]> = [
   ['45d', '45日']
 ]
 
-const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc'] as const
+const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc', '#22d3ee', '#f472b6'] as const
 
 const maLegend = (): Array<{ label: string; color: string }> =>
-  (appState.settings.maPeriods ?? [5, 10, 20]).map((period, index) => ({
+  normalizeMaPeriods(appState.settings.maPeriods).map((period, index) => ({
     label: `MA${period}`,
     color: MA_COLORS[index] ?? MA_COLORS[0]
   }))
@@ -436,6 +437,12 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <option value="dmi">DMI</option>
               <option value="obv">OBV</option>
             </select>
+          </Show>
+
+          <Show when={!isTrend() && klineSeries()?.source === 'cache'}>
+            <span class="chart-cache-badge" title={klineSeries()?.cachePath ?? '本地缓存'}>
+              离线缓存
+            </span>
           </Show>
 
           {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}

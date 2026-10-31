@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS } from '@shared/types'
 import { appInfo, appState, toggleTheme, updateSettings } from '../stores/app'
 import { downloadText } from '../lib/download'
 import { IconClose } from './Icons'
+import { normalizeMaPeriods } from '@shared/ma'
 
 const INTERVALS = [1000, 3000, 5000, 10_000] as const
 
@@ -282,24 +283,20 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
               <div class="settings__hint">三条均线周期，K 线重启后继续生效。</div>
             </div>
             <div class="settings__ma">
-              <For each={[0, 1, 2]}>
+              <For each={[0, 1, 2, 3, 4]}>
                 {(index) => (
                   <input
                     class={`settings__ma-${index}`}
                     type="number"
                     min="1"
                     max="120"
-                    value={String((appState.settings.maPeriods ?? [5, 10, 20])[index])}
+                    value={String(normalizeMaPeriods(appState.settings.maPeriods)[index])}
                     onChange={(event) => {
-                      const next = [...(appState.settings.maPeriods ?? [5, 10, 20])] as [
-                        number,
-                        number,
-                        number
-                      ]
+                      const next = normalizeMaPeriods(appState.settings.maPeriods)
                       const parsed = Number(event.currentTarget.value)
                       next[index] =
                         Number.isFinite(parsed) && parsed > 0
-                          ? Math.min(120, Math.floor(parsed))
+                          ? Math.min(250, Math.floor(parsed))
                           : next[index]
                       updateSettings({ maPeriods: next })
                     }}

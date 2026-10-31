@@ -16,6 +16,8 @@ import {
 } from 'solid-js'
 import type { F10Announcement, F10NewsItem, F10ProfileTable, F10TradingTable } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
+import { downloadText } from '../lib/download'
+import { markdownDocument, markdownTable } from '@shared/markdown'
 import { IconClose } from './Icons'
 
 interface AnnouncementsPanelProps {
@@ -47,6 +49,8 @@ type OnlineTab =
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
+  const [markdownOpen, setMarkdownOpen] = createSignal(false)
+  const [markdownCopied, setMarkdownCopied] = createSignal(false)
   const [rows, setRows] = createSignal<F10Announcement[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -425,6 +429,99 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const cell = (value: string | number | null | undefined): string =>
     value === null || value === undefined || value === '' ? '—' : String(value)
 
+  const tabLabel = (): string =>
+    ({
+      announcements: '公告',
+      profile: '公司概况',
+      valuation: '估值',
+      finance: '财务指标',
+      business: '主营构成',
+      shareholders: '十大股东',
+      reports: '研报列表',
+      dividend: '分红',
+      shareholderCount: '股东人数',
+      capital: '股本',
+      circulating: '流通股东',
+      shareholderChanges: '增减持',
+      institutions: '机构持仓',
+      controller: '实控人',
+      changePlans: '增减计划',
+      statement: '财务报表',
+      news: '公司新闻',
+      trading: '交易数据',
+      industry: '行业分析'
+    })[tab()]
+
+  const tableMarkdown = (table: F10ProfileTable | F10TradingTable | null | undefined): string =>
+    table ? markdownTable(table.columns, table.rows) : '> 暂无数据\n'
+
+  const currentMarkdown = (): string => {
+    let body: string
+    if (tab() === 'announcements') {
+      body = markdownTable(
+        ['日期', '标题', '类型', '来源'],
+        rows().map((row) => [row.date, row.title, row.type, row.source])
+      )
+    } else if (tab() === 'news') {
+      body = markdownTable(
+        ['时间', '标题', '来源'],
+        news().map((row) => [row.date, row.title, row.source])
+      )
+    } else {
+      const table =
+        tab() === 'profile'
+          ? profile()
+          : tab() === 'valuation'
+            ? valuation()
+            : tab() === 'finance'
+              ? finance()
+              : tab() === 'business'
+                ? business()
+                : tab() === 'shareholders'
+                  ? shareholders()
+                  : tab() === 'reports'
+                    ? reports()
+                    : tab() === 'dividend'
+                      ? dividend()
+                      : tab() === 'shareholderCount'
+                        ? shareholderCount()
+                        : tab() === 'capital'
+                          ? capital()
+                          : tab() === 'circulating'
+                            ? circulating()
+                            : tab() === 'shareholderChanges'
+                              ? shareholderChanges()
+                              : tab() === 'institutions'
+                                ? institutions()
+                                : tab() === 'controller'
+                                  ? controller()
+                                  : tab() === 'changePlans'
+                                    ? changePlans()
+                                    : tab() === 'statement'
+                                      ? statement()
+                                      : tab() === 'trading'
+                                        ? trading()
+                                        : tab() === 'industry'
+                                          ? industry()
+                                          : null
+      body = tableMarkdown(table)
+    }
+    return markdownDocument(`${props.name}（${props.code.toUpperCase()}）· F10`, [
+      `> 数据来源：通达信 7615 免费资料网关；生成时间：${new Date().toLocaleString()}`,
+      `## ${tabLabel()}\n\n${body.trim()}`
+    ])
+  }
+
+  const copyMarkdown = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(currentMarkdown())
+      setMarkdownCopied(true)
+      setTimeout(() => setMarkdownCopied(false), 1500)
+    } catch {
+      setMarkdownCopied(false)
+    }
+  }
+
   return (
     <div class="announcements-backdrop" onClick={() => props.onClose()}>
       <section
@@ -441,13 +538,22 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
               {props.name} <code>{props.code.toUpperCase()}</code>
             </h2>
           </div>
-          <button
-            class="btn btn--icon btn--bare"
-            title="关闭在线资料"
-            onClick={() => props.onClose()}
-          >
-            <IconClose size={16} />
-          </button>
+          <div class="announcements__head-actions">
+            <button
+              class="btn f10-markdown-open"
+              title="把当前 F10 页签格式化为 Markdown"
+              onClick={() => setMarkdownOpen(true)}
+            >
+              Markdown
+            </button>
+            <button
+              class="btn btn--icon btn--bare"
+              title="关闭在线资料"
+              onClick={() => props.onClose()}
+            >
+              <IconClose size={16} />
+            </button>
+          </div>
         </header>
 
         <div class="online-tabs">
@@ -1465,6 +1571,42 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             </Match>
           </Switch>
         </div>
+
+        <Show when={markdownOpen()}>
+          <div class="f10-md-backdrop" onClick={() => setMarkdownOpen(false)}>
+            <section
+              class="f10-md"
+              role="dialog"
+              aria-modal="true"
+              aria-label="F10 Markdown 预览"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header class="f10-md__head">
+                <div>
+                  <div class="announcements__eyebrow">Markdown · 可复制 / 下载</div>
+                  <h3>
+                    {props.name} · {tabLabel()}
+                  </h3>
+                </div>
+                <div class="f10-md__actions">
+                  <button class="btn f10-md-copy" onClick={() => void copyMarkdown()}>
+                    {markdownCopied() ? '已复制' : '复制'}
+                  </button>
+                  <button
+                    class="btn btn--primary f10-md-download"
+                    onClick={() => downloadText(`f10-${props.code}-${tab()}.md`, currentMarkdown())}
+                  >
+                    下载 .md
+                  </button>
+                  <button class="btn btn--icon btn--bare" onClick={() => setMarkdownOpen(false)}>
+                    <IconClose size={16} />
+                  </button>
+                </div>
+              </header>
+              <pre class="f10-md__body">{currentMarkdown()}</pre>
+            </section>
+          </div>
+        </Show>
 
         <footer class="announcements__foot">
           <span>数据来自通达信 7615 免费资料网关</span>

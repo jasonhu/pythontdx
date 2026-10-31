@@ -56,6 +56,36 @@ function resolvePortableUserData(): string | undefined {
   }
 }
 
+/**
+ * Linux 运行时图形后端（Chromium 当前不允许 Wayland 表面 + Vulkan 同时启用）：
+ * - 默认 wayland：原生 Wayland，OpenGL/EGL；最稳；
+ * - x11：XWayland/X11 + OpenGL；
+ * - vulkan：XWayland/X11 + ANGLE Vulkan（需要真实 Vulkan 驱动）；
+ * 可用 STOCKLENS_GRAPHICS=wayland|x11|vulkan 覆盖。
+ */
+function configureLinuxGraphics(): void {
+  if (process.platform !== 'linux') return
+  const requested = (process.env.STOCKLENS_GRAPHICS ?? 'wayland').toLowerCase()
+  const mode = requested === 'x11' || requested === 'vulkan' ? requested : 'wayland'
+  if (mode === 'wayland') {
+    app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
+    app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
+    app.commandLine.appendSwitch('enable-wayland-ime')
+  } else {
+    app.commandLine.appendSwitch('ozone-platform', 'x11')
+    if (mode === 'vulkan') {
+      app.commandLine.appendSwitch('use-angle', 'vulkan')
+      app.commandLine.appendSwitch('enable-features', 'Vulkan')
+    }
+  }
+  console.log(
+    `[runtime] platform=linux session=${process.env.XDG_SESSION_TYPE ?? 'unknown'} ` +
+      `wayland=${process.env.WAYLAND_DISPLAY ?? '-'} graphics=${mode}`
+  )
+}
+
+configureLinuxGraphics()
+
 /* ----------------------------------------------------------- 单实例锁 */
 // 第二次启动时不再开新窗口，而是把已有窗口拉到前面（行情软件的标准行为）
 if (!app.requestSingleInstanceLock()) {
@@ -100,6 +130,7 @@ function bootstrap(): void {
 
 function onReady(): void {
   electronApp.setAppUserModelId(APP_ID)
+  console.log(`[runtime] gpu-feature-status ${JSON.stringify(app.getGPUFeatureStatus())}`)
 
   // 数据导出走浏览器下载；显式落到系统下载目录，避免 Electron 默认行为随版本漂移。
   session.defaultSession.on('will-download', (_event, item) => {

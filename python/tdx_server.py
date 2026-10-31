@@ -519,6 +519,22 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/data_inventory":
+                with self.server.lock:
+                    self._ok(self.server.bridge.data_inventory())
+                return
+            if parsed.path == "/api/cache_klines":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.cache_klines(
+                            list(payload.get("codes") or []),
+                            str(payload.get("period") or "day"),
+                            int(payload.get("count") or 800),
+                            str(payload.get("adjust") or "qfq"),
+                        )
+                    )
+                return
+
             if parsed.path == "/api/local_write_min":
                 with self.server.lock:
                     self._ok(

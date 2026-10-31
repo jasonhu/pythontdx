@@ -22,6 +22,7 @@ import { fixed, signedPct, thousands } from '@shared/format'
 import { boll } from '@shared/indicators'
 import { evaluateFormula } from '@shared/formula'
 import { ruleConditions } from '@shared/alerts'
+import { normalizeMaPeriods } from '@shared/ma'
 import {
   accumulateWheel,
   buildKLineGeometry,
@@ -45,7 +46,7 @@ import { useElementSize } from '../lib/dom'
 import { appState, updateSettings } from '../stores/app'
 
 /** 均线配色；周期来自设置 */
-const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc'] as const
+const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc', '#22d3ee', '#f472b6'] as const
 
 export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text'
 
@@ -208,7 +209,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
    * 看起来就像均线在图表左边被「剪掉」了一截。
    */
   const averages = createMemo(() => {
-    const periods = appState.settings.maPeriods ?? [5, 10, 20]
+    const periods = normalizeMaPeriods(appState.settings.maPeriods)
     return periods.map((period, index) => ({
       period,
       color: MA_COLORS[index] ?? MA_COLORS[0],

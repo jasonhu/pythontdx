@@ -7,7 +7,7 @@ Electron 主进程通过 stdin/stdout 的 JSON Lines 与这个进程通信。
 
 - 用户希望通讯层用 Python；
 - Python 侧只做 TCP + 二进制协议 + 解析，TS 侧继续管窗口、缓存、拼音搜索；
-- 打包时用 PyInstaller 打成单文件，用户机器不需要安装 Python。
+- 打包时用 Nuitka 编译成单文件，用户机器不需要安装 Python，也不携带 Python 源码。
 
 ## 开发
 
@@ -70,7 +70,7 @@ fixture 是 2026-10-29/30 实盘抓的真实响应，放在 `python/fixtures/*.h
 ## 打包
 
 ```bash
-pip install pyinstaller
+pip install nuitka patchelf
 python python/build.py
 # 产物：python/dist/tdx-bridge（Windows：tdx-bridge.exe）
 ```
@@ -79,6 +79,6 @@ python python/build.py
 `resources/tdx-bridge/`。**打包前必须先跑 `npm run build:python`**，
 否则 electron-builder 会报找不到 `python/dist`。
 
-注意：PyInstaller 的 onefile 产物在 Windows 上可能被杀软误报；
+注意：Nuitka 的 onefile 产物是编译后的机器码，不携带 Python 源码；
 如果在意这一点，可以改用 `--onedir`，同时调整 `extraResources` 与
 `bridge.ts` 里的路径。

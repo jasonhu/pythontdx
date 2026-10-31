@@ -7,7 +7,7 @@
  * 开发环境：
  *   python3 python/tdx_bridge.py
  * 打包环境：
- *   resources/tdx-bridge/tdx-bridge(.exe) —— 由 PyInstaller 生成
+ *   resources/tdx-bridge/tdx-bridge(.exe) —— 由 Nuitka 编译
  * 覆盖路径：
  *   STOCKLENS_TDX_BRIDGE=/path/to/tdx-bridge
  *   STOCKLENS_PYTHON=python3      （开发环境）

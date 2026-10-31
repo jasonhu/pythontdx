@@ -368,9 +368,7 @@ function plainSettings(): AppSettings {
     layoutSlots: state.settings.layoutSlots?.map((slot) => ({ ...slot })),
     screenPresets: state.settings.screenPresets?.map((preset) => ({ ...preset })),
     recentSearches: state.settings.recentSearches?.map((item) => ({ ...item })),
-    maPeriods: state.settings.maPeriods
-      ? ([...state.settings.maPeriods] as [number, number, number])
-      : undefined,
+    maPeriods: state.settings.maPeriods ? [...state.settings.maPeriods] : undefined,
     trackingPresetIds: state.settings.trackingPresetIds?.slice()
   }
 }

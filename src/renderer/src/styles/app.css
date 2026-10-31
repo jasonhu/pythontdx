@@ -377,9 +377,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--sp-2);
+  gap: 6px;
   width: 100%;
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) 8px;
   margin-bottom: 2px;
   border-radius: var(--r-md);
   border: 1px solid transparent;
@@ -446,9 +446,9 @@
   font-size: var(--fs-sm);
   font-weight: 500;
   color: var(--text-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .watch-row__code {
@@ -460,6 +460,7 @@
 /* 迷你走势图：列表里只占 46px，不加任何坐标与网格 */
 .sparkline {
   flex: none;
+  width: 40px !important;
   opacity: 0.9;
   transition: opacity var(--dur-2) var(--ease);
 }
@@ -471,12 +472,12 @@
 .watch-row__side {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: 4px;
 }
 
 .watch-row__nums {
   text-align: right;
-  min-width: 74px;
+  min-width: 64px;
 }
 
 .watch-row__price {
@@ -1260,13 +1261,17 @@
   bottom: 0;
   left: 3px;
   width: 1px;
-  background: transparent;
-  transition: background-color var(--dur-1) var(--ease);
+  background: var(--border-strong);
+  opacity: 0.35;
+  transition:
+    background-color var(--dur-1) var(--ease),
+    opacity var(--dur-1) var(--ease);
 }
 
 .layout-resizer:hover::after,
 .layout-resizer:active::after {
   background: var(--accent);
+  opacity: 1;
 }
 
 .layout-resizer--sidebar {

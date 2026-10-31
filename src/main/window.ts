@@ -100,11 +100,14 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
     window.webContents.send('window:state', {
       maximized: window.isMaximized(),
       focused: window.isFocused(),
+      fullscreen: window.isFullScreen(),
       platform: process.platform
     })
   }
   window.on('maximize', notifyState)
   window.on('unmaximize', notifyState)
+  window.on('enter-full-screen', notifyState)
+  window.on('leave-full-screen', notifyState)
   window.on('focus', notifyState)
   window.on('blur', notifyState)
 

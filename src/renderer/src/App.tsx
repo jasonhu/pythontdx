@@ -34,6 +34,7 @@ import { RankingPanel } from './components/RankingPanel'
 import { ReplayPanel } from './components/ReplayPanel'
 import { ScreenerPanel } from './components/ScreenerPanel'
 import { Sidebar } from './components/Sidebar'
+import { WatchlistFullscreen } from './components/WatchlistFullscreen'
 import { StatsGrid } from './components/StatsGrid'
 import { StatusBar } from './components/StatusBar'
 import { TitleBar } from './components/TitleBar'
@@ -49,6 +50,7 @@ import { MarketReportPanel } from './components/MarketReportPanel'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
 import {
   activeQuoteCode,
+  appInfo,
   appReady,
   appState,
   bootstrapAppState,
@@ -84,6 +86,7 @@ export default function App(): JSX.Element {
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
+  const [fullWatchlistOpen, setFullWatchlistOpen] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
   const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'price' | 'flow' | 'auction'>('book')
@@ -97,6 +100,16 @@ export default function App(): JSX.Element {
     initWindowSync()
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!appReady() || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.key === 'F11') {
+        event.preventDefault()
+        if (appInfo()?.platform === 'web') {
+          if (document.fullscreenElement) void document.exitFullscreen()
+          else void document.documentElement.requestFullscreen()
+        } else {
+          void api.window.control('toggle-fullscreen')
+        }
+        return
+      }
       const target = event.target as HTMLElement | null
       if (
         target instanceof HTMLInputElement ||
@@ -213,6 +226,7 @@ export default function App(): JSX.Element {
         onOpenMulti={() => setMultiOpen(true)}
         onOpenPortfolio={() => setPortfolioOpen(true)}
         onOpenMarket={() => setMarketOpen(true)}
+        onOpenFullWatchlist={() => setFullWatchlistOpen(true)}
       />
 
       {/* 主区只有两块：行情头部 + 图表。图表用 flex 吃掉全部剩余高度 */}
@@ -400,6 +414,10 @@ export default function App(): JSX.Element {
         />
       </Show>
 
+      <Show when={fullWatchlistOpen()}>
+        <WatchlistFullscreen onClose={() => setFullWatchlistOpen(false)} onSelect={setActiveCode} />
+      </Show>
+
       <Show when={announcementsOpen() ? activeQuote() : undefined}>
         {(quote) => (
           <AnnouncementsPanel
@@ -518,6 +536,7 @@ export default function App(): JSX.Element {
       <div
         class="layout-resizer layout-resizer--sidebar"
         role="separator"
+        title="拖动调整自选栏宽度，双击恢复 264px"
         aria-label="调整自选栏宽度"
         onPointerDown={(event) => beginResize('sidebar', event)}
         onDblClick={() => updateSettings({ sidebarWidth: 264 })}

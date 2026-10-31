@@ -80,6 +80,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
+- `0x0547` 游标实测（2026-10-31，sh600519）：cursor 0 / 1 / 0xFFFFFFFF
+  三次均返回同一 129 字节快照（价格 1392.05、记录内 update=153001），确认是快照而非推送；
+  结论写回 `docs/03` / `docs/08` / `PLAN.md`。
 - `npm run check` → **251 TS + 128 Python（2 skipped，23 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
 - Linux AppImage 130 MB `5d480d60…` / deb 105 MB `ffdc35d3…`；

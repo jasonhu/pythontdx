@@ -33,7 +33,7 @@ StockLens 的所有重要变更都记录在这里。
 ### 验证
 
 - `npm run check`：211 TS + 112 Python（2 skipped）；
-- 包：AppImage 130 MB `6fca529d…16acebd` / deb 105 MB `8b9ec862…d3b2da`；
+- 包：AppImage 130 MB `1fadba2c…83afd6d` / deb 105 MB `8ac7d0c3…17f3445`；
 - 截图：`chart-5ma.png`、`f11-fullscreen.png`、`watchlist-full-24.png`、
   `f10-markdown.png`、`data-offline.png`、`sidebar-resize.png`。
 

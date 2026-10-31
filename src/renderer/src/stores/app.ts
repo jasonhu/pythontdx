@@ -89,6 +89,10 @@ export async function bootstrapAppState(): Promise<void> {
     mergedSettings.sidebarWidth = 280
     mergedSettings.railWidth = 330
   }
+  // 九项要求默认刷新 1 秒；旧默认 3 秒的配置一次性迁移。
+  if (mergedSettings.refreshInterval === 3000) {
+    mergedSettings.refreshInterval = 1000
+  }
 
   setState({
     version: persisted.version,
@@ -101,6 +105,8 @@ export async function bootstrapAppState(): Promise<void> {
     alertEvents: Array.isArray(persisted.alertEvents) ? persisted.alertEvents : [],
     positions: Array.isArray(persisted.positions) ? persisted.positions : []
   })
+  // 把迁移后的刷新/布局设置写回主进程，避免下次启动又读到旧默认 3 秒。
+  void api.state.patch({ settings: mergedSettings }).catch(() => undefined)
   setAppInfo(info)
 
   // 告诉 CSS 当前平台，macOS 需要给原生红绿灯留位置

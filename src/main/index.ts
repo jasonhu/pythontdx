@@ -63,10 +63,14 @@ function resolvePortableUserData(): string | undefined {
  * - vulkan：XWayland/X11 + ANGLE Vulkan（需要真实 Vulkan 驱动）；
  * 可用 STOCKLENS_GRAPHICS=wayland|x11|vulkan 覆盖。
  */
+function requestedGraphicsMode(): 'wayland' | 'x11' | 'vulkan' {
+  const requested = (process.env.STOCKLENS_GRAPHICS ?? 'wayland').toLowerCase()
+  return requested === 'x11' || requested === 'vulkan' ? requested : 'wayland'
+}
+
 function configureLinuxGraphics(): void {
   if (process.platform !== 'linux') return
-  const requested = (process.env.STOCKLENS_GRAPHICS ?? 'wayland').toLowerCase()
-  const mode = requested === 'x11' || requested === 'vulkan' ? requested : 'wayland'
+  const mode = requestedGraphicsMode()
   if (mode === 'wayland') {
     app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
     app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
@@ -82,6 +86,30 @@ function configureLinuxGraphics(): void {
     `[runtime] platform=linux session=${process.env.XDG_SESSION_TYPE ?? 'unknown'} ` +
       `wayland=${process.env.WAYLAND_DISPLAY ?? '-'} graphics=${mode}`
   )
+}
+
+/**
+ * 请求 Vulkan 但驱动/Chromium 报告不可用时，明确回退到 Wayland 并重启一次。
+ * 用环境变量防循环；正常 Wayland 默认路径不会进入这里。
+ */
+function fallbackVulkanIfUnavailable(): boolean {
+  if (
+    process.platform !== 'linux' ||
+    requestedGraphicsMode() !== 'vulkan' ||
+    process.env.STOCKLENS_GPU_FALLBACK === '1'
+  ) {
+    return false
+  }
+  const vulkan =
+    (app.getGPUFeatureStatus() as unknown as Record<string, string>).vulkan ?? 'unknown'
+  if (!vulkan.startsWith('disabled')) return false
+
+  console.warn(`[runtime] Vulkan unavailable (${vulkan}); fallback to wayland and relaunch once`)
+  process.env.STOCKLENS_GRAPHICS = 'wayland'
+  process.env.STOCKLENS_GPU_FALLBACK = '1'
+  app.relaunch({ args: process.argv.slice(1) })
+  app.exit(0)
+  return true
 }
 
 configureLinuxGraphics()
@@ -131,6 +159,7 @@ function bootstrap(): void {
 function onReady(): void {
   electronApp.setAppUserModelId(APP_ID)
   console.log(`[runtime] gpu-feature-status ${JSON.stringify(app.getGPUFeatureStatus())}`)
+  if (fallbackVulkanIfUnavailable()) return
 
   // 数据导出走浏览器下载；显式落到系统下载目录，避免 Electron 默认行为随版本漂移。
   session.defaultSession.on('will-download', (_event, item) => {

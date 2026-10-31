@@ -30,6 +30,15 @@ interface DataPanelProps {
   onClose: () => void
 }
 
+type DownloadKey = 'kline' | 'snapshot' | 'stats' | 'archive'
+
+const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> = [
+  { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，分批写入 cache/klines' },
+  { key: 'snapshot', label: '全市场快照', hint: 'MAC 报价导出 CSV' },
+  { key: 'stats', label: 'TDX 统计', hint: 'zhb.zip + 规范化 tdxstat' },
+  { key: 'archive', label: '数据湖归档', hint: '全市场快照按 trade_date 归档' }
+]
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -68,8 +77,21 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [bulkScope, setBulkScope] = createSignal<'watchlist' | 'all'>('watchlist')
   const [bulkDone, setBulkDone] = createSignal(0)
   const [bulkTotal, setBulkTotal] = createSignal(0)
+  const [bulkSkipped, setBulkSkipped] = createSignal(0)
   const [bulkFailed, setBulkFailed] = createSignal(0)
+  const [bulkIncremental, setBulkIncremental] = createSignal(true)
   const [bulkError, setBulkError] = createSignal<string | null>(null)
+  const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
+    kline: true,
+    snapshot: true,
+    stats: true,
+    archive: true
+  })
+  const [downloadRunning, setDownloadRunning] = createSignal(false)
+  const [downloadDone, setDownloadDone] = createSignal(0)
+  const [downloadTotal, setDownloadTotal] = createSignal(0)
+  const [downloadMessage, setDownloadMessage] = createSignal('')
+  const [downloadError, setDownloadError] = createSignal<string | null>(null)
   let bulkCancel = false
   const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
   const [snapshotExporting, setSnapshotExporting] = createSignal(false)
@@ -212,6 +234,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setBulkRunning(true)
     setBulkError(null)
     setBulkDone(0)
+    setBulkSkipped(0)
     setBulkFailed(0)
     setBulkTotal(0)
     try {
@@ -225,9 +248,10 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             period: 'day',
             count: 800,
             adjust: 'qfq',
-            skipExisting: true
+            skipExisting: bulkIncremental()
           })
           setBulkDone((value) => value + result.cached + result.skipped)
+          setBulkSkipped((value) => value + result.skipped)
           setBulkFailed((value) => value + result.failed.length)
         } catch {
           setBulkFailed((value) => value + chunk.length)
@@ -237,6 +261,48 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setBulkError(errorMessage(cause))
     } finally {
       setBulkRunning(false)
+    }
+  }
+
+  const toggleDownload = (key: DownloadKey): void => {
+    setDownloadSelection((current) => ({ ...current, [key]: !current[key] }))
+  }
+
+  const selectAllDownloads = (value: boolean): void => {
+    setDownloadSelection({ kline: value, snapshot: value, stats: value, archive: value })
+  }
+
+  const runDownloads = async (): Promise<void> => {
+    if (downloadRunning()) return
+    const keys = DOWNLOAD_TASKS.filter((task) => downloadSelection()[task.key]).map(
+      (task) => task.key
+    )
+    if (keys.length === 0) {
+      setDownloadError('至少选择一项离线数据')
+      return
+    }
+
+    setDownloadRunning(true)
+    setDownloadError(null)
+    setDownloadDone(0)
+    setDownloadTotal(keys.length)
+    let done = 0
+    try {
+      for (const key of keys) {
+        const task = DOWNLOAD_TASKS.find((item) => item.key === key)
+        setDownloadMessage(`正在下载：${task?.label ?? key}`)
+        if (key === 'kline') await runBulkCache()
+        else if (key === 'snapshot') await runSnapshotExport()
+        else if (key === 'stats') await runExport()
+        else await runArchive()
+        done += 1
+        setDownloadDone(done)
+      }
+      setDownloadMessage('全部选中任务已完成')
+    } catch (cause) {
+      setDownloadError(errorMessage(cause))
+    } finally {
+      setDownloadRunning(false)
     }
   }
 
@@ -449,6 +515,94 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             JSONL.gz、SQLite 查询层和 manifest。
           </div>
 
+          <section class="data__download">
+            <div class="data__inventory-head">
+              <div>
+                <div class="data__label">离线数据下载</div>
+                <div class="data__sub">勾选数据集后一键执行，进度按任务汇总。</div>
+              </div>
+              <div class="data__download-select">
+                <button
+                  class="btn"
+                  disabled={downloadRunning()}
+                  onClick={() => selectAllDownloads(true)}
+                >
+                  全选
+                </button>
+                <button
+                  class="btn"
+                  disabled={downloadRunning()}
+                  onClick={() => selectAllDownloads(false)}
+                >
+                  清空
+                </button>
+              </div>
+            </div>
+
+            <div class="data__download-list">
+              <For each={DOWNLOAD_TASKS}>
+                {(task) => (
+                  <label class="data__download-item">
+                    <input
+                      type="checkbox"
+                      checked={downloadSelection()[task.key]}
+                      disabled={downloadRunning()}
+                      onChange={() => toggleDownload(task.key)}
+                    />
+                    <span>
+                      <strong>{task.label}</strong>
+                      <small>{task.hint}</small>
+                    </span>
+                  </label>
+                )}
+              </For>
+            </div>
+
+            <div class="data__download-actions">
+              <select
+                class="data__bulk-scope"
+                value={bulkScope()}
+                disabled={downloadRunning() || !downloadSelection().kline}
+                onChange={(event) => setBulkScope(event.currentTarget.value as 'watchlist' | 'all')}
+              >
+                <option value="watchlist">日 K：仅自选</option>
+                <option value="all">日 K：全 A 股</option>
+              </select>
+              <label class="data__incremental">
+                <input
+                  type="checkbox"
+                  checked={bulkIncremental()}
+                  disabled={downloadRunning()}
+                  onChange={() => setBulkIncremental((value) => !value)}
+                />
+                增量：跳过已有
+              </label>
+              <button
+                class="btn btn--primary data__download-run"
+                disabled={downloadRunning()}
+                onClick={() => void runDownloads()}
+              >
+                {downloadRunning() ? '下载中…' : '开始下载'}
+              </button>
+            </div>
+
+            <Show when={downloadTotal() > 0}>
+              <div class="data__bulk-progress">
+                <span
+                  style={{
+                    width: `${Math.min(100, (downloadDone() / downloadTotal()) * 100)}%`
+                  }}
+                />
+              </div>
+              <div class="data__bulk-meta">
+                {downloadDone()} / {downloadTotal()} 项 · {downloadMessage()}
+              </div>
+            </Show>
+            <Show when={downloadError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+          </section>
+
           <section class="data__inventory">
             <div class="data__inventory-head">
               <div>
@@ -527,6 +681,15 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 <option value="watchlist">仅自选</option>
                 <option value="all">全 A 股</option>
               </select>
+              <label class="data__incremental">
+                <input
+                  type="checkbox"
+                  checked={bulkIncremental()}
+                  disabled={bulkRunning()}
+                  onChange={() => setBulkIncremental((value) => !value)}
+                />
+                增量：跳过已有
+              </label>
               <Show
                 when={bulkRunning()}
                 fallback={
@@ -554,7 +717,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 />
               </div>
               <div class="data__bulk-meta">
-                {bulkDone()} / {bulkTotal()} 完成 · 失败 {bulkFailed()}
+                {bulkDone()} / {bulkTotal()} 完成 · 跳过 {bulkSkipped()} · 失败 {bulkFailed()}
                 {bulkRunning() ? ' · 进行中' : ' · 已结束'}
               </div>
             </Show>

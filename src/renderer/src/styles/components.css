@@ -5834,6 +5834,84 @@
   font-size: var(--fs-xs);
 }
 
+.data__download {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.data__download-select,
+.data__download-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data__download-select .btn {
+  height: 24px;
+  padding: 0 8px;
+  font-size: var(--fs-2xs);
+}
+
+.data__incremental {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
+.data__incremental input {
+  accent-color: var(--accent);
+}
+
+.data__download-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.data__download-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-base);
+  cursor: pointer;
+}
+
+.data__download-item input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.data__download-item strong,
+.data__download-item small {
+  display: block;
+}
+
+.data__download-item strong {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.data__download-item small {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__download-run {
+  margin-left: auto;
+}
+
 .data__bulk {
   display: flex;
   flex-direction: column;

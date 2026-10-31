@@ -5404,3 +5404,15 @@
   border-radius: var(--r-sm);
   background: var(--panel);
 }
+
+.chart-dividend line {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.55;
+}
+
+.chart-dividend circle {
+  fill: var(--accent);
+  opacity: 0.8;
+}

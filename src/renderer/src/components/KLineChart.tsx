@@ -76,6 +76,8 @@ export interface KLineChartProps {
   drawMode?: DrawingMode
   /** 文字标注内容 */
   drawingText?: string
+  /** 除权除息日标记（只画日线/周线等日级周期） */
+  dividends?: Array<{ date: string; label: string }>
   /** 主图叠加公式；归一化显示 */
   overlayFormula?: string
   /** 改变时清空画线 */
@@ -286,6 +288,18 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const geo = geometry()
     return geo ? buildKLineLevels(geo) : []
   })
+  const dividendMarks = createMemo(() => {
+    const geo = geometry()
+    if (!geo || !props.dividends || props.dividends.length === 0) return []
+    const marks: Array<{ x: number; label: string; date: string }> = []
+    const byDate = new Map(props.dividends.map((item) => [item.date.slice(0, 10), item]))
+    bars().forEach((bar, index) => {
+      const item = byDate.get(bar.date.slice(0, 10))
+      if (item) marks.push({ x: geo.x(index), label: item.label, date: item.date.slice(0, 10) })
+    })
+    return marks
+  })
+
   const dateTicks = createMemo(() => buildKLineTicks(bars()))
 
   /**
@@ -848,6 +862,31 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             >
               {`↑↓ 缩放 · 近 ${win().count} 根`}
             </text>
+
+            {/* ---------- 除权除息标记 ---------- */}
+            <For each={dividendMarks()}>
+              {(mark) => (
+                <g class="chart-dividend">
+                  <title>{`${mark.date} ${mark.label}`}</title>
+                  <line
+                    x1={mark.x}
+                    x2={mark.x}
+                    y1={geo().priceTop}
+                    y2={geo().volumeBottom}
+                  />
+                  <circle cx={mark.x} cy={geo().priceTop + 5} r="2.5" />
+                  <text
+                    x={mark.x}
+                    y={geo().priceTop + 18}
+                    fill="var(--accent)"
+                    font-size="9"
+                    text-anchor="middle"
+                  >
+                    D
+                  </text>
+                </g>
+              )}
+            </For>
 
             {/* ---------- 画线 ---------- */}
             <For each={drawings()}>

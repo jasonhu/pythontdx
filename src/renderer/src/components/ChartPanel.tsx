@@ -105,6 +105,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [drawingText, setDrawingText] = createSignal('标注')
   const [clearDrawingsKey, setClearDrawingsKey] = createSignal(0)
   const [pinned, setPinned] = createSignal(false)
+  const [dividends, setDividends] = createSignal<Array<{ date: string; label: string }>>([])
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
   createEffect(() => {
@@ -210,6 +211,29 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
       toCsv(['日期', '时间', '价格', '均价', '成交量(手)'], rows)
     )
   }
+
+  createEffect(() => {
+    const code = props.code
+    void api.f10
+      .dividend(code)
+      .then((table) => {
+        const dateIndex = table.columns.indexOf('除权派息日')
+        const planIndex = table.columns.indexOf('分红方案')
+        if (dateIndex < 0) {
+          setDividends([])
+          return
+        }
+        setDividends(
+          table.rows
+            .map((row) => ({
+              date: String(row[dateIndex] ?? ''),
+              label: String(planIndex >= 0 ? (row[planIndex] ?? '除权除息') : '除权除息')
+            }))
+            .filter((item) => /^\d{4}-\d{2}-\d{2}/.test(item.date))
+        )
+      })
+      .catch(() => setDividends([]))
+  })
 
   const switchTab = (next: Tab): void => {
     setHover(null)
@@ -604,6 +628,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     onRangeStats={setRangeStats}
                     drawMode={drawMode()}
                     overlayFormula={appState.settings.mainFormula}
+                    dividends={dividends()}
                     clearDrawingsKey={clearDrawingsKey()}
                   />
                 )}

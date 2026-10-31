@@ -185,7 +185,10 @@ export function SearchBox(): JSX.Element {
                 <span>最近搜索</span>
                 <button
                   class="search-pop__clear"
-                  onClick={() => updateSettings({ recentSearches: [] })}
+                  onClick={() => {
+                    updateSettings({ recentSearches: [] })
+                    setCursor(0)
+                  }}
                 >
                   清空
                 </button>

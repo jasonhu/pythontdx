@@ -39,7 +39,7 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
   const importSettings = async (file: File): Promise<void> => {
     try {
       const parsed = JSON.parse(await file.text()) as Partial<AppSettings>
-      if (!parsed || typeof parsed !== 'object') return
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return
       updateSettings(parsed)
     } catch {
       // 非 JSON 文件直接忽略，避免把设置写坏。

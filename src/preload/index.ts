@@ -37,7 +37,8 @@ const api: StockLensApi = {
   },
   money: {
     flow: (code) => ipcRenderer.invoke(IPC.moneyFlow, code),
-    macFlow: (code) => ipcRenderer.invoke(IPC.moneyMac, code)
+    macFlow: (code) => ipcRenderer.invoke(IPC.moneyMac, code),
+    macFlowBatch: (codes, workers) => ipcRenderer.invoke(IPC.moneyMacBatch, codes, workers)
   },
   mac: {
     unusual: (count) => ipcRenderer.invoke(IPC.macUnusual, count),

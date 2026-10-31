@@ -79,6 +79,9 @@ class FakeBridge:
     def mac_money_flow(self, code):
         return {"mainNet": 1.0}
 
+    def mac_money_flow_batch(self, codes, workers=12):
+        return [{"code": code, "mainNet": 1.0, "workers": workers} for code in codes]
+
     def mac_quotes(self, codes):
         return []
 
@@ -363,6 +366,14 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/mac_money_flow", {"code": "sh600519"})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["mainNet"], 1.0)
+        status, payload, _ = self.request(
+            "POST",
+            "/api/mac_money_flow_batch",
+            {"codes": ["sh600519", "sz000001"], "workers": 2},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual([row["code"] for row in payload["result"]], ["sh600519", "sz000001"])
+        self.assertEqual(payload["result"][0]["workers"], 2)
         status, payload, _ = self.request("POST", "/api/mac_unusual", {"count": 10})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])

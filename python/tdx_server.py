@@ -428,7 +428,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                         self.server.bridge.auctions(
                             payload.get("code", ""),
                             trading_date=payload.get("date") or None,
-                            selector=int(payload.get("selector", 3)),
+                            selector=int(payload.get("selector", 0)),
                             start=int(payload.get("start", 0)),
                             limit=int(payload.get("limit", 500)),
                         )
@@ -504,6 +504,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/mac_money_flow":
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_money_flow(str(payload.get("code") or "")))
+                return
+            if parsed.path == "/api/mac_money_flow_batch":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_money_flow_batch(
+                            payload.get("codes") or [], int(payload.get("workers", 12))
+                        )
+                    )
                 return
             if parsed.path == "/api/mac_quotes":
                 with self.server.lock:

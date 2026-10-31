@@ -478,6 +478,20 @@ export function saveFormula(name: string, expression: string): SavedFormula {
   return formula
 }
 
+export function updateFormula(id: string, name: string, expression: string): void {
+  const formulas = state.formulas.map((item) =>
+    item.id === id
+      ? {
+          ...item,
+          name: name.trim() || expression.trim(),
+          expression: expression.trim()
+        }
+      : { ...item }
+  )
+  setState('formulas', formulas)
+  persist({ formulas })
+}
+
 export function removeFormula(id: string): void {
   const formulas = state.formulas.filter((item) => item.id !== id).map((item) => ({ ...item }))
   setState('formulas', formulas)

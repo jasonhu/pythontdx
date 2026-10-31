@@ -223,13 +223,15 @@ class TestTrades(unittest.TestCase):
 
 class TestAuctions(unittest.TestCase):
     def test_auction_request(self):
-        data = tdx.auction_data(1, "600519", None, 3, 0, 50)
+        data = tdx.auction_data(1, "600519", None, 0, 0, 50)
         self.assertEqual(len(data), 28)
         self.assertEqual(data[:2], b"\x01\x00")
         self.assertEqual(data[2:8], b"600519")
         self.assertEqual(int.from_bytes(data[8:12], "little"), 0)
-        history = tdx.auction_data(1, "600519", "2026-10-28", 3, 0, 50)
+        self.assertEqual(int.from_bytes(data[12:16], "little"), 0)
+        history = tdx.auction_data(1, "600519", "2026-10-28", 0, 0, 50)
         self.assertEqual(int.from_bytes(history[8:12], "little"), 20261028)
+        self.assertEqual(tdx.auction_data(1, "600519")[12:16], b"\x00\x00\x00\x00")
 
     def test_auction_parser(self):
         points = tdx.parse_auctions(fixture("auction-today"))

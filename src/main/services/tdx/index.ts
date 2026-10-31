@@ -41,6 +41,7 @@ import type {
   ServerSpeedResult,
   MinuteTrend,
   MacMoneyFlow,
+  MacMoneyFlowPoint,
   MacBoard,
   MacUnusualItem,
   MoneyFlowRecord,
@@ -165,6 +166,18 @@ export async function fetchMacUnusual(count = 600): Promise<MacUnusualItem[]> {
 
 export async function fetchMacMoneyFlow(code: string): Promise<MacMoneyFlow> {
   return bridge.send<MacMoneyFlow>('mac_money_flow', { code }, QUOTES_TIMEOUT_MS)
+}
+
+/** 批量 0x1218；单只失败由 Python 侧跳过，不阻断整张榜。 */
+export async function fetchMacMoneyFlowBatch(
+  codes: string[],
+  workers = 12
+): Promise<MacMoneyFlowPoint[]> {
+  return bridge.send<MacMoneyFlowPoint[]>(
+    'mac_money_flow_batch',
+    { codes: normalizeCodes(codes), workers },
+    90_000
+  )
 }
 
 export async function fetchAuctions(code: string, date?: string): Promise<AuctionPoint[]> {

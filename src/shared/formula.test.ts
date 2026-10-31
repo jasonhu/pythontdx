@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { backtestFormula, backtestPortfolio, evaluateFormula, FormulaError } from './formula'
+import {
+  backtestFormula,
+  backtestPortfolio,
+  evaluateFormula,
+  evaluateFormulaDocument,
+  FormulaError
+} from './formula'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -111,6 +117,80 @@ describe('evaluateFormula', () => {
     expect(evaluateFormula('STD(CLOSE,2)', data).latest).toBeCloseTo(0.5, 6)
     expect(evaluateFormula('IF(CLOSE > 3, 1, 0)', data).latest).toBe(1)
     expect(evaluateFormula('IF(CLOSE > 9, 1, 0)', data).latest).toBe(0)
+  })
+
+  it('变量赋值、多语句、多输出与颜色修饰', () => {
+    const data = bars([1, 2, 3, 4, 5])
+    const document = evaluateFormulaDocument(
+      '{ 两条均线，输出 B 与 D }\nA:=MA(C,2); B:=A*2; B:REF(B,1),COLORRED; D:MA(CLOSE,2);',
+      data
+    )
+    expect(document.outputs.map((output) => output.name)).toEqual(['B', 'D'])
+    expect(document.primary.name).toBe('D')
+    expect(document.outputs[0].color).toBe('#e5484d')
+    expect(document.variables.A[2]).toBe(2.5)
+    expect(document.outputs[0].values.slice(0, 2)).toEqual([Number.NaN, Number.NaN])
+    expect(document.outputs[0].values[2]).toBe(3)
+    expect(document.primary.values[2]).toBe(2.5)
+  })
+
+  it('常用别名、绘图语句与字符串参数', () => {
+    const data = bars([1, 2, 3, 4])
+    expect(evaluateFormula('C', data).latest).toBe(4)
+    expect(evaluateFormula('O+H+L+C', data).latest).toBe(15.5)
+    const document = evaluateFormulaDocument(
+      "DRAWTEXT(C>O,H,'买入'); STICKLINE(C>O,O,C,8,0);",
+      data
+    )
+    expect(document.outputs).toHaveLength(2)
+    expect(document.outputs[0].values[0]).toBe(1)
+    expect(document.outputs[1].drawing).toBe(true)
+  })
+
+  it('扩展函数：DMA/FILTER/BACKSET/VALUEWHEN/BARSLASTCOUNT', () => {
+    const data = bars([1, 2, 3, 4, 5])
+    expect(evaluateFormula('EXPMA(C,2)', data).values[2]).toBeCloseTo(2.5556, 3)
+    expect(evaluateFormula('DMA(C,0.5)', data).values.slice(0, 3)).toEqual([1, 1.5, 2.25])
+    expect(evaluateFormula('FILTER(C>2,2)', data).values).toEqual([0, 0, 1, 0, 1])
+    expect(evaluateFormula('BACKSET(C>3,2)', data).values).toEqual([0, 0, 1, 1, 1])
+    expect(evaluateFormula('VALUEWHEN(C>2,C*10)', data).values).toEqual([
+      Number.NaN,
+      Number.NaN,
+      30,
+      40,
+      50
+    ])
+    expect(evaluateFormula('BARSLASTCOUNT(C>2)', data).values).toEqual([0, 0, 1, 2, 3])
+    expect(evaluateFormula('REFX(C,1)', data).values).toEqual([2, 3, 4, 5, Number.NaN])
+    expect(evaluateFormula('LONGCROSS(C,3,1)', bars([1, 2, 4, 5])).values).toEqual([0, 0, 1, 0])
+    expect(evaluateFormula('UPNDAY(C,2)', data).values).toEqual([0, 0, 1, 1, 1])
+    expect(evaluateFormula('NDAY(C>0,2)', data).values).toEqual([0, 1, 1, 1, 1])
+  })
+
+  it('扩展统计与数学函数', () => {
+    const data = bars([1, 2, 3])
+    expect(evaluateFormula('TR', data).values).toEqual([2, 2, 2])
+    expect(evaluateFormula('VAR(C,3)', data).latest).toBeCloseTo(2 / 3, 6)
+    expect(evaluateFormula('VARP(C,3)', data).latest).toBe(1)
+    expect(evaluateFormula('AVEDEV(C,3)', data).latest).toBeCloseTo(2 / 3, 6)
+    expect(evaluateFormula('DEVSQ(C,3)', data).latest).toBe(2)
+    expect(evaluateFormula('BETWEEN(C,2,4)', bars([1, 2, 3, 4, 5])).values).toEqual([0, 1, 1, 1, 0])
+    expect(evaluateFormula('SIGN(0-C)', data).values).toEqual([-1, -1, -1])
+    expect(evaluateFormula('CEILING(1.2)+FLOOR(1.8)+MOD(7,4)', data).latest).toBe(6)
+  })
+
+  it('注释、空语句和赋值无输出时回退到最后一条', () => {
+    const assignment = evaluateFormulaDocument('{仅赋值}\nA:=MA(C,2);;', bars([1, 2, 3]))
+    expect(assignment.outputs).toHaveLength(1)
+    expect(assignment.outputs[0].name).toBe('A')
+    expect(assignment.primary.values[2]).toBe(2.5)
+  })
+
+  it('前向引用、未知函数与字符串误用报错', () => {
+    expect(() => evaluateFormulaDocument('A:=B; B:=C;', bars([1]))).toThrow(FormulaError)
+    expect(() => evaluateFormula('UNKNOWN(CLOSE,2)', bars([1]))).toThrow(FormulaError)
+    expect(() => evaluateFormula("'文字' + 1", bars([1]))).toThrow(FormulaError)
+    expect(() => evaluateFormula('DRAWTEXT(C>O,H)', bars([1]))).toThrow(FormulaError)
   })
 
   it('未知变量/函数与空公式报错', () => {

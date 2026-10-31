@@ -70,6 +70,7 @@ import {
   fetchKline,
   fetchMinuteTrend,
   fetchMacMoneyFlow,
+  fetchMacMoneyFlowBatch,
   fetchMacBoards,
   fetchMacUnusual,
   fetchMoneyFlow,
@@ -107,6 +108,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.moneyFlow, (_event, code: string) => fetchMoneyFlow(code))
 
   ipcMain.handle(IPC.moneyMac, (_event, code: string) => fetchMacMoneyFlow(code))
+
+  ipcMain.handle(IPC.moneyMacBatch, (_event, codes: string[], workers?: number) =>
+    fetchMacMoneyFlowBatch(codes, workers)
+  )
 
   ipcMain.handle(IPC.macUnusual, (_event, count?: number) => fetchMacUnusual(count))
 

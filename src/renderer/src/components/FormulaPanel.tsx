@@ -1,7 +1,8 @@
 /**
- * 公式预览：对当前股票的日 K 求值一条安全表达式，并与收盘价叠加显示。
+ * 公式预览：对当前股票的日 K 求值一段安全公式，并与收盘价叠加显示。
  *
- * 只支持少量技术指标函数；不是完整通达信公式语言，也不执行任意代码。
+ * 支持变量赋值、多语句/多输出、常用指标函数与绘图函数（绘图只取条件序列）；
+ * 不执行任意代码，未知函数/变量直接报错。
  */
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
@@ -14,7 +15,14 @@ import {
   type FormulaPortfolioBacktest,
   type FormulaResult
 } from '@shared/formula'
-import { activeItems, appState, removeFormula, saveFormula, updateSettings } from '../stores/app'
+import {
+  activeItems,
+  appState,
+  removeFormula,
+  saveFormula,
+  updateFormula,
+  updateSettings
+} from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -30,12 +38,14 @@ const EXAMPLES = [
   'MA(CLOSE,20)',
   'EMA(CLOSE,12)-EMA(CLOSE,26)',
   '(HIGH+LOW)/2',
-  'CROSS(CLOSE,MA(CLOSE,20))'
+  'CROSS(CLOSE,MA(CLOSE,20))',
+  'A:=MA(C,5); B:=MA(C,20); A:A,COLORRED; B:B,COLORBLUE;'
 ]
 
 const WIDTH = 900
 const HEIGHT = 300
 const PAD = 18
+const LINE_COLORS = ['#3e63dd', '#e5484d', '#30a46c', '#e8b931', '#d6409f']
 
 function linePath(values: number[], min: number, max: number): string {
   const span = max - min || 1
@@ -58,6 +68,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
   const [bars, setBars] = createSignal<KLineBar[]>([])
   const [expression, setExpression] = createSignal('MA(CLOSE,20)')
   const [formulaName, setFormulaName] = createSignal('')
+  const [editingId, setEditingId] = createSignal<string | null>(null)
   const [result, setResult] = createSignal<FormulaResult | null>(null)
   const [backtest, setBacktest] = createSignal<FormulaBacktest | null>(null)
   const [portfolio, setPortfolio] = createSignal<FormulaPortfolioBacktest | null>(null)
@@ -129,8 +140,10 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
 
   const save = (): void => {
     if (!expression().trim()) return
-    saveFormula(formulaName(), expression())
+    if (editingId()) updateFormula(editingId()!, formulaName(), expression())
+    else saveFormula(formulaName(), expression())
     setFormulaName('')
+    setEditingId(null)
   }
 
   const scanWatchlist = async (): Promise<void> => {
@@ -184,11 +197,17 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
   const chart = createMemo(() => {
     const data = bars()
     const formula = result()
-    if (data.length === 0) return { close: '', formula: '' }
-    const all = [...data.map((bar) => bar.close), ...(formula?.values ?? [])].filter((value) =>
-      Number.isFinite(value)
+    if (data.length === 0) return { close: '', lines: [] }
+    const outputs =
+      formula?.outputs && formula.outputs.length > 0
+        ? formula.outputs
+        : formula
+          ? [{ name: '公式', values: formula.values }]
+          : []
+    const all = [...data.map((bar) => bar.close), ...outputs.flatMap((line) => line.values)].filter(
+      (value) => Number.isFinite(value)
     )
-    if (all.length === 0) return { close: '', formula: '' }
+    if (all.length === 0) return { close: '', lines: [] }
     const min = Math.min(...all)
     const max = Math.max(...all)
     return {
@@ -197,7 +216,13 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
         min,
         max
       ),
-      formula: formula ? linePath(formula.values, min, max) : ''
+      lines: outputs
+        .map((line, index) => ({
+          name: line.name,
+          color: line.color ?? LINE_COLORS[index % LINE_COLORS.length],
+          path: linePath(line.values, min, max)
+        }))
+        .filter((line) => line.path.length > 0)
     }
   })
 
@@ -221,7 +246,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
       >
         <header class="formula__head">
           <div>
-            <div class="formula__eyebrow">安全表达式 · MA/EMA/REF/CROSS</div>
+            <div class="formula__eyebrow">安全公式 · 赋值 / 多输出 / 指标函数</div>
             <h2 class="formula__title">
               {props.name} <code>{props.code.toUpperCase()}</code>
             </h2>
@@ -266,7 +291,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
         <div class="formula__savebar">
           <input
             class="formula__name"
-            placeholder="保存为…（留空用表达式）"
+            placeholder={editingId() ? '更新名称…' : '保存为…（留空用表达式）'}
             value={formulaName()}
             onInput={(event) => setFormulaName(event.currentTarget.value)}
           />
@@ -285,7 +310,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
             {portfolioLoading() ? '组合回测…' : '自选组合回测'}
           </button>
           <button class="btn formula__save" onClick={save}>
-            保存公式
+            {editingId() ? '更新公式' : '保存公式'}
           </button>
           <button
             class="btn formula__apply-main"
@@ -324,8 +349,11 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
                 <div class="formula__saved-item">
                   <button
                     class="formula__saved-apply"
+                    title="载入表达式并进入编辑"
                     onClick={() => {
                       setExpression(item.expression)
+                      setFormulaName(item.name)
+                      setEditingId(item.id)
                       run()
                     }}
                   >
@@ -335,7 +363,13 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
                   <button
                     class="formula__saved-delete"
                     title="删除公式"
-                    onClick={() => removeFormula(item.id)}
+                    onClick={() => {
+                      if (editingId() === item.id) {
+                        setEditingId(null)
+                        setFormulaName('')
+                      }
+                      removeFormula(item.id)
+                    }}
                   >
                     ×
                   </button>
@@ -367,13 +401,27 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
                 class="formula__axis"
               />
               <path d={chart().close} class="formula__close" />
-              <Show when={chart().formula}>
-                <path d={chart().formula} class="formula__line" />
-              </Show>
+              <For each={chart().lines}>
+                {(line) => (
+                  <path
+                    d={line.path}
+                    class="formula__line"
+                    style={{ stroke: line.color }}
+                    fill="none"
+                    stroke-width="2"
+                  />
+                )}
+              </For>
             </svg>
             <div class="formula__legend">
               <span class="formula__legend-close">收盘价</span>
-              <span class="formula__legend-line">公式</span>
+              <For each={chart().lines}>
+                {(line) => (
+                  <span class="formula__legend-line" style={{ color: line.color }}>
+                    {line.name}
+                  </span>
+                )}
+              </For>
               <Show when={latestBar()}>
                 {(last) => (
                   <span class="formula__latest">
@@ -455,6 +503,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
                 <span>最新 {data().latest === null ? '—' : fixed(data().latest!)}</span>
                 <span>最小 {data().min === null ? '—' : fixed(data().min!)}</span>
                 <span>最大 {data().max === null ? '—' : fixed(data().max!)}</span>
+                <span>{data().outputs?.length ?? 1} 条输出</span>
                 <span>{bars().length} 根日 K</span>
               </>
             )}
@@ -462,7 +511,7 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
         </div>
 
         <footer class="formula__foot">
-          <span>仅支持 MA/EMA/REF/ABS/MAX/MIN/CROSS 与四则运算</span>
+          <span>支持赋值/多输出与 MA/EMA/SMA/DMA/REF/HHV/LLV/FILTER/CROSS 等函数</span>
           <span>回测按上一根信号成交 · 手续费 0.03%</span>
         </footer>
       </section>

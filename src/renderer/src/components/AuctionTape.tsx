@@ -127,10 +127,14 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
       </div>
 
       <Show when={!loading() && rows().length === 0 && !error()}>
-        <div class="auction__empty">暂无竞价数据</div>
+        <div class="auction__empty">
+          {date()
+            ? '该日期没有竞价过程：通达信 0x056a 只保留最近交易日，更早日期通常为空'
+            : '暂无竞价数据'}
+        </div>
       </Show>
 
-      <div class="auction__foot">虚拟匹配量，不是成交</div>
+      <div class="auction__foot">09:15–09:25 · 虚拟匹配量，不是成交</div>
     </div>
   )
 }

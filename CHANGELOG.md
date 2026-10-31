@@ -10,6 +10,39 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [未发布] - 功能矩阵收口（2026-10-31）
+
+### 新增
+
+- **全市场资金流排行**：新增 MAC `0x1218` 批量命令 `mac_money_flow_batch`
+  （1~24 并发，单只失败跳过），排行榜新增「资金流」tab；先取全市场 MAC 报价，
+  再分块补资金流并按主力净额排序，显示「净额 · 占成交额」。
+  2026-10-31 实测 5,615/5,615 只成功；IPC/Web `/api/mac_money_flow_batch` 同步。
+- **公式管理器**：求值器支持 `:=` 变量赋值、多语句/多输出、颜色修饰、花括号注释、
+  `C/O/H/L/V` 别名；新增 EXPMA/SMA/WMA/DMA/TMA/MEMA/XMA、REF/REFX、
+  COUNT/EVERY/EXIST、FILTER/BACKSET/VALUEWHEN、CROSS/LONGCROSS、
+  RSI/BIAS/ATR/TR/VAR/STD、数学/逻辑与 DRAWTEXT/STICKLINE/DRAWICON 等绘图语句；
+  多输出按红/蓝等颜色叠加，财务/即时行情/DLL/扩展数据函数明确报错。
+
+### 修复
+
+- **集合竞价混入全天快照**：`0x056a` selector 默认值从 `3` 改为 `0`。
+  selector=3 实测返回 206 点直到 14:59，混合了全天数据；selector=0 只返回
+  09:15:02–09:24:58 的 147 点。历史日期受服务器保留期限制，空时给出明确提示。
+
+### 验证
+
+- `npm run check` → **225 TS + 118 Python（2 skipped，21 个 TS 文件）**，全绿；
+- `npm run build` / `npm run build:web` 通过；
+- Linux AppImage 130 MB `1022176d…` / deb 105 MB `8c4def3c…`，包内实测
+  资金流 5,615/5,615 与公式 2 条输出；
+- 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
+  `screenshots/auction-history.png`、`screenshots/packaged-ranking-flow.png`、
+  `screenshots/packaged-formula-multi.png`；
+- 矩阵（不含状态图例）：**305 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+
+---
+
 ## [未发布] - P2 九项增强（2026-10-31）
 
 ### 新增

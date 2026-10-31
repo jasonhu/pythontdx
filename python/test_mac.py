@@ -2,6 +2,7 @@
 import json
 import struct
 import unittest
+from unittest import mock
 
 import tdx_bridge
 import tdx_mac
@@ -99,6 +100,26 @@ class TestMacQuotes(unittest.TestCase):
 
     def test_empty_codes(self):
         self.assertEqual(tdx_mac.fetch_quotes([]), [])
+
+    def test_batch_capital_flow_deduplicates_and_skips_failures(self):
+        calls = []
+
+        def fake(code, timeout=4.0, hosts=tdx_mac.MAC_HOSTS):
+            calls.append(code)
+            if code == "sz000002":
+                raise tdx_mac.MacError("停牌")
+            return {"mainNet": 1.0, "largeNet5d": 2.0, "receivedAt": 1}
+
+        with mock.patch.object(tdx_mac, "fetch_capital_flow", fake):
+            rows = tdx_mac.fetch_capital_flows(
+                ["sh600519", "SH600519", "bad", "sz000002", "sh600000"], workers=2
+            )
+        self.assertEqual([row["code"] for row in rows], ["sh600519", "sh600000"])
+        self.assertEqual(sorted(calls), ["sh600000", "sh600519", "sz000002"])
+
+    def test_batch_capital_flow_workers_guard(self):
+        with self.assertRaises(tdx_mac.MacError):
+            tdx_mac.fetch_capital_flows(["sh600519"], workers=0)
 
     def test_bridge_falls_back_to_mac(self):
         bridge = object.__new__(tdx_bridge.Bridge)

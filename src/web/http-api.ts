@@ -27,6 +27,7 @@ import type {
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
+  MacMoneyFlowPoint,
   MacBoard,
   MacUnusualItem,
   MarketBreadth,
@@ -301,7 +302,9 @@ export function createHttpApi(): StockLensApi {
     },
     money: {
       flow: (code) => post<MoneyFlowRecord[]>('/api/money_flow', { code }),
-      macFlow: (code) => post<MacMoneyFlow>('/api/mac_money_flow', { code })
+      macFlow: (code) => post<MacMoneyFlow>('/api/mac_money_flow', { code }),
+      macFlowBatch: (codes, workers) =>
+        post<MacMoneyFlowPoint[]>('/api/mac_money_flow_batch', { codes, workers })
     },
     mac: {
       unusual: (count) => post<MacUnusualItem[]>('/api/mac_unusual', { count }),

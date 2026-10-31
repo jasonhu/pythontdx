@@ -111,6 +111,12 @@ export interface CategoryQuote extends Quote {
   volRiseSpeed?: number
   depth?: number
   active2?: number
+  /** 资金流排行：主力净流入（元） */
+  mainNet?: number
+  /** 资金流排行：主力净流入 / 成交额（%） */
+  mainRatio?: number
+  /** 资金流排行：5 日大单净额（元） */
+  largeNet5d?: number
 }
 
 export type ScreenSortBy = 'changePct' | 'amount' | 'turnoverRate' | 'amplitude'
@@ -250,6 +256,11 @@ export interface MacMoneyFlow {
   largeNet5d: number
   midNet5d: number
   receivedAt: number
+}
+
+/** 批量资金流（0x1218）返回的一行；code 由批量命令补上。 */
+export interface MacMoneyFlowPoint extends MacMoneyFlow {
+  code: string
 }
 
 export interface MoneyFlowRecord {

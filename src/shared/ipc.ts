@@ -37,6 +37,7 @@ import type {
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
+  MacMoneyFlowPoint,
   MacBoard,
   MacUnusualItem,
   MarketBreadth,
@@ -76,6 +77,8 @@ export const IPC = {
   moneyFlow: 'money:flow',
   /** MAC 0x1218 资金流（invoke） */
   moneyMac: 'money:mac',
+  /** MAC 0x1218 批量资金流（全市场资金流排行） */
+  moneyMacBatch: 'money:mac-batch',
   /** MAC 0x1237 异动（invoke） */
   macUnusual: 'mac:unusual',
   /** MAC 0x1231 板块列表（invoke） */
@@ -279,6 +282,8 @@ export interface StockLensApi {
     /** 最近 5 日资金流（0x0ffc） */
     flow(code: string): Promise<MoneyFlowRecord[]>
     macFlow(code: string): Promise<MacMoneyFlow>
+    /** 批量 0x1218；全市场资金流排行，单只失败会跳过 */
+    macFlowBatch(codes: string[], workers?: number): Promise<MacMoneyFlowPoint[]>
   }
   mac: {
     /** 沪深异动（0x1237） */

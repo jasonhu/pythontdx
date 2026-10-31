@@ -10,6 +10,7 @@ import socket
 import struct
 import time
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 
 MAC_HOSTS = ("121.36.248.138", "123.60.47.136", "121.37.207.165")
 MAC_PORT = 7709
@@ -409,6 +410,45 @@ def fetch_capital_flow(code: str, timeout: float = 4.0, hosts: tuple[str, ...] =
         finally:
             sock.close()
     raise MacError(f"MAC 资金流不可用：{last_error}")
+
+
+def fetch_capital_flows(
+    codes: list[str],
+    workers: int = 12,
+    timeout: float = 4.0,
+    hosts: tuple[str, ...] = MAC_HOSTS,
+) -> list[dict]:
+    """批量取 MAC 0x1218 资金流，用于全市场资金流排行。
+
+    每只股票一条独立连接，并发受 ``workers`` 限制；单只失败只跳过该只，
+    不让一个停牌/退市代码拖垮整张榜。返回顺序不保证，调用方按 code 合并。
+    """
+    if workers < 1 or workers > 24:
+        raise MacError("MAC 资金流并发数必须在 1~24 之间")
+    unique: list[str] = []
+    seen: set[str] = set()
+    for raw in codes:
+        code = str(raw).strip().lower()
+        if not code or code in seen:
+            continue
+        prefix, symbol = code[:2], code[2:]
+        if prefix not in {"sh", "sz", "bj"} or len(symbol) != 6 or not symbol.isdigit():
+            continue
+        seen.add(code)
+        unique.append(code)
+    if not unique:
+        return []
+
+    def one(code: str) -> dict | None:
+        try:
+            flow = fetch_capital_flow(code, timeout=timeout, hosts=hosts)
+        except (OSError, MacError):
+            return None
+        return {"code": code, **flow}
+
+    with ThreadPoolExecutor(max_workers=min(workers, len(unique))) as executor:
+        rows = list(executor.map(one, unique))
+    return [row for row in rows if row is not None]
 
 
 def _describe_unusual(kind: int, data: bytes) -> tuple[str, str]:

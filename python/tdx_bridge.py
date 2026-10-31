@@ -55,6 +55,7 @@ from tdx_local import read_local_file, write_day_file, write_min_file
 from tdx_mac import (
     MacError,
     fetch_capital_flow,
+    fetch_capital_flows,
     fetch_quotes as fetch_mac_quotes,
     fetch_transactions as fetch_mac_transactions,
     fetch_unusual,
@@ -695,7 +696,7 @@ def auction_data(
     market: int,
     symbol: str,
     trading_date: str | None = None,
-    selector: int = 3,
+    selector: int = 0,
     start: int = 0,
     limit: int = AUCTION_LIMIT,
 ) -> bytes:
@@ -2684,6 +2685,10 @@ class Bridge:
         """MAC 0x1218 今日/5 日资金流。"""
         return fetch_capital_flow(code)
 
+    def mac_money_flow_batch(self, codes: list[str], workers: int = 12) -> list[dict]:
+        """批量 MAC 0x1218；全市场资金流排行的数据通道。"""
+        return fetch_capital_flows(codes, workers=workers)
+
     def mac_boards(self, board_type: int = 255) -> list[dict]:
         """MAC 0x1231 板块列表（含领涨股）。"""
         return fetch_boards(board_type)
@@ -3146,7 +3151,7 @@ class Bridge:
         self,
         code: str,
         trading_date: str | None = None,
-        selector: int = 3,
+        selector: int = 0,
         start: int = 0,
         limit: int = AUCTION_LIMIT,
     ) -> list[dict]:
@@ -3931,6 +3936,10 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.mac_quotes(payload.get("codes") or [])
     if cmd == "mac_money_flow":
         return bridge.mac_money_flow(str(payload.get("code") or ""))
+    if cmd == "mac_money_flow_batch":
+        return bridge.mac_money_flow_batch(
+            payload.get("codes") or [], int(payload.get("workers", 12))
+        )
     if cmd == "mac_unusual":
         return bridge.mac_unusual(int(payload.get("count", 600)))
     if cmd == "mac_boards":
@@ -3959,7 +3968,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.auctions(
             payload.get("code", ""),
             trading_date=payload.get("date") or None,
-            selector=int(payload.get("selector", 3)),
+            selector=int(payload.get("selector", 0)),
             start=int(payload.get("start", 0)),
             limit=int(payload.get("limit", AUCTION_LIMIT)),
         )

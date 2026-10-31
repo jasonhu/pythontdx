@@ -1,12 +1,15 @@
 /**
- * 排行榜（0x054b）。
+ * 排行榜（0x054b / MAC 0x122B / MAC 0x1218）。
  *
  * 服务端排序的一页 A 股行情，切换 tab 只改 `sortType`，不在前端重排。
+ * 「资金流」是全市场两步榜：先取 MAC 报价，再批量补 0x1218 主力净额；
+ * 单只资金流失败会跳过该只，不把缺失值当成 0 参与排名。
  * 点击某一行把该股行情塞进 quote store 再切过去，不强行加入自选。
  */
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
-import type { CategoryQuote } from '@shared/types'
+import type { CategoryQuote, MacMoneyFlowPoint } from '@shared/types'
 import { compactAmount, fixed, signedPct } from '@shared/format'
+import { formatNetFlow, mergeMoneyFlowRanking } from '@shared/ranking'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -53,7 +56,14 @@ const SORTS: SortTab[] = [
     fullOnly: true
   },
   { label: '短换手', sortType: 0x00cc, metric: (quote) => quote.shortTurnover ?? 0, full: false },
-  { label: '封单额', sortType: 0x001c, metric: (quote) => quote.lockedAmount ?? 0, full: false }
+  { label: '封单额', sortType: 0x001c, metric: (quote) => quote.lockedAmount ?? 0, full: false },
+  {
+    label: '资金流',
+    sortType: 0,
+    metric: (quote) => quote.mainNet ?? Number.NEGATIVE_INFINITY,
+    full: true,
+    fullOnly: true
+  }
 ]
 
 export function RankingPanel(props: RankingPanelProps): JSX.Element {
@@ -66,7 +76,11 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
   const [error, setError] = createSignal<string | null>(null)
   const [fullMode, setFullMode] = createSignal(false)
   const [fullTotal, setFullTotal] = createSignal(0)
+  const [flowProgress, setFlowProgress] = createSignal<{ done: number; total: number } | null>(null)
+  const [flowMatched, setFlowMatched] = createSignal(0)
   let requestId = 0
+
+  const flowMode = (): boolean => sort().label === '资金流'
 
   const loadFull = async (current: number): Promise<void> => {
     const catalog = await api.quote.catalog()
@@ -86,6 +100,40 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
       quotes.push(...(chunk as CategoryQuote[]))
     }
     const activeSort = sort()
+    if (activeSort.label === '资金流') {
+      // 两步榜：报价只负责代码/名称/成交额，净额全部来自 0x1218。
+      setFlowProgress({ done: 0, total: quotes.length })
+      const flows: MacMoneyFlowPoint[] = []
+      let failedChunks = 0
+      for (let start = 0; start < quotes.length; start += 400) {
+        const chunk = quotes.slice(start, start + 400).map((quote) => quote.code)
+        try {
+          flows.push(...(await api.money.macFlowBatch(chunk, 12)))
+        } catch {
+          // 单个分块失败不应让已经拿到的资金流全部作废
+          failedChunks += 1
+        }
+        if (current !== requestId) return
+        setFlowProgress({
+          done: Math.min(start + 400, quotes.length),
+          total: quotes.length
+        })
+      }
+      if (current !== requestId) return
+      const ranked = mergeMoneyFlowRanking(quotes, flows)
+      setFlowMatched(ranked.matched)
+      setFullTotal(ranked.total)
+      setRows(ranked.quotes.slice(0, 300))
+      setHasMore(false)
+      setError(
+        ranked.quotes.length === 0 && quotes.length > 0
+          ? `资金流批量接口没有返回数据${failedChunks > 0 ? `（${failedChunks} 个分块失败）` : ''}`
+          : null
+      )
+      return
+    }
+    setFlowProgress(null)
+    setFlowMatched(0)
     quotes.sort((a, b) =>
       activeSort.ascending
         ? activeSort.metric(a) - activeSort.metric(b)
@@ -157,7 +205,8 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
 
   onMount(() => {
     const timer = window.setInterval(() => {
-      if (!expanded()) void load()
+      // 全市场资金流要扫数千只，不能每 10 秒重跑；切 tab/重试时再刷新。
+      if (!expanded() && !flowMode()) void load()
     }, 10_000)
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
@@ -181,7 +230,12 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
         <header class="ranking__head">
           <div>
             <div class="ranking__eyebrow">
-              沪深 A 股 · {fullMode() ? 'MAC 全市场排序' : '0x054b 服务端排序'}
+              沪深 A 股 ·{' '}
+              {flowMode()
+                ? 'MAC 0x1218 全市场资金流'
+                : fullMode()
+                  ? 'MAC 全市场排序'
+                  : '0x054b 服务端排序'}
             </div>
             <h2 class="ranking__title">排行榜</h2>
           </div>
@@ -189,8 +243,10 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
             <button
               class="btn ranking-full"
               data-active={fullMode()}
-              title="全市场 MAC 排序（涨幅/成交额/涨速）"
+              disabled={flowMode()}
+              title={flowMode() ? '资金流排行固定为全市场' : '全市场 MAC 排序'}
               onClick={() => {
+                if (flowMode()) return
                 const next = !fullMode()
                 if (next && !sort().full) setSort(SORTS[0])
                 if (!next && sort().fullOnly) setSort(SORTS[0])
@@ -232,10 +288,16 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
             <Show
               when={loading()}
               fallback={
-                fullMode() ? `${fullTotal()} 只中前 ${rows().length}` : `${rows().length} 只`
+                flowMode()
+                  ? `已匹配 ${flowMatched()}/${fullTotal()} 只`
+                  : fullMode()
+                    ? `${fullTotal()} 只中前 ${rows().length}`
+                    : `${rows().length} 只`
               }
             >
-              刷新中…
+              <Show when={flowProgress()} fallback="刷新中…">
+                {(progress) => `扫描资金流 ${progress().done}/${progress().total}`}
+              </Show>
             </Show>
           </span>
         </div>
@@ -260,7 +322,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                 <th class="ranking__num">现价</th>
                 <th class="ranking__num">涨幅</th>
                 <th class="ranking__num">成交额</th>
-                <th class="ranking__num">{sort().label}</th>
+                <th class="ranking__num">{flowMode() ? '主力净额 / 占比' : sort().label}</th>
               </tr>
             </thead>
             <tbody>
@@ -283,7 +345,15 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                       {signedPct(quote.changePct)}
                     </td>
                     <td class="ranking__num num">{compactAmount(quote.amount)}</td>
-                    <td class="ranking__num num">{metricText(quote, sort())}</td>
+                    <td
+                      class="ranking__num num"
+                      classList={{
+                        'tone-up': flowMode() && (quote.mainNet ?? 0) > 0,
+                        'tone-down': flowMode() && (quote.mainNet ?? 0) < 0
+                      }}
+                    >
+                      {metricText(quote, sort())}
+                    </td>
                   </tr>
                 )}
               </For>
@@ -295,10 +365,21 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
         </div>
 
         <footer class="ranking__foot">
-          <span>数据源：通达信 7709 · {fullMode() ? 'MAC 0x122B' : '0x054b'}</span>
+          <span>
+            数据源：通达信{' '}
+            {flowMode() ? 'MAC 0x1218 · 主力净额 / 成交额' : fullMode() ? 'MAC 0x122B' : '0x054b'}
+          </span>
           <Show
             when={!fullMode() && hasMore()}
-            fallback={<span>{fullMode() ? '全市场前 300' : '已到末尾'}</span>}
+            fallback={
+              <span>
+                {flowMode()
+                  ? `全市场前 300 · 匹配 ${flowMatched()}/${fullTotal()}`
+                  : fullMode()
+                    ? '全市场前 300'
+                    : '已到末尾'}
+              </span>
+            }
           >
             <button class="ranking__more" disabled={loadingMore()} onClick={() => void loadMore()}>
               {loadingMore() ? '加载中…' : '加载更多'}
@@ -312,6 +393,9 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
 
 function metricText(quote: CategoryQuote, tab: SortTab): string {
   const value = tab.metric(quote)
+  if (tab.label === '资金流') {
+    return `${formatNetFlow(value)} · ${fixed(quote.mainRatio ?? 0)}%`
+  }
   if (tab.sortType === 0x000a || tab.sortType === 0x001c) return compactAmount(value)
   if (tab.sortType === 0x000e) return signedPct(value)
   if (tab.label === '量比') return `${fixed(value)}x`

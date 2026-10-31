@@ -30,7 +30,8 @@ const api: StockLensApi = {
     onUpdate: (listener) => subscribe(IPC.quoteUpdate, listener),
     category: (request) => ipcRenderer.invoke(IPC.quoteCategory, request),
     catalog: () => ipcRenderer.invoke(IPC.quoteCatalog),
-    macQuotes: (codes) => ipcRenderer.invoke(IPC.quoteMac, codes)
+    macQuotes: (codes) => ipcRenderer.invoke(IPC.quoteMac, codes),
+    macQuotesFinance: (codes) => ipcRenderer.invoke(IPC.quoteMacFinance, codes)
   },
   trade: {
     ticks: (request) => ipcRenderer.invoke(IPC.tradeTicks, request)

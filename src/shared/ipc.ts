@@ -202,6 +202,8 @@ export const IPC = {
   quoteCatalog: 'quote:catalog',
   /** 显式 MAC 批量报价（invoke） */
   quoteMac: 'quote:mac',
+  /** MAC 批量报价 + 0x0010 财务（市值排行） */
+  quoteMacFinance: 'quote:mac-finance',
 
   /** 读取持久化状态（invoke） */
   stateGet: 'state:get',
@@ -286,6 +288,8 @@ export interface StockLensApi {
     category(req: CategoryRequest): Promise<CategoryQuote[]>
     catalog(): Promise<SearchSecurity[]>
     macQuotes(codes: string[]): Promise<Quote[]>
+    /** MAC 报价 + 财务；市值排序用，财务失败时字段缺失 */
+    macQuotesFinance(codes: string[]): Promise<Quote[]>
   }
   trade: {
     /** 成交明细：不传 date 走当日 0x0fc5，传 date 走历史 0x0fc6 */

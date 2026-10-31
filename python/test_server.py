@@ -103,6 +103,9 @@ class FakeBridge:
     def mac_quotes(self, codes):
         return []
 
+    def mac_quotes_finance(self, codes):
+        return []
+
     def lake_archives(self, limit=20):
         return []
 
@@ -399,6 +402,11 @@ class TestHttpApi(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["savedCount"], 1)
         status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"], [])
+        status, payload, _ = self.request(
+            "POST", "/api/mac_quotes_finance", {"codes": ["sh600519"]}
+        )
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])
         status, payload, _ = self.request("POST", "/api/mac_money_flow", {"code": "sh600519"})

@@ -550,6 +550,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_quotes(payload.get("codes") or []))
                 return
+            if parsed.path == "/api/mac_quotes_finance":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_quotes_finance(payload.get("codes") or [])
+                    )
+                return
             if parsed.path == "/api/lake_archives":
                 with self.server.lock:
                     self._ok(self.server.bridge.lake_archives(int(payload.get("limit", 20))))

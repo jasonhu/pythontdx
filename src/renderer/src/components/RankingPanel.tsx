@@ -57,6 +57,20 @@ const SORTS: SortTab[] = [
     fullOnly: true
   },
   {
+    label: '流通市值',
+    sortType: 0,
+    metric: (quote) => quote.floatCap ?? 0,
+    full: true,
+    fullOnly: true
+  },
+  {
+    label: '总市值',
+    sortType: 0,
+    metric: (quote) => quote.totalCap ?? 0,
+    full: true,
+    fullOnly: true
+  },
+  {
     label: '量比',
     sortType: 0x00ce,
     metric: (quote) => quote.volumeRatio ?? 0,
@@ -89,6 +103,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
   let requestId = 0
 
   const flowMode = (): boolean => sort().label === '资金流'
+  const financeMode = (): boolean => sort().label === '流通市值' || sort().label === '总市值'
 
   const loadFull = async (current: number): Promise<void> => {
     const catalog = await api.quote.catalog()
@@ -103,7 +118,9 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
       .map((item) => item.code)
     const quotes: CategoryQuote[] = []
     for (let start = 0; start < codes.length; start += 500) {
-      const chunk = await api.quote.macQuotes(codes.slice(start, start + 500))
+      const chunk = financeMode()
+        ? await api.quote.macQuotesFinance(codes.slice(start, start + 500))
+        : await api.quote.macQuotes(codes.slice(start, start + 500))
       if (current !== requestId) return
       quotes.push(...(chunk as CategoryQuote[]))
     }
@@ -375,7 +392,13 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
         <footer class="ranking__foot">
           <span>
             数据源：通达信{' '}
-            {flowMode() ? 'MAC 0x1218 · 主力净额 / 成交额' : fullMode() ? 'MAC 0x122B' : '0x054b'}
+            {flowMode()
+              ? 'MAC 0x1218 · 主力净额 / 成交额'
+              : financeMode()
+                ? 'MAC 0x122B + 0x0010 财务'
+                : fullMode()
+                  ? 'MAC 0x122B'
+                  : '0x054b'}
           </span>
           <Show
             when={!fullMode() && hasMore()}
@@ -407,5 +430,6 @@ function metricText(quote: CategoryQuote, tab: SortTab): string {
   if (tab.sortType === 0x000a || tab.sortType === 0x001c) return compactAmount(value)
   if (tab.sortType === 0x000e) return signedPct(value)
   if (tab.label === '量比') return `${fixed(value)}x`
+  if (tab.label === '流通市值' || tab.label === '总市值') return `${fixed(value)}亿`
   return `${fixed(value)}%`
 }

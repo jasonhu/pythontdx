@@ -144,6 +144,11 @@ export async function fetchMacQuotes(codes: string[]): Promise<Quote[]> {
   return bridge.send<Quote[]>('mac_quotes', { codes: normalizeCodes(codes) }, 30_000)
 }
 
+/** 全市场市值排行：MAC 报价后补 0x0010 财务；财务失败仍返回行情。 */
+export async function fetchMacQuotesFinance(codes: string[]): Promise<Quote[]> {
+  return bridge.send<Quote[]>('mac_quotes_finance', { codes: normalizeCodes(codes) }, 90_000)
+}
+
 export async function fetchCategoryQuotes(request: CategoryRequest): Promise<CategoryQuote[]> {
   return bridge.send<CategoryQuote[]>('category', { ...request }, QUOTES_TIMEOUT_MS)
 }

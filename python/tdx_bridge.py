@@ -2698,6 +2698,17 @@ class Bridge:
         """显式走 MAC 0x122B；用于探测与手动切换。"""
         return fetch_mac_quotes(codes)
 
+    def mac_quotes_finance(self, codes: list[str]) -> list[dict]:
+        """MAC 0x122B 报价 + 0x0010 财务（流通市值/总市值/换手/市净率）。
+
+        全市场市值排行用：MAC 报价本身不带股本，必须补财务；财务失败时保留
+        行情并返回缺字段，界面不把缺失市值当 0 参与排名。
+        """
+        quotes = fetch_mac_quotes(codes)
+        if quotes:
+            self._attach_finance(quotes)
+        return quotes
+
     def mac_money_flow(self, code: str) -> dict:
         """MAC 0x1218 今日/5 日资金流。"""
         return fetch_capital_flow(code)
@@ -4070,6 +4081,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.snapshots(payload.get("codes") or [])
     if cmd == "mac_quotes":
         return bridge.mac_quotes(payload.get("codes") or [])
+    if cmd == "mac_quotes_finance":
+        return bridge.mac_quotes_finance(payload.get("codes") or [])
     if cmd == "mac_money_flow":
         return bridge.mac_money_flow(str(payload.get("code") or ""))
     if cmd == "mac_money_flow_batch":

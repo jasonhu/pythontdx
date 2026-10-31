@@ -3878,6 +3878,11 @@
   pointer-events: none;
 }
 
+.chart-drawing-fib {
+  stroke-dasharray: 2 2;
+  opacity: 0.62;
+}
+
 .price-dist {
   display: flex;
   flex-direction: column;

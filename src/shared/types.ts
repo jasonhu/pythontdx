@@ -799,7 +799,7 @@ export interface ChartDrawing {
   id: string
   code: string
   period: KLinePeriod
-  type: 'horizontal' | 'trend' | 'vertical' | 'text'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib'
   price?: number
   startIndex?: number
   startPrice?: number

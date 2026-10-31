@@ -37,6 +37,8 @@ StockLens 的所有重要变更都记录在这里。
   新增「振幅」tab，实测首位 32.72%，避免全市场榜全 0。新增 1 个纯函数测试。
 - **全市场市值排行**：新增 `mac_quotes_finance`（MAC 0x122B + 0x0010 财务补股本），
   排行新增「流通市值/总市值」tab；实测首位农业银行 23,879.47 亿，前 300 名正确降序。
+- **斐波那契回撤画线**：新增 7 档（0/23.6/38.2/50/61.8/78.6/100%）画线，端点可拖动；
+  同时修复画线坐标未减去可见窗口起点、缩放后画线跑到屏幕外的 bug。
 - **分时图缩放/平移**：单日/五日分时支持滚轮缩放、拖动平移、双击复位；可见范围按槽位
   裁切价格/均价/成交量/坐标轴，缩放到 `10:33–14:06` 与五日 `10-27 10:42–10-29 14:26` 实测通过。
 - **指标库扩展**：新增 ROC、PSY、VR、CR 四种副图指标（指标面板与 K 线副图共用）；
@@ -59,9 +61,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` → **235 TS + 126 Python（2 skipped，22 个 TS 文件）**，全绿；
+- `npm run check` → **238 TS + 126 Python（2 skipped，23 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `8792071a…` / deb 105 MB `bb02c461…`；
+- Linux AppImage 130 MB `c92018e1…` / deb 105 MB `f57ff8c3…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -70,10 +72,10 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/auction-archive-list.png`、`screenshots/indicator-roc.png`、
   `screenshots/indicator-roc-params.png`、`screenshots/packaged-indicator-roc.png`、
   `screenshots/multi-screen.png`、`screenshots/screener-pb-cap.png`、
-  `screenshots/screener-total-cap.png`、
+  `screenshots/screener-total-cap.png`、`screenshots/kline-fib.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**320 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+- 矩阵（不含状态图例）：**321 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

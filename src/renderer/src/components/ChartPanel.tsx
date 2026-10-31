@@ -415,6 +415,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               趋势
             </button>
             <button
+              class="chip chart-draw-fib"
+              data-active={drawMode() === 'fib'}
+              title="点两下画斐波那契回撤"
+              onClick={() => setDrawMode((mode) => (mode === 'fib' ? 'none' : 'fib'))}
+            >
+              斐波
+            </button>
+            <button
               class="chip chart-draw-clear"
               title="清除所有画线"
               onClick={() => setClearDrawingsKey((value) => value + 1)}

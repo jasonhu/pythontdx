@@ -43,16 +43,17 @@ import {
 } from '../lib/chart-geometry'
 import { chartOwnsKeys } from '../lib/chart-keys'
 import { useElementSize } from '../lib/dom'
+import { fibonacciLevels } from '@shared/drawing'
 import { appState, updateSettings } from '../stores/app'
 
 /** 均线配色；周期来自设置 */
 const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc', '#22d3ee', '#f472b6'] as const
 
-export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text'
+export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib'
 
 interface KLineDrawing {
   id: number
-  type: 'horizontal' | 'trend' | 'vertical' | 'text'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib'
   price?: number
   startIndex?: number
   startPrice?: number
@@ -399,26 +400,28 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
     for (const drawing of drawings()) {
+      // 画线存的是绝对下标；geo.x 要的是当前可见窗口内的下标。
+      const drawX = (index: number): number => geo.x(index - win().start)
       if (drawing.type === 'horizontal' && Math.abs(geo.yPrice(drawing.price ?? 0) - y) <= 6) {
         return { drawing, part: 'end' }
       }
-      if (drawing.type === 'vertical' && Math.abs(geo.x(drawing.startIndex ?? 0) - x) <= 6) {
+      if (drawing.type === 'vertical' && Math.abs(drawX(drawing.startIndex ?? 0) - x) <= 6) {
         return { drawing, part: 'end' }
       }
       if (drawing.type === 'text') {
         const point = {
-          x: geo.x(drawing.startIndex ?? 0),
+          x: drawX(drawing.startIndex ?? 0),
           y: geo.yPrice(drawing.price ?? 0)
         }
         if (Math.hypot(point.x - x, point.y - y) <= 10) return { drawing, part: 'end' }
       }
-      if (drawing.type === 'trend') {
+      if (drawing.type === 'trend' || drawing.type === 'fib') {
         const start = {
-          x: geo.x(drawing.startIndex ?? 0),
+          x: drawX(drawing.startIndex ?? 0),
           y: geo.yPrice(drawing.startPrice ?? 0)
         }
         const end = {
-          x: geo.x(drawing.endIndex ?? 0),
+          x: drawX(drawing.endIndex ?? 0),
           y: geo.yPrice(drawing.endPrice ?? 0)
         }
         const distance = (point: { x: number; y: number }): number =>
@@ -450,13 +453,16 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const target = drawings().find(
       (drawing) =>
         drawing.type === 'text' &&
-        Math.hypot(geo.x(drawing.startIndex ?? 0) - x, geo.yPrice(drawing.price ?? 0) - y) <= 12
+        Math.hypot(
+          geo.x((drawing.startIndex ?? 0) - win().start) - x,
+          geo.yPrice(drawing.price ?? 0) - y
+        ) <= 12
     )
     if (!target) return
     event.preventDefault()
     setEditing({
       id: target.id,
-      left: geo.x(target.startIndex ?? 0) + 8,
+      left: geo.x((target.startIndex ?? 0) - win().start) + 8,
       top: Math.max(2, geo.yPrice(target.price ?? 0) - 12),
       value: target.text || ''
     })
@@ -524,7 +530,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         ...drawings(),
         {
           id: drawingId,
-          type: 'trend' as const,
+          type: props.drawMode === 'fib' ? ('fib' as const) : ('trend' as const),
           startIndex: pending.index,
           startPrice: pending.price,
           endIndex: index,
@@ -563,7 +569,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           if (drawing.id !== drag) return drawing
           if (drawing.type === 'horizontal') return { ...drawing, price: point.price }
           if (drawing.type === 'vertical') return { ...drawing, startIndex: point.index }
-          if (drawing.type === 'trend') {
+          if (drawing.type === 'trend' || drawing.type === 'fib') {
             return dragPart() === 'start'
               ? { ...drawing, startIndex: point.index, startPrice: point.price }
               : { ...drawing, endIndex: point.index, endPrice: point.price }
@@ -1015,14 +1021,14 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                   <>
                     <line
                       class="chart-drawing"
-                      x1={geo().x(drawing.startIndex ?? 0)}
-                      x2={geo().x(drawing.startIndex ?? 0)}
+                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                      x2={geo().x((drawing.startIndex ?? 0) - win().start)}
                       y1={geo().priceTop}
                       y2={geo().volumeBottom}
                     />
                     <text
                       class="chart-drawing-label"
-                      x={geo().x(drawing.startIndex ?? 0) + 4}
+                      x={geo().x((drawing.startIndex ?? 0) - win().start) + 4}
                       y={geo().priceTop + 12}
                     >
                       {allBars()[drawing.startIndex ?? 0]?.date ?? ''}
@@ -1032,30 +1038,53 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                   <g>
                     <circle
                       class="chart-drawing-point"
-                      cx={geo().x(drawing.startIndex ?? 0)}
+                      cx={geo().x((drawing.startIndex ?? 0) - win().start)}
                       cy={geo().yPrice(drawing.price ?? 0)}
                       r="2.5"
                     />
                     <text
                       class="chart-drawing-text"
-                      x={geo().x(drawing.startIndex ?? 0) + 5}
+                      x={geo().x((drawing.startIndex ?? 0) - win().start) + 5}
                       y={geo().yPrice(drawing.price ?? 0) - 5}
                     >
                       {drawing.text || '标注'}
                     </text>
                   </g>
+                ) : drawing.type === 'fib' ? (
+                  <g>
+                    <For each={fibonacciLevels(drawing.startPrice ?? 0, drawing.endPrice ?? 0)}>
+                      {(level) => (
+                        <g>
+                          <line
+                            class="chart-drawing chart-drawing-fib"
+                            x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                            x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                            y1={geo().yPrice(level.price)}
+                            y2={geo().yPrice(level.price)}
+                          />
+                          <text
+                            class="chart-drawing-label"
+                            x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
+                            y={geo().yPrice(level.price) - 2}
+                          >
+                            {(level.ratio * 100).toFixed(1)}% {fixed(level.price)}
+                          </text>
+                        </g>
+                      )}
+                    </For>
+                  </g>
                 ) : (
                   <>
                     <line
                       class="chart-drawing"
-                      x1={geo().x(drawing.startIndex ?? 0)}
+                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
                       y1={geo().yPrice(drawing.startPrice ?? 0)}
-                      x2={geo().x(drawing.endIndex ?? 0)}
+                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
                       y2={geo().yPrice(drawing.endPrice ?? 0)}
                     />
                     <text
                       class="chart-drawing-label"
-                      x={geo().x(drawing.endIndex ?? 0) + 4}
+                      x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
                       y={geo().yPrice(drawing.endPrice ?? 0) - 3}
                     >
                       {fixed(drawing.endPrice ?? 0)}

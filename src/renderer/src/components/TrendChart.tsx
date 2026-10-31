@@ -53,12 +53,40 @@ export interface TrendChartProps {
 export function TrendChart(props: TrendChartProps): JSX.Element {
   const { size, ref } = useElementSize<HTMLDivElement>()
   const [hoverSlot, setHoverSlot] = createSignal<number | null>(null)
+  /** 单日分时的可见槽位；null 表示 09:30–15:00 全量 */
+  const [view, setView] = createSignal<{ start: number; end: number } | null>(null)
+  const [drag, setDrag] = createSignal<{ x: number; start: number; end: number } | null>(null)
 
   const days = (): MinuteTrend[] => props.days
   const isMultiDay = (): boolean => days().length > 1
 
-  const geometry = createMemo(() => buildTrendGeometry(days(), size().width, size().height))
-  const bars = createMemo(() => flattenTrendPoints(days()))
+  // 切股票/切日期时复位缩放，避免把上一只股票的视窗带过来。
+  createEffect(
+    on(
+      () => `${days()[0]?.code ?? ''}:${days()[0]?.date ?? ''}:${days().length}`,
+      () => {
+        setView(null)
+        setDrag(null)
+      }
+    )
+  )
+
+  const geometry = createMemo(() =>
+    buildTrendGeometry(days(), size().width, size().height, undefined, view() ?? undefined)
+  )
+  const bars = createMemo(() => {
+    const geo = geometry()
+    const flat = flattenTrendPoints(days())
+    return geo
+      ? flat.filter((item) => item.slot >= geo.slotStart && item.slot <= geo.slotEnd)
+      : flat
+  })
+  const zoomLabel = (): string => {
+    if (!view() || bars().length === 0) return '滚轮缩放 · 拖动平移 · 双击复位'
+    const first = bars()[0].point
+    const last = bars()[bars().length - 1].point
+    return `${minuteLabel(first.time)}–${minuteLabel(last.time)} · 拖动平移 · 双击复位`
+  }
   const levels = createMemo(() => {
     const geo = geometry()
     return geo ? buildTrendLevels(days(), geo) : []
@@ -76,8 +104,14 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     return result
   })
 
-  const ticks = createMemo(() => buildTrendTicks(days()))
-  const separators = createMemo(() => buildTrendSeparators(days()))
+  const ticks = createMemo(() => {
+    const geo = geometry()
+    return geo ? buildTrendTicks(days(), geo) : []
+  })
+  const separators = createMemo(() => {
+    const geo = geometry()
+    return geo ? buildTrendSeparators(days(), geo) : []
+  })
   const dayPaths = createMemo(() => {
     const geo = geometry()
     return geo ? buildTrendDayPaths(days(), geo) : []
@@ -136,18 +170,67 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
   const onPointerMove = (event: PointerEvent): void => {
     const geo = geometry()
     if (!geo || bars().length === 0) return
+    const currentDrag = drag()
+    if (currentDrag) {
+      const span = currentDrag.end - currentDrag.start
+      const delta = Math.round(((-1 * (event.clientX - currentDrag.x)) / geo.plotW) * span)
+      const start = Math.max(0, Math.min(DAY_SLOTS - 1 - span, currentDrag.start + delta))
+      setView({ start, end: start + span })
+      return
+    }
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const slot = slotFromX(event.clientX, rect.left, geo)
     if (slot !== null) setHoverSlot(slot)
   }
 
+  const onWheel = (event: WheelEvent): void => {
+    if (isMultiDay()) return
+    event.preventDefault()
+    const geo = geometry()
+    if (!geo) return
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    const anchor = slotFromX(event.clientX, rect.left, geo) ?? (geo.slotStart + geo.slotEnd) / 2
+    const span = geo.slotEnd - geo.slotStart
+    const nextSpan = Math.max(
+      30,
+      Math.min(DAY_SLOTS - 1, Math.round(span * (event.deltaY < 0 ? 0.8 : 1.25)))
+    )
+    if (nextSpan >= DAY_SLOTS - 1) {
+      setView(null)
+      return
+    }
+    const ratio = span > 0 ? (anchor - geo.slotStart) / span : 0
+    const start = Math.max(
+      0,
+      Math.min(DAY_SLOTS - 1 - nextSpan, Math.round(anchor - ratio * nextSpan))
+    )
+    setView({ start, end: start + nextSpan })
+  }
+
+  const onPointerDown = (event: PointerEvent): void => {
+    if (isMultiDay() || event.button !== 0) return
+    const geo = geometry()
+    if (!geo) return
+    setDrag({ x: event.clientX, start: geo.slotStart, end: geo.slotEnd })
+  }
+
   const clearHover = (): void => {
+    setDrag(null)
     setHoverSlot(null)
     props.onHover?.(null)
   }
 
   return (
-    <div class="chart-host" ref={ref} onPointerMove={onPointerMove} onPointerLeave={clearHover}>
+    <div
+      class="chart-host"
+      ref={ref}
+      onPointerMove={onPointerMove}
+      onPointerDown={onPointerDown}
+      onPointerUp={() => setDrag(null)}
+      onPointerLeave={clearHover}
+      onWheel={onWheel}
+      onDblClick={() => setView(null)}
+    >
       <Show when={geometry()} fallback={<div class="chart-empty">正在加载分时数据…</div>}>
         {(geo) => (
           <svg class="chart-svg" width={geo().width} height={geo().height}>
@@ -346,6 +429,10 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
             </Show>
           </svg>
         )}
+      </Show>
+
+      <Show when={!isMultiDay()}>
+        <div class="chart-zoom-hint">{zoomLabel()}</div>
       </Show>
 
       {/* ---------- 浮层读数 ---------- */}

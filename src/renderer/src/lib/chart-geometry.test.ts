@@ -169,6 +169,28 @@ describe('buildTrendGeometry', () => {
     expect(geo.yPrice(geo.yMax)).toBeLessThan(geo.yPrice(geo.yMin))
   })
 
+  it('缩放到指定槽位时横轴/纵轴只按可见点计算', () => {
+    const geo = buildTrendGeometry(ONE_DAY, 800, 400, undefined, { start: 1, end: 3 })!
+    expect(geo.slotStart).toBe(1)
+    expect(geo.slotEnd).toBe(3)
+    expect(geo.totalSlots).toBe(2)
+    expect(geo.x(1)).toBeCloseTo(TREND_PADDING.left, 5)
+    expect(geo.x(3)).toBeCloseTo(800 - TREND_PADDING.right, 5)
+    expect(geo.yMax).toBeGreaterThan(103)
+    const path = buildTrendDayPaths(ONE_DAY, geo)[0]
+    expect(path.line.match(/M/g)?.length).toBe(1)
+    expect(path.line.match(/L/g)?.length).toBe(2)
+    expect(buildTrendAveragePath(ONE_DAY, geo).startsWith('M')).toBe(true)
+    expect(slotFromX(geo.x(2), 0, geo)).toBe(2)
+  })
+
+  it('缩放范围没有数据时回退到全量，避免空图', () => {
+    const geo = buildTrendGeometry(ONE_DAY, 800, 400, undefined, { start: 100, end: 120 })!
+    expect(geo.slotStart).toBe(0)
+    expect(geo.slotEnd).toBe(DAY_SLOTS - 1)
+    expect(geo.totalSlots).toBe(DAY_SLOTS - 1)
+  })
+
   it('成交量柱宽度至少 1px（五日时每格很窄）', () => {
     const narrow = buildTrendGeometry(FIVE_DAYS, 200, 400)!
     expect(narrow.barWidth).toBeGreaterThanOrEqual(1)

@@ -8,7 +8,7 @@
 
 **当前状态**：桌面 + Web 前端可用；Linux AppImage/deb 已实测；
 v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTTP 只读）。
-`npm run check` 全绿：**231 个 TS 测试 + 126 个 Python 协议/服务测试（2 skipped）**。
+`npm run check` 全绿：**233 个 TS 测试 + 126 个 Python 协议/服务测试（2 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -42,7 +42,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 **行情与图表**
 
 - 实时快照：多股批量拉取、主进程推送、价格跳变高亮；标题栏「行情」打开独立窗口，优先读取 Windows 客户端解包 connect.cfg（工程内置 48 个 HQ 快照随包分发），并发测速并持久化/failover
-- 分时图：面积渐变、均价线、成交量柱、十字光标、价格/涨跌幅双轴
+- 分时图：面积渐变、均价线、成交量柱、十字光标、价格/涨跌幅双轴；滚轮缩放、拖动平移、双击复位
 - 五日分时：按交易日分段上色、日期轴、日内分隔线
 - K 线默认窗口 1600×900（16:9），侧栏 280；默认 5/10/20/60/120 五条均线（取 800 根历史计算），默认只显示均线；K 线除权除息日标记（D）；K 线：5s/15s + 1/5/10/15/20/30/60 分钟 + 2/3/4/6/8/10/12/18/20/24/36/48 分钟 + 2/3/4/6/9/12/18/24/45 日 + 日/周/月/季/年，蜡烛图 + MA5/10/20 + 成交量 + 浮层读数；主图 BOLL 叠加 + MACD/KDJ/RSI/WR/CCI/BIAS/DMI/OBV/ROC/PSY/VR/CR 副图 + 线性/对数坐标、区间统计、水平线/趋势线（持久化）、技术指标面板（参数可编辑、跨重启记忆）；周期/复权口径跨重启记忆
   - `↑↓` / 滚轮缩放可见根数（以光标那一根为锚点，档位跨重启记忆）
@@ -79,7 +79,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
 - 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选/全 A 分批日 K + 1 分钟 K + 指数 K + 板块文件缓存（可跳过已有缓存续跑；日 K/1m/指数自动探测全部历史，写 *_all_none.json） + 网络失败回退；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 前端（本地状态可写）（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 231 个 TS 单元测试 + 126 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 233 个 TS 单元测试 + 126 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
@@ -163,7 +163,7 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run dev:web`                                | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174） |
 | `npm run build:web`                              | 构建 Web 产物到 `out/web/`                             |
 | `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
-| `npm run test`                                   | Vitest（231 个 TS 用例）                               |
+| `npm run test`                                   | Vitest（233 个 TS 用例）                               |
 | `npm run test:python`                            | Python 协议/HTTP 测试（116 个用例，真实 fixture）      |
 | `npm run audit:data`                             | 只读数据覆盖自检（13 项，覆盖清单见 docs/12）          |
 | `npm run build:python`                           | Nuitka 打行情桥接单文件（打包前必跑）                  |

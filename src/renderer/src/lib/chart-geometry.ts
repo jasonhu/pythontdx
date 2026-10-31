@@ -66,8 +66,11 @@ export interface TrendGeometry {
   priceBottom: number
   volumeTop: number
   volumeBottom: number
-  /** 整条横轴的槽位总数（单日 240，五日 1204） */
+  /** 当前可见范围的槽位跨度（默认单日 240，五日 1204） */
   totalSlots: number
+  /** 可见范围首/末槽位（缩放到某一段时非 0/240） */
+  slotStart: number
+  slotEnd: number
   yMax: number
   yMin: number
   maxVolume: number
@@ -79,6 +82,12 @@ export interface TrendGeometry {
   yPrice(value: number): number
   /** 成交量 → 纵坐标（柱顶） */
   yVolume(value: number): number
+}
+
+/** 分时图可见槽位范围；单日缩放到 09:45–10:30 这类区间时使用。 */
+export interface TrendView {
+  start: number
+  end: number
 }
 
 /** 把多个交易日的点摊平成一条横轴上的序列 */
@@ -108,12 +117,24 @@ export function buildTrendGeometry(
   days: MinuteTrend[],
   width: number,
   height: number,
-  padding: Padding = TREND_PADDING
+  padding: Padding = TREND_PADDING,
+  view?: TrendView
 ): TrendGeometry | null {
   if (width < MIN_WIDTH || height < MIN_HEIGHT) return null
 
-  const flat = flattenTrendPoints(days)
-  if (flat.length === 0) return null
+  const allFlat = flattenTrendPoints(days)
+  if (allFlat.length === 0) return null
+
+  const maxSlot = Math.max(0, days.length * DAY_SLOTS - 1)
+  const slotStart = view ? Math.min(maxSlot, Math.max(0, Math.round(view.start))) : 0
+  const slotEnd = view ? Math.min(maxSlot, Math.max(slotStart, Math.round(view.end))) : maxSlot
+  const visible = view
+    ? allFlat.filter((item) => item.slot >= slotStart && item.slot <= slotEnd)
+    : allFlat
+  // 缩放范围落在无数据时段（如午休）时退回全量，避免空图。
+  const flat = visible.length > 0 ? visible : allFlat
+  const rangeStart = visible.length > 0 ? slotStart : 0
+  const rangeEnd = visible.length > 0 ? slotEnd : maxSlot
 
   const plotW = width - padding.left - padding.right
   const plotH = height - padding.top - padding.bottom
@@ -133,7 +154,7 @@ export function buildTrendGeometry(
   let yMax: number
 
   if (multiDay) {
-    // 多日：按全部交易日的真实价格区间取范围
+    // 多日：按可见交易日的真实价格区间取范围
     let low = Infinity
     let high = -Infinity
     for (const item of flat) {
@@ -168,7 +189,7 @@ export function buildTrendGeometry(
   }
 
   const maxVolume = Math.max(1, ...flat.map((item) => item.point.volume))
-  const totalSlots = Math.max(1, days.length * DAY_SLOTS - 1)
+  const totalSlots = Math.max(1, rangeEnd - rangeStart)
 
   return {
     width,
@@ -180,11 +201,13 @@ export function buildTrendGeometry(
     volumeTop,
     volumeBottom,
     totalSlots,
+    slotStart: rangeStart,
+    slotEnd: rangeEnd,
     yMax,
     yMin,
     maxVolume,
     barWidth: Math.max(1, (plotW / (totalSlots + 1)) * 0.64),
-    x: (slot: number) => padding.left + (slot / totalSlots) * plotW,
+    x: (slot: number) => padding.left + ((slot - rangeStart) / totalSlots) * plotW,
     yPrice: (value: number) => priceTop + ((yMax - value) / (yMax - yMin)) * priceH,
     yVolume: (value: number) => volumeBottom - (value / maxVolume) * volumeH
   }
@@ -223,28 +246,31 @@ export function buildTrendLevels(days: MinuteTrend[], geo: TrendGeometry): AxisL
   return result.sort((a, b) => b.value - a.value)
 }
 
-/** 横轴标签：单日给时间刻，多日给每个交易日的日期 */
-export function buildTrendTicks(days: MinuteTrend[]): TimeTick[] {
-  if (days.length > 1) {
-    return days.map((day, dayIndex) => ({
-      slot: dayIndex * DAY_SLOTS,
-      label: formatMonthDay(day.date),
-      anchor: 'start' as const
-    }))
-  }
-  return [
-    { slot: 0, label: '09:30', anchor: 'start' },
-    { slot: 60, label: '10:30', anchor: 'middle' },
-    { slot: 120, label: '11:30/13:00', anchor: 'middle' },
-    { slot: 180, label: '14:00', anchor: 'middle' },
-    { slot: 240, label: '15:00', anchor: 'end' }
-  ]
+/** 横轴标签：单日给时间刻，多日给每个交易日的日期；传 geo 时只保留可见刻度 */
+export function buildTrendTicks(days: MinuteTrend[], geo?: TrendGeometry): TimeTick[] {
+  const ticks: TimeTick[] =
+    days.length > 1
+      ? days.map((day, dayIndex) => ({
+          slot: dayIndex * DAY_SLOTS,
+          label: formatMonthDay(day.date),
+          anchor: 'start' as const
+        }))
+      : [
+          { slot: 0, label: '09:30', anchor: 'start' as const },
+          { slot: 60, label: '10:30', anchor: 'middle' as const },
+          { slot: 120, label: '11:30/13:00', anchor: 'middle' as const },
+          { slot: 180, label: '14:00', anchor: 'middle' as const },
+          { slot: 240, label: '15:00', anchor: 'end' as const }
+        ]
+  if (!geo) return ticks
+  return ticks.filter((tick) => tick.slot >= geo.slotStart && tick.slot <= geo.slotEnd)
 }
 
 /** 交易日之间的分隔线槽位（仅多日模式） */
-export function buildTrendSeparators(days: MinuteTrend[]): number[] {
+export function buildTrendSeparators(days: MinuteTrend[], geo?: TrendGeometry): number[] {
   if (days.length <= 1) return []
-  return days.slice(1).map((_, index) => (index + 1) * DAY_SLOTS)
+  const slots = days.slice(1).map((_, index) => (index + 1) * DAY_SLOTS)
+  return geo ? slots.filter((slot) => slot >= geo.slotStart && slot <= geo.slotEnd) : slots
 }
 
 export interface TrendDayPath {
@@ -258,22 +284,28 @@ export interface TrendDayPath {
   lastSlot: number
 }
 
-/** 每个交易日一条折线，各自按当天的涨跌上色 */
+/** 每个交易日一条折线，各自按当天的涨跌上色；缩放时只取可见点。 */
 export function buildTrendDayPaths(days: MinuteTrend[], geo: TrendGeometry): TrendDayPath[] {
   return days.map((day, dayIndex) => {
     const last = day.points[day.points.length - 1]
     const tone = toneOf((last?.price ?? 0) - day.prevClose)
+    const visible = day.points
+      .map((point, pointIndex) => ({
+        point,
+        slot: dayIndex * DAY_SLOTS + pointIndex
+      }))
+      .filter((item) => item.slot >= geo.slotStart && item.slot <= geo.slotEnd)
 
-    const line = day.points
-      .map((point, pointIndex) => {
-        const x = geo.x(dayIndex * DAY_SLOTS + pointIndex)
-        const y = geo.yPrice(point.price)
-        return `${pointIndex === 0 ? 'M' : 'L'}${round(x)},${round(y)}`
+    const line = visible
+      .map((item, index) => {
+        const x = geo.x(item.slot)
+        const y = geo.yPrice(item.point.price)
+        return `${index === 0 ? 'M' : 'L'}${round(x)},${round(y)}`
       })
       .join(' ')
 
-    const firstSlot = dayIndex * DAY_SLOTS
-    const lastSlot = firstSlot + Math.max(0, day.points.length - 1)
+    const firstSlot = visible[0]?.slot ?? 0
+    const lastSlot = visible[visible.length - 1]?.slot ?? 0
     const area = line
       ? `${line} L${round(geo.x(lastSlot))},${round(geo.priceBottom)} L${round(geo.x(firstSlot))},${round(geo.priceBottom)} Z`
       : ''
@@ -282,16 +314,22 @@ export function buildTrendDayPaths(days: MinuteTrend[], geo: TrendGeometry): Tre
   })
 }
 
-/** 均价线：多日时用同一条虚线贯穿，避免五种颜色太花 */
+/** 均价线：多日时用同一条虚线贯穿，避免五种颜色太花；缩放时只取可见点。 */
 export function buildTrendAveragePath(days: MinuteTrend[], geo: TrendGeometry): string {
   return days
-    .flatMap((day, dayIndex) =>
-      day.points.map((point, pointIndex) => {
-        const x = geo.x(dayIndex * DAY_SLOTS + pointIndex)
-        const y = geo.yPrice(point.avg)
-        return `${pointIndex === 0 ? 'M' : 'L'}${round(x)},${round(y)}`
+    .flatMap((day, dayIndex) => {
+      const visible = day.points
+        .map((point, pointIndex) => ({
+          point,
+          slot: dayIndex * DAY_SLOTS + pointIndex
+        }))
+        .filter((item) => item.slot >= geo.slotStart && item.slot <= geo.slotEnd)
+      return visible.map((item, index) => {
+        const x = geo.x(item.slot)
+        const y = geo.yPrice(item.point.avg)
+        return `${index === 0 ? 'M' : 'L'}${round(x)},${round(y)}`
       })
-    )
+    })
     .join(' ')
 }
 
@@ -328,7 +366,7 @@ export function slotFromX(
   if (geo.plotW <= 0) return null
   const ratio = (clientX - containerLeft - geo.padding.left) / geo.plotW
   if (!Number.isFinite(ratio)) return null
-  return Math.round(ratio * geo.totalSlots)
+  return Math.round(geo.slotStart + ratio * (geo.slotEnd - geo.slotStart))
 }
 
 /* ============================================================ K 线图 */

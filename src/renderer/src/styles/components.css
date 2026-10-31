@@ -267,6 +267,19 @@
 }
 
 /* ----------------------------------------------------------- 图表浮层 */
+.chart-zoom-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 6px;
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--bg-base) 72%, transparent);
+  color: var(--text-4);
+  font-size: var(--fs-2xs);
+  pointer-events: none;
+  user-select: none;
+}
+
 .chart-tooltip {
   position: absolute;
   z-index: 6;

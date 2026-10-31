@@ -29,7 +29,12 @@ StockLens 的所有重要变更都记录在这里。
 - **副图十字光标**：主图纵线延伸到副图；
 - **F10 排版**：目录 NUL 截断、竖线表转 HTML 表格；
 - **侧栏一键开关**：标题栏「侧栏」+ 隐藏后「自选 »」浮动按钮；
-- **主题下拉框**：`.chart-sub-select` / `.chart-ext-select` 跟随主题、深色不透明底。
+- **主题下拉框**：`.chart-sub-select` / `.chart-ext-select` 跟随主题、深色不透明底；
+- **数据覆盖审计**：`npm run audit:data` 13 项只读探针 + `docs/12` 覆盖矩阵；历史竞价已可用；
+- **财务三口径 PE**：TTM / 动态 / 静态，另补 EPS/ROE/毛利率/同比/财报期；
+- **行情独立窗口**：标题栏「行情」打开 BrowserWindow，并发测速并默认隐藏不可达；
+- **公告 Markdown 渲染**：标题/引用/表格/列表/代码块，不再 `<pre>` 原始文本；
+- **主副图对齐**：副图复用主图窗口与像素留白，十字线缩放前后均 0px 偏差。
 
 ### 变更
 
@@ -39,12 +44,15 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check`：213 TS + 114 Python（2 skipped）；
-- 包：AppImage 130 MB `b0163cef…193b9d` / deb 105 MB `eee99feb…c3b2a11`；
+- `npm run check`：215 TS + 114 Python（2 skipped）；
+- `npm run audit:data`：13/13 PASS；
+- 包：AppImage 130 MB `cfa5b401…e36d418` / deb 105 MB `cb34e13d…39ac1f3`；
 - 截图：`chart-5ma.png`、`f11-fullscreen.png`、`watchlist-full-24.png`、
   `f10-markdown.png`、`data-offline.png`、`sidebar-resize.png`；
 - 九项修复截图：`server-speed-test.png`、`stats-complete.png`、`history-ticks.png`、
-  `crosshair-subchart.png`、`f10-layout.png`、`sidebar-hidden.png`、`packaged-nine.png`。
+  `crosshair-subchart.png`、`f10-layout.png`、`sidebar-hidden.png`、`packaged-nine.png`；
+- 五项复查截图：`server-window.png`、`markdown-render.png`、`auction-history.png`、
+  `packaged-eleven.png`、`packaged-server.png`。
 
 ---
 

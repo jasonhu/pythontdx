@@ -202,6 +202,8 @@ export const IPC = {
   windowChart: 'window:chart',
   /** 打开第二个主窗口（invoke） */
   windowSecondary: 'window:secondary',
+  /** 打开独立行情服务器窗口（invoke） */
+  windowServers: 'window:servers',
   /** 当前窗口置顶切换（invoke，返回新状态） */
   windowAlwaysOnTop: 'window:always-on-top',
   /** 窗口状态变化（on） */
@@ -388,6 +390,7 @@ export interface StockLensApi {
     control(action: WindowAction): Promise<WindowState>
     openChart(code: string): Promise<void>
     openSecondary(): Promise<void>
+    openServers(): Promise<void>
     toggleAlwaysOnTop(): Promise<boolean>
     onStateChange(listener: (state: WindowState) => void): () => void
   }

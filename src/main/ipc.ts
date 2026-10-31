@@ -17,7 +17,7 @@ import type {
 } from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
-import { createChartWindow, createSecondaryWindow } from './window'
+import { createChartWindow, createSecondaryWindow, createServerWindow } from './window'
 import type { QuotePoller } from './services/poller'
 import {
   fetchAuctions,
@@ -309,6 +309,10 @@ export function registerIpcHandlers(context: IpcContext): void {
       bounds: store.secondaryBounds,
       onBoundsChange: (bounds) => store.saveSecondaryBounds(bounds)
     })
+  })
+
+  ipcMain.handle(IPC.windowServers, () => {
+    createServerWindow()
   })
 
   ipcMain.handle(IPC.windowAlwaysOnTop, (event) => {

@@ -27,6 +27,14 @@ interface ExtraStats {
   ps?: number
   peg?: number
   volumeRatio?: number
+  peDynamic?: number
+  peStatic?: number
+  eps?: number
+  roe?: number
+  grossMargin?: number
+  profitYoy?: number
+  revenueYoy?: number
+  reportDate?: string
 }
 
 export function StatsGrid(props: StatsGridProps): JSX.Element {
@@ -39,8 +47,9 @@ export function StatsGrid(props: StatsGridProps): JSX.Element {
     void (async () => {
       const next: ExtraStats = {}
       try {
-        const [valuation, kline] = await Promise.all([
+        const [valuation, finance, kline] = await Promise.all([
           api.f10.valuation(currentCode).catch(() => null),
+          api.f10.finance(currentCode).catch(() => null),
           api.trend.kline({ code: currentCode, period: 'day', count: 6 }).catch(() => null)
         ])
         if (valuation && valuation.rows.length > 0) {
@@ -56,6 +65,35 @@ export function StatsGrid(props: StatsGridProps): JSX.Element {
           next.pbPct = value('PB 分位')
           next.ps = value('PS(TTM)')
           next.peg = value('PEG')
+        }
+        if (finance && finance.rows.length > 0) {
+          const row = finance.rows[0]
+          const field = (label: string): number | undefined => {
+            const index = finance.columns.indexOf(label)
+            const parsed = index >= 0 ? Number(row[index]) : Number.NaN
+            return Number.isFinite(parsed) ? parsed : undefined
+          }
+          const report = String(row[0] ?? '')
+          const month = Number(report.slice(5, 7))
+          const annualFactor = month === 3 ? 4 : month === 6 ? 2 : month === 9 ? 4 / 3 : 1
+          const annualRow = finance.rows.find((item) => String(item[0]).endsWith('12-31'))
+          const annualEps = annualRow
+            ? Number(annualRow[finance.columns.indexOf('每股收益')])
+            : Number.NaN
+          const eps = field('每股收益')
+          const price = props.quote.price
+          if (eps !== undefined && eps > 0) {
+            next.peDynamic = price / (eps * annualFactor)
+          }
+          if (Number.isFinite(annualEps) && annualEps > 0) {
+            next.peStatic = price / annualEps
+          }
+          next.eps = eps
+          next.roe = field('净资产收益率')
+          next.grossMargin = field('毛利率')
+          next.profitYoy = field('净利润同比')
+          next.revenueYoy = field('营收同比')
+          next.reportDate = report
         }
         if (kline && kline.bars.length > 1) {
           const history = kline.bars.slice(0, -1).slice(-5)
@@ -83,14 +121,29 @@ export function StatsGrid(props: StatsGridProps): JSX.Element {
       },
       {
         label: '市盈率 TTM',
-        value: fixed(quote.peTtm ?? extra().peTtm),
-        hint: '行情快照或 7615 valuation'
+        value: positiveFixed(quote.peTtm ?? extra().peTtm),
+        hint: '最近四个季度滚动净利润口径'
+      },
+      {
+        label: '市盈率 动态',
+        value: positiveFixed(extra().peDynamic),
+        hint: '现价 / 最新报告期每股收益年化'
+      },
+      {
+        label: '市盈率 静态',
+        value: positiveFixed(extra().peStatic),
+        hint: '现价 / 最近年度每股收益'
       },
       {
         label: 'PE 分位',
         value: pct(extra().pePct),
         hint: '7615 估值分位'
       },
+      { label: '每股收益', value: fixed(extra().eps), hint: '最新报告期' },
+      { label: '净资产收益率', value: pct(extra().roe), hint: '最新报告期' },
+      { label: '毛利率', value: pct(extra().grossMargin), hint: '最新报告期' },
+      { label: '净利润同比', value: pct(extra().profitYoy), hint: '最新报告期' },
+      { label: '营收同比', value: pct(extra().revenueYoy), hint: '最新报告期' },
       {
         label: '市净率',
         value: fixed(quote.pb ?? extra().pb),
@@ -104,6 +157,7 @@ export function StatsGrid(props: StatsGridProps): JSX.Element {
       { label: '均价', value: fixed(quote.avgPrice), hint: '成交额 / 成交量' },
       { label: '涨停价', value: fixed(limits.up), hint: '按板块涨跌幅限制本地计算' },
       { label: '跌停价', value: fixed(limits.down), hint: '按板块涨跌幅限制本地计算' },
+      { label: '财报期', value: extra().reportDate || '—', hint: '7615 财务指标最新报告期' },
       { label: '昨收', value: fixed(quote.prevClose) }
     ]
   }
@@ -124,6 +178,10 @@ export function StatsGrid(props: StatsGridProps): JSX.Element {
 
 function pct(value: number | undefined): string {
   return value === undefined ? '—' : `${value.toFixed(2)}%`
+}
+
+function positiveFixed(value: number | undefined): string {
+  return value === undefined || value <= 0 ? '—' : fixed(value)
 }
 
 function limitPrices(quote: Quote): { up?: number; down?: number } {

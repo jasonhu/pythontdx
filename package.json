@@ -26,6 +26,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:python": "node scripts/python.mjs test",
+    "audit:data": "node scripts/python.mjs audit",
     "build:python": "node scripts/python.mjs build",
     "icon": "node scripts/generate-icon.mjs",
     "shot": "npm run build && node scripts/screenshot.mjs",

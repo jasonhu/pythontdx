@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import gzip
 import csv
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
@@ -135,11 +136,11 @@ def _ordered_endpoints(preferred: str | None = None) -> list[tuple[str, int]]:
     return found + [item for item in SERVER_HOSTS if item[0] != selected]
 
 
-def speed_test_hosts(timeout: float = 1.5) -> dict:
-    """测试公开行情主站 TCP 建连时延；只做只读连接，不发送隐私数据。"""
-    results: list[dict] = []
+def speed_test_hosts(timeout: float = 0.9) -> dict:
+    """并发测试公开行情主站 TCP 建连时延；只做只读连接，不发隐私数据。"""
     preferred = _preferred_host()
-    for host, port in SERVER_HOSTS:
+
+    def probe(host: str, port: int) -> dict:
         started = time.perf_counter()
         status = "ok"
         error = ""
@@ -149,16 +150,17 @@ def speed_test_hosts(timeout: float = 1.5) -> dict:
         except Exception as cause:  # noqa: BLE001 - 测速失败要逐站展示
             status = "error"
             error = str(cause)
-        results.append(
-            {
-                "host": host,
-                "port": port,
-                "latencyMs": round((time.perf_counter() - started) * 1000, 1),
-                "status": status,
-                "error": error,
-                "preferred": host == preferred,
-            }
-        )
+        return {
+            "host": host,
+            "port": port,
+            "latencyMs": round((time.perf_counter() - started) * 1000, 1),
+            "status": status,
+            "error": error,
+            "preferred": host == preferred,
+        }
+
+    with ThreadPoolExecutor(max_workers=len(SERVER_HOSTS)) as pool:
+        results = list(pool.map(lambda item: probe(*item), SERVER_HOSTS))
     results.sort(key=lambda item: (item["status"] != "ok", item["latencyMs"]))
     return {"hosts": results, "preferred": preferred}
 

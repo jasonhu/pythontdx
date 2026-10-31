@@ -11,8 +11,8 @@ import { spawnSync } from 'node:child_process'
 import process from 'node:process'
 
 const command = process.argv[2]
-if (command !== 'test' && command !== 'build') {
-  console.error('用法：node scripts/python.mjs <test|build>')
+if (command !== 'test' && command !== 'build' && command !== 'audit') {
+  console.error('用法：node scripts/python.mjs <test|build|audit>')
   process.exit(1)
 }
 
@@ -43,7 +43,9 @@ const [executable, prefix] = found
 const args =
   command === 'test'
     ? ['-m', 'unittest', 'discover', '-s', 'python', '-p', 'test_*.py', '-v']
-    : ['python/build.py']
+    : command === 'audit'
+      ? ['scripts/data_audit.py', '--json']
+      : ['python/build.py']
 
 const result = spawnSync(executable, [...prefix, ...args], {
   cwd: process.cwd(),

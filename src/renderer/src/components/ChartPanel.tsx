@@ -137,6 +137,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tick, setTick] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
   const [subCursor, setSubCursor] = createSignal<number | null>(null)
+  const [subWindow, setSubWindow] = createSignal({ start: 0, count: 0, width: 0 })
 
   /**
    * 用 memo 把 code 稳定下来。
@@ -669,6 +670,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     rangeMode={rangeMode()}
                     onRangeStats={setRangeStats}
                     onCursorChange={setSubCursor}
+                    onWindowChange={setSubWindow}
                     drawMode={drawMode()}
                     overlayFormula={appState.settings.mainFormula}
                     dividends={dividends()}
@@ -683,6 +685,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     kind={subIndicator() as SubIndicator}
                     params={appState.settings.indicatorParams}
                     cursorIndex={subCursor()}
+                    windowStart={subWindow().start}
+                    windowCount={subWindow().count}
+                    renderWidth={subWindow().width}
                   />
                 )}
               </Show>

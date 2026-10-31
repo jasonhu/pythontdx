@@ -7,6 +7,7 @@
 import { render } from 'solid-js/web'
 import App from './App'
 import { DetachedChart } from './components/DetachedChart'
+import { ServerWindow } from './components/ServerWindow'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
@@ -18,6 +19,17 @@ if (!container) {
 }
 
 const params = new URLSearchParams(window.location.search)
-const detachedCode = params.get('detached') === 'chart' ? params.get('code') : null
+const detached = params.get('detached')
+const detachedCode = detached === 'chart' ? params.get('code') : null
 
-render(() => (detachedCode ? <DetachedChart code={detachedCode} /> : <App />), container)
+render(
+  () =>
+    detachedCode ? (
+      <DetachedChart code={detachedCode} />
+    ) : detached === 'servers' ? (
+      <ServerWindow />
+    ) : (
+      <App />
+    ),
+  container
+)

@@ -81,8 +81,9 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（213 个用例）
+npm run test                # 只跑 TS 测试（215 个用例）
 npm run test:python         # 只跑 Python 协议/HTTP 测试（114 个用例）
+npm run audit:data          # 只读数据覆盖自检（13 项；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
 npm run dev:web             # Web 前端（行情只读/本地状态可写；需先起 python/tdx_server.py）
@@ -146,7 +147,7 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（213 个 TS 测试 + 114 个 Python 测试），
+健康度 `npm run check` 全绿（215 个 TS 测试 + 114 个 Python 测试），
 2026-10-30 复核过构建、实机启动、桥接六命令。
 
 已交付：实时行情/盘口/多周期图表、默认五均线、全屏自选、板块/MAC/F10 19 页签、预警且/或、

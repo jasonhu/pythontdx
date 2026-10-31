@@ -31,6 +31,7 @@ interface TitleBarProps {
   onOpenAlerts: () => void
   onOpenSettings: () => void
   onOpenSecondary: () => void
+  onOpenServers: () => void
   sidebarHidden: boolean
   onToggleSidebar: () => void
 }
@@ -57,6 +58,13 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
           onClick={() => props.onToggleSidebar()}
         >
           <IconColumns size={15} />
+        </button>
+        <button
+          class="btn btn--bare market-open"
+          title="行情服务器测速与选择"
+          onClick={() => props.onOpenServers()}
+        >
+          行情
         </button>
         <button
           class="btn btn--icon btn--bare alerts-open"

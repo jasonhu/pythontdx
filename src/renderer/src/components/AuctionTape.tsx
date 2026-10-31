@@ -18,13 +18,14 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
   const [rows, setRows] = createSignal<AuctionPoint[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
+  const [date, setDate] = createSignal('')
   let requestId = 0
 
-  const load = async (code: string): Promise<void> => {
+  const load = async (code: string, tradingDate = date()): Promise<void> => {
     const current = ++requestId
     setLoading(true)
     try {
-      const data = await api.auction.series(code)
+      const data = await api.auction.series(code, tradingDate || undefined)
       if (current !== requestId) return
       setRows(data)
       setError(null)
@@ -37,19 +38,53 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
   }
 
   createEffect(() => {
-    void load(props.code)
+    const tradingDate = date()
+    void load(props.code, tradingDate)
   })
 
   onMount(() => {
-    const timer = window.setInterval(() => void load(props.code), REFRESH_MS)
+    const timer = window.setInterval(() => {
+      if (!date()) void load(props.code, '')
+    }, REFRESH_MS)
     onCleanup(() => window.clearInterval(timer))
   })
+
+  const previousTradingDate = (): string => {
+    const value = new Date()
+    value.setDate(value.getDate() - 1)
+    while (value.getDay() === 0 || value.getDay() === 6) value.setDate(value.getDate() - 1)
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(
+      value.getDate()
+    ).padStart(2, '0')}`
+  }
 
   return (
     <div class="auction">
       <div class="auction__meta">
         <span>{loading() ? '刷新中…' : `${rows().length} 点`}</span>
-        <span>每 3 秒</span>
+        <span>{date() || '每 3 秒'}</span>
+      </div>
+
+      <div class="auction__toolbar">
+        <input
+          class="auction__date"
+          type="date"
+          value={date()}
+          aria-label="竞价日期"
+          onChange={(event) => setDate(event.currentTarget.value)}
+        />
+        <Show
+          when={date()}
+          fallback={
+            <button class="auction__today" onClick={() => setDate(previousTradingDate())}>
+              历史
+            </button>
+          }
+        >
+          <button class="auction__today" onClick={() => setDate('')}>
+            回今天
+          </button>
+        </Show>
       </div>
 
       <Show when={error()}>

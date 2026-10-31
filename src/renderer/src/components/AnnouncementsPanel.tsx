@@ -19,6 +19,7 @@ import { api, errorMessage } from '../lib/ipc'
 import { downloadText } from '../lib/download'
 import { markdownDocument, markdownTable } from '@shared/markdown'
 import { IconClose } from './Icons'
+import { MarkdownView } from './MarkdownView'
 
 interface AnnouncementsPanelProps {
   code: string
@@ -1603,7 +1604,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                   </button>
                 </div>
               </header>
-              <pre class="f10-md__body">{currentMarkdown()}</pre>
+              <div class="f10-md__body">
+                <MarkdownView source={currentMarkdown()} />
+              </div>
             </section>
           </div>
         </Show>

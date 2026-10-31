@@ -12,7 +12,8 @@ export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi
 
 const W = 900
 const H = 120
-const PAD_X = 12
+const PAD_X = 10
+const PAD_RIGHT = 64
 const PAD_Y = 12
 const VISIBLE = 160
 
@@ -33,12 +34,12 @@ const COLORS = {
   adx: '#22d3ee'
 }
 
-function path(values: number[], min: number, max: number): string {
+function buildPath(values: number[], min: number, max: number, left: number, plot: number): string {
   const span = max - min || 1
   return values
     .map((value, index) => {
       if (!Number.isFinite(value)) return ''
-      const x = PAD_X + (index / Math.max(1, values.length - 1)) * (W - PAD_X * 2)
+      const x = left + (index + 0.5) * (plot / Math.max(1, values.length))
       const y = H - PAD_Y - ((value - min) / span) * (H - PAD_Y * 2)
       return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
     })
@@ -51,24 +52,53 @@ export function IndicatorSubchart(props: {
   kind: SubIndicator
   params?: IndicatorParams
   cursorIndex?: number | null
+  windowStart?: number
+  windowCount?: number
+  renderWidth?: number
 }): JSX.Element {
-  const visible = createMemo(() => props.bars.slice(-VISIBLE))
+  /** 主图不是固定 900px；把主图的左右留白和绘图区按像素比例映射进副图 viewBox。 */
+  const layout = createMemo(() => {
+    const width = props.renderWidth && props.renderWidth > 0 ? props.renderWidth : W
+    const scale = W / width
+    return {
+      left: PAD_X * scale,
+      plot: (width - PAD_X - PAD_RIGHT) * scale
+    }
+  })
+  const path = (values: number[], min: number, max: number): string =>
+    buildPath(values, min, max, layout().left, layout().plot)
+  const window = createMemo(() => {
+    const count = Math.min(
+      props.bars.length,
+      Math.max(1, props.windowCount && props.windowCount > 0 ? props.windowCount : VISIBLE)
+    )
+    const start = Math.min(
+      Math.max(0, props.bars.length - count),
+      Math.max(0, props.windowStart ?? props.bars.length - count)
+    )
+    return { start, count }
+  })
+  const visible = createMemo(() => {
+    const current = window()
+    return props.bars.slice(current.start, current.start + current.count)
+  })
   const cursorX = createMemo(() => {
     const index = props.cursorIndex
     const data = visible()
     if (index === undefined || index === null || data.length < 2) return null
-    const offset = props.bars.length - data.length
-    const local = index - offset
+    const local = index - window().start
     if (local < 0 || local >= data.length) return null
-    return PAD_X + (local / (data.length - 1)) * (W - PAD_X * 2)
+    return layout().left + (local + 0.5) * (layout().plot / data.length)
   })
 
   const chart = createMemo(() => {
     const data = visible()
     if (data.length < 2) return null
     const all = props.bars
-    const offset = Math.max(0, all.length - data.length)
-    const slice = (values: number[]): number[] => values.slice(offset)
+    const slice = (values: number[]): number[] => {
+      const start = window().start
+      return values.slice(start, start + window().count)
+    }
     if (props.kind === 'macd') {
       const values = macd(
         all,
@@ -83,14 +113,16 @@ export function IndicatorSubchart(props: {
       const min = Math.min(0, ...numbers)
       const max = Math.max(0, ...numbers)
       const zeroY = H - PAD_Y - ((0 - min) / (max - min || 1)) * (H - PAD_Y * 2)
-      const barWidth = Math.max(1, (W - PAD_X * 2) / Math.max(1, hist.length) - 1)
+      const slot = layout().plot / Math.max(1, hist.length)
+      const barWidth = Math.max(1, slot * 0.6)
       return {
         lines: [
           { label: 'DIF', color: COLORS.dif, d: path(dif, min, max) },
           { label: 'DEA', color: COLORS.dea, d: path(dea, min, max) }
         ],
         hist: hist.map((value, index) => ({
-          x: PAD_X + (index / Math.max(1, hist.length - 1)) * (W - PAD_X * 2) - barWidth / 2,
+          x: layout().left + (index + 0.5) * slot - barWidth / 2,
+          w: barWidth,
           y: value >= 0 ? H - PAD_Y - ((value - min) / (max - min || 1)) * (H - PAD_Y * 2) : zeroY,
           h: Math.abs((value / (max - min || 1)) * (H - PAD_Y * 2)),
           up: value >= 0
@@ -204,9 +236,9 @@ export function IndicatorSubchart(props: {
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" class="indicator-subchart__svg">
         <line
-          x1={PAD_X}
+          x1={layout().left}
           y1={H - PAD_Y}
-          x2={W - PAD_X}
+          x2={layout().left + layout().plot}
           y2={H - PAD_Y}
           class="indicator-subchart__axis"
         />
@@ -218,7 +250,7 @@ export function IndicatorSubchart(props: {
             <rect
               x={bar.x}
               y={bar.y}
-              width={2}
+              width={bar.w ?? 2}
               height={Math.max(1, bar.h)}
               class={bar.up ? 'indicator__hist-up' : 'indicator__hist-down'}
             />

@@ -76,6 +76,8 @@ export interface KLineChartProps {
   onRangeStats?: (stats: KLineRangeStats | null) => void
   /** 光标绝对下标变化（用于副图十字线联动） */
   onCursorChange?: (index: number | null) => void
+  /** 可见窗口变化（副图必须复用同一窗口和宽度才能对齐横轴） */
+  onWindowChange?: (window: { start: number; count: number; width: number }) => void
   /** 画线模式 */
   drawMode?: DrawingMode
   /** 文字标注内容 */
@@ -205,6 +207,10 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   createEffect(() => {
     props.onCursorChange?.(cursorIndex())
+  })
+
+  createEffect(() => {
+    props.onWindowChange?.({ ...win(), width: size().width })
   })
 
   /** 真正参与绘制的切片 —— 几何层拿到它之后会自动重算蜡烛宽度 */
@@ -1023,6 +1029,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
               {(current) => (
                 <g>
                   <line
+                    class="chart-crosshair-v"
                     x1={current().x}
                     x2={current().x}
                     y1={geo().priceTop}

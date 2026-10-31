@@ -9,7 +9,7 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { CategoryQuote, MacMoneyFlowPoint } from '@shared/types'
 import { compactAmount, fixed, signedPct } from '@shared/format'
-import { formatNetFlow, mergeMoneyFlowRanking } from '@shared/ranking'
+import { amplitudePercent, formatNetFlow, mergeMoneyFlowRanking } from '@shared/ranking'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -45,6 +45,14 @@ const SORTS: SortTab[] = [
     label: '换手率',
     sortType: 0x00cd,
     metric: (quote) => quote.turnoverRate ?? 0,
+    full: true,
+    fullOnly: true
+  },
+  {
+    label: '振幅',
+    sortType: 0,
+    // MAC 0x122B 没有直接给振幅，用 (最高-最低)/昨收 计算，避免全市场榜全是 0。
+    metric: (quote) => amplitudePercent(quote),
     full: true,
     fullOnly: true
   },

@@ -58,3 +58,15 @@ export function formatNetFlow(value: number): string {
   if (absolute >= 10_000) return `${sign}${(absolute / 10_000).toFixed(2)} 万`
   return `${sign}${absolute.toFixed(0)}`
 }
+
+/**
+ * 振幅（%）=（最高 - 最低）/ 昨收 * 100。
+ *
+ * MAC 0x122B 直接给 high/low/prevClose，没有 amplitude 字段；全市场振幅榜
+ * 必须自己算，否则排名会全是 0。
+ */
+export function amplitudePercent(quote: Pick<CategoryQuote, 'high' | 'low' | 'prevClose'>): number {
+  if (!(quote.prevClose > 0)) return 0
+  const range = Math.max(0, quote.high - quote.low)
+  return (range / quote.prevClose) * 100
+}

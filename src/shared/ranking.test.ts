@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CategoryQuote, MacMoneyFlowPoint } from './types'
-import { formatNetFlow, mergeMoneyFlowRanking } from './ranking'
+import { amplitudePercent, formatNetFlow, mergeMoneyFlowRanking } from './ranking'
 
 function quote(code: string, amount: number): CategoryQuote {
   return {
@@ -80,5 +80,13 @@ describe('formatNetFlow', () => {
     expect(formatNetFlow(-12_345)).toBe('-1.23 万')
     expect(formatNetFlow(42)).toBe('42')
     expect(formatNetFlow(Number.NaN)).toBe('—')
+  })
+})
+
+describe('amplitudePercent', () => {
+  it('按 (最高-最低)/昨收 计算，缺失昨收返回 0', () => {
+    expect(amplitudePercent({ high: 11, low: 9, prevClose: 10 })).toBeCloseTo(20, 6)
+    expect(amplitudePercent({ high: 11, low: 9, prevClose: 0 })).toBe(0)
+    expect(amplitudePercent({ high: 9, low: 11, prevClose: 10 })).toBe(0)
   })
 })

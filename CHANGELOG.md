@@ -32,6 +32,8 @@ StockLens 的所有重要变更都记录在这里。
   实测列出 8 条，只读不修改原始数据。
 - **条件选股扩展**：新增 PB、流通市值上下限筛选；结果表增加 PB/流通市值列；
   预设保存/载入同步新条件。实测 `PB≤2 + 流通市值≤3000亿` 命中 100 只。
+- **全市场振幅排行**：MAC 0x122B 不直接给振幅，按 `(最高-最低)/昨收` 计算；
+  新增「振幅」tab，实测首位 32.72%，避免全市场榜全 0。新增 1 个纯函数测试。
 - **分时图缩放/平移**：单日/五日分时支持滚轮缩放、拖动平移、双击复位；可见范围按槽位
   裁切价格/均价/成交量/坐标轴，缩放到 `10:33–14:06` 与五日 `10-27 10:42–10-29 14:26` 实测通过。
 - **指标库扩展**：新增 ROC、PSY、VR、CR 四种副图指标（指标面板与 K 线副图共用）；
@@ -54,9 +56,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` → **234 TS + 126 Python（2 skipped，22 个 TS 文件）**，全绿；
+- `npm run check` → **235 TS + 126 Python（2 skipped，22 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `2f5453e6…` / deb 105 MB `b3f1390b…`；
+- Linux AppImage 130 MB `29df2e2b…` / deb 105 MB `c0bab7cf…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -65,8 +67,9 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/auction-archive-list.png`、`screenshots/indicator-roc.png`、
   `screenshots/indicator-roc-params.png`、`screenshots/packaged-indicator-roc.png`、
   `screenshots/multi-screen.png`、`screenshots/screener-pb-cap.png`、
-  `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`；
-- 矩阵（不含状态图例）：**317 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+  `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
+  `screenshots/ranking-amplitude.png`；
+- 矩阵（不含状态图例）：**318 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

@@ -30,6 +30,8 @@ StockLens 的所有重要变更都记录在这里。
   实测 7/7 只；收盘自动任务在原有开关下同时归档快照与自选竞价，单只失败不阻断其他项。
 - **竞价归档清单**：数据工具读取 `lake/auction` 最近 20 个文件，显示日期/代码/点数/大小；
   实测列出 8 条，只读不修改原始数据。
+- **条件选股扩展**：新增 PB、流通市值上下限筛选；结果表增加 PB/流通市值列；
+  预设保存/载入同步新条件。实测 `PB≤2 + 流通市值≤3000亿` 命中 100 只。
 - **指标库扩展**：新增 ROC、PSY、VR、CR 四种副图指标（指标面板与 K 线副图共用）；
   共 12 种副图指标，周期参数均可编辑并记忆（ROC 6/PSY 12/VR 26/CR 26）；新增 3 个纯函数用例。
 - **多屏窗口放置**：设置面板列出 `screen.getAllDisplays()`，显示主屏/当前屏，
@@ -50,9 +52,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` → **231 TS + 125 Python（2 skipped，22 个 TS 文件）**，全绿；
+- `npm run check` → **231 TS + 126 Python（2 skipped，22 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `f0bf9884…` / deb 105 MB `19e22c4b…`；
+- Linux AppImage 130 MB `2e71fdd2…` / deb 105 MB `a62ae905…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -60,8 +62,8 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/packaged-auction-archive.png`、`screenshots/data-auction-archive.png`、
   `screenshots/auction-archive-list.png`、`screenshots/indicator-roc.png`、
   `screenshots/indicator-roc-params.png`、`screenshots/packaged-indicator-roc.png`、
-  `screenshots/multi-screen.png`；
-- 矩阵（不含状态图例）：**314 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+  `screenshots/multi-screen.png`、`screenshots/screener-pb-cap.png`；
+- 矩阵（不含状态图例）：**315 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

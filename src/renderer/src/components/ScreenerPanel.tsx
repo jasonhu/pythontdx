@@ -1,5 +1,5 @@
 /**
- * 条件选股：全市场扫描价格/涨幅/成交额/换手/振幅。
+ * 条件选股：全市场扫描价格/涨幅/成交额/换手/振幅/PE/PB/量比。
  *
  * 扫描由 Python 后端翻页拉取 0x054b；这里只负责条件输入与结果表格。
  * 不做未来函数、不生成交易指令。
@@ -37,12 +37,21 @@ function numberOrUndefined(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+/** 界面输入「亿」，ScreenRequest 统一用元。 */
+function toCap(value: string): number | undefined {
+  const parsed = numberOrUndefined(value)
+  return parsed === undefined ? undefined : parsed * 100_000_000
+}
+
 export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
   const [minChange, setMinChange] = createSignal('3')
   const [minAmountYi, setMinAmountYi] = createSignal('1')
   const [minTurnover, setMinTurnover] = createSignal('')
   const [minAmplitude, setMinAmplitude] = createSignal('')
   const [maxPrice, setMaxPrice] = createSignal('')
+  const [maxPb, setMaxPb] = createSignal('')
+  const [minFloatCapYi, setMinFloatCapYi] = createSignal('')
+  const [maxFloatCapYi, setMaxFloatCapYi] = createSignal('')
   const [sortBy, setSortBy] = createSignal<ScreenSortBy>('changePct')
   const [result, setResult] = createSignal<ScreenResult | null>(null)
   const [loading, setLoading] = createSignal(false)
@@ -197,6 +206,9 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
         minTurnoverRate: numberOrUndefined(minTurnover()),
         minAmplitude: numberOrUndefined(minAmplitude()),
         maxPrice: numberOrUndefined(maxPrice()),
+        maxPb: numberOrUndefined(maxPb()),
+        minFloatCap: toCap(minFloatCapYi()),
+        maxFloatCap: toCap(maxFloatCapYi()),
         industry: industry().trim() || undefined,
         sortBy: sortBy(),
         limit: 100
@@ -218,6 +230,9 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
       minTurnover: minTurnover(),
       minAmplitude: minAmplitude(),
       maxPrice: maxPrice(),
+      maxPb: maxPb(),
+      minFloatCapYi: minFloatCapYi(),
+      maxFloatCapYi: maxFloatCapYi(),
       industry: industry(),
       sortBy: sortBy(),
       createdAt: Date.now()
@@ -234,6 +249,9 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
     setMinTurnover(preset.minTurnover)
     setMinAmplitude(preset.minAmplitude)
     setMaxPrice(preset.maxPrice)
+    setMaxPb(preset.maxPb ?? '')
+    setMinFloatCapYi(preset.minFloatCapYi ?? '')
+    setMaxFloatCapYi(preset.maxFloatCapYi ?? '')
     setIndustry(preset.industry)
     setSortBy(preset.sortBy)
     setPoolNotice(`已载入预设：${preset.name}`)
@@ -399,6 +417,35 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
             <em>元</em>
           </label>
           <label class="screener__field">
+            <span>PB ≤</span>
+            <input
+              type="number"
+              step="0.1"
+              value={maxPb()}
+              onInput={(event) => setMaxPb(event.currentTarget.value)}
+            />
+          </label>
+          <label class="screener__field">
+            <span>流通市值 ≥</span>
+            <input
+              type="number"
+              step="1"
+              value={minFloatCapYi()}
+              onInput={(event) => setMinFloatCapYi(event.currentTarget.value)}
+            />
+            <em>亿</em>
+          </label>
+          <label class="screener__field">
+            <span>流通市值 ≤</span>
+            <input
+              type="number"
+              step="1"
+              value={maxFloatCapYi()}
+              onInput={(event) => setMaxFloatCapYi(event.currentTarget.value)}
+            />
+            <em>亿</em>
+          </label>
+          <label class="screener__field">
             <span>行业</span>
             <input
               type="text"
@@ -562,6 +609,8 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
                     <th class="num">涨幅</th>
                     <th class="num">成交额</th>
                     <th class="num">换手</th>
+                    <th class="num">流通市值</th>
+                    <th class="num">PB</th>
                     <th class="num">振幅</th>
                   </tr>
                 </thead>
@@ -587,6 +636,10 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
                         <td class="num">
                           {quote.turnoverRate === undefined ? '—' : `${fixed(quote.turnoverRate)}%`}
                         </td>
+                        <td class="num">
+                          {quote.floatCap === undefined ? '—' : `${fixed(quote.floatCap)}亿`}
+                        </td>
+                        <td class="num">{quote.pb === undefined ? '—' : fixed(quote.pb)}</td>
                         <td class="num">
                           {quote.amplitude === undefined ? '—' : `${fixed(quote.amplitude)}%`}
                         </td>

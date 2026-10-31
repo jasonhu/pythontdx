@@ -133,6 +133,12 @@ export interface ScreenRequest {
   maxTurnoverRate?: number
   minAmplitude?: number
   maxAmplitude?: number
+  minPb?: number
+  maxPb?: number
+  minFloatCap?: number
+  maxFloatCap?: number
+  minTotalCap?: number
+  maxTotalCap?: number
   /** 通达信行业名；空/未传表示全市场 */
   industry?: string
   sortBy?: ScreenSortBy
@@ -881,6 +887,10 @@ export interface ScreenPreset {
   maxPrice: string
   industry: string
   sortBy: ScreenSortBy
+  /** 估值/市值条件；旧预设可缺省 */
+  maxPb?: string
+  minFloatCapYi?: string
+  maxFloatCapYi?: string
   createdAt: number
 }
 

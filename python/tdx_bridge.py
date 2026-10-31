@@ -2140,7 +2140,16 @@ def parse_sector_indices(text: str) -> list[dict]:
     return rows
 
 
-SCREEN_FIELDS = ("price", "changePct", "amount", "turnoverRate", "amplitude")
+SCREEN_FIELDS = (
+    "price",
+    "changePct",
+    "amount",
+    "turnoverRate",
+    "amplitude",
+    "pb",
+    "floatCap",
+    "totalCap",
+)
 SCREEN_SORT_FIELDS = ("changePct", "amount", "turnoverRate", "amplitude")
 
 
@@ -2838,7 +2847,7 @@ class Bridge:
         return quotes
 
     def screen(self, filters: dict) -> dict:
-        """全市场条件选股：价格/涨幅/成交额/换手/振幅/行业。"""
+        """全市场条件选股：价格/涨幅/成交额/换手/振幅/PE/PB/量比/行业。"""
         quotes = self._all_category_quotes()
         industry = str(filters.get("industry") or "").strip()
         if industry:

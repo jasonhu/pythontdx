@@ -9,6 +9,8 @@ import type {
   GraphicsInfo,
   ServerSpeedResult,
   AppState,
+  AuctionArchiveItem,
+  AuctionArchiveResult,
   AuctionPoint,
   BlockKind,
   BlockList,
@@ -85,6 +87,10 @@ export const IPC = {
   macBoards: 'mac:boards',
   /** 集合竞价过程（invoke） */
   auctionSeries: 'auction:series',
+  /** 本地竞价归档：写入/读取（invoke） */
+  auctionArchiveSave: 'auction:archive-save',
+  auctionArchiveRead: 'auction:archive-read',
+  auctionArchiveList: 'auction:archive-list',
   /** F10 段落目录（invoke） */
   f10Catalog: 'f10:catalog',
   /** F10 段落正文（invoke） */
@@ -294,6 +300,12 @@ export interface StockLensApi {
   auction: {
     /** 集合竞价过程快照（0x056a）；date 省略为当日 */
     series(code: string, date?: string): Promise<AuctionPoint[]>
+    /** 写入本地归档；date 省略时从分时推断交易日 */
+    archiveSave(code: string, date?: string): Promise<AuctionArchiveResult>
+    /** 读取本地归档；不存在返回 found=false */
+    archiveRead(code: string, date: string): Promise<AuctionArchiveResult>
+    /** 列出已归档的竞价文件 */
+    archiveList(limit?: number): Promise<AuctionArchiveItem[]>
   }
   market: {
     breadth(): Promise<MarketBreadth>

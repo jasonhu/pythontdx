@@ -10,6 +10,8 @@ import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type {
+  AuctionArchiveItem,
+  AuctionArchiveResult,
   AuctionPoint,
   BlockKind,
   BlockList,
@@ -186,6 +188,32 @@ export async function fetchAuctions(code: string, date?: string): Promise<Auctio
     { code, date: date || undefined, limit: 500 },
     QUOTES_TIMEOUT_MS
   )
+}
+
+export async function fetchAuctionArchiveSave(
+  code: string,
+  date?: string
+): Promise<AuctionArchiveResult> {
+  return bridge.send<AuctionArchiveResult>(
+    'auction_archive_save',
+    { code, date: date || undefined },
+    QUOTES_TIMEOUT_MS
+  )
+}
+
+export async function fetchAuctionArchiveRead(
+  code: string,
+  date: string
+): Promise<AuctionArchiveResult> {
+  return bridge.send<AuctionArchiveResult>(
+    'auction_archive_read',
+    { code, date },
+    QUOTES_TIMEOUT_MS
+  )
+}
+
+export async function fetchAuctionArchiveList(limit = 50): Promise<AuctionArchiveItem[]> {
+  return bridge.send<AuctionArchiveItem[]>('auction_archive_list', { limit }, QUOTES_TIMEOUT_MS)
 }
 
 /** 0x02cf F10 段落目录。 */

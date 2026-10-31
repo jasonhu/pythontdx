@@ -20,6 +20,9 @@ import type { AppStore } from './services/store'
 import { createChartWindow, createSecondaryWindow, createServerWindow } from './window'
 import type { QuotePoller } from './services/poller'
 import {
+  fetchAuctionArchiveList,
+  fetchAuctionArchiveRead,
+  fetchAuctionArchiveSave,
   fetchAuctions,
   fetchBlocks,
   fetchCategoryQuotes,
@@ -120,6 +123,16 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.auctionSeries, (_event, code: string, date?: string) =>
     fetchAuctions(code, date)
   )
+
+  ipcMain.handle(IPC.auctionArchiveSave, (_event, code: string, date?: string) =>
+    fetchAuctionArchiveSave(code, date)
+  )
+
+  ipcMain.handle(IPC.auctionArchiveRead, (_event, code: string, date: string) =>
+    fetchAuctionArchiveRead(code, date)
+  )
+
+  ipcMain.handle(IPC.auctionArchiveList, (_event, limit?: number) => fetchAuctionArchiveList(limit))
 
   ipcMain.handle(IPC.f10Catalog, (_event, code: string) => fetchF10Catalog(code))
 

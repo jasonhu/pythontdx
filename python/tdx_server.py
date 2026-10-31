@@ -434,6 +434,31 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/auction_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.auction_archive_save(
+                            str(payload.get("code") or ""), payload.get("date") or None
+                        )
+                    )
+                return
+            if parsed.path == "/api/auction_archive_read":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.auction_archive_read(
+                            str(payload.get("code") or ""),
+                            str(payload.get("date") or ""),
+                        )
+                    )
+                return
+            if parsed.path == "/api/auction_archive_list":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.auction_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
             if parsed.path == "/api/money_flow":
                 with self.server.lock:
                     self._ok(self.server.bridge.money_flow(payload.get("code", "")))

@@ -988,6 +988,22 @@
   background: var(--panel-hover);
 }
 
+.auction__today:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.auction__archive {
+  color: var(--accent);
+}
+
+.auction__note {
+  flex: none;
+  padding: 0 2px 5px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
 .auction__error {
   flex: none;
   padding: 6px 2px;

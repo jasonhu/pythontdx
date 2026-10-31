@@ -34,6 +34,15 @@ class FakeBridge:
     def auctions(self, code, **kwargs):
         return [{"code": code}]
 
+    def auction_archive_save(self, code, date=None):
+        return {"code": code, "tradeDate": date or "2026-10-30", "rows": 1, "found": True}
+
+    def auction_archive_read(self, code, date):
+        return {"code": code, "tradeDate": date, "rows": 0, "found": False}
+
+    def auction_archive_list(self, limit=50):
+        return []
+
     def money_flow(self, code):
         return [{"code": code, "date": "2026-10-30"}]
 
@@ -358,6 +367,21 @@ class TestHttpApi(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"]["rows"], 0)
         status, payload, _ = self.request("POST", "/api/lake_archives", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"], [])
+        status, payload, _ = self.request(
+            "POST", "/api/auction_archive_save", {"code": "sh600519"}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["rows"], 1)
+        status, payload, _ = self.request(
+            "POST",
+            "/api/auction_archive_read",
+            {"code": "sh600519", "date": "2026-10-30"},
+        )
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["result"]["found"])
+        status, payload, _ = self.request("POST", "/api/auction_archive_list", {})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])
         status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})

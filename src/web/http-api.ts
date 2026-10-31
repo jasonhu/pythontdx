@@ -9,6 +9,8 @@ import type {
   ServerSpeedResult,
   GraphicsInfo,
   AppState,
+  AuctionArchiveItem,
+  AuctionArchiveResult,
   AuctionPoint,
   BlockKind,
   BlockList,
@@ -311,7 +313,12 @@ export function createHttpApi(): StockLensApi {
       boards: (boardType) => post<MacBoard[]>('/api/mac_boards', { boardType })
     },
     auction: {
-      series: (code, date) => post<AuctionPoint[]>('/api/auctions', { code, date })
+      series: (code, date) => post<AuctionPoint[]>('/api/auctions', { code, date }),
+      archiveSave: (code, date) =>
+        post<AuctionArchiveResult>('/api/auction_archive_save', { code, date }),
+      archiveRead: (code, date) =>
+        post<AuctionArchiveResult>('/api/auction_archive_read', { code, date }),
+      archiveList: (limit) => post<AuctionArchiveItem[]>('/api/auction_archive_list', { limit })
     },
     f10: {
       catalog: (code) => post<F10Section[]>('/api/f10_catalog', { code }),

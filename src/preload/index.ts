@@ -45,7 +45,10 @@ const api: StockLensApi = {
     boards: (boardType) => ipcRenderer.invoke(IPC.macBoards, boardType)
   },
   auction: {
-    series: (code, date) => ipcRenderer.invoke(IPC.auctionSeries, code, date)
+    series: (code, date) => ipcRenderer.invoke(IPC.auctionSeries, code, date),
+    archiveSave: (code, date) => ipcRenderer.invoke(IPC.auctionArchiveSave, code, date),
+    archiveRead: (code, date) => ipcRenderer.invoke(IPC.auctionArchiveRead, code, date),
+    archiveList: (limit) => ipcRenderer.invoke(IPC.auctionArchiveList, limit)
   },
   market: {
     breadth: () => ipcRenderer.invoke(IPC.marketBreadth)

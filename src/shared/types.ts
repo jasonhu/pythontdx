@@ -301,6 +301,30 @@ export interface AuctionPoint {
   unmatchedDirection: number
 }
 
+/** 本地竞价归档（lake/auction/trade_date=.../*.jsonl.gz + manifest）。 */
+export interface AuctionArchiveResult {
+  code: string
+  tradeDate: string
+  points: AuctionPoint[]
+  rows: number
+  source: 'archive'
+  found: boolean
+  dir?: string
+  sha256?: string
+  generatedAt?: string
+}
+
+/** 竞价归档目录项；不含点数据。 */
+export interface AuctionArchiveItem {
+  code: string
+  tradeDate: string
+  rows: number
+  bytes: number
+  sha256?: string
+  generatedAt?: string
+  dir: string
+}
+
 /** 0x02cf F10 段落目录 */
 export interface F10Section {
   name: string

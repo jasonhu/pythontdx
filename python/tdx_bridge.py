@@ -63,6 +63,14 @@ from tdx_mac import (
 )
 from local_import import import_local_file
 from kline_export import write_kline_export
+from auction_archive import (
+    AuctionArchiveError,
+    list_auction_archives,
+    normalize_code as normalize_auction_code,
+    normalize_date as normalize_auction_date,
+    read_auction_archive,
+    write_auction_archive,
+)
 from snapshot_archive import list_snapshot_archives, write_snapshot_archive
 from tdx_f10 import (
     fetch_announcements,
@@ -3163,6 +3171,64 @@ class Bridge:
         )
         return parse_auctions(body)
 
+    def auction_archive_save(
+        self, code: str, trading_date: str | None = None
+    ) -> dict:
+        """把一只股票的竞价点写入本地数据湖；不传日期时从分时推断交易日。"""
+        points = self.auctions(
+            code, trading_date=trading_date, selector=0, limit=AUCTION_LIMIT
+        )
+        if not points:
+            raise TdxError("该日期没有可归档的竞价数据（服务器只保留最近交易日）")
+        target_date = trading_date
+        if not target_date:
+            try:
+                target_date = self.minute(code).get("date") or ""
+            except Exception:  # noqa: BLE001 - 推断失败时再退回本地日期
+                target_date = ""
+        if not target_date:
+            target_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        try:
+            result = write_auction_archive(
+                stocklens_data_dir() / "lake" / "auction",
+                code,
+                target_date,
+                points,
+            )
+        except AuctionArchiveError as error:
+            raise TdxError(str(error)) from error
+        return {**result, "points": points, "found": True}
+
+    def auction_archive_read(self, code: str, trading_date: str) -> dict:
+        """读取本地竞价归档；不存在时返回 found=false，而不是让 UI 报错。"""
+        try:
+            normalized_date = normalize_auction_date(trading_date)
+            normalized_code = normalize_auction_code(code)
+        except AuctionArchiveError as error:
+            raise TdxError(str(error)) from error
+        try:
+            return read_auction_archive(
+                stocklens_data_dir() / "lake" / "auction",
+                normalized_code,
+                normalized_date,
+            )
+        except FileNotFoundError:
+            return {
+                "code": normalized_code,
+                "tradeDate": normalized_date,
+                "points": [],
+                "rows": 0,
+                "source": "archive",
+                "found": False,
+            }
+        except AuctionArchiveError as error:
+            raise TdxError(str(error)) from error
+
+    def auction_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_auction_archives(
+            stocklens_data_dir() / "lake" / "auction", limit
+        )
+
     def file_read(
         self, path: str, offset: int = 0, size: int = FILE_CHUNK
     ) -> dict:
@@ -3972,6 +4038,16 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             start=int(payload.get("start", 0)),
             limit=int(payload.get("limit", AUCTION_LIMIT)),
         )
+    if cmd == "auction_archive_save":
+        return bridge.auction_archive_save(
+            str(payload.get("code") or ""), payload.get("date") or None
+        )
+    if cmd == "auction_archive_read":
+        return bridge.auction_archive_read(
+            str(payload.get("code") or ""), str(payload.get("date") or "")
+        )
+    if cmd == "auction_archive_list":
+        return bridge.auction_archive_list(int(payload.get("limit", 50)))
     if cmd == "file_read":
         return bridge.file_read(
             payload.get("path", ""),

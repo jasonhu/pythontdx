@@ -5552,3 +5552,19 @@
 .unusual__dist-bucket:not(:nth-child(2n + 1)) small {
   opacity: 0.75;
 }
+
+.settings__ma {
+  display: flex;
+  gap: 5px;
+}
+
+.settings__ma input {
+  width: 52px;
+  height: 26px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  background: var(--panel);
+  font-size: var(--fs-2xs);
+}

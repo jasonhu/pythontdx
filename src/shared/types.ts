@@ -711,6 +711,8 @@ export interface AppSettings {
   screenPresets?: ScreenPreset[]
   /** 主图叠加公式；为空则关闭 */
   mainFormula?: string
+  /** 主图三条均线周期 */
+  maPeriods?: [number, number, number]
   /** 最近搜索（最多 8 条） */
   recentSearches?: SearchItem[]
   /** 收盘后自动归档全市场快照 */

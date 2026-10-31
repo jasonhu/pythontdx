@@ -69,11 +69,13 @@ const EXT_PERIODS: Array<[KLinePeriod, string]> = [
   ['45d', '45日']
 ]
 
-const MA_LEGEND = [
-  { label: 'MA5', color: '#f0b429' },
-  { label: 'MA10', color: '#5b8cff' },
-  { label: 'MA20', color: '#c084fc' }
-]
+const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc'] as const
+
+const maLegend = (): Array<{ label: string; color: string }> =>
+  (appState.settings.maPeriods ?? [5, 10, 20]).map((period, index) => ({
+    label: `MA${period}`,
+    color: MA_COLORS[index] ?? MA_COLORS[0]
+  }))
 
 /** 折线类图表的自动刷新周期（主进程还有 10~60 秒缓存兜底） */
 const REFRESH_MS = 30_000
@@ -573,7 +575,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           <Show
             when={isTrend()}
             fallback={
-              <For each={MA_LEGEND}>
+              <For each={maLegend()}>
                 {(item) => (
                   <span class="chart-legend__item">
                     <span class="chart-legend__swatch" style={{ background: item.color }} />

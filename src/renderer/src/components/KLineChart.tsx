@@ -44,12 +44,8 @@ import { chartOwnsKeys } from '../lib/chart-keys'
 import { useElementSize } from '../lib/dom'
 import { appState, updateSettings } from '../stores/app'
 
-/** 均线的周期与配色 */
-const MA_CONFIG = [
-  { period: 5, color: '#f0b429' },
-  { period: 10, color: '#5b8cff' },
-  { period: 20, color: '#c084fc' }
-] as const
+/** 均线配色；周期来自设置 */
+const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc'] as const
 
 export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text'
 
@@ -211,12 +207,14 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
    * 只拿可见切片去算的话，窗口起点那几根的 MA 会因为缺少前置数据而变成 null，
    * 看起来就像均线在图表左边被「剪掉」了一截。
    */
-  const averages = createMemo(() =>
-    MA_CONFIG.map((config) => ({
-      ...config,
-      values: movingAverage(allBars(), config.period)
+  const averages = createMemo(() => {
+    const periods = appState.settings.maPeriods ?? [5, 10, 20]
+    return periods.map((period, index) => ({
+      period,
+      color: MA_COLORS[index] ?? MA_COLORS[0],
+      values: movingAverage(allBars(), period)
     }))
-  )
+  })
 
   /** 均线同样要切片，否则 x 坐标会和蜡烛整体错位 */
   const visibleAverages = createMemo(() => {

@@ -233,6 +233,39 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
 
           <div class="settings__row">
             <div>
+              <div class="settings__label">主图均线</div>
+              <div class="settings__hint">三条均线周期，K 线重启后继续生效。</div>
+            </div>
+            <div class="settings__ma">
+              <For each={[0, 1, 2]}>
+                {(index) => (
+                  <input
+                    class={`settings__ma-${index}`}
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={String((appState.settings.maPeriods ?? [5, 10, 20])[index])}
+                    onChange={(event) => {
+                      const next = [...(appState.settings.maPeriods ?? [5, 10, 20])] as [
+                        number,
+                        number,
+                        number
+                      ]
+                      const parsed = Number(event.currentTarget.value)
+                      next[index] =
+                        Number.isFinite(parsed) && parsed > 0
+                          ? Math.min(120, Math.floor(parsed))
+                          : next[index]
+                      updateSettings({ maPeriods: next })
+                    }}
+                  />
+                )}
+              </For>
+            </div>
+          </div>
+
+          <div class="settings__row">
+            <div>
               <div class="settings__label">图表默认</div>
               <div class="settings__hint">周期、复权、对数、副图在图表头单独记忆。</div>
             </div>

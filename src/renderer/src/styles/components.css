@@ -5380,3 +5380,14 @@
   color: var(--text-2);
   font-size: var(--fs-2xs);
 }
+
+.statusbar__limit {
+  color: var(--text-3);
+  margin-left: 2px;
+}
+
+@media (max-width: 1200px) {
+  .statusbar__limit {
+    display: none;
+  }
+}

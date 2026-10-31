@@ -597,5 +597,17 @@ class TestSecurityAndFinance(unittest.TestCase):
         self.assertAlmostEqual(maotai["netAssetsPerShare"], 200.99, places=2)
 
 
+
+class TestLimitPercent(unittest.TestCase):
+    def test_board_limits(self):
+        from tdx_bridge import limit_percent
+
+        self.assertEqual(limit_percent("sh600000", "浦发银行"), 10)
+        self.assertEqual(limit_percent("sz300001", "特锐德"), 20)
+        self.assertEqual(limit_percent("sh688001", "华兴源创"), 20)
+        self.assertEqual(limit_percent("bj920001", "北交所"), 30)
+        self.assertEqual(limit_percent("sh600001", "ST测试"), 5)
+
+
 if __name__ == "__main__":
     unittest.main()

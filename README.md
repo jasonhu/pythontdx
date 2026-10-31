@@ -8,7 +8,7 @@
 
 **当前状态**：桌面 + Web 前端可用；Linux AppImage/deb 已实测；
 v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTTP 只读）。
-`npm run check` 全绿：**192 个 TS 测试 + 108 个 Python 协议/服务测试（2 skipped）**。
+`npm run check` 全绿：**192 个 TS 测试 + 109 个 Python 协议/服务测试（2 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -61,7 +61,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - F10 公司资料：标题栏 F10 按钮，7709 目录 + GBK 正文，左目录右正文；另接 7615 在线公告/新闻/公司概况/估值/财务指标/主营构成/十大股东/研报列表/两融大宗/研报席位/三大报表关键科目/全部原始列
 - 排行榜：涨幅 / 成交额 / 涨速 / 短换手 / 封单额；可切「全市场」按 MAC 排序 5,615 只（前 300），首屏 80 条可加载更多，点击行查看
 - 关键指标：换手率、振幅、市净率、市值；PE TTM / 量比 / 涨跌停暂缺
-- 交易时段感知：盘后自动降频到 30s+，窗口不可见时暂停请求
+- 状态栏涨跌家数/涨停/跌停计数；交易时段感知：盘后自动降频到 30s+，窗口不可见时暂停请求
 
 **自选与交互**
 
@@ -78,7 +78,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
 - 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 前端（本地状态可写）（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 192 个 TS 单元测试 + 108 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 192 个 TS 单元测试 + 109 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里

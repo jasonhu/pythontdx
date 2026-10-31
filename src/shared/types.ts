@@ -365,6 +365,8 @@ export interface MarketBreadth {
   up: number
   down: number
   flat: number
+  limitUp?: number
+  limitDown?: number
   total: number
   updatedAt: number
 }

@@ -76,6 +76,18 @@ from tdx_f10 import (
 
 # ---------------------------------------------------------------- 常量
 
+def limit_percent(code: str, name: str) -> int:
+    """A 股涨跌幅限制：主板 10%、创业/科创 20%、北交 30%、主板 ST 5%。"""
+    symbol = code[2:] if len(code) > 2 else code
+    if code.lower().startswith("bj") or (symbol and symbol[0] in "489"):
+        return 30
+    if symbol.startswith(("300", "301", "302", "688", "689")):
+        return 20
+    if "ST" in name.upper():
+        return 5
+    return 10
+
+
 ENDPOINTS = [
     ("124.71.187.122", 7709),
     ("180.153.18.170", 7709),
@@ -2585,6 +2597,26 @@ class Bridge:
         """把本地行情文件导入数据湖（原始 + JSONL.gz + SQLite + manifest）。"""
         return import_local_file(path, stocklens_data_dir() / "local")
 
+    def _breadth_limits(self, quotes: list[dict]) -> tuple[int, int]:
+        up = down = 0
+        for quote in quotes:
+            prev = quote.get("prevClose")
+            price = quote.get("price")
+            high = quote.get("high")
+            low = quote.get("low")
+            if not all(isinstance(value, (int, float)) for value in (prev, price, high, low)):
+                continue
+            if prev <= 0 or price <= 0:
+                continue
+            pct = limit_percent(str(quote.get("code") or ""), str(quote.get("name") or ""))
+            up_limit = round(prev * (1 + pct / 100), 2)
+            down_limit = round(prev * (1 - pct / 100), 2)
+            if high >= up_limit - 0.005 and price >= up_limit - 0.005:
+                up += 1
+            if low <= down_limit + 0.005:
+                down += 1
+        return up, down
+
     def market_breadth(self) -> dict:
         """全 A 股涨跌家数（不含指数/基金）。"""
         quotes = self._all_category_quotes()
@@ -2599,10 +2631,13 @@ class Bridge:
                 down += 1
             else:
                 flat += 1
+        limit_up, limit_down = self._breadth_limits(quotes)
         return {
             "up": up,
             "down": down,
             "flat": flat,
+            "limitUp": limit_up,
+            "limitDown": limit_down,
             "total": up + down + flat,
             "updatedAt": int(time.time() * 1000),
         }

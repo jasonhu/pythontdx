@@ -140,11 +140,16 @@ export function StatusBar(props: {
         {(value) => (
           <button
             class="statusbar__text market-breadth market-report-open"
-            title="打开大盘资料"
+            title={`打开大盘资料 · 涨停 ${value().limitUp ?? '—'} / 跌停 ${value().limitDown ?? '—'}`}
             onClick={() => props.onOpenMarketReport()}
           >
             涨 <span class="tone-up">{value().up}</span> / 跌{' '}
             <span class="tone-down">{value().down}</span> / 平 {value().flat}
+            <Show when={value().limitUp !== undefined}>
+              <span class="statusbar__limit">
+                {' '}· 停 {value().limitUp}/{value().limitDown}
+              </span>
+            </Show>
           </button>
         )}
       </Show>

@@ -14,8 +14,9 @@ import {
   type JSX
 } from 'solid-js'
 import type { MacMoneyFlow, MoneyFlowRecord } from '@shared/types'
-import { compactAmount, signedPct } from '@shared/format'
+import { compactAmount, compactVolume, signedPct } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { quoteOf } from '../stores/quotes'
 
 interface MoneyFlowProps {
   code: string
@@ -29,6 +30,7 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
   const [error, setError] = createSignal<string | null>(null)
   const [mac, setMac] = createSignal<MacMoneyFlow | null>(null)
   const [selectedDate, setSelectedDate] = createSignal<string | null>(null)
+  const quote = (): ReturnType<typeof quoteOf> => quoteOf(props.code)
   let requestId = 0
 
   const load = async (code: string): Promise<void> => {
@@ -73,6 +75,28 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
         <span>{loading() ? '刷新中…' : `${rows().length} 个交易日`}</span>
         <span>每 60 秒</span>
       </div>
+
+      <Show when={(quote()?.innerVolume ?? 0) + (quote()?.outerVolume ?? 0) > 0}>
+        <div class="flow__innerouter">
+          <span>
+            内盘 <strong class="num">{compactVolume(quote()?.innerVolume ?? 0)}</strong>
+          </span>
+          <span>
+            外盘 <strong class="num">{compactVolume(quote()?.outerVolume ?? 0)}</strong>
+          </span>
+          <span>
+            外盘占比{' '}
+            <strong class="num">
+              {(
+                ((quote()?.outerVolume ?? 0) /
+                  ((quote()?.innerVolume ?? 0) + (quote()?.outerVolume ?? 0) || 1)) *
+                100
+              ).toFixed(1)}
+              %
+            </strong>
+          </span>
+        </div>
+      </Show>
 
       <Show when={error()}>
         {(message) => (

@@ -716,8 +716,8 @@ def parse_quotes(
         read()  # 现手
         amount_raw = _u32(body, pos)
         pos += 4
-        read()  # 内盘
-        read()  # 外盘
+        inner_volume = read()  # 内盘
+        outer_volume = read()  # 外盘
         read()  # 外盘后的未知字段
         read()  # 开盘金额
 
@@ -776,6 +776,8 @@ def parse_quotes(
             "change": change,
             "changePct": (change / prev_close * 100) if prev_close > 0 else 0.0,
             "volume": total_hand,
+            "innerVolume": inner_volume,
+            "outerVolume": outer_volume,
             "amount": amount,
             "currency": "CNY",
             "time": received_at,
@@ -916,8 +918,8 @@ def _parse_snapshot_record(
     _current_hand, pos = read_varint(record, pos)
     amount_raw = _u32(record, pos)
     pos += 4
-    _inside, pos = read_varint(record, pos)
-    _outside, pos = read_varint(record, pos)
+    inside, pos = read_varint(record, pos)
+    outside, pos = read_varint(record, pos)
     _unknown_outer, pos = read_varint(record, pos)
     _open_amount, pos = read_varint(record, pos)
     bid_delta, pos = read_varint(record, pos)
@@ -982,8 +984,8 @@ def _parse_refresh_record(
     _current_hand, pos = read_varint(record, pos)
     amount_raw = _u32(record, pos)
     pos += 4
-    _inside, pos = read_varint(record, pos)
-    _outside, pos = read_varint(record, pos)
+    inside, pos = read_varint(record, pos)
+    outside, pos = read_varint(record, pos)
     _unknown_outer, pos = read_varint(record, pos)
     _open_amount, pos = read_varint(record, pos)
 
@@ -998,7 +1000,7 @@ def _parse_refresh_record(
         bid_levels.append((current_milli + bid_delta * 10, bid_volume))
         ask_levels.append((current_milli + ask_delta * 10, ask_volume))
 
-    return _build_quote(
+    quote = _build_quote(
         market_id,
         symbol,
         received_at,
@@ -1009,6 +1011,9 @@ def _parse_refresh_record(
         bid_levels,
         ask_levels,
     )
+    quote["innerVolume"] = inside
+    quote["outerVolume"] = outside
+    return quote
 
 
 def parse_refresh(

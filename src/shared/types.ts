@@ -55,6 +55,10 @@ export interface Quote {
 
   /** 成交量：A 股为「手」，港股为「股」 */
   volume: number
+  /** 内盘（手），部分行情源不提供 */
+  innerVolume?: number
+  /** 外盘（手），部分行情源不提供 */
+  outerVolume?: number
   /** 成交额：统一换算为「元」 */
   amount: number
 

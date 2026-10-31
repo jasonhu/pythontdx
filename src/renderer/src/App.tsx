@@ -56,7 +56,8 @@ import {
   setActiveCode,
   toggleTheme,
   updateSettings,
-  watchCodes
+  watchCodes,
+  startAutoArchive
 } from './stores/app'
 import { applyQuotes, createQuoteStream, quoteOf, refreshQuotes } from './stores/quotes'
 import { api } from './lib/ipc'
@@ -92,6 +93,7 @@ export default function App(): JSX.Element {
   onMount(() => {
     void bootstrapAppState().then(() => hydrateAlertEvents())
     startScreenTracking()
+    startAutoArchive()
     initWindowSync()
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!appReady() || event.metaKey || event.ctrlKey || event.altKey) return

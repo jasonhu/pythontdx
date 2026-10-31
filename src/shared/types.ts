@@ -713,6 +713,10 @@ export interface AppSettings {
   mainFormula?: string
   /** 最近搜索（最多 8 条） */
   recentSearches?: SearchItem[]
+  /** 收盘后自动归档全市场快照 */
+  autoArchive?: boolean
+  /** 自动归档最近成功日期 YYYY-MM-DD */
+  autoArchiveLastDate?: string
   /** 正在自动跟踪的预设 id；为空则不跟踪 */
   trackingPresetId?: string
   /** 可同时跟踪多个预设 */

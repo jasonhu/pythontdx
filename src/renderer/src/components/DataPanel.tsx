@@ -446,6 +446,17 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               {archiving() ? '归档中…' : '归档全市场'}
             </button>
           </section>
+          <label class="data__auto-archive">
+            <input
+              type="checkbox"
+              checked={appState.settings.autoArchive ?? false}
+              onChange={(event) => updateSettings({ autoArchive: event.currentTarget.checked })}
+            />
+            <span>工作日 15:05–15:40 自动归档全市场</span>
+            <Show when={appState.settings.autoArchiveLastDate}>
+              {(date) => <em>最近 {date()}</em>}
+            </Show>
+          </label>
           <Show when={archiveError()}>
             {(message) => <div class="data__query-error">{message()}</div>}
           </Show>

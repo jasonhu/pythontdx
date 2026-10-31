@@ -5468,3 +5468,21 @@
   background: var(--panel);
   font-size: var(--fs-2xs);
 }
+
+.data__auto-archive {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.data__auto-archive input {
+  accent-color: var(--accent);
+}
+
+.data__auto-archive em {
+  color: var(--text-3);
+  font-style: normal;
+  font-size: var(--fs-2xs);
+}

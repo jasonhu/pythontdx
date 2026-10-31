@@ -22,6 +22,7 @@ import {
   type WatchItem
 } from '@shared/types'
 import { mergeImportedGroups } from '@shared/watchlist'
+import { localDateKey, shouldAutoArchive } from '@shared/archive'
 import { api } from '../lib/ipc'
 
 const [state, setState] = createStore<AppState>({
@@ -466,4 +467,36 @@ function persist(patch: Partial<AppState>): void {
   void api.state.patch(patch).catch((error) => {
     console.error('[app-state] 保存失败：', error)
   })
+}
+
+/** 收盘后自动归档：每分钟检查一次；成功才记录日期，失败下分钟重试。 */
+let autoArchiveTimer: ReturnType<typeof setInterval> | undefined
+let autoArchiveRunning = false
+
+export function startAutoArchive(): void {
+  if (autoArchiveTimer) return
+  const tick = async (): Promise<void> => {
+    if (autoArchiveRunning) return
+    const now = new Date()
+    if (
+      !shouldAutoArchive(
+        now,
+        state.settings.autoArchive ?? false,
+        state.settings.autoArchiveLastDate
+      )
+    ) {
+      return
+    }
+    autoArchiveRunning = true
+    try {
+      await api.data.archiveSnapshot()
+      updateSettings({ autoArchiveLastDate: localDateKey(now) })
+    } catch (cause) {
+      console.warn('自动归档失败，下一分钟重试', cause)
+    } finally {
+      autoArchiveRunning = false
+    }
+  }
+  autoArchiveTimer = setInterval(() => void tick(), 60_000)
+  void tick()
 }

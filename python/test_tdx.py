@@ -474,6 +474,20 @@ class TestScreener(unittest.TestCase):
         )
         self.assertEqual([row["code"] for row in result], ["sz300750", "sz000001"])
 
+    def test_sort_by_pb_ascending_missing_last(self):
+        result = tdx.apply_screen(self.QUOTES, {"sortBy": "pb", "ascending": True})
+        self.assertEqual(
+            [row["code"] for row in result],
+            ["sz000001", "sz300750", "sh600519", "sh688001"],
+        )
+
+    def test_sort_by_total_cap_descending_missing_last(self):
+        result = tdx.apply_screen(self.QUOTES, {"sortBy": "totalCap"})
+        self.assertEqual(
+            [row["code"] for row in result],
+            ["sh600519", "sz300750", "sz000001", "sh688001"],
+        )
+
 
 class TestMoneyFlow(unittest.TestCase):
     def test_money_flow_request(self):

@@ -119,7 +119,8 @@ export interface CategoryQuote extends Quote {
   largeNet5d?: number
 }
 
-export type ScreenSortBy = 'changePct' | 'amount' | 'turnoverRate' | 'amplitude'
+export type ScreenSortBy =
+  'changePct' | 'amount' | 'turnoverRate' | 'amplitude' | 'pb' | 'floatCap' | 'totalCap'
 
 /** 全市场条件选股；金额单位统一为元 */
 export interface ScreenRequest {

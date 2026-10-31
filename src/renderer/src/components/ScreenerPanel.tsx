@@ -27,7 +27,10 @@ const SORTS: Array<{ value: ScreenSortBy; label: string }> = [
   { value: 'changePct', label: '涨幅' },
   { value: 'amount', label: '成交额' },
   { value: 'turnoverRate', label: '换手率' },
-  { value: 'amplitude', label: '振幅' }
+  { value: 'amplitude', label: '振幅' },
+  { value: 'pb', label: '市净率' },
+  { value: 'floatCap', label: '流通市值' },
+  { value: 'totalCap', label: '总市值' }
 ]
 
 function numberOrUndefined(value: string): number | undefined {

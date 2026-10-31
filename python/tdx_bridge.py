@@ -2150,7 +2150,15 @@ SCREEN_FIELDS = (
     "floatCap",
     "totalCap",
 )
-SCREEN_SORT_FIELDS = ("changePct", "amount", "turnoverRate", "amplitude")
+SCREEN_SORT_FIELDS = (
+    "changePct",
+    "amount",
+    "turnoverRate",
+    "amplitude",
+    "pb",
+    "floatCap",
+    "totalCap",
+)
 
 
 def filter_quotes_by_codes(quotes: list[dict], codes: set[str]) -> list[dict]:
@@ -2185,14 +2193,18 @@ def apply_screen(quotes: list[dict], filters: dict) -> list[dict]:
     if sort_by not in SCREEN_SORT_FIELDS:
         sort_by = "changePct"
     ascending = bool(filters.get("ascending", False))
-    result.sort(
-        key=lambda quote: (
-            float(quote.get(sort_by))
-            if isinstance(quote.get(sort_by), (int, float))
-            else float("-inf")
-        ),
-        reverse=not ascending,
-    )
+    with_value = [
+        quote
+        for quote in result
+        if isinstance(quote.get(sort_by), (int, float))
+    ]
+    missing_value = [
+        quote
+        for quote in result
+        if not isinstance(quote.get(sort_by), (int, float))
+    ]
+    with_value.sort(key=lambda quote: float(quote[sort_by]), reverse=not ascending)
+    result = with_value + missing_value
     limit = max(1, min(200, int(filters.get("limit", 80))))
     return result[:limit]
 

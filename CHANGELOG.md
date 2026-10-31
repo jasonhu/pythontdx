@@ -47,6 +47,8 @@ StockLens 的所有重要变更都记录在这里。
   指标面板与副图共用；16 个页签正常排布；新增 1 个边界测试。
 - **SAR 指标**：新增抛物线转向停损点，步长/上限参数可编辑并记忆；上涨段在价格下方、
   下跌段在上方；指标面板与副图共用；17 个页签正常排布；新增 1 个边界测试。
+- **条件选股排序扩展**：新增市净率/流通市值/总市值排序；缺失指标统一排在最后，
+  不再被当成 0 值混入；新增 2 个 Python 排序测试。
 - **斐波那契回撤/扩展画线**：新增 7 档回撤（0/23.6/38.2/50/61.8/78.6/100%）与
   2 档扩展（127.2%/161.8%），端点可拖动；同时修复画线坐标未减去可见窗口起点、
   缩放后画线跑到屏幕外的 bug。
@@ -72,9 +74,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` → **245 TS + 126 Python（2 skipped，23 个 TS 文件）**，全绿；
+- `npm run check` → **245 TS + 128 Python（2 skipped，23 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `a690e8d5…` / deb 105 MB `bea26dfb…`；
+- Linux AppImage 130 MB `09012057…` / deb 105 MB `91034c94…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -83,13 +85,13 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/auction-archive-list.png`、`screenshots/indicator-roc.png`、
   `screenshots/indicator-roc-params.png`、`screenshots/packaged-indicator-roc.png`、
   `screenshots/multi-screen.png`、`screenshots/screener-pb-cap.png`、
-  `screenshots/screener-total-cap.png`、`screenshots/kline-fib.png`、
+  `screenshots/screener-total-cap.png`、`screenshots/screener-sort-total-cap.png`、`screenshots/kline-fib.png`、
   `screenshots/kline-fib-ext.png`、`screenshots/indicator-bbi.png`、
   `screenshots/indicator-dma.png`、`screenshots/indicator-trix.png`、
   `screenshots/indicator-sar.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**326 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+- 矩阵（不含状态图例）：**327 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

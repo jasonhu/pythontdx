@@ -3491,7 +3491,14 @@ class Bridge:
         body = self.conn.request(
             CMD_F10_CATEGORY, f10_catalog_data(market, symbol)
         )
-        return parse_f10_catalog(body)
+        result = parse_f10_catalog(body)
+        try:
+            write_f10_snapshot(
+                stocklens_data_dir() / "lake" / "f10_pit", code, "f10_catalog", result
+            )
+        except Exception as error:  # noqa: BLE001 - 快照失败不影响查询
+            print(f"[tdx] F10 目录快照失败：{error}", file=sys.stderr)
+        return result
 
     def f10_content(
         self, code: str, filename: str, offset: int, length: int
@@ -3502,7 +3509,17 @@ class Bridge:
             CMD_F10_CONTENT,
             f10_content_data(market, symbol, filename, offset, length),
         )
-        return parse_f10_content(body)
+        text = parse_f10_content(body)
+        try:
+            write_f10_snapshot(
+                stocklens_data_dir() / "lake" / "f10_pit",
+                code,
+                f"f10_content_{filename}",
+                text,
+            )
+        except Exception as error:  # noqa: BLE001 - 快照失败不影响查询
+            print(f"[tdx] F10 正文快照失败：{error}", file=sys.stderr)
+        return text
 
     def f10_announcements(self, code: str) -> list[dict]:
         """7615 TQLEX 在线公告列表（免费资料，不碰研报正文）。"""

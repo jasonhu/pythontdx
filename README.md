@@ -178,7 +178,7 @@ python3 -m pip install -r requirements.txt
 | `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
 | `npm run test`                                   | Vitest（259 个 TS 用例）                               |
 | `npm run test:python`                            | Python 协议/HTTP 测试（142 个用例，真实 fixture）      |
-| `npm run audit:data`                             | 只读数据覆盖自检（30 项，覆盖清单见 docs/12）          |
+| `npm run audit:data`                             | 数据覆盖自检（36 项，会触发自动归档，覆盖清单见 docs/12）          |
 | `npm run build:python`                           | Nuitka 打行情桥接单文件（打包前必跑）                  |
 | `npm run shot`                                   | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收    |
 | `npm run lint` / `lint:fix`                      | ESLint（含 Solid 响应式规则）                          |

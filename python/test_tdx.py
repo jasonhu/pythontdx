@@ -448,9 +448,9 @@ class TestStatsQuery(unittest.TestCase):
 
 class TestScreener(unittest.TestCase):
     QUOTES = [
-        {"code": "sh600519", "price": 1367.85, "changePct": 1.2, "amount": 3e9, "turnoverRate": 0.5, "amplitude": 2, "pb": 8.0, "floatCap": 20_000},
-        {"code": "sz300750", "price": 232.0, "changePct": 5.5, "amount": 8e9, "turnoverRate": 3.2, "amplitude": 6, "pb": 5.0, "floatCap": 8_000},
-        {"code": "sz000001", "price": 11.5, "changePct": -2.0, "amount": 1e8, "turnoverRate": 1.1, "amplitude": 3, "pb": 0.7, "floatCap": 2_000},
+        {"code": "sh600519", "price": 1367.85, "changePct": 1.2, "amount": 3e9, "turnoverRate": 0.5, "amplitude": 2, "pb": 8.0, "floatCap": 20_000, "totalCap": 21_000},
+        {"code": "sz300750", "price": 232.0, "changePct": 5.5, "amount": 8e9, "turnoverRate": 3.2, "amplitude": 6, "pb": 5.0, "floatCap": 8_000, "totalCap": 9_000},
+        {"code": "sz000001", "price": 11.5, "changePct": -2.0, "amount": 1e8, "turnoverRate": 1.1, "amplitude": 3, "pb": 0.7, "floatCap": 2_000, "totalCap": 2_100},
         {"code": "sh688001", "price": 50.0, "changePct": 8.0, "amount": 2e8},
     ]
 
@@ -464,7 +464,7 @@ class TestScreener(unittest.TestCase):
     def test_fundamental_filters(self):
         result = tdx.apply_screen(
             self.QUOTES,
-            {"maxPb": 2, "maxFloatCap": 3_000, "sortBy": "amount"},
+            {"maxPb": 2, "maxFloatCap": 3_000, "maxTotalCap": 3_000, "sortBy": "amount"},
         )
         self.assertEqual([row["code"] for row in result], ["sz000001"])
 

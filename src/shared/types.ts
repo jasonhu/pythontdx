@@ -135,8 +135,10 @@ export interface ScreenRequest {
   maxAmplitude?: number
   minPb?: number
   maxPb?: number
+  /** 亿元，对应 quote.floatCap */
   minFloatCap?: number
   maxFloatCap?: number
+  /** 亿元，对应 quote.totalCap */
   minTotalCap?: number
   maxTotalCap?: number
   /** 通达信行业名；空/未传表示全市场 */
@@ -891,6 +893,8 @@ export interface ScreenPreset {
   maxPb?: string
   minFloatCapYi?: string
   maxFloatCapYi?: string
+  minTotalCapYi?: string
+  maxTotalCapYi?: string
   createdAt: number
 }
 

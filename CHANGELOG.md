@@ -30,8 +30,9 @@ StockLens 的所有重要变更都记录在这里。
   实测 7/7 只；收盘自动任务在原有开关下同时归档快照与自选竞价，单只失败不阻断其他项。
 - **竞价归档清单**：数据工具读取 `lake/auction` 最近 20 个文件，显示日期/代码/点数/大小；
   实测列出 8 条，只读不修改原始数据。
-- **条件选股扩展**：新增 PB、流通市值上下限筛选；结果表增加 PB/流通市值列；
-  预设保存/载入同步新条件。实测 `PB≤2 + 流通市值≤3000亿` 命中 100 只。
+- **条件选股扩展**：新增 PB、流通市值、总市值上下限筛选；结果表增加 PB/流通市值/总市值列；
+  预设保存/载入同步新条件。修复市值输入误乘 1e8 的单位 bug；实测 `总市值 1000–10000亿`
+  命中 100 只，`PB≤2 + 流通市值≤3000亿` 命中 100 只。
 - **全市场振幅排行**：MAC 0x122B 不直接给振幅，按 `(最高-最低)/昨收` 计算；
   新增「振幅」tab，实测首位 32.72%，避免全市场榜全 0。新增 1 个纯函数测试。
 - **全市场市值排行**：新增 `mac_quotes_finance`（MAC 0x122B + 0x0010 财务补股本），
@@ -60,7 +61,7 @@ StockLens 的所有重要变更都记录在这里。
 
 - `npm run check` → **235 TS + 126 Python（2 skipped，22 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `b9b50b05…` / deb 105 MB `088a006c…`；
+- Linux AppImage 130 MB `8792071a…` / deb 105 MB `bb02c461…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -69,9 +70,10 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/auction-archive-list.png`、`screenshots/indicator-roc.png`、
   `screenshots/indicator-roc-params.png`、`screenshots/packaged-indicator-roc.png`、
   `screenshots/multi-screen.png`、`screenshots/screener-pb-cap.png`、
+  `screenshots/screener-total-cap.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**319 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+- 矩阵（不含状态图例）：**320 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

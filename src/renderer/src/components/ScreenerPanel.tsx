@@ -37,10 +37,9 @@ function numberOrUndefined(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
-/** 界面输入「亿」，ScreenRequest 统一用元。 */
+/** 界面输入「亿」，后端 floatCap/totalCap 也是「亿」；不要乘 1e8。 */
 function toCap(value: string): number | undefined {
-  const parsed = numberOrUndefined(value)
-  return parsed === undefined ? undefined : parsed * 100_000_000
+  return numberOrUndefined(value)
 }
 
 export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
@@ -52,6 +51,8 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
   const [maxPb, setMaxPb] = createSignal('')
   const [minFloatCapYi, setMinFloatCapYi] = createSignal('')
   const [maxFloatCapYi, setMaxFloatCapYi] = createSignal('')
+  const [minTotalCapYi, setMinTotalCapYi] = createSignal('')
+  const [maxTotalCapYi, setMaxTotalCapYi] = createSignal('')
   const [sortBy, setSortBy] = createSignal<ScreenSortBy>('changePct')
   const [result, setResult] = createSignal<ScreenResult | null>(null)
   const [loading, setLoading] = createSignal(false)
@@ -209,6 +210,8 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
         maxPb: numberOrUndefined(maxPb()),
         minFloatCap: toCap(minFloatCapYi()),
         maxFloatCap: toCap(maxFloatCapYi()),
+        minTotalCap: toCap(minTotalCapYi()),
+        maxTotalCap: toCap(maxTotalCapYi()),
         industry: industry().trim() || undefined,
         sortBy: sortBy(),
         limit: 100
@@ -233,6 +236,8 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
       maxPb: maxPb(),
       minFloatCapYi: minFloatCapYi(),
       maxFloatCapYi: maxFloatCapYi(),
+      minTotalCapYi: minTotalCapYi(),
+      maxTotalCapYi: maxTotalCapYi(),
       industry: industry(),
       sortBy: sortBy(),
       createdAt: Date.now()
@@ -252,6 +257,8 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
     setMaxPb(preset.maxPb ?? '')
     setMinFloatCapYi(preset.minFloatCapYi ?? '')
     setMaxFloatCapYi(preset.maxFloatCapYi ?? '')
+    setMinTotalCapYi(preset.minTotalCapYi ?? '')
+    setMaxTotalCapYi(preset.maxTotalCapYi ?? '')
     setIndustry(preset.industry)
     setSortBy(preset.sortBy)
     setPoolNotice(`已载入预设：${preset.name}`)
@@ -446,6 +453,26 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
             <em>亿</em>
           </label>
           <label class="screener__field">
+            <span>总市值 ≥</span>
+            <input
+              type="number"
+              step="1"
+              value={minTotalCapYi()}
+              onInput={(event) => setMinTotalCapYi(event.currentTarget.value)}
+            />
+            <em>亿</em>
+          </label>
+          <label class="screener__field">
+            <span>总市值 ≤</span>
+            <input
+              type="number"
+              step="1"
+              value={maxTotalCapYi()}
+              onInput={(event) => setMaxTotalCapYi(event.currentTarget.value)}
+            />
+            <em>亿</em>
+          </label>
+          <label class="screener__field">
             <span>行业</span>
             <input
               type="text"
@@ -610,6 +637,7 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
                     <th class="num">成交额</th>
                     <th class="num">换手</th>
                     <th class="num">流通市值</th>
+                    <th class="num">总市值</th>
                     <th class="num">PB</th>
                     <th class="num">振幅</th>
                   </tr>
@@ -638,6 +666,9 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
                         </td>
                         <td class="num">
                           {quote.floatCap === undefined ? '—' : `${fixed(quote.floatCap)}亿`}
+                        </td>
+                        <td class="num">
+                          {quote.totalCap === undefined ? '—' : `${fixed(quote.totalCap)}亿`}
                         </td>
                         <td class="num">{quote.pb === undefined ? '—' : fixed(quote.pb)}</td>
                         <td class="num">

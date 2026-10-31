@@ -5395,3 +5395,12 @@
 .chart-pin[data-active='true'] {
   color: var(--accent);
 }
+
+.multi__limits {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}

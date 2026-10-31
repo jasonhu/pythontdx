@@ -8,6 +8,7 @@ import { createMemo, createSignal, For, onMount, Show, type JSX } from 'solid-js
 import type { MacUnusualItem, Quote } from '@shared/types'
 import { compactAmount, fixed, signedPct } from '@shared/format'
 import { limitRowsFromQuotes, type LimitKind } from '@shared/limits'
+import { buildChangeDistribution } from '@shared/distribution'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose, IconRefresh } from './Icons'
 
@@ -93,35 +94,10 @@ export function UnusualPanel(props: {
 
   const count = (): number => (mode() === 'unusual' ? items().length : limitRows().length)
 
-  const distribution = createMemo(() => {
-    const buckets = [
-      { label: '≤-10', min: -Infinity, max: -10, tone: 'down' },
-      { label: '-10~-7', min: -10, max: -7, tone: 'down' },
-      { label: '-7~-5', min: -7, max: -5, tone: 'down' },
-      { label: '-5~-3', min: -5, max: -3, tone: 'down' },
-      { label: '-3~-1', min: -3, max: -1, tone: 'down' },
-      { label: '-1~0', min: -1, max: 0, tone: 'down' },
-      { label: '0', min: 0, max: 0, tone: 'flat' },
-      { label: '0~1', min: 0, max: 1, tone: 'up' },
-      { label: '1~3', min: 1, max: 3, tone: 'up' },
-      { label: '3~5', min: 3, max: 5, tone: 'up' },
-      { label: '5~7', min: 5, max: 7, tone: 'up' },
-      { label: '7~10', min: 7, max: 10, tone: 'up' },
-      { label: '≥10', min: 10, max: Infinity, tone: 'up' }
-    ]
-    const counts = buckets.map(
-      (bucket) =>
-        quotes().filter((quote) => {
-          const pct = quote.changePct
-          if (bucket.min === 0 && bucket.max === 0) return pct === 0
-          if (bucket.min === -Infinity) return pct < bucket.max
-          if (bucket.max === Infinity) return pct >= bucket.min
-          return pct >= bucket.min && pct < bucket.max
-        }).length
-    )
-    const max = Math.max(...counts, 1)
-    return buckets.map((bucket, index) => ({ ...bucket, count: counts[index], max }))
-  })
+  const distribution = createMemo(() =>
+    buildChangeDistribution(quotes().map((quote) => quote.changePct))
+  )
+  const maxBucket = createMemo(() => Math.max(...distribution().map((bucket) => bucket.count), 1))
 
   return (
     <div class="unusual-backdrop" onClick={() => props.onClose()}>
@@ -197,7 +173,7 @@ export function UnusualPanel(props: {
                     <em>{bucket.count}</em>
                     <span
                       class="unusual__dist-bar"
-                      style={{ height: `${Math.max(2, (bucket.count / bucket.max) * 100)}%` }}
+                      style={{ height: `${Math.max(2, (bucket.count / maxBucket()) * 100)}%` }}
                     />
                     <small>{bucket.label}</small>
                   </div>

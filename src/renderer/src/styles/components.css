@@ -5578,3 +5578,12 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+.settings__backup {
+  display: flex;
+  gap: 5px;
+}
+
+.settings__import-input {
+  display: none;
+}

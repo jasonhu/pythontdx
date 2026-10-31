@@ -82,6 +82,7 @@ StockLens 的所有重要变更都记录在这里。
 - **除权除息标记**：日 K 用 D 标出除权派息日；截图 kline-dividend.png。
 - **最近搜索键盘导航**：↑↓/回车可打开最近记录。
 - **K 线导出周期**：日/周/月 × 120/240/480；实测周K6只/720根。
+- **配置备份**：设置面板导出/导入 JSON；截图 settings-backup.png。
 - **复盘速度**：0.5/1/2/4x；截图 replay-speed.png。
 - **均线周期可配**：设置里改 3 条 MA 周期，图表实时生效；截图 chart-ma-config.png。
 - **涨跌分布**：全市场 5615 只按 13 档绘制红绿柱；截图 market-distribution.png。
@@ -226,6 +227,7 @@ StockLens 的所有重要变更都记录在这里。
 - **除权除息标记**：日 K 用 D 标出除权派息日；截图 kline-dividend.png。
 - **最近搜索键盘导航**：↑↓/回车可打开最近记录。
 - **K 线导出周期**：日/周/月 × 120/240/480；实测周K6只/720根。
+- **配置备份**：设置面板导出/导入 JSON；截图 settings-backup.png。
 - **复盘速度**：0.5/1/2/4x；截图 replay-speed.png。
 - **均线周期可配**：设置里改 3 条 MA 周期，图表实时生效；截图 chart-ma-config.png。
 - **涨跌分布**：全市场 5615 只按 13 档绘制红绿柱；截图 market-distribution.png。

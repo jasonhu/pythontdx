@@ -2,9 +2,10 @@
  * 设置面板：把散落在顶栏/状态栏/图表的开关集中到一处。
  */
 import { createSignal, For, Show, type JSX } from 'solid-js'
-import type { LayoutSlot, ThemeMode } from '@shared/types'
+import type { AppSettings, LayoutSlot, ThemeMode } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { appInfo, appState, toggleTheme, updateSettings } from '../stores/app'
+import { downloadText } from '../lib/download'
 import { IconClose } from './Icons'
 
 const INTERVALS = [1000, 3000, 5000, 10_000] as const
@@ -27,6 +28,22 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
 
   const reset = (): void => {
     updateSettings({ ...DEFAULT_SETTINGS, chartDrawings: [] })
+  }
+
+  let importInput: HTMLInputElement | undefined
+
+  const exportSettings = (): void => {
+    downloadText('stocklens-settings.json', JSON.stringify(appState.settings, null, 2))
+  }
+
+  const importSettings = async (file: File): Promise<void> => {
+    try {
+      const parsed = JSON.parse(await file.text()) as Partial<AppSettings>
+      if (!parsed || typeof parsed !== 'object') return
+      updateSettings(parsed)
+    } catch {
+      // 非 JSON 文件直接忽略，避免把设置写坏。
+    }
   }
 
   const saveLayout = (): void => {
@@ -230,6 +247,34 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
               </div>
             </div>
           </Show>
+
+          <div class="settings__row">
+            <div>
+              <div class="settings__label">配置备份</div>
+              <div class="settings__hint">只导出设置，不含自选、预警与持仓。</div>
+            </div>
+            <div class="settings__backup">
+              <button class="btn settings__export" onClick={exportSettings}>
+                导出
+              </button>
+              <button class="btn settings__import" onClick={() => importInput?.click()}>
+                导入
+              </button>
+              <input
+                ref={(element: HTMLInputElement) => {
+                  importInput = element
+                }}
+                class="settings__import-input"
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0]
+                  if (file) void importSettings(file)
+                  event.currentTarget.value = ''
+                }}
+              />
+            </div>
+          </div>
 
           <div class="settings__row">
             <div>

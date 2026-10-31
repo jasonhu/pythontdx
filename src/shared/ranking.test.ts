@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CategoryQuote, MacMoneyFlowPoint } from './types'
-import { amplitudePercent, formatNetFlow, mergeMoneyFlowRanking } from './ranking'
+import { amplitudePercent, filterCapQuotes, formatNetFlow, mergeMoneyFlowRanking } from './ranking'
 
 function quote(code: string, amount: number): CategoryQuote {
   return {
@@ -88,5 +88,24 @@ describe('amplitudePercent', () => {
     expect(amplitudePercent({ high: 11, low: 9, prevClose: 10 })).toBeCloseTo(20, 6)
     expect(amplitudePercent({ high: 11, low: 9, prevClose: 0 })).toBe(0)
     expect(amplitudePercent({ high: 9, low: 11, prevClose: 10 })).toBe(0)
+  })
+})
+
+describe('filterCapQuotes', () => {
+  it('剔除市值缺失/为 0 的报价并计数', () => {
+    const rows = [
+      { ...quote('sh600000', 1), floatCap: 100 },
+      { ...quote('sh600001', 1), floatCap: 0 },
+      { ...quote('sh600002', 1) }
+    ]
+    const result = filterCapQuotes(rows, 'floatCap')
+    expect(result.quotes.map((item) => item.code)).toEqual(['sh600000'])
+    expect(result.missing).toBe(2)
+  })
+
+  it('全部缺失时返回空表，界面可显示财务不可用', () => {
+    const result = filterCapQuotes([quote('sh600000', 1)], 'totalCap')
+    expect(result.quotes).toEqual([])
+    expect(result.missing).toBe(1)
   })
 })

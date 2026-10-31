@@ -37,6 +37,8 @@ StockLens 的所有重要变更都记录在这里。
   新增「振幅」tab，实测首位 32.72%，避免全市场榜全 0。新增 1 个纯函数测试。
 - **全市场市值排行**：新增 `mac_quotes_finance`（MAC 0x122B + 0x0010 财务补股本），
   排行新增「流通市值/总市值」tab；实测首位农业银行 23,879.47 亿，前 300 名正确降序。
+- **市值数据质量保护**：市值榜先剔除 `floatCap/totalCap` 缺失或 ≤0 的报价；
+  全部缺失时明确提示「0x0010 财务数据不可用」，不再把 0 当成市值参与排名。
 - **斐波那契回撤/扩展画线**：新增 7 档回撤（0/23.6/38.2/50/61.8/78.6/100%）与
   2 档扩展（127.2%/161.8%），端点可拖动；同时修复画线坐标未减去可见窗口起点、
   缩放后画线跑到屏幕外的 bug。
@@ -62,9 +64,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` → **239 TS + 126 Python（2 skipped，23 个 TS 文件）**，全绿；
+- `npm run check` → **241 TS + 126 Python（2 skipped，23 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `785c5630…` / deb 105 MB `d337bc3c…`；
+- Linux AppImage 130 MB `3244ed19…` / deb 105 MB `17e67d15…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

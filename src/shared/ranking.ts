@@ -70,3 +70,23 @@ export function amplitudePercent(quote: Pick<CategoryQuote, 'high' | 'low' | 'pr
   const range = Math.max(0, quote.high - quote.low)
   return (range / quote.prevClose) * 100
 }
+
+/**
+ * 市值榜只保留有正市值的报价。
+ *
+ * MAC 0x122B 不含股本，必须补 0x0010；财务失败时字段缺失，不能把 0 当成
+ * 「市值 0」参与排名，否则榜单全是假 0。
+ */
+export function filterCapQuotes(
+  quotes: readonly CategoryQuote[],
+  key: 'floatCap' | 'totalCap'
+): { quotes: CategoryQuote[]; missing: number } {
+  const result: CategoryQuote[] = []
+  let missing = 0
+  for (const quote of quotes) {
+    const value = quote[key]
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) result.push(quote)
+    else missing += 1
+  }
+  return { quotes: result, missing }
+}

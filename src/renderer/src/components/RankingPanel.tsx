@@ -9,7 +9,12 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { CategoryQuote, MacMoneyFlowPoint } from '@shared/types'
 import { compactAmount, fixed, signedPct } from '@shared/format'
-import { amplitudePercent, formatNetFlow, mergeMoneyFlowRanking } from '@shared/ranking'
+import {
+  amplitudePercent,
+  filterCapQuotes,
+  formatNetFlow,
+  mergeMoneyFlowRanking
+} from '@shared/ranking'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -159,13 +164,26 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
     }
     setFlowProgress(null)
     setFlowMatched(0)
-    quotes.sort((a, b) =>
+    let ranked = quotes
+    if (financeMode()) {
+      const capKey = activeSort.label === '总市值' ? 'totalCap' : 'floatCap'
+      const filtered = filterCapQuotes(quotes, capKey)
+      if (filtered.quotes.length === 0) {
+        setRows([])
+        setFullTotal(0)
+        setHasMore(false)
+        setError('0x0010 财务数据不可用，无法生成市值排行')
+        return
+      }
+      ranked = filtered.quotes
+    }
+    ranked.sort((a, b) =>
       activeSort.ascending
         ? activeSort.metric(a) - activeSort.metric(b)
         : activeSort.metric(b) - activeSort.metric(a)
     )
-    setFullTotal(quotes.length)
-    setRows(quotes.slice(0, 300))
+    setFullTotal(ranked.length)
+    setRows(ranked.slice(0, 300))
     setHasMore(false)
     setError(null)
   }

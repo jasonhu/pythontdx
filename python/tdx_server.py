@@ -467,6 +467,16 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/tick_archive_dates":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.tick_archive_dates(
+                            str(payload.get("code") or ""),
+                            str(payload.get("start") or "") or None,
+                            str(payload.get("end") or "") or None,
+                        )
+                    )
+                return
             if parsed.path == "/api/tick_archive_save":
                 with self.server.lock:
                     self._ok(

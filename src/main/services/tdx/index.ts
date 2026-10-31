@@ -250,6 +250,18 @@ export async function fetchTickArchiveBatch(
   )
 }
 
+export async function fetchTickArchiveDates(
+  code: string,
+  start?: string,
+  end?: string
+): Promise<string[]> {
+  return bridge.send<string[]>(
+    'tick_archive_dates',
+    { code, start: start || undefined, end: end || undefined },
+    120_000
+  )
+}
+
 export async function fetchTickArchiveList(limit = 20): Promise<TickArchiveItem[]> {
   return bridge.send<TickArchiveItem[]>('tick_archive_list', { limit }, 20_000)
 }

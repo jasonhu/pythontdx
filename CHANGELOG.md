@@ -41,7 +41,7 @@ StockLens 的所有重要变更都记录在这里。
   不再写 JSON/JSONL 数据；旧 JSON 缓存已按用户指令删除，重新从服务器下载；
   pyarrow 仅保留给旧 stats 导出的可选路径，不进入 sidecar。
 - **六档下载入口**：日 K / 1 分钟 K / 历史逐笔各自提供「自选股全量」「市场全量」按钮；
-  日 K/1m 全历史翻页，逐笔按选中交易日下载全市场；共用进度/取消/断点续跑。
+  日 K/1m 全历史翻页，逐笔默认遍历全部历史日期；共用进度/取消/断点续跑。
 - **数据完整性**：F10/财务/公告查询自动写 point-in-time；资金流单票查询自动归档；
   竞价 selector=0 返回即自动归档；zhb.zip 已知 47 文件清单/差分；`data_coverage` 九类清单；
   audit 扩到 36 项并在 2026-10-31 连续两次通过。
@@ -119,7 +119,7 @@ StockLens 的所有重要变更都记录在这里。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
 - `npm run check` → **259 TS + 144 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `7c3c3b33…` / deb 123 MB `e1fc9bcb…`；
+- Linux AppImage 147 MB `c2bc40d3…` / deb 123 MB `4db9b78e…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

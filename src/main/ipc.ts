@@ -31,6 +31,7 @@ import {
   fetchAuctionArchiveBatch,
   fetchAuctionArchiveList,
   fetchTickArchiveBatch,
+  fetchTickArchiveDates,
   fetchTickArchiveList,
   saveTickArchive,
   fetchAuctionArchiveRead,
@@ -158,6 +159,10 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.tickArchiveBatch, (_event, codes: string[], date: string) =>
     fetchTickArchiveBatch(codes, date)
+  )
+
+  ipcMain.handle(IPC.tickArchiveDates, (_event, code: string, start?: string, end?: string) =>
+    fetchTickArchiveDates(code, start, end)
   )
 
   ipcMain.handle(IPC.tickArchiveList, (_event, limit?: number) => fetchTickArchiveList(limit))

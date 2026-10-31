@@ -107,6 +107,7 @@ export const IPC = {
   auctionArchiveBatch: 'auction:archive-batch',
   /** 本地逐笔归档：单只/批量/清单（invoke） */
   tickArchiveSave: 'tick:archive-save',
+  tickArchiveDates: 'tick:archive-dates',
   tickArchiveBatch: 'tick:archive-batch',
   tickArchiveList: 'tick:archive-list',
   /** F10 段落目录（invoke） */
@@ -414,6 +415,7 @@ export interface StockLensApi {
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
     tickArchiveSave(code: string, date: string): Promise<TickArchiveResult>
+    tickArchiveDates(code: string, start?: string, end?: string): Promise<string[]>
     tickArchiveBatch(codes: string[], date: string): Promise<TickArchiveBatchResult>
     tickArchiveList(limit?: number): Promise<TickArchiveItem[]>
   }

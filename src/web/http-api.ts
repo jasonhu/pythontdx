@@ -464,6 +464,8 @@ export function createHttpApi(): StockLensApi {
       lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit }),
       tickArchiveSave: (code, date) =>
         post<TickArchiveResult>('/api/tick_archive_save', { code, date }),
+      tickArchiveDates: (code, start, end) =>
+        post<string[]>('/api/tick_archive_dates', { code, start, end }),
       tickArchiveBatch: (codes, date) =>
         post<TickArchiveBatchResult>('/api/tick_archive_batch', { codes, date }),
       tickArchiveList: (limit) => post<TickArchiveItem[]>('/api/tick_archive_list', { limit })

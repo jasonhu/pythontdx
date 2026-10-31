@@ -3285,6 +3285,24 @@ class Bridge:
         )
         return write_tick_archive(root, normalized_code, target_date, rows)
 
+    def tick_archive_dates(
+        self, code: str, start_date: str | None = None, end_date: str | None = None
+    ) -> list[str]:
+        """用日 K 交易日做逐笔日期索引；避免把周末/节假日当交易日。"""
+        result = self.full_kline(code, "day", "none")
+        dates = sorted(
+            {
+                str(bar.get("date") or "")[:10]
+                for bar in result.get("bars") or []
+                if str(bar.get("date") or "")[:10]
+            }
+        )
+        if start_date:
+            dates = [value for value in dates if value >= start_date]
+        if end_date:
+            dates = [value for value in dates if value <= end_date]
+        return dates
+
     def tick_archive_read(
         self, code: str, trading_date: str, start: int = 0, count: int = 1800
     ) -> dict:
@@ -4362,6 +4380,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("date") or ""),
             int(payload.get("start", 0)),
             int(payload.get("count", TRADE_PAGE)),
+        )
+    if cmd == "tick_archive_dates":
+        return bridge.tick_archive_dates(
+            str(payload.get("code") or ""),
+            str(payload.get("start") or "") or None,
+            str(payload.get("end") or "") or None,
         )
     if cmd == "tick_archive_list":
         return bridge.tick_archive_list(int(payload.get("limit", 20)))

@@ -118,7 +118,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
   const [rangeMode, setRangeMode] = createSignal(false)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
-  const [rangeBox, setRangeBox] = createSignal({ x: 660, y: 116 })
+  const [rangeBox, setRangeBox] = createSignal({ x: 600, y: 150 })
   let rangeDrag:
     { startX: number; startY: number; x: number; y: number; maxX: number; maxY: number } | undefined
   const beginRangeDrag = (event: PointerEvent): void => {

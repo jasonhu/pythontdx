@@ -40,6 +40,7 @@ import socket
 import sqlite3
 import struct
 import sys
+import threading
 import time
 import traceback
 import zipfile
@@ -3288,12 +3289,20 @@ class Bridge:
     def tick_archive_dates(
         self, code: str, start_date: str | None = None, end_date: str | None = None
     ) -> list[str]:
-        """用日 K 交易日做逐笔日期索引；避免把周末/节假日当交易日。"""
-        result = self.full_kline(code, "day", "none")
+        """用 1 分钟 K 的交易日做逐笔索引，和 1 分钟数据保持同一时间范围。"""
+        cached = _full_kline_cache_path(code, "1m", "none")
+        if cached.is_file():
+            try:
+                bars = read_bars(cached)["bars"]
+            except ParquetStoreError:
+                bars = []
+        else:
+            result = self.full_kline(code, "1m", "none")
+            bars = result.get("bars") or []
         dates = sorted(
             {
                 str(bar.get("date") or "")[:10]
-                for bar in result.get("bars") or []
+                for bar in bars
                 if str(bar.get("date") or "")[:10]
             }
         )
@@ -4126,26 +4135,56 @@ class Bridge:
         period: str = "day",
         adjust: str = "none",
         skip_existing: bool = False,
+        workers: int = 1,
     ) -> dict:
-        """批量全历史下载；已有 *_all_*.json 时支持断点续跑。"""
+        """批量全历史下载；workers>1 时每个线程独立 TCP 连接。"""
+        safe_workers = max(1, min(16, int(workers)))
         cached = 0
         skipped = 0
         failed: list[dict] = []
-        for code in codes:
+        thread_state = threading.local()
+        bridges: list[Bridge] = []
+        bridges_lock = threading.Lock()
+
+        def one(code: str) -> None:
+            nonlocal cached, skipped
             try:
                 if skip_existing and _full_kline_cache_path(code, period, adjust).exists():
-                    skipped += 1
-                    continue
-                self.full_kline(code, period, adjust)
-                cached += 1
+                    with bridges_lock:
+                        skipped += 1
+                    return
+                if safe_workers == 1:
+                    self.full_kline(code, period, adjust)
+                else:
+                    if not hasattr(thread_state, "bridge"):
+                        thread_state.bridge = Bridge()
+                        with bridges_lock:
+                            bridges.append(thread_state.bridge)
+                    thread_state.bridge.full_kline(code, period, adjust)
+                with bridges_lock:
+                    cached += 1
             except Exception as error:  # noqa: BLE001 - 逐只返回失败原因
-                failed.append({"code": code, "error": str(error)})
+                with bridges_lock:
+                    failed.append({"code": code, "error": str(error)})
+
+        if safe_workers == 1 or len(codes) < 2:
+            for code in codes:
+                one(code)
+        else:
+            with ThreadPoolExecutor(max_workers=safe_workers) as pool:
+                list(pool.map(one, codes))
+            for bridge in bridges:
+                try:
+                    bridge.close()
+                except Exception:
+                    pass
         return {
             "cached": cached,
             "skipped": skipped,
             "failed": failed,
             "period": period,
             "adjust": adjust,
+            "workers": safe_workers,
             "dir": str(kline_cache_dir()),
         }
 
@@ -4585,6 +4624,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("period", "day")),
             str(payload.get("adjust", "none")),
             bool(payload.get("skipExisting")),
+            int(payload.get("workers", 1)),
         )
     if cmd == "limit_review":
         return bridge.limit_review(str(payload.get("date") or ""))

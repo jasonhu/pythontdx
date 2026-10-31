@@ -339,11 +339,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       }
       const codes = scope === 'watchlist' ? watchCodes() : await allAShareCodes()
       setBulkTotal(codes.length)
-      for (const code of codes) {
-        if (bulkCancel) break
-        setBulkCurrent(code)
-        try {
-          if (period === 'ticks') {
+      if (period === 'ticks') {
+        for (const code of codes) {
+          if (bulkCancel) break
+          setBulkCurrent(code)
+          try {
             const dates = bulkTickAll() ? await api.data.tickArchiveDates(code) : [targetDate]
             for (const date of dates) {
               if (bulkCancel) break
@@ -359,12 +359,23 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               }
             }
             setBulkDone((value) => value + 1)
-          } else {
+          } catch (cause) {
+            setBulkFailed((value) => value + 1)
+            setBulkFailures((items) => [...items, `${code}: ${errorMessage(cause)}`].slice(-100))
+          }
+        }
+      } else {
+        for (let start = 0; start < codes.length; start += 20) {
+          if (bulkCancel) break
+          const batch = codes.slice(start, start + 20)
+          setBulkCurrent(batch[0] ?? '')
+          try {
             const result = await api.data.fullCacheKlines({
-              codes: [code],
+              codes: batch,
               period,
               adjust: 'none',
-              skipExisting: bulkIncremental()
+              skipExisting: bulkIncremental(),
+              workers: 4
             })
             setBulkDone((value) => value + result.cached + result.skipped)
             setBulkSkipped((value) => value + result.skipped)
@@ -376,10 +387,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 )
               )
             }
+          } catch (cause) {
+            setBulkFailed((value) => value + batch.length)
+            setBulkFailures((items) =>
+              [...items, `${batch.join(',')}: ${errorMessage(cause)}`].slice(-100)
+            )
           }
-        } catch (cause) {
-          setBulkFailed((value) => value + 1)
-          setBulkFailures((items) => [...items, `${code}: ${errorMessage(cause)}`].slice(-100))
         }
       }
     } catch (cause) {
@@ -917,8 +930,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               <div class="data__label">批量下载本地数据</div>
               <div class="data__sub">
                 日 K / 1 分钟 / 历史逐笔共用同一批处理与断点续跑；全 A 约 5,615
-                只，耗时较长，可随时取消。 逐笔默认遍历日 K
-                的全部历史日期；取消勾选后只归档选定交易日。全市场全历史逐笔数据量极大，可随时停止。
+                只，耗时较长，可随时取消。 逐笔默认遍历与 1 分钟 K 同起始日期的全部交易日；
+                取消勾选后只归档选定交易日。全市场全历史逐笔数据量极大，可随时停止。
               </div>
             </div>
             <div class="data__bulk-grid">

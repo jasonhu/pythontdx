@@ -410,6 +410,7 @@ export interface StockLensApi {
       period?: string
       adjust?: string
       skipExisting?: boolean
+      workers?: number
     }): Promise<FullKLineCacheResult>
     limitReview(date: string): Promise<LimitReviewResult>
     archiveSnapshot(): Promise<SnapshotArchiveResult>

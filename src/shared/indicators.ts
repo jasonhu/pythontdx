@@ -168,3 +168,64 @@ export function bias(bars: readonly KLineBar[], period = 6): number[] {
   }
   return result
 }
+
+/** DMI / ADX：+DI、-DI 与 ADX，Wilder 平滑。 */
+export function dmi(
+  bars: readonly KLineBar[],
+  period = 14
+): { plus: number[]; minus: number[]; adx: number[] } {
+  const plus: number[] = []
+  const minus: number[] = []
+  const adx: number[] = []
+  let smoothTr = 0
+  let smoothPlus = 0
+  let smoothMinus = 0
+  let previousAdx = 0
+  for (let index = 0; index < bars.length; index += 1) {
+    if (index === 0) {
+      plus.push(Number.NaN)
+      minus.push(Number.NaN)
+      adx.push(Number.NaN)
+      continue
+    }
+    const bar = bars[index]
+    const previous = bars[index - 1]
+    const tr = Math.max(
+      bar.high - bar.low,
+      Math.abs(bar.high - previous.close),
+      Math.abs(bar.low - previous.close)
+    )
+    const upMove = bar.high - previous.high
+    const downMove = previous.low - bar.low
+    const plusDm = upMove > downMove && upMove > 0 ? upMove : 0
+    const minusDm = downMove > upMove && downMove > 0 ? downMove : 0
+    if (index <= period) {
+      smoothTr += tr
+      smoothPlus += plusDm
+      smoothMinus += minusDm
+    } else {
+      smoothTr = smoothTr - smoothTr / period + tr
+      smoothPlus = smoothPlus - smoothPlus / period + plusDm
+      smoothMinus = smoothMinus - smoothMinus / period + minusDm
+    }
+    if (index < period) {
+      plus.push(Number.NaN)
+      minus.push(Number.NaN)
+      adx.push(Number.NaN)
+      continue
+    }
+    const plusDi = smoothTr === 0 ? 0 : (smoothPlus / smoothTr) * 100
+    const minusDi = smoothTr === 0 ? 0 : (smoothMinus / smoothTr) * 100
+    plus.push(plusDi)
+    minus.push(minusDi)
+    const dx = plusDi + minusDi === 0 ? 0 : (Math.abs(plusDi - minusDi) / (plusDi + minusDi)) * 100
+    if (index === period) {
+      previousAdx = dx
+      adx.push(dx)
+    } else {
+      previousAdx = (previousAdx * (period - 1) + dx) / period
+      adx.push(previousAdx)
+    }
+  }
+  return { plus, minus, adx }
+}

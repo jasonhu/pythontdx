@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { boll, ema, kdj, macd, rsi, wr, cci, bias } from './indicators'
+import { boll, ema, kdj, macd, rsi, wr, cci, bias, dmi } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -84,5 +84,23 @@ describe('bias', () => {
     const values = bias(bars, 6)
     expect(Number.isNaN(values[4])).toBe(true)
     expect(values[5]).toBeGreaterThan(0)
+  })
+})
+
+describe('dmi', () => {
+  it('输出 +DI/-DI/ADX 且前导为 NaN', () => {
+    const bars = Array.from({ length: 40 }, (_, index) => ({
+      date: String(index),
+      open: 10 + index * 0.1,
+      high: 11 + index * 0.2,
+      low: 9 + index * 0.1,
+      close: 10.5 + index * 0.15,
+      volume: 1
+    }))
+    const values = dmi(bars, 14)
+    expect(Number.isNaN(values.plus[12])).toBe(true)
+    expect(values.plus[14]).toBeTypeOf('number')
+    expect(values.adx[39]).toBeGreaterThanOrEqual(0)
+    expect(values.adx[39]).toBeLessThanOrEqual(100)
   })
 })

@@ -6,9 +6,9 @@
 import { createMemo, For, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { bias, cci, kdj, macd, rsi, wr } from '@shared/indicators'
+import { bias, cci, dmi, kdj, macd, rsi, wr } from '@shared/indicators'
 
-export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias'
+export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi'
 
 const W = 900
 const H = 120
@@ -27,7 +27,10 @@ const COLORS = {
   cci: '#f59e0b',
   bias6: '#5b8cff',
   bias12: '#f0b429',
-  bias24: '#c084fc'
+  bias24: '#c084fc',
+  plusDi: '#5b8cff',
+  minusDi: '#f0b429',
+  adx: '#22d3ee'
 }
 
 function path(values: number[], min: number, max: number): string {
@@ -128,6 +131,24 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
         ],
         hist: [],
         latest: `6 ${fixed(b6.at(-1) ?? 0)} · 12 ${fixed(b12.at(-1) ?? 0)} · 24 ${fixed(b24.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'dmi') {
+      const values = dmi(all)
+      const pdi = slice(values.plus)
+      const mdi = slice(values.minus)
+      const adx = slice(values.adx)
+      const numbers = [...pdi, ...mdi, ...adx].filter(Number.isFinite)
+      const min = Math.min(...numbers)
+      const max = Math.max(...numbers)
+      return {
+        lines: [
+          { label: '+DI', color: COLORS.plusDi, d: path(pdi, min, max) },
+          { label: '-DI', color: COLORS.minusDi, d: path(mdi, min, max) },
+          { label: 'ADX', color: COLORS.adx, d: path(adx, min, max) }
+        ],
+        hist: [],
+        latest: `+DI ${fixed(pdi.at(-1) ?? 0)} · -DI ${fixed(mdi.at(-1) ?? 0)} · ADX ${fixed(adx.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all))

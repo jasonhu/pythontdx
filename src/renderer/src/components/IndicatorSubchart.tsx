@@ -6,9 +6,10 @@
 import { createMemo, For, Show, type JSX } from 'solid-js'
 import type { IndicatorParams, KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { bias, cci, dmi, kdj, macd, obv, rsi, wr } from '@shared/indicators'
+import { bias, cci, cr, dmi, kdj, macd, obv, psy, roc, rsi, vr, wr } from '@shared/indicators'
 
-export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi' | 'obv'
+export type SubIndicator =
+  'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi' | 'obv' | 'roc' | 'psy' | 'vr' | 'cr'
 
 const W = 900
 const H = 120
@@ -26,6 +27,10 @@ const COLORS = {
   rsi: '#5b8cff',
   wr: '#22d3ee',
   cci: '#f59e0b',
+  roc: '#5b8cff',
+  psy: '#22d3ee',
+  vr: '#c084fc',
+  cr: '#f0b429',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -218,6 +223,46 @@ export function IndicatorSubchart(props: {
         lines: [{ label: 'OBV', color: COLORS.adx, d: path(values, min, max) }],
         hist: [],
         latest: `OBV ${fixed(values.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'roc') {
+      const values = slice(roc(all, 12))
+      const min = Math.min(...values.filter(Number.isFinite))
+      const max = Math.max(...values.filter(Number.isFinite))
+      return {
+        lines: [{ label: 'ROC12', color: COLORS.roc, d: path(values, min, max) }],
+        hist: [],
+        latest: `ROC12 ${fixed(values.at(-1) ?? 0)}%`
+      }
+    }
+    if (props.kind === 'psy') {
+      const values = slice(psy(all, 12))
+      return {
+        lines: [{ label: 'PSY12', color: COLORS.psy, d: path(values, 0, 100) }],
+        hist: [],
+        latest: `PSY12 ${fixed(values.at(-1) ?? 0)}%`
+      }
+    }
+    if (props.kind === 'vr') {
+      const values = slice(vr(all, 26))
+      const finite = values.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 100
+      return {
+        lines: [{ label: 'VR26', color: COLORS.vr, d: path(values, min, max) }],
+        hist: [],
+        latest: `VR26 ${fixed(values.at(-1) ?? 0)}%`
+      }
+    }
+    if (props.kind === 'cr') {
+      const values = slice(cr(all, 26))
+      const finite = values.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 100
+      return {
+        lines: [{ label: 'CR26', color: COLORS.cr, d: path(values, min, max) }],
+        hist: [],
+        latest: `CR26 ${fixed(values.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all, props.params?.rsiPeriod ?? 14))

@@ -243,3 +243,60 @@ export function obv(bars: readonly KLineBar[]): number[] {
   }
   return result
 }
+
+/** ROC（变动率）：(收盘 - N 日前收盘) / N 日前收盘 × 100。 */
+export function roc(bars: readonly KLineBar[], period = 12): number[] {
+  return bars.map((bar, index) => {
+    if (index < period) return Number.NaN
+    const previous = bars[index - period].close
+    return previous === 0 ? Number.NaN : ((bar.close - previous) / previous) * 100
+  })
+}
+
+/** PSY（心理线）：N 个交易日中上涨天数占比，0~100。 */
+export function psy(bars: readonly KLineBar[], period = 12): number[] {
+  return bars.map((_, index) => {
+    if (index < period) return Number.NaN
+    let up = 0
+    for (let cursor = index - period + 1; cursor <= index; cursor += 1) {
+      if (bars[cursor].close > bars[cursor - 1].close) up += 1
+    }
+    return (up / period) * 100
+  })
+}
+
+/**
+ * VR（成交量比率）：(上涨量 + 平盘量/2) / (下跌量 + 平盘量/2) × 100。
+ * 分母为 0 时没有下跌量，返回 `NaN` 让图表断线，而不是伪造一个有限值。
+ */
+export function vr(bars: readonly KLineBar[], period = 26): number[] {
+  return bars.map((_, index) => {
+    if (index < period) return Number.NaN
+    let up = 0
+    let down = 0
+    let flat = 0
+    for (let cursor = index - period + 1; cursor <= index; cursor += 1) {
+      const volume = bars[cursor].volume
+      if (bars[cursor].close > bars[cursor - 1].close) up += volume
+      else if (bars[cursor].close < bars[cursor - 1].close) down += volume
+      else flat += volume
+    }
+    const denominator = down + flat / 2
+    return denominator === 0 ? Number.NaN : ((up + flat / 2) / denominator) * 100
+  })
+}
+
+/** CR（能量指标）：(Σ max(最高-昨收,0) / Σ max(昨收-最低,0)) × 100。 */
+export function cr(bars: readonly KLineBar[], period = 26): number[] {
+  return bars.map((_, index) => {
+    if (index < period) return Number.NaN
+    let up = 0
+    let down = 0
+    for (let cursor = index - period + 1; cursor <= index; cursor += 1) {
+      const previous = bars[cursor - 1].close
+      up += Math.max(bars[cursor].high - previous, 0)
+      down += Math.max(previous - bars[cursor].low, 0)
+    }
+    return down === 0 ? Number.NaN : (up / down) * 100
+  })
+}

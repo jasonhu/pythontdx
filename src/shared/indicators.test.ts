@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { boll, ema, kdj, macd, rsi, wr, cci, bias, dmi, obv } from './indicators'
+import { boll, ema, kdj, macd, rsi, wr, cci, bias, dmi, obv, roc, psy, vr, cr } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -113,5 +113,55 @@ describe('obv', () => {
       { date: '3', open: 11, high: 11, low: 9, close: 9, volume: 50 }
     ]
     expect(obv(bars)).toEqual([0, 200, 150])
+  })
+})
+
+describe('roc / psy / vr / cr', () => {
+  it('ROC 与 PSY 的前导和边界', () => {
+    const rocValues = roc(bars([1, 2, 3, 4]), 2)
+    expect(rocValues[0]).toBeNaN()
+    expect(rocValues[1]).toBeNaN()
+    expect(rocValues[2]).toBe(200)
+    expect(rocValues[3]).toBe(100)
+    const psyValues = psy(bars([1, 2, 1, 2]), 2)
+    expect(psyValues[0]).toBeNaN()
+    expect(psyValues[1]).toBeNaN()
+    expect(psyValues[2]).toBe(50)
+    expect(psyValues[3]).toBe(50)
+  })
+
+  it('VR 统计上涨/下跌/平盘量', () => {
+    const data = [10, 11, 10, 10].map((close, index) => ({
+      date: String(index),
+      open: close,
+      high: close + 1,
+      low: close - 1,
+      close,
+      volume: (index + 1) * 100
+    }))
+    const values = vr(data, 2)
+    expect(values[1]).toBeNaN()
+    expect(values[2]).toBeCloseTo((200 / 300) * 100, 6)
+    expect(values[3]).toBeCloseTo((200 / 500) * 100, 6)
+  })
+
+  it('CR 用昨收计算上下能量', () => {
+    const data = [
+      { close: 10, high: 11, low: 9 },
+      { close: 12, high: 13, low: 10 },
+      { close: 11, high: 12, low: 9 },
+      { close: 13, high: 14, low: 10 }
+    ].map((item, index) => ({
+      date: String(index),
+      open: item.close,
+      high: item.high,
+      low: item.low,
+      close: item.close,
+      volume: 100
+    }))
+    const values = cr(data, 2)
+    expect(values[1]).toBeNaN()
+    expect(values[2]).toBe(100)
+    expect(values[3]).toBe(75)
   })
 })

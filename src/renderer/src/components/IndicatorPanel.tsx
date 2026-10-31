@@ -6,12 +6,25 @@
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { bias, boll, cci, dmi, kdj, macd, obv, rsi, wr } from '@shared/indicators'
+import { bias, boll, cci, cr, dmi, kdj, macd, obv, psy, roc, rsi, vr, wr } from '@shared/indicators'
 import { api, errorMessage } from '../lib/ipc'
 import { appState, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
 
-type Tab = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi' | 'obv' | 'boll'
+type Tab =
+  | 'macd'
+  | 'kdj'
+  | 'rsi'
+  | 'wr'
+  | 'cci'
+  | 'bias'
+  | 'dmi'
+  | 'obv'
+  | 'roc'
+  | 'psy'
+  | 'vr'
+  | 'cr'
+  | 'boll'
 
 const W = 900
 const H = 300
@@ -27,6 +40,10 @@ const COLORS = {
   rsi: '#5b8cff',
   wr: '#22d3ee',
   cci: '#f59e0b',
+  roc: '#5b8cff',
+  psy: '#22d3ee',
+  vr: '#c084fc',
+  cr: '#f0b429',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -291,6 +308,47 @@ export function IndicatorPanel(props: {
         latest: [['OBV', line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'roc') {
+      const line = slice(roc(all, 12))
+      const finite = line.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [{ label: 'ROC12', color: COLORS.roc, path: linePath(line, min, max) }],
+        hist: [],
+        latest: [['ROC12', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
+    if (tab() === 'psy') {
+      const line = slice(psy(all, 12))
+      return {
+        lines: [{ label: 'PSY12', color: COLORS.psy, path: linePath(line, 0, 100) }],
+        hist: [],
+        latest: [['PSY12', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
+    if (tab() === 'vr') {
+      const line = slice(vr(all, 26))
+      const finite = line.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 100
+      return {
+        lines: [{ label: 'VR26', color: COLORS.vr, path: linePath(line, min, max) }],
+        hist: [],
+        latest: [['VR26', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
+    if (tab() === 'cr') {
+      const line = slice(cr(all, 26))
+      const finite = line.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 100
+      return {
+        lines: [{ label: 'CR26', color: COLORS.cr, path: linePath(line, min, max) }],
+        hist: [],
+        latest: [['CR26', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -348,6 +406,10 @@ export function IndicatorPanel(props: {
                 ['bias', 'BIAS'],
                 ['dmi', 'DMI'],
                 ['obv', 'OBV'],
+                ['roc', 'ROC'],
+                ['psy', 'PSY'],
+                ['vr', 'VR'],
+                ['cr', 'CR'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }

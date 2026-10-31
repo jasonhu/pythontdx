@@ -22,6 +22,8 @@ StockLens 的所有重要变更都记录在这里。
   主进程内部按订阅频率拉取，不伪称服务端推送。
 - **逐笔「全部」**：不再只取 1,800 笔，按 1,800 循环分页并按绝对 index 去重合并；
   实测 `sh688499` 2026-10-30 显示 3,527 笔；`mergeTickPage` 新增 2 个测试。
+- **F10 快捷键**：全局 `F10` 打开/关闭 F10 公司资料，快捷键帮助同步；截图 `f10-shortcut.png`。
+  研报正文与快捷键重映射按用户确认不做，归入 ⛔/非目标。
 - **指标面板单页**：右栏 3 列紧凑布局，23 项全部显示，去滚动条；
   截图 `stats-all.png`，实测 scrollHeight=clientHeight=387。
 - **逐笔本地归档**：`lake/ticks/trade_date=YYYY-MM-DD/<code>.jsonl.gz + manifest`，
@@ -98,7 +100,7 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- 状态：功能矩阵 **330 ✅ / 4 🟡 / 0 ⬜ / 5 ⛔**，4 项部分实现、5 项边界；
+- 状态：功能矩阵 **334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**，6 项边界；
   `npm run check` 退出码 0（257 TS + 134 Python），Linux 包哈希与 `docs/07` 一致。
 - `0x0547` 休市探针（2026-10-31，sh600519）：cursor 0 / 1 / 0xFFFFFFFF
   均返回同一 129 字节快照（价格 1392.05、记录内 update=153001）；
@@ -106,7 +108,7 @@ StockLens 的所有重要变更都记录在这里。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
 - `npm run check` → **257 TS + 134 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `92f1a6c6…` / deb 123 MB `c0c1b326…`；
+- Linux AppImage 147 MB `cb1043b9…` / deb 123 MB `22c836d0…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -121,7 +123,7 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/indicator-sar.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**330 ✅ / 4 🟡 / 0 ⬜ / 5 ⛔**。
+- 矩阵（不含状态图例）：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

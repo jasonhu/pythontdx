@@ -121,6 +121,11 @@ export default function App(): JSX.Element {
         }
         return
       }
+      if (event.key === 'F10') {
+        event.preventDefault()
+        setF10Open((value) => !value)
+        return
+      }
       const target = event.target as HTMLElement | null
       if (
         target instanceof HTMLInputElement ||

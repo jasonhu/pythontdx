@@ -38,6 +38,7 @@ import {
   cacheKlines,
   cacheFullKlines,
   dataInventory,
+  limitReview,
   archiveSnapshot,
   fetchLakeArchives,
   writeLocalDay,
@@ -202,6 +203,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   )
 
   ipcMain.handle(IPC.dataInventory, () => dataInventory())
+
+  ipcMain.handle(IPC.limitReview, (_event, date: string) => limitReview(date))
 
   ipcMain.handle(IPC.archiveSnapshot, () => archiveSnapshot())
 

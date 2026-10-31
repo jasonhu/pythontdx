@@ -90,6 +90,7 @@ const api: StockLensApi = {
     cacheKlines: (req) => ipcRenderer.invoke(IPC.cacheKlines, req),
     fullCacheKlines: (req) => ipcRenderer.invoke(IPC.cacheFullKlines, req),
     inventory: () => ipcRenderer.invoke(IPC.dataInventory),
+    limitReview: (date) => ipcRenderer.invoke(IPC.limitReview, date),
     archiveSnapshot: () => ipcRenderer.invoke(IPC.archiveSnapshot),
     lakeArchives: (limit) => ipcRenderer.invoke(IPC.lakeArchives, limit)
   },

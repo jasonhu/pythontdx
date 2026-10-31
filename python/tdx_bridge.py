@@ -3530,6 +3530,71 @@ class Bridge:
             "dir": str(kline_cache_dir()),
         }
 
+    def limit_review(self, date: str) -> dict:
+        """扫描本地全部日 K 缓存，复盘指定交易日的涨停/跌停/炸板。"""
+        self.index.ensure(self.conn)
+        by_code = self.index.by_code
+        rows: list[dict] = []
+        scanned = 0
+        for file in kline_cache_dir().glob("*_day_all_none.json"):
+            symbol_code = file.name.split("_", 1)[0]
+            if not re.match(r"^(sh6|sz0|sz3|bj[489])", symbol_code):
+                continue
+            try:
+                payload = json.loads(file.read_text("utf-8"))
+                bars = payload.get("bars") or []
+            except (OSError, ValueError):
+                continue
+            scanned += 1
+            position = next((i for i, bar in enumerate(bars) if bar.get("date") == date), -1)
+            if position <= 0:
+                continue
+            bar = bars[position]
+            previous = bars[position - 1]
+            close = float(bar.get("close") or 0)
+            previous_close = float(previous.get("close") or 0)
+            if close <= 0 or previous_close <= 0:
+                continue
+            market = symbol_code[:2].upper()
+            name = str(by_code.get(symbol_code, {}).get("name") or symbol_code.upper())
+            symbol = symbol_code[2:]
+            if "ST" in name.upper():
+                limit_pct = 5.0
+            elif market == "BJ":
+                limit_pct = 30.0
+            elif symbol.startswith(("300", "301", "688", "689")):
+                limit_pct = 20.0
+            else:
+                limit_pct = 10.0
+            upper = round(previous_close * (1 + limit_pct / 100), 2)
+            lower = round(previous_close * (1 - limit_pct / 100), 2)
+            high = float(bar.get("high") or 0)
+            low = float(bar.get("low") or 0)
+            if close >= upper - 0.001:
+                kind = "up"
+            elif low <= lower + 0.001:
+                kind = "down"
+            elif high >= upper - 0.001:
+                kind = "broken"
+            else:
+                continue
+            rows.append(
+                {
+                    "code": symbol_code,
+                    "name": name,
+                    "date": date,
+                    "close": close,
+                    "prevClose": previous_close,
+                    "changePct": (close - previous_close) / previous_close * 100,
+                    "high": high,
+                    "low": low,
+                    "limitPrice": upper if kind == "up" else lower,
+                    "kind": kind,
+                }
+            )
+        rows.sort(key=lambda row: row["changePct"], reverse=True)
+        return {"date": date, "rows": rows, "scanned": scanned}
+
     def cache_klines(
         self,
         codes: list[str],
@@ -3824,6 +3889,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("adjust", "none")),
             bool(payload.get("skipExisting")),
         )
+    if cmd == "limit_review":
+        return bridge.limit_review(str(payload.get("date") or ""))
     if cmd == "minute":
         return bridge.minute(payload.get("code", ""))
     if cmd == "five_day":

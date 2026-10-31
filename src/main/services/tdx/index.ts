@@ -22,6 +22,7 @@ import type {
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
+  LimitReviewResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -359,6 +360,10 @@ export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {
 
 export async function dataInventory(): Promise<DataInventory> {
   return bridge.send<DataInventory>('data_inventory', {}, 20_000)
+}
+
+export async function limitReview(date: string): Promise<LimitReviewResult> {
+  return bridge.send<LimitReviewResult>('limit_review', { date }, 120_000)
 }
 
 export async function cacheKlines(req: {

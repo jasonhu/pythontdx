@@ -19,6 +19,7 @@ import type {
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
+  LimitReviewResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -357,6 +358,7 @@ export function createHttpApi(): StockLensApi {
       cacheKlines: (req) => post<KLineCacheResult>('/api/cache_klines', req),
       fullCacheKlines: (req) => post<FullKLineCacheResult>('/api/cache_full_klines', req),
       inventory: () => post<DataInventory>('/api/data_inventory', {}),
+      limitReview: (date) => post<LimitReviewResult>('/api/limit_review', { date }),
       archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {}),
       lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit })
     },

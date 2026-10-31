@@ -548,6 +548,11 @@ class ApiHandler(BaseHTTPRequestHandler):
                     )
                 return
 
+            if parsed.path == "/api/limit_review":
+                with self.server.lock:
+                    self._ok(self.server.bridge.limit_review(str(payload.get("date") or "")))
+                return
+
             if parsed.path == "/api/local_write_min":
                 with self.server.lock:
                     self._ok(

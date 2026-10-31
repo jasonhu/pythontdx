@@ -18,9 +18,10 @@ import type {
   KLineExportResult,
   SnapshotArchiveResult,
   SnapshotArchiveItem,
+  LimitReviewResult,
   BlockKind
 } from '@shared/types'
-import { thousands } from '@shared/format'
+import { fixed, signedPct, thousands } from '@shared/format'
 import { appState, updateSettings, watchCodes } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { downloadText } from '../lib/download'
@@ -114,6 +115,10 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [archives, setArchives] = createSignal<SnapshotArchiveItem[]>([])
   const [archivesLoading, setArchivesLoading] = createSignal(false)
   const [archivesError, setArchivesError] = createSignal<string | null>(null)
+  const [limitDate, setLimitDate] = createSignal(new Date().toISOString().slice(0, 10))
+  const [limitReview, setLimitReview] = createSignal<LimitReviewResult | null>(null)
+  const [limitLoading, setLimitLoading] = createSignal(false)
+  const [limitError, setLimitError] = createSignal<string | null>(null)
   const [localDay, setLocalDay] = createSignal<LocalDayResult | null>(null)
   const [localLoading, setLocalLoading] = createSignal(false)
   const [localError, setLocalError] = createSignal<string | null>(null)
@@ -133,6 +138,23 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setInventoryError(errorMessage(cause))
     } finally {
       setInventoryLoading(false)
+    }
+  }
+
+  const loadLimitReview = async (): Promise<void> => {
+    const date = limitDate().trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setLimitError('日期格式应为 YYYY-MM-DD')
+      return
+    }
+    setLimitLoading(true)
+    setLimitError(null)
+    try {
+      setLimitReview(await api.data.limitReview(date))
+    } catch (cause) {
+      setLimitError(errorMessage(cause))
+    } finally {
+      setLimitLoading(false)
     }
   }
 
@@ -735,6 +757,71 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                     {data().klineCache.latest > 0
                       ? new Date(data().klineCache.latest).toLocaleString('zh-CN')
                       : '无'}
+                  </div>
+                </>
+              )}
+            </Show>
+          </section>
+
+          <section class="data__limit-review">
+            <div class="data__inventory-head">
+              <div>
+                <div class="data__label">历史涨停复盘</div>
+                <div class="data__sub">扫描本地全历史日 K，按交易日报出涨停/跌停/炸板。</div>
+              </div>
+              <div class="data__limit-actions">
+                <input
+                  class="data__limit-date"
+                  type="date"
+                  value={limitDate()}
+                  onChange={(event) => setLimitDate(event.currentTarget.value)}
+                />
+                <button
+                  class="btn data__limit-run"
+                  disabled={limitLoading()}
+                  onClick={() => void loadLimitReview()}
+                >
+                  {limitLoading() ? '扫描中…' : '扫描'}
+                </button>
+              </div>
+            </div>
+            <Show when={limitError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={limitReview()}>
+              {(result) => (
+                <>
+                  <div class="data__limit-meta">
+                    {result().date} · 扫描 {result().scanned} 只缓存 · 命中 {result().rows.length}{' '}
+                    只
+                  </div>
+                  <div class="data__limit-list">
+                    <For each={result().rows.slice(0, 120)}>
+                      {(row) => (
+                        <div class="data__limit-row">
+                          <span>
+                            {row.name} <small>{row.code.toUpperCase()}</small>
+                          </span>
+                          <span class="num">{fixed(row.close)}</span>
+                          <span
+                            classList={{
+                              'tone-up': row.changePct > 0,
+                              'tone-down': row.changePct < 0
+                            }}
+                          >
+                            {signedPct(row.changePct)}
+                          </span>
+                          <b
+                            classList={{
+                              'data__limit-kind--up': row.kind === 'up',
+                              'data__limit-kind--down': row.kind === 'down'
+                            }}
+                          >
+                            {row.kind === 'up' ? '涨停' : row.kind === 'down' ? '跌停' : '炸板'}
+                          </b>
+                        </div>
+                      )}
+                    </For>
                   </div>
                 </>
               )}

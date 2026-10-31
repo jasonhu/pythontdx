@@ -656,6 +656,25 @@ export interface FullKLineCacheResult {
   dir: string
 }
 
+export interface LimitReviewRow {
+  code: string
+  name: string
+  date: string
+  close: number
+  prevClose: number
+  changePct: number
+  high: number
+  low: number
+  limitPrice: number
+  kind: 'up' | 'down' | 'broken'
+}
+
+export interface LimitReviewResult {
+  date: string
+  rows: LimitReviewRow[]
+  scanned: number
+}
+
 /* ----------------------------------------------------------------- 搜索 */
 
 export interface SearchItem {

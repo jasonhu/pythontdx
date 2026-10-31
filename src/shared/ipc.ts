@@ -29,6 +29,7 @@ import type {
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
+  LimitReviewResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -142,6 +143,8 @@ export const IPC = {
   cacheFullKlines: 'data:cache-full-klines',
   /** 离线数据目录清单（invoke） */
   dataInventory: 'data:inventory',
+  /** 本地日 K 缓存涨停复盘（invoke） */
+  limitReview: 'data:limit-review',
   /** 全市场快照归档到数据湖（invoke） */
   archiveSnapshot: 'data:archive-snapshot',
   /** 数据湖归档列表（invoke） */
@@ -347,6 +350,7 @@ export interface StockLensApi {
       adjust?: string
       skipExisting?: boolean
     }): Promise<FullKLineCacheResult>
+    limitReview(date: string): Promise<LimitReviewResult>
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
   }

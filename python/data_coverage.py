@@ -45,6 +45,14 @@ def collect_data_coverage(root: Path) -> dict:
         _scan(base, "normalized", ("normalized/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "raw", ("raw/**/*",), "snapshot_date"),
     ]
+    periods: dict[str, int] = {}
+    for path in (base / "cache" / "klines").glob("*.parquet"):
+        parts = path.stem.split("_")
+        if len(parts) >= 2:
+            periods[parts[1]] = periods.get(parts[1], 0) + 1
+    kline = next((item for item in datasets if item["name"] == "klines"), None)
+    if kline is not None:
+        kline["periods"] = dict(sorted(periods.items()))
     return {
         "generatedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
         "root": str(base.resolve()),

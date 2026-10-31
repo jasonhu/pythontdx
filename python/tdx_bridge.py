@@ -77,6 +77,7 @@ from f10_pit import list_f10_snapshots, read_f10_snapshot, write_f10_snapshot
 from flow_archive import list_flow_archives, read_flow_archive, write_flow_archive
 from data_coverage import collect_data_coverage
 from data_integrity import verify_data_integrity
+from kline_manifest import write_kline_manifest
 from server_catalog import list_server_catalogs, write_server_catalog
 from tick_archive import (
     TickArchiveError,
@@ -2576,6 +2577,17 @@ def _write_kline_cache(
 ) -> Path:
     target = _kline_cache_path(code, period, count, adjust)
     write_bars(target, code, bars)
+    write_kline_manifest(
+        target,
+        {
+            "code": code,
+            "period": period,
+            "count": int(count),
+            "adjust": adjust,
+            "source": source,
+            "fetchedAt": int(time.time() * 1000),
+        },
+    )
     return target
 
 
@@ -2584,6 +2596,20 @@ def _write_full_kline_cache(
 ) -> Path:
     target = _full_kline_cache_path(code, period, adjust)
     write_bars(target, code, bars)
+    write_kline_manifest(
+        target,
+        {
+            "code": code,
+            "period": period,
+            "count": len(bars),
+            "adjust": adjust,
+            "source": "network",
+            "fetchedAt": int(time.time() * 1000),
+            "pages": pages,
+            "complete": complete,
+            "fullHistory": True,
+        },
+    )
     return target
 
 

@@ -20,7 +20,7 @@
 | 健康度   | `npm run check` 全绿（259 TS + 142 Python，25 个 TS 文件）；2026-10-31 复核通过   |
 | 目标     | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`） |
 | 数据源   | 通达信 7709 + MAC + 7615 + 文件下载/本地文件；7727/EX 不做                     |
-| 分发     | Linux AppImage/deb 已实测（`1b39dc09…` / `bed0c8bb…`）；包内资金流/公式/竞价归档/ROC/多屏/分时缩放已验证；Windows/macOS 需在对应系统本机构建 |
+| 分发     | Linux AppImage/deb 已实测（`c33e8f04…` / `d24ca853…`）；包内资金流/公式/竞价归档/ROC/多屏/分时缩放已验证；Windows/macOS 需在对应系统本机构建 |
 | 平台验证 | 代码跨 Windows/Linux/macOS；当前仅 Linux 自动化验证，Windows/macOS 待实机验收 |
 
 **已交付能力**（详见 `README.md` 与 `docs/09`）：
@@ -39,7 +39,7 @@
 - 矩阵：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**（不含图例；图例行不计入功能行）；
 - 测试：`npm run check` → **259 TS + 142 Python（1 skipped，25 个 TS 文件）**，退出码 0；
 - 证据：最新 9 张功能截图均非空（指标 BBI/DMA/TRIX/SAR、测量/箭头/通道/通道手柄、选股市值排序）；
-- 分发：Linux AppImage `1b39dc09…` / deb `bed0c8bb…`，与 `docs/07` 记录一致；
+- 分发：Linux AppImage `c33e8f04…` / deb `d24ca853…`，与 `docs/07` 记录一致；
 - 边界：6 项 ⛔ 不实现、不绕过授权；`0x0547` 盘中语义待验证；Windows/macOS 未实机打包。
 - 结论：**非 ⛔ 功能入口已实现，但数据覆盖仍有缺口，不能称「官方全部功能/数据 100%」。**
 
@@ -212,7 +212,8 @@
   - ✅ F10 PIT：`lake/f10_pit/snapshot_date=.../f10_*/<code>.parquet + manifest`，查询自动快照，`f10_pit_list/read`；
   - ✅ 资金流：单票查询自动归档 `lake/money_flow/trade_date=...`，`flow_archive_list/read`；
   - ✅ 竞价：`auctions selector=0` 成功即自动归档，不再只依赖手动批量；
-  - ✅ 覆盖清单：`data_coverage` 扫描九类本地数据；audit 扩到 37 项，并新增 `data_integrity` manifest/SHA 校验；
+  - ✅ 覆盖清单：`data_coverage` 扫描九类本地数据；audit 扩到 38 项，并新增 `data_integrity` manifest/SHA 校验；
+  - ✅ K 线 manifest：每个 `cache/klines/*.parquet` 补 rows/SHA256/周期/复权；旧文件首次校验自动回填；
   - ✅ 服务器文件：zhb.zip 47 文件清单/差分；完整目录枚举因 `0x06b9` 无目录命令标 ⛔；
   - ⏳ `0x0547` 盘中语义：等 2026-11-02 09:20；
   - ⛔ 历史五档、逐笔委托、Level-2、研报正文、7727/EX：边界。

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from auction_archive import read_auction_archive
+from kline_manifest import backfill_kline_manifests, verify_kline_manifests
 from parquet_store import file_sha256
 
 
@@ -52,7 +53,10 @@ def _verify_auction(root: Path) -> dict:
 
 
 def verify_data_integrity(root: Path) -> dict:
+    kline_backfill = backfill_kline_manifests(Path(root) / "cache" / "klines")
+    kline_check = verify_kline_manifests(Path(root) / "cache" / "klines")
     checks = [
+        {"name": "klines", **kline_check},
         _verify(root, "ticks", "lake/ticks/**/*.manifest.json"),
         _verify_auction(root),
         _verify(root, "f10_pit", "lake/f10_pit/**/*.manifest.json"),
@@ -62,6 +66,7 @@ def verify_data_integrity(root: Path) -> dict:
     return {
         "ok": all(item["failed"] == 0 for item in checks),
         "checks": checks,
-        "checked": sum(item["checked"] for item in checks),
-        "failed": sum(item["failed"] for item in checks),
+        "klineBackfill": kline_backfill,
+        "checked": sum(item.get("checked", 0) for item in checks),
+        "failed": sum(item.get("failed", 0) for item in checks),
     }

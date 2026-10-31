@@ -851,6 +851,8 @@ export interface ChartDrawing {
   extended?: boolean
   /** 平行通道的垂直价格偏移 */
   offset?: number
+  /** 智能画线生成（重新智能画线时替换旧智能线） */
+  smart?: boolean
 }
 
 export interface AppSettings {

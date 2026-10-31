@@ -50,6 +50,7 @@ import {
   measurementBars,
   measurementPercent
 } from '@shared/drawing'
+import { buildSmartDrawings } from '@shared/auto-drawing'
 import { appState, updateSettings } from '../stores/app'
 
 /** 均线配色；周期来自设置 */
@@ -77,6 +78,7 @@ interface KLineDrawing {
   endPrice?: number
   startDate?: string
   endDate?: string
+  smart?: boolean
   text?: string
   extended?: boolean
   offset?: number
@@ -97,6 +99,8 @@ export interface KLineChartProps {
   onRangeStats?: (stats: KLineRangeStats | null) => void
   /** 清除区间统计选区 */
   clearRangeKey?: number
+  /** 智能画线触发器 */
+  smartDrawKey?: number
   /** 区间统计跟随鼠标的屏幕坐标 */
   onRangeAnchor?: (anchor: { x: number; y: number } | null) => void
   /** 光标绝对下标变化（用于副图十字线联动） */
@@ -224,6 +228,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       endPrice: drawing.endPrice,
       startDate: anchorDate(drawing.startIndex),
       endDate: anchorDate(drawing.endIndex),
+      smart: drawing.smart,
       text: drawing.text,
       extended: drawing.extended,
       offset: drawing.offset
@@ -344,6 +349,30 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         setRangeEnd(null)
         props.onRangeStats?.(null)
         props.onRangeAnchor?.(null)
+      },
+      { defer: true }
+    )
+  )
+
+  createEffect(
+    on(
+      () => props.smartDrawKey,
+      () => {
+        const plans = buildSmartDrawings(allBars())
+        if (plans.length === 0) return
+        const manual = drawings().filter((drawing) => !drawing.smart)
+        const base = drawingId
+        const next: KLineDrawing[] = [
+          ...manual,
+          ...plans.map((plan, index) => ({
+            ...plan,
+            id: base + index + 1,
+            smart: true
+          }))
+        ]
+        drawingId = base + plans.length
+        setSelectedId(null)
+        commitDrawings(next)
       },
       { defer: true }
     )

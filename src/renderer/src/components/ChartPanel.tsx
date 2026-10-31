@@ -117,6 +117,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   )
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
   const [clearRangeKey, setClearRangeKey] = createSignal(0)
+  const [smartDrawKey, setSmartDrawKey] = createSignal(0)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
   const [rangeAnchor, setRangeAnchor] = createSignal<{ x: number; y: number } | null>(null)
   const [chartCardEl, setChartCardEl] = createSignal<HTMLElement | undefined>(undefined)
@@ -615,6 +616,19 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     >
                       扩展
                     </button>
+                    <button
+                      class="chip chart-draw-smart"
+                      title="按主要摆动自动画斐波那契、趋势线、通道和支撑/压力"
+                      onClick={() => {
+                        const next = true
+                        setShowDrawings(next)
+                        updateSettings({ showDrawings: next })
+                        setSmartDrawKey((value) => value + 1)
+                        setDrawMenuOpen(false)
+                      }}
+                    >
+                      智能
+                    </button>
                   </div>
                   <div class="chart-draw-menu__foot">
                     <button
@@ -938,6 +952,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     bollK={appState.settings.indicatorParams?.bollK ?? 2}
                     logScale={logScale()}
                     clearRangeKey={clearRangeKey()}
+                    smartDrawKey={smartDrawKey()}
                     onRangeStats={setRangeStats}
                     onRangeAnchor={setRangeAnchor}
                     onCursorChange={setSubCursor}

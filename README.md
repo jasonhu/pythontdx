@@ -8,7 +8,7 @@
 
 **当前状态**：桌面 + Web 前端可用；Linux AppImage/deb 已实测；
 v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTTP 只读）。
-`npm run check` 全绿：**261 个 TS 测试 + 144 个 Python 协议/服务测试（1 skipped）**。
+`npm run check` 全绿：**263 个 TS 测试 + 144 个 Python 协议/服务测试（1 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -177,7 +177,7 @@ python3 -m pip install -r requirements.txt
 | `npm run dev:web`                                | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174） |
 | `npm run build:web`                              | 构建 Web 产物到 `out/web/`                             |
 | `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
-| `npm run test`                                   | Vitest（261 个 TS 用例）                               |
+| `npm run test`                                   | Vitest（263 个 TS 用例）                               |
 | `npm run test:python`                            | Python 协议/HTTP 测试（144 个用例，真实 fixture）      |
 | `npm run audit:data`                             | 数据覆盖自检（39 项，会触发自动归档，覆盖清单见 docs/12）          |
 | `npm run build:python`                           | Nuitka 打行情桥接单文件（打包前必跑）                  |

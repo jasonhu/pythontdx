@@ -4498,6 +4498,10 @@
   fill: var(--accent);
   font-family: var(--font-mono);
   font-size: 9px;
+  paint-order: stroke;
+  stroke: var(--bg-base);
+  stroke-width: 2px;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 

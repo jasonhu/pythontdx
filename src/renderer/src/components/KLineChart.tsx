@@ -49,7 +49,7 @@ import { appState, updateSettings } from '../stores/app'
 /** 均线配色；周期来自设置 */
 const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc', '#22d3ee', '#f472b6'] as const
 
-export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib'
+export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'fibExt'
 
 interface KLineDrawing {
   id: number
@@ -60,6 +60,7 @@ interface KLineDrawing {
   endIndex?: number
   endPrice?: number
   text?: string
+  extended?: boolean
 }
 
 export interface KLineChartProps {
@@ -159,7 +160,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       startPrice: drawing.startPrice,
       endIndex: drawing.endIndex,
       endPrice: drawing.endPrice,
-      text: drawing.text
+      text: drawing.text,
+      extended: drawing.extended
     }))
     updateSettings({ chartDrawings: [...others, ...saved].slice(-200) })
   }
@@ -530,7 +532,11 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         ...drawings(),
         {
           id: drawingId,
-          type: props.drawMode === 'fib' ? ('fib' as const) : ('trend' as const),
+          type:
+            props.drawMode === 'fib' || props.drawMode === 'fibExt'
+              ? ('fib' as const)
+              : ('trend' as const),
+          extended: props.drawMode === 'fibExt',
           startIndex: pending.index,
           startPrice: pending.price,
           endIndex: index,
@@ -1052,7 +1058,13 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                   </g>
                 ) : drawing.type === 'fib' ? (
                   <g>
-                    <For each={fibonacciLevels(drawing.startPrice ?? 0, drawing.endPrice ?? 0)}>
+                    <For
+                      each={fibonacciLevels(
+                        drawing.startPrice ?? 0,
+                        drawing.endPrice ?? 0,
+                        drawing.extended
+                      )}
+                    >
                       {(level) => (
                         <g>
                           <line

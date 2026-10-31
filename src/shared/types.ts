@@ -806,6 +806,8 @@ export interface ChartDrawing {
   endIndex?: number
   endPrice?: number
   text?: string
+  /** 斐波那契是否追加 127.2%/161.8% 扩展位 */
+  extended?: boolean
 }
 
 export interface AppSettings {

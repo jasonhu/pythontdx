@@ -423,6 +423,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               斐波
             </button>
             <button
+              class="chip chart-draw-fib-ext"
+              data-active={drawMode() === 'fibExt'}
+              title="点两下画斐波那契扩展（含 127.2%/161.8%）"
+              onClick={() => setDrawMode((mode) => (mode === 'fibExt' ? 'none' : 'fibExt'))}
+            >
+              扩展
+            </button>
+            <button
               class="chip chart-draw-clear"
               title="清除所有画线"
               onClick={() => setClearDrawingsKey((value) => value + 1)}

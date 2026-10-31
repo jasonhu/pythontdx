@@ -21,4 +21,13 @@ describe('fibonacciLevels', () => {
     expect(fibonacciLevels(Number.NaN, 100)).toEqual([])
     expect(fibonacciLevels(100, Number.POSITIVE_INFINITY)).toEqual([])
   })
+
+  it('扩展模式追加 127.2% / 161.8%', () => {
+    const levels = fibonacciLevels(32.3, 45.72, true)
+    expect(levels).toHaveLength(FIB_RATIOS.length + 2)
+    expect(levels[7].ratio).toBe(1.272)
+    expect(levels[7].price).toBeCloseTo(49.37, 2)
+    expect(levels[8].ratio).toBe(1.618)
+    expect(levels[8].price).toBeCloseTo(54.01, 2)
+  })
 })

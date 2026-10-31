@@ -374,8 +374,7 @@
 /* ------------------------------------------------------------ 自选股行 */
 .watch-row {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  display: flex;
   align-items: center;
   gap: 4px;
   width: 100%;
@@ -439,7 +438,9 @@
 }
 
 .watch-row__main {
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 160px;
 }
 
 .watch-row__name {
@@ -477,6 +478,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: auto;
 }
 
 .watch-row__nums {

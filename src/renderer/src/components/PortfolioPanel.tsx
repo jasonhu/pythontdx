@@ -10,6 +10,8 @@ import { computePortfolio, simulatePositions, type PositionSimulation } from '@s
 import { activeItems, appState, savePositions } from '../stores/app'
 import { quoteOf } from '../stores/quotes'
 import { api, errorMessage } from '../lib/ipc'
+import { downloadText } from '../lib/download'
+import { toCsv } from '@shared/csv'
 import { IconClose } from './Icons'
 
 interface Draft {
@@ -75,6 +77,38 @@ export function PortfolioPanel(props: {
       amount: list.reduce((sum, quote) => sum + (quote.amount ?? 0), 0)
     }
   })
+
+  const exportPositions = (): void => {
+    const current = summary().rows
+    if (current.length === 0) return
+    const columns = [
+      '名称',
+      '代码',
+      '现价',
+      '涨跌幅%',
+      '持股',
+      '成本',
+      '市值',
+      '成本额',
+      '盈亏',
+      '盈亏%',
+      '权重%'
+    ]
+    const rows = current.map((row) => [
+      row.name,
+      row.code.toUpperCase(),
+      fixed(row.price),
+      fixed(row.changePct),
+      row.shares,
+      fixed(row.cost),
+      fixed(row.marketValue),
+      fixed(row.costValue),
+      fixed(row.pnl),
+      fixed(row.pnlPct),
+      fixed(row.weight)
+    ])
+    downloadText('stocklens-positions.csv', toCsv(columns, rows))
+  }
 
   const startEditing = (): void => {
     const positions = appState.positions ?? []
@@ -160,6 +194,13 @@ export function PortfolioPanel(props: {
               onClick={() => void runSimulation()}
             >
               {simLoading() ? '回溯中…' : '回溯 120 日'}
+            </button>
+            <button
+              class="btn portfolio-export"
+              disabled={summary().rows.length === 0}
+              onClick={exportPositions}
+            >
+              导出持仓
             </button>
             <Show
               when={editing()}

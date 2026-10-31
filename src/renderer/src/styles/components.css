@@ -5568,3 +5568,13 @@
   background: var(--panel);
   font-size: var(--fs-2xs);
 }
+
+.replay__speeds {
+  display: flex;
+  gap: 2px;
+}
+
+.replay__speed[data-active='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}

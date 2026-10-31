@@ -32,6 +32,7 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
   const [tickIndex, setTickIndex] = createSignal(0)
   const [tickDate, setTickDate] = createSignal('')
   const [playing, setPlaying] = createSignal(false)
+  const [speed, setSpeed] = createSignal(1)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
@@ -83,6 +84,7 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
 
   createEffect(() => {
     if (!playing()) return
+    const delay = Math.max(50, PLAY_MS / speed())
     const timer = window.setInterval(() => {
       const total =
         mode() === 'day' ? bars().length : mode() === 'minute' ? points().length : ticks().length
@@ -94,7 +96,7 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
         }
         return value + 1
       })
-    }, PLAY_MS)
+    }, delay)
     onCleanup(() => window.clearInterval(timer))
   })
 
@@ -367,6 +369,19 @@ export function ReplayPanel(props: ReplayPanelProps): JSX.Element {
             >
               下一步
             </button>
+            <div class="replay__speeds" aria-label="播放速度">
+              <For each={[0.5, 1, 2, 4]}>
+                {(value) => (
+                  <button
+                    class={`btn replay__speed replay__speed-${String(value).replace('.', '-')}`}
+                    data-active={speed() === value}
+                    onClick={() => setSpeed(value)}
+                  >
+                    {value}x
+                  </button>
+                )}
+              </For>
+            </div>
             <input
               class="replay__slider"
               type="range"

@@ -114,7 +114,7 @@ StockLens 的所有重要变更都记录在这里。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
 - `npm run check` → **259 TS + 142 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `b019154c…` / deb 123 MB `91a4d98b…`；
+- Linux AppImage 147 MB `7c5d903d…` / deb 123 MB `a999ca7c…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

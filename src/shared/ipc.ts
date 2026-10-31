@@ -214,6 +214,8 @@ export interface KLineRequest {
   count?: number
   /** 复权口径；默认前复权 */
   adjust?: KLineAdjust
+  /** 只读本地缓存；启动首屏用，不访问行情服务器 */
+  cacheOnly?: boolean
 }
 
 /** 0x054b 分类行情请求；category=6 是沪深 A 股 */

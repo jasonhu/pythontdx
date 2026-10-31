@@ -344,6 +344,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                             query.get("period", "day"),
                             int(query.get("count", "200")),
                             query.get("adjust", "qfq"),
+                            query.get("cacheOnly") in {"1", "true", "yes"},
                         )
                     )
                 return

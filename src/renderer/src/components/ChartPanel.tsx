@@ -144,9 +144,33 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
    */
   const code = createMemo(() => props.code)
   const isTrend = (): boolean => tab() === 'minute' || tab() === 'five'
+  const [cachedSeries, setCachedSeries] = createSignal<KLineSeries | null>(null)
+  let cacheSequence = 0
 
   const timer = setInterval(() => setTick((value) => value + 1), REFRESH_MS)
   onCleanup(() => clearInterval(timer))
+
+  // 首屏先读本地 K 线缓存；网络返回后由 data resource 覆盖。
+  createEffect(() => {
+    const currentCode = code()
+    const currentTab = tab()
+    const currentAdjust = adjust()
+    const sequence = ++cacheSequence
+    setCachedSeries(null)
+    if (currentTab === 'minute' || currentTab === 'five') return
+    void api.trend
+      .kline({
+        code: currentCode,
+        period: currentTab,
+        count: KLINE_COUNT,
+        adjust: currentAdjust,
+        cacheOnly: true
+      })
+      .then((series) => {
+        if (sequence === cacheSequence) setCachedSeries(series)
+      })
+      .catch(() => undefined)
+  })
 
   const [data, { refetch }] = createResource<
     ChartData,
@@ -181,7 +205,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
 
   const klineSeries = (): KLineSeries | undefined => {
     const current = data()
-    return current?.kind === 'kline' ? current.series : undefined
+    if (current?.kind === 'kline') return current.series
+    return cachedSeries() ?? undefined
   }
 
   const isEmpty = (): boolean => {

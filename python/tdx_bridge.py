@@ -3329,7 +3329,9 @@ class Bridge:
 
     # -- K 线 / 分时 -----------------------------------------------------
 
-    def kline(self, code: str, period: str, count: int, adjust: str = 'qfq') -> dict:
+    def kline(
+        self, code: str, period: str, count: int, adjust: str = 'qfq', cache_only: bool = False
+    ) -> dict:
         market, symbol = parse_code(code)
         if period not in PERIOD_RAW:
             raise TdxError("K 线周期只支持 day / week / month")
@@ -3337,6 +3339,11 @@ class Bridge:
         safe_count = max(1, min(800, int(count)))
         safe_adjust = str(adjust) if str(adjust) in {"none", "qfq", "hfq"} else "qfq"
         kind = "index" if is_index_code(market, symbol) else "stock"
+        if cache_only:
+            cached = _read_kline_cache(code, period, safe_count, safe_adjust)
+            if cached is None:
+                raise TdxError("本地没有对应 K 线缓存")
+            return cached
         try:
             body = self.conn.request(
                 CMD_BARS,
@@ -3621,6 +3628,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             payload.get("period", "day"),
             payload.get("count", 200),
             str(payload.get("adjust", "qfq")),
+            bool(payload.get("cacheOnly")),
         )
     if cmd == "data_inventory":
         return data_inventory()

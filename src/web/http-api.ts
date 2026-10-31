@@ -376,7 +376,8 @@ export function createHttpApi(): StockLensApi {
           code: req.code,
           period: req.period,
           count: String(req.count ?? 200),
-          adjust: req.adjust ?? 'qfq'
+          adjust: req.adjust ?? 'qfq',
+          ...(req.cacheOnly ? { cacheOnly: '1' } : {})
         })
         return request<KLineSeries>(`/api/kline?${params.toString()}`)
       }

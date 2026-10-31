@@ -365,6 +365,7 @@ export async function cacheKlines(req: {
   period?: string
   count?: number
   adjust?: string
+  skipExisting?: boolean
 }): Promise<KLineCacheResult> {
   return bridge.send<KLineCacheResult>('cache_klines', req, 60_000)
 }

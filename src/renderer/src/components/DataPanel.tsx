@@ -224,9 +224,10 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             codes: chunk,
             period: 'day',
             count: 800,
-            adjust: 'qfq'
+            adjust: 'qfq',
+            skipExisting: true
           })
-          setBulkDone((value) => value + result.cached)
+          setBulkDone((value) => value + result.cached + result.skipped)
           setBulkFailed((value) => value + result.failed.length)
         } catch {
           setBulkFailed((value) => value + chunk.length)
@@ -546,7 +547,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 />
               </div>
               <div class="data__bulk-meta">
-                {bulkDone()} / {bulkTotal()} 成功 · 失败 {bulkFailed()}
+                {bulkDone()} / {bulkTotal()} 完成 · 失败 {bulkFailed()}
                 {bulkRunning() ? ' · 进行中' : ' · 已结束'}
               </div>
             </Show>

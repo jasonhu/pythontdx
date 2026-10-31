@@ -20,12 +20,28 @@ interface SortTab {
   sortType: number
   metric: (quote: CategoryQuote) => number
   full: boolean
+  /** 该排序只在全市场 MAC 模式有效 */
+  fullOnly?: boolean
 }
 
 const SORTS: SortTab[] = [
   { label: '涨幅', sortType: 0x000e, metric: (quote) => quote.changePct, full: true },
   { label: '成交额', sortType: 0x000a, metric: (quote) => quote.amount, full: true },
   { label: '涨速', sortType: 0x002e, metric: (quote) => quote.riseSpeed ?? 0, full: true },
+  {
+    label: '换手率',
+    sortType: 0x00cd,
+    metric: (quote) => quote.turnoverRate ?? 0,
+    full: true,
+    fullOnly: true
+  },
+  {
+    label: '量比',
+    sortType: 0x00ce,
+    metric: (quote) => quote.volumeRatio ?? 0,
+    full: true,
+    fullOnly: true
+  },
   { label: '短换手', sortType: 0x00cc, metric: (quote) => quote.shortTurnover ?? 0, full: false },
   { label: '封单额', sortType: 0x001c, metric: (quote) => quote.lockedAmount ?? 0, full: false }
 ]
@@ -163,6 +179,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
               onClick={() => {
                 const next = !fullMode()
                 if (next && !sort().full) setSort(SORTS[0])
+                if (!next && sort().fullOnly) setSort(SORTS[0])
                 setFullMode(next)
               }}
             >
@@ -188,7 +205,10 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                 title={fullMode() && !item.full ? '该指标仅 0x054b 提供' : undefined}
                 role="tab"
                 aria-selected={item.sortType === sort().sortType}
-                onClick={() => setSort(item)}
+                onClick={() => {
+                  if (item.fullOnly && !fullMode()) setFullMode(true)
+                  setSort(item)
+                }}
               >
                 {item.label}
               </button>
@@ -280,5 +300,6 @@ function metricText(quote: CategoryQuote, tab: SortTab): string {
   const value = tab.metric(quote)
   if (tab.sortType === 0x000a || tab.sortType === 0x001c) return compactAmount(value)
   if (tab.sortType === 0x000e) return signedPct(value)
+  if (tab.label === '量比') return `${fixed(value)}x`
   return `${fixed(value)}%`
 }

@@ -10,7 +10,7 @@ import { setupCapture } from './capture'
 import { attachDiagnostics } from './diagnostics'
 import type { WindowBounds } from './services/store'
 
-const DEFAULT_WIDTH = 1440
+const DEFAULT_WIDTH = 1600
 const DEFAULT_HEIGHT = 900
 const MIN_WIDTH = 1024
 const MIN_HEIGHT = 660
@@ -47,9 +47,12 @@ export interface CreateWindowOptions {
 export function createMainWindow(options: CreateWindowOptions = {}): BrowserWindow {
   const icon = resolveWindowIcon()
 
-  // 旧默认 1280×820 升级到 1440×900；用户自定义尺寸保持原样。
+  // 旧默认尺寸升级到 16:9 的 1600×900；用户自定义尺寸保持原样。
   const legacyDefault =
-    options.bounds?.width === 1280 && options.bounds?.height === 820 ? options.bounds : undefined
+    (options.bounds?.width === 1280 && options.bounds?.height === 820) ||
+    (options.bounds?.width === 1440 && options.bounds?.height === 900)
+      ? options.bounds
+      : undefined
   const window = new BrowserWindow({
     width: legacyDefault ? DEFAULT_WIDTH : (options.bounds?.width ?? DEFAULT_WIDTH),
     height: legacyDefault ? DEFAULT_HEIGHT : (options.bounds?.height ?? DEFAULT_HEIGHT),

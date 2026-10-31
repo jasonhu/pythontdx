@@ -336,6 +336,7 @@ export interface StockLensApi {
       period?: string
       count?: number
       adjust?: string
+      skipExisting?: boolean
     }): Promise<KLineCacheResult>
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>

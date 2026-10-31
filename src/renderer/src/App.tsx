@@ -174,8 +174,8 @@ export default function App(): JSX.Element {
 
   const currentWidths = (): { sidebar: number; rail: number } =>
     widths() ?? {
-      sidebar: appState.settings.sidebarWidth ?? 300,
-      rail: appState.settings.railWidth ?? 320
+      sidebar: appState.settings.sidebarWidth ?? 340,
+      rail: appState.settings.railWidth ?? 330
     }
 
   const beginResize = (side: 'sidebar' | 'rail', event: PointerEvent): void => {
@@ -545,10 +545,10 @@ export default function App(): JSX.Element {
       <div
         class="layout-resizer layout-resizer--sidebar"
         role="separator"
-        title="拖动调整自选栏宽度，双击恢复 300px"
+        title="拖动调整自选栏宽度，双击恢复 340px"
         aria-label="调整自选栏宽度"
         onPointerDown={(event) => beginResize('sidebar', event)}
-        onDblClick={() => updateSettings({ sidebarWidth: 300 })}
+        onDblClick={() => updateSettings({ sidebarWidth: 340 })}
       />
       <div
         class="layout-resizer layout-resizer--rail"

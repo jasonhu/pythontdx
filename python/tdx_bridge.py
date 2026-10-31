@@ -3367,22 +3367,35 @@ class Bridge:
             raise
 
     def cache_klines(
-        self, codes: list[str], period: str = "day", count: int = 800, adjust: str = "qfq"
+        self,
+        codes: list[str],
+        period: str = "day",
+        count: int = 800,
+        adjust: str = "qfq",
+        skip_existing: bool = False,
     ) -> dict:
-        """批量预热自选 K 线缓存；单只失败不阻断其它股票。"""
+        """批量预热 K 线缓存；skip_existing 用于断点续跑。"""
         cached = 0
+        skipped = 0
         failed: list[dict] = []
+        safe_count = max(1, min(800, int(count)))
         for code in codes:
             try:
+                if skip_existing and _kline_cache_path(
+                    code, period, safe_count, adjust
+                ).exists():
+                    skipped += 1
+                    continue
                 self.kline(code, period, count, adjust)
                 cached += 1
             except Exception as error:  # noqa: BLE001 - 需要把每只的失败原因返回给 UI
                 failed.append({"code": code, "error": str(error)})
         return {
             "cached": cached,
+            "skipped": skipped,
             "failed": failed,
             "period": period,
-            "count": max(1, min(800, int(count))),
+            "count": safe_count,
             "dir": str(kline_cache_dir()),
         }
 
@@ -3638,6 +3651,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("period", "day")),
             int(payload.get("count", 800)),
             str(payload.get("adjust", "qfq")),
+            bool(payload.get("skipExisting")),
         )
     if cmd == "minute":
         return bridge.minute(payload.get("code", ""))

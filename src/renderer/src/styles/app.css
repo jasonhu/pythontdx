@@ -469,7 +469,7 @@
   width: auto !important;
   min-width: 70px;
   max-width: none;
-  height: 26px;
+  height: 28px;
   opacity: 0.95;
   transition: opacity var(--dur-2) var(--ease);
 }
@@ -1212,19 +1212,9 @@
 
 /* ------------------------------------------------------------ 窄窗适配 */
 @media (max-width: 1240px) {
-  /* 名称优先：窄侧栏里先让出迷你图，别把股票名压成一个字 */
-  .watch-row .sparkline {
-    display: none;
-  }
-
-  .watch-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 7px 10px;
-    gap: 6px;
-  }
-
+  /* 窄窗仍保留迷你图：只压缩价格列间距，不隐藏走势。 */
   .watch-row__nums {
-    min-width: 68px;
+    min-width: 62px;
   }
 
   .sidebar__head .btn--icon {

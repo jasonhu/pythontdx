@@ -17,27 +17,32 @@ interface AlertPanelProps {
   onSelect: (code: string) => void
 }
 
+function describeCondition(condition: AlertCondition): string {
+  const label =
+    condition.direction === 'above'
+      ? '≥'
+      : condition.direction === 'below'
+        ? '≤'
+        : condition.direction === 'crossAbove'
+          ? '上穿'
+          : '下穿'
+  return `${ALERT_METRIC_LABELS[condition.metric]} ${label} ${formatAlertValue(
+    condition.metric,
+    condition.value
+  )}`
+}
+
 function describeConditions(rule: AlertRule): string {
+  if (rule.groups && rule.groups.length > 0) {
+    return rule.groups
+      .map((group) => `(${group.map(describeCondition).join(' 且 ')})`)
+      .join((rule.groupMode ?? 'or') === 'or' ? ' 或 ' : ' 且 ')
+  }
   const conditions: AlertCondition[] =
     rule.conditions && rule.conditions.length > 0
       ? rule.conditions
       : [{ metric: rule.metric, direction: rule.direction, value: rule.value }]
-  return conditions
-    .map((condition) => {
-      const label =
-        condition.direction === 'above'
-          ? '≥'
-          : condition.direction === 'below'
-            ? '≤'
-            : condition.direction === 'crossAbove'
-              ? '上穿'
-              : '下穿'
-      return `${ALERT_METRIC_LABELS[condition.metric]} ${label} ${formatAlertValue(
-        condition.metric,
-        condition.value
-      )}`
-    })
-    .join(rule.conditionMode === 'or' ? ' 或 ' : ' 且 ')
+  return conditions.map(describeCondition).join(rule.conditionMode === 'or' ? ' 或 ' : ' 且 ')
 }
 
 export function AlertPanel(props: AlertPanelProps): JSX.Element {
@@ -46,9 +51,10 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
   const [value, setValue] = createSignal('')
   const [error, setError] = createSignal<string | null>(null)
   const [extras, setExtras] = createSignal<
-    Array<{ metric: AlertMetric; direction: AlertDirection; value: string }>
+    Array<{ metric: AlertMetric; direction: AlertDirection; value: string; group: 0 | 1 }>
   >([])
   const [conditionMode, setConditionMode] = createSignal<'and' | 'or'>('and')
+  const [groupMode, setGroupMode] = createSignal<'and' | 'or'>('or')
 
   // 切换股票时用当前价/涨幅作为输入初值；只在 code 改变时重置
   createEffect(() => {
@@ -60,6 +66,7 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
     setDirection('above')
     setExtras([])
     setConditionMode('and')
+    setGroupMode('or')
     setError(null)
   })
 
@@ -71,14 +78,20 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
       setError('请输入有效阈值')
       return
     }
+    const extrasWithValues = extras().map((condition) => ({
+      metric: condition.metric,
+      direction: condition.direction,
+      value: Number(condition.value),
+      group: condition.group
+    }))
     const conditions =
-      extras().length > 0
+      extrasWithValues.length > 0
         ? [
             { metric: metric(), direction: direction(), value: parsed },
-            ...extras().map((condition) => ({
+            ...extrasWithValues.map((condition) => ({
               metric: condition.metric,
               direction: condition.direction,
-              value: Number(condition.value)
+              value: condition.value
             }))
           ]
         : undefined
@@ -86,6 +99,28 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
       setError('请输入有效的组合条件阈值')
       return
     }
+    const hasGroups = extrasWithValues.some((condition) => condition.group === 1)
+    const groups = hasGroups
+      ? [
+          [
+            { metric: metric(), direction: direction(), value: parsed },
+            ...extrasWithValues
+              .filter((condition) => condition.group === 0)
+              .map((condition) => ({
+                metric: condition.metric,
+                direction: condition.direction,
+                value: condition.value
+              }))
+          ],
+          extrasWithValues
+            .filter((condition) => condition.group === 1)
+            .map((condition) => ({
+              metric: condition.metric,
+              direction: condition.direction,
+              value: condition.value
+            }))
+        ]
+      : undefined
     addAlert({
       code: quote.code,
       name: quote.name,
@@ -93,10 +128,14 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
       direction: direction(),
       value: parsed,
       conditions,
-      conditionMode: extras().length > 0 ? conditionMode() : undefined
+      conditionMode: !hasGroups && extras().length > 0 ? conditionMode() : undefined,
+      groups,
+      groupMode: hasGroups ? groupMode() : undefined
     })
     setError(null)
   }
+
+  const hasGroups = (): boolean => extras().some((condition) => condition.group === 1)
 
   const changeMetric = (next: AlertMetric): void => {
     setMetric(next)
@@ -228,6 +267,22 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
                   <option value="crossAbove">上穿</option>
                   <option value="crossBelow">下穿</option>
                 </select>
+                <select
+                  class="alert__select alert__group"
+                  value={String(condition.group)}
+                  aria-label="条件分组"
+                  onChange={(event) => {
+                    const group = Number(event.currentTarget.value) === 1 ? 1 : 0
+                    setExtras((items) =>
+                      items.map((item, itemIndex) =>
+                        itemIndex === index() ? { ...item, group } : item
+                      )
+                    )
+                  }}
+                >
+                  <option value="0">组1</option>
+                  <option value="1">组2</option>
+                </select>
                 <input
                   class="alert__input"
                   type="number"
@@ -256,12 +311,16 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
 
           <Show when={extras().length > 0}>
             <div class="alert__mode">
-              <span>组合关系</span>
+              <span>{hasGroups() ? '组间关系' : '组合关系'}</span>
               <select
                 class="alert__select alert__mode-select"
-                value={conditionMode()}
+                value={hasGroups() ? groupMode() : conditionMode()}
                 aria-label="组合条件关系"
-                onChange={(event) => setConditionMode(event.currentTarget.value as 'and' | 'or')}
+                onChange={(event) => {
+                  const mode = event.currentTarget.value as 'and' | 'or'
+                  if (hasGroups()) setGroupMode(mode)
+                  else setConditionMode(mode)
+                }}
               >
                 <option value="and">全部满足（且）</option>
                 <option value="or">任一满足（或）</option>
@@ -275,7 +334,7 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
             onClick={() =>
               setExtras((items) => [
                 ...items,
-                { metric: 'changePct', direction: 'above', value: '' }
+                { metric: 'changePct', direction: 'above', value: '', group: 0 }
               ])
             }
           >

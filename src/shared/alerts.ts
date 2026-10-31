@@ -47,6 +47,21 @@ export function ruleConditions(rule: AlertRule): AlertCondition[] {
   return [{ metric: rule.metric, direction: rule.direction, value: rule.value }]
 }
 
+function conditionDescription(condition: AlertCondition, value: number): string {
+  const label =
+    condition.direction === 'above'
+      ? '≥'
+      : condition.direction === 'below'
+        ? '≤'
+        : condition.direction === 'crossAbove'
+          ? '上穿'
+          : '下穿'
+  return `${ALERT_METRIC_LABELS[condition.metric]} ${formatAlertValue(
+    condition.metric,
+    value
+  )} ${label} ${formatAlertValue(condition.metric, condition.value)}`
+}
+
 function matches(condition: AlertCondition, value: number, previous?: number): boolean {
   if (condition.direction === 'above') return value >= condition.value
   if (condition.direction === 'below') return value <= condition.value
@@ -79,40 +94,59 @@ export function evaluateAlerts(
     if (rule.lastTriggeredDate === date) continue
     const quote = quoteMap.get(rule.code)
     if (!quote) continue
-    const conditions = ruleConditions(rule)
-    const values = conditions.map((condition) => alertMetricValue(condition.metric, quote))
-    if (values.some((value) => !Number.isFinite(value))) continue
     const previous = previousQuotes?.get(rule.code)
-    const previousValues = previous
-      ? conditions.map((condition) => alertMetricValue(condition.metric, previous))
-      : []
-    const matched =
-      rule.conditionMode === 'or'
-        ? conditions.some((condition, index) =>
-            matches(condition, values[index], previousValues[index])
-          )
-        : conditions.every((condition, index) =>
-            matches(condition, values[index], previousValues[index])
-          )
+    let matched: boolean
+    let description: string
+    if (rule.groups && rule.groups.length > 0) {
+      const groups = rule.groups.map((group) => {
+        const values = group.map((condition) => alertMetricValue(condition.metric, quote))
+        const previousValues = previous
+          ? group.map((condition) => alertMetricValue(condition.metric, previous))
+          : []
+        return {
+          values,
+          matched:
+            values.every((value) => Number.isFinite(value)) &&
+            group.every((condition, index) =>
+              matches(condition, values[index], previousValues[index])
+            ),
+          text: `(${group
+            .map((condition, index) =>
+              Number.isFinite(values[index]) ? conditionDescription(condition, values[index]) : ''
+            )
+            .filter(Boolean)
+            .join(' 且 ')})`
+        }
+      })
+      matched =
+        (rule.groupMode ?? 'or') === 'or'
+          ? groups.some((group) => group.matched)
+          : groups.every((group) => group.matched)
+      description = groups
+        .map((group) => group.text)
+        .join((rule.groupMode ?? 'or') === 'or' ? ' 或 ' : ' 且 ')
+    } else {
+      const conditions = ruleConditions(rule)
+      const values = conditions.map((condition) => alertMetricValue(condition.metric, quote))
+      if (values.some((value) => !Number.isFinite(value))) continue
+      const previousValues = previous
+        ? conditions.map((condition) => alertMetricValue(condition.metric, previous))
+        : []
+      matched =
+        rule.conditionMode === 'or'
+          ? conditions.some((condition, index) =>
+              matches(condition, values[index], previousValues[index])
+            )
+          : conditions.every((condition, index) =>
+              matches(condition, values[index], previousValues[index])
+            )
+      description = conditions
+        .map((condition, index) => conditionDescription(condition, values[index]))
+        .join(rule.conditionMode === 'or' ? ' 或 ' : ' 且 ')
+    }
     if (!matched) continue
 
     const next = { ...rule, lastTriggeredDate: date }
-    const description = conditions
-      .map((condition, index) => {
-        const label =
-          condition.direction === 'above'
-            ? '≥'
-            : condition.direction === 'below'
-              ? '≤'
-              : condition.direction === 'crossAbove'
-                ? '上穿'
-                : '下穿'
-        return `${ALERT_METRIC_LABELS[condition.metric]} ${formatAlertValue(
-          condition.metric,
-          values[index]
-        )} ${label} ${formatAlertValue(condition.metric, condition.value)}`
-      })
-      .join(rule.conditionMode === 'or' ? ' 或 ' : ' 且 ')
     events.push({
       rule: next,
       quote,

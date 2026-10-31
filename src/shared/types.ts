@@ -813,6 +813,9 @@ export interface AlertRule {
   conditions?: AlertCondition[]
   /** 组合条件关系：默认且 */
   conditionMode?: 'and' | 'or'
+  /** 两级嵌套：每组内部为「且」，组间按 groupMode */
+  groups?: AlertCondition[][]
+  groupMode?: 'and' | 'or'
   enabled: boolean
   /** 最近一次触发的本地日期 YYYY-MM-DD；同一天不重复 */
   lastTriggeredDate?: string

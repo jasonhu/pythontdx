@@ -411,6 +411,8 @@ export function addAlert(
   input: Pick<AlertRule, 'code' | 'name' | 'metric' | 'direction' | 'value'> & {
     conditions?: AlertRule['conditions']
     conditionMode?: AlertRule['conditionMode']
+    groups?: AlertRule['groups']
+    groupMode?: AlertRule['groupMode']
   }
 ): void {
   const rule: AlertRule = {

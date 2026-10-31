@@ -101,6 +101,32 @@ describe('evaluateAlerts', () => {
   })
 })
 
+describe('evaluateAlerts nested groups', () => {
+  const nested = rule({
+    groups: [
+      [
+        { metric: 'price', direction: 'above', value: 100 },
+        { metric: 'changePct', direction: 'above', value: 2 }
+      ],
+      [{ metric: 'volumeRatio', direction: 'above', value: 3 }]
+    ],
+    groupMode: 'or'
+  })
+
+  it('组内全部满足、组间任一满足才触发', () => {
+    const first = evaluateAlerts([nested], [quote('sh600519', 150, 2.5, { volumeRatio: 1 })], NOW)
+    expect(first.events).toHaveLength(1)
+    expect(first.events[0]?.message).toContain('(')
+    expect(first.events[0]?.message).toContain(' 或 ')
+    expect(
+      evaluateAlerts([nested], [quote('sh600519', 90, 3, { volumeRatio: 1 })], NOW).events
+    ).toHaveLength(0)
+    expect(
+      evaluateAlerts([nested], [quote('sh600519', 90, 0, { volumeRatio: 4 })], NOW).events
+    ).toHaveLength(1)
+  })
+})
+
 describe('evaluateAlerts cross directions', () => {
   const prev = new Map([['sh600519', quote('sh600519', 99, 1)]])
   const next = [quote('sh600519', 101, 2)]

@@ -108,6 +108,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<Tab>(appState.settings.chartTab ?? 'minute')
   const [adjust, setAdjust] = createSignal<KLineAdjust>(appState.settings.klineAdjust ?? 'qfq')
   const [showBoll, setShowBoll] = createSignal(appState.settings.showBoll ?? false)
+  const [showDrawings, setShowDrawings] = createSignal(appState.settings.showDrawings ?? false)
+  const [showAverages, setShowAverages] = createSignal(appState.settings.showAverages ?? true)
+  const [drawMenuOpen, setDrawMenuOpen] = createSignal(false)
   const [subIndicator, setSubIndicator] = createSignal<'none' | SubIndicator>(
     appState.settings.subIndicator ?? 'none'
   )
@@ -133,6 +136,28 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     const savedBoll = appState.settings.showBoll
     if (savedBoll !== undefined && savedBoll !== showBoll()) setShowBoll(savedBoll)
   })
+  createEffect(() => {
+    const savedDrawings = appState.settings.showDrawings
+    if (savedDrawings !== undefined && savedDrawings !== showDrawings()) {
+      setShowDrawings(savedDrawings)
+    }
+  })
+  createEffect(() => {
+    const savedAverages = appState.settings.showAverages
+    if (savedAverages !== undefined && savedAverages !== showAverages()) {
+      setShowAverages(savedAverages)
+    }
+  })
+  const chooseDrawMode = (mode: DrawingMode): void => {
+    const next = drawMode() === mode ? 'none' : mode
+    setDrawMode(next)
+    if (next !== 'none' && !showDrawings()) {
+      setShowDrawings(true)
+      updateSettings({ showDrawings: true })
+    }
+    setDrawMenuOpen(false)
+  }
+
   createEffect(() => {
     const saved = appState.settings.subIndicator
     if (saved && saved !== subIndicator()) setSubIndicator(saved)
@@ -399,8 +424,21 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
 
           <Show when={!isTrend()}>
             <button
+              class="chip chart-ma"
+              data-active={showAverages()}
+              title="均线显示（默认开启）"
+              onClick={() => {
+                const next = !showAverages()
+                setShowAverages(next)
+                updateSettings({ showAverages: next })
+              }}
+            >
+              均线
+            </button>
+            <button
               class="chip chart-boll"
               data-active={showBoll()}
+              title="布林线叠加（默认关闭）"
               onClick={() => {
                 const next = !showBoll()
                 setShowBoll(next)
@@ -426,95 +464,127 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           </Show>
 
           <Show when={!isTrend()}>
-            <button
-              class="chip chart-draw-horizontal"
-              data-active={drawMode() === 'horizontal'}
-              title="点击图表放置水平线"
-              onClick={() => setDrawMode((mode) => (mode === 'horizontal' ? 'none' : 'horizontal'))}
-            >
-              水平
-            </button>
-            <button
-              class="chip chart-draw-vertical"
-              data-active={drawMode() === 'vertical'}
-              title="点击图表放置垂直线"
-              onClick={() => setDrawMode((mode) => (mode === 'vertical' ? 'none' : 'vertical'))}
-            >
-              垂线
-            </button>
-            <button
-              class="chip chart-draw-text"
-              data-active={drawMode() === 'text'}
-              title="输入文字后点击图表放置标注"
-              onClick={() => setDrawMode((mode) => (mode === 'text' ? 'none' : 'text'))}
-            >
-              文字
-            </button>
-            <button
-              class="chip chart-draw-trend"
-              data-active={drawMode() === 'trend'}
-              title="点两下画趋势线"
-              onClick={() => setDrawMode((mode) => (mode === 'trend' ? 'none' : 'trend'))}
-            >
-              趋势
-            </button>
-            <button
-              class="chip chart-draw-measure"
-              data-active={drawMode() === 'measure'}
-              title="点两下测量涨跌幅与跨过的 K 线根数"
-              onClick={() => setDrawMode((mode) => (mode === 'measure' ? 'none' : 'measure'))}
-            >
-              测量
-            </button>
-            <button
-              class="chip chart-draw-arrow"
-              data-active={drawMode() === 'arrow'}
-              title="点两下画箭头"
-              onClick={() => setDrawMode((mode) => (mode === 'arrow' ? 'none' : 'arrow'))}
-            >
-              箭头
-            </button>
-            <button
-              class="chip chart-draw-channel"
-              data-active={drawMode() === 'channel'}
-              title="点三下画平行通道：基线两点 + 偏移一点"
-              onClick={() => setDrawMode((mode) => (mode === 'channel' ? 'none' : 'channel'))}
-            >
-              通道
-            </button>
-            <button
-              class="chip chart-draw-fib"
-              data-active={drawMode() === 'fib'}
-              title="点两下画斐波那契回撤"
-              onClick={() => setDrawMode((mode) => (mode === 'fib' ? 'none' : 'fib'))}
-            >
-              斐波
-            </button>
-            <button
-              class="chip chart-draw-fib-ext"
-              data-active={drawMode() === 'fibExt'}
-              title="点两下画斐波那契扩展（含 127.2%/161.8%）"
-              onClick={() => setDrawMode((mode) => (mode === 'fibExt' ? 'none' : 'fibExt'))}
-            >
-              扩展
-            </button>
-            <button
-              class="chip chart-draw-clear"
-              title="清除所有画线"
-              onClick={() => setClearDrawingsKey((value) => value + 1)}
-            >
-              清线
-            </button>
-            <Show when={drawMode() === 'text'}>
-              <input
-                class="chart-draw-text-input"
-                value={drawingText()}
-                maxlength="20"
-                placeholder="标注文字"
-                aria-label="标注文字"
-                onInput={(event) => setDrawingText(event.currentTarget.value)}
-              />
-            </Show>
+            <div class="chart-draw">
+              <button
+                class="chip chart-draw-toggle"
+                data-active={showDrawings()}
+                title="画线：默认隐藏，打开后可选择工具"
+                onClick={() => setDrawMenuOpen((value) => !value)}
+              >
+                画线
+              </button>
+              <Show when={drawMenuOpen()}>
+                <div class="chart-draw-menu">
+                  <label class="chart-draw-menu__show">
+                    <input
+                      type="checkbox"
+                      checked={showDrawings()}
+                      onChange={(event) => {
+                        const next = event.currentTarget.checked
+                        setShowDrawings(next)
+                        if (!next) setDrawMode('none')
+                        updateSettings({ showDrawings: next })
+                      }}
+                    />
+                    显示画线
+                  </label>
+                  <div class="chart-draw-menu__tools">
+                    <button
+                      class="chip chart-draw-horizontal"
+                      data-active={drawMode() === 'horizontal'}
+                      title="点击图表放置水平线"
+                      onClick={() => chooseDrawMode('horizontal')}
+                    >
+                      水平
+                    </button>
+                    <button
+                      class="chip chart-draw-vertical"
+                      data-active={drawMode() === 'vertical'}
+                      title="点击图表放置垂直线"
+                      onClick={() => chooseDrawMode('vertical')}
+                    >
+                      垂线
+                    </button>
+                    <button
+                      class="chip chart-draw-text"
+                      data-active={drawMode() === 'text'}
+                      title="输入文字后点击图表放置标注"
+                      onClick={() => chooseDrawMode('text')}
+                    >
+                      文字
+                    </button>
+                    <button
+                      class="chip chart-draw-trend"
+                      data-active={drawMode() === 'trend'}
+                      title="点两下画趋势线"
+                      onClick={() => chooseDrawMode('trend')}
+                    >
+                      趋势
+                    </button>
+                    <button
+                      class="chip chart-draw-measure"
+                      data-active={drawMode() === 'measure'}
+                      title="点两下测量涨跌幅与跨过的 K 线根数"
+                      onClick={() => chooseDrawMode('measure')}
+                    >
+                      测量
+                    </button>
+                    <button
+                      class="chip chart-draw-arrow"
+                      data-active={drawMode() === 'arrow'}
+                      title="点两下画箭头"
+                      onClick={() => chooseDrawMode('arrow')}
+                    >
+                      箭头
+                    </button>
+                    <button
+                      class="chip chart-draw-channel"
+                      data-active={drawMode() === 'channel'}
+                      title="点三下画平行通道：基线两点 + 偏移一点"
+                      onClick={() => chooseDrawMode('channel')}
+                    >
+                      通道
+                    </button>
+                    <button
+                      class="chip chart-draw-fib"
+                      data-active={drawMode() === 'fib'}
+                      title="点两下画斐波那契回撤"
+                      onClick={() => chooseDrawMode('fib')}
+                    >
+                      斐波
+                    </button>
+                    <button
+                      class="chip chart-draw-fib-ext"
+                      data-active={drawMode() === 'fibExt'}
+                      title="点两下画斐波那契扩展（含 127.2%/161.8%）"
+                      onClick={() => chooseDrawMode('fibExt')}
+                    >
+                      扩展
+                    </button>
+                  </div>
+                  <div class="chart-draw-menu__foot">
+                    <button
+                      class="chip chart-draw-clear"
+                      title="清除所有画线"
+                      onClick={() => setClearDrawingsKey((value) => value + 1)}
+                    >
+                      清线
+                    </button>
+                    <span>点击选中，Delete/右键删除单条</span>
+                  </div>
+                  <Show when={drawMode() === 'text'}>
+                    <input
+                      class="chart-draw-text-input"
+                      value={drawingText()}
+                      maxlength="20"
+                      placeholder="标注文字"
+                      aria-label="标注文字"
+                      onInput={(event) => setDrawingText(event.currentTarget.value)}
+                    />
+                  </Show>
+                </div>
+              </Show>
+            </div>
           </Show>
 
           <Show when={!isTrend()}>
@@ -705,14 +775,16 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           <Show
             when={isTrend()}
             fallback={
-              <For each={maLegend()}>
-                {(item) => (
-                  <span class="chart-legend__item">
-                    <span class="chart-legend__swatch" style={{ background: item.color }} />
-                    {item.label}
-                  </span>
-                )}
-              </For>
+              <Show when={showAverages()}>
+                <For each={maLegend()}>
+                  {(item) => (
+                    <span class="chart-legend__item">
+                      <span class="chart-legend__swatch" style={{ background: item.color }} />
+                      {item.label}
+                    </span>
+                  )}
+                </For>
+              </Show>
             }
           >
             <span class="chart-legend__item">
@@ -756,6 +828,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                   <KLineChart
                     series={series()}
                     boll={showBoll()}
+                    showAverages={showAverages()}
                     bollPeriod={appState.settings.indicatorParams?.bollPeriod ?? 20}
                     bollK={appState.settings.indicatorParams?.bollK ?? 2}
                     logScale={logScale()}
@@ -764,6 +837,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     onCursorChange={setSubCursor}
                     onWindowChange={setSubWindow}
                     drawMode={drawMode()}
+                    showDrawings={showDrawings()}
                     overlayFormula={appState.settings.mainFormula}
                     dividends={dividends()}
                     clearDrawingsKey={clearDrawingsKey()}

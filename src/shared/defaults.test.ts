@@ -10,5 +10,8 @@ describe('DEFAULT_SETTINGS', () => {
     expect(DEFAULT_SETTINGS.maPeriods).toEqual([5, 10, 20, 60, 120])
     expect(DEFAULT_SETTINGS.subIndicator).toBe('none')
     expect(DEFAULT_SETTINGS.showBoll).toBe(false)
+    expect(DEFAULT_SETTINGS.showDrawings).toBe(false)
+    expect(DEFAULT_SETTINGS.showAverages).toBe(true)
+    expect(DEFAULT_SETTINGS.mainFormula).toBeUndefined()
   })
 })

@@ -105,6 +105,10 @@ export interface KLineChartProps {
   dividends?: Array<{ date: string; label: string }>
   /** 主图叠加公式；归一化显示 */
   overlayFormula?: string
+  /** 是否显示已保存的画线（默认关闭） */
+  showDrawings?: boolean
+  /** 是否显示均线（默认开启） */
+  showAverages?: boolean
   /** 改变时清空画线 */
   clearDrawingsKey?: number
 }
@@ -140,6 +144,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [rangeStart, setRangeStart] = createSignal<number | null>(null)
   const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
+  const [selectedId, setSelectedId] = createSignal<number | null>(null)
   const [dragId, setDragId] = createSignal<number | null>(null)
   const [dragPart, setDragPart] = createSignal<'start' | 'end' | 'offset'>('end')
   const [editing, setEditing] = createSignal<{
@@ -262,6 +267,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   /** 均线同样要切片，否则 x 坐标会和蜡烛整体错位 */
   const visibleAverages = createMemo(() => {
+    if (props.showAverages === false) return []
     const view = win()
     return averages().map((average) => ({
       ...average,
@@ -288,6 +294,53 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const bands = visibleBoll()
     const extra = bands ? [...bands.upper, ...bands.middle, ...bands.lower] : []
     return buildKLineGeometry(bars(), size().width, size().height, undefined, extra, props.logScale)
+  })
+  const selectedDrawing = createMemo(
+    () => drawings().find((drawing) => drawing.id === selectedId()) ?? null
+  )
+  const selectedAnchors = createMemo(() => {
+    const drawing = selectedDrawing()
+    if (!drawing || !geometry()) return []
+    const drawX = (index: number): number => geometry()!.x(index - win().start)
+    if (drawing.type === 'horizontal') {
+      return [
+        {
+          x: geometry()!.width - geometry()!.padding.right - 4,
+          y: geometry()!.yPrice(drawing.price ?? 0)
+        }
+      ]
+    }
+    if (drawing.type === 'vertical') {
+      return [{ x: drawX(drawing.startIndex ?? 0), y: geometry()!.priceTop + 8 }]
+    }
+    if (drawing.type === 'text') {
+      return [
+        {
+          x: drawX(drawing.startIndex ?? 0),
+          y: geometry()!.yPrice(drawing.price ?? 0)
+        }
+      ]
+    }
+    const points = [
+      {
+        x: drawX(drawing.startIndex ?? 0),
+        y: geometry()!.yPrice(drawing.startPrice ?? 0)
+      },
+      {
+        x: drawX(drawing.endIndex ?? 0),
+        y: geometry()!.yPrice(drawing.endPrice ?? 0)
+      }
+    ]
+    if (drawing.type === 'channel') {
+      points.push({
+        x: points[1].x,
+        y: geometry()!.yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))
+      })
+    }
+    return points
+  })
+  createEffect(() => {
+    if (!props.showDrawings) setSelectedId(null)
   })
   const extremes = createMemo(() => {
     const data = bars()
@@ -398,11 +451,14 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       x: geo.x(absolute - win().start),
       y: geo.yPrice(bar.close),
       changePct: previous ? ((bar.close - previous.close) / previous.close) * 100 : 0,
-      averages: averages().map((average) => ({
-        period: average.period,
-        color: average.color,
-        value: average.values[absolute]
-      }))
+      averages:
+        props.showAverages === false
+          ? []
+          : averages().map((average) => ({
+              period: average.period,
+              color: average.color,
+              value: average.values[absolute]
+            }))
     }
   })
 
@@ -508,10 +564,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   }
 
   const onPointerDown = (event: PointerEvent): void => {
+    host?.focus({ preventScroll: true })
     const geo = geometry()
     if (!geo) return
     const hit = hitDrawing(event, geo)
     if (hit) {
+      setSelectedId(hit.drawing.id)
       setDragId(hit.drawing.id)
       setDragPart(hit.part)
       try {
@@ -521,6 +579,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       }
       return
     }
+    setSelectedId(null)
     if (props.drawMode && props.drawMode !== 'none') {
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
       const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
@@ -529,6 +588,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       if (props.drawMode === 'horizontal') {
         drawingId += 1
         const next = [...drawings(), { id: drawingId, type: 'horizontal' as const, price }]
+        setSelectedId(drawingId)
         setDrawings(next)
         persistDrawings(next)
         return
@@ -539,6 +599,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           ...drawings(),
           { id: drawingId, type: 'vertical' as const, startIndex: index }
         ]
+        setSelectedId(drawingId)
         setDrawings(next)
         persistDrawings(next)
         return
@@ -555,6 +616,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             text: props.drawingText || '标注'
           }
         ]
+        setSelectedId(drawingId)
         setDrawings(next)
         persistDrawings(next)
         return
@@ -584,6 +646,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             offset
           }
         ]
+        setSelectedId(drawingId)
         setDrawings(next)
         persistDrawings(next)
         setPendingPoint(null)
@@ -682,6 +745,18 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (dragId() === null) return
     setDragId(null)
     persistDrawings(drawings())
+  }
+
+  const onContextMenu = (event: MouseEvent): void => {
+    const geo = geometry()
+    if (!geo) return
+    const hit = hitDrawing(event as PointerEvent, geo)
+    if (!hit) return
+    event.preventDefault()
+    const next = drawings().filter((drawing) => drawing.id !== hit.drawing.id)
+    setSelectedId(null)
+    setDrawings(next)
+    persistDrawings(next)
   }
 
   /**
@@ -804,6 +879,17 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         event.preventDefault()
         goLatest()
         return
+      case 'Delete':
+      case 'Backspace': {
+        const id = selectedId()
+        if (id === null) return
+        event.preventDefault()
+        const next = drawings().filter((drawing) => drawing.id !== id)
+        setDrawings(next)
+        setSelectedId(null)
+        persistDrawings(next)
+        return
+      }
       case 'Escape':
         setCursor(null)
         return
@@ -827,6 +913,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onContextMenu={onContextMenu}
       onDblClick={onDoubleClick}
       onPointerLeave={() => {
         // 指针离开就交还键盘、收起光标：别让「谁在响应键盘」含糊着
@@ -1086,224 +1173,245 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
               )}
             </For>
 
-            {/* ---------- 画线 ---------- */}
-            <For each={drawings()}>
-              {(drawing) =>
-                drawing.type === 'horizontal' ? (
-                  <>
-                    <line
-                      class="chart-drawing"
-                      x1={geo().padding.left}
-                      x2={geo().width - geo().padding.right}
-                      y1={geo().yPrice(drawing.price ?? 0)}
-                      y2={geo().yPrice(drawing.price ?? 0)}
-                    />
-                    <text
-                      class="chart-drawing-label"
-                      x={geo().width - geo().padding.right - 2}
-                      y={geo().yPrice(drawing.price ?? 0) - 3}
-                      text-anchor="end"
-                    >
-                      {fixed(drawing.price ?? 0)}
-                    </text>
-                  </>
-                ) : drawing.type === 'vertical' ? (
-                  <>
-                    <line
-                      class="chart-drawing"
-                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                      x2={geo().x((drawing.startIndex ?? 0) - win().start)}
-                      y1={geo().priceTop}
-                      y2={geo().volumeBottom}
-                    />
-                    <text
-                      class="chart-drawing-label"
-                      x={geo().x((drawing.startIndex ?? 0) - win().start) + 4}
-                      y={geo().priceTop + 12}
-                    >
-                      {allBars()[drawing.startIndex ?? 0]?.date ?? ''}
-                    </text>
-                  </>
-                ) : drawing.type === 'text' ? (
-                  <g>
-                    <circle
-                      class="chart-drawing-point"
-                      cx={geo().x((drawing.startIndex ?? 0) - win().start)}
-                      cy={geo().yPrice(drawing.price ?? 0)}
-                      r="2.5"
-                    />
-                    <text
-                      class="chart-drawing-text"
-                      x={geo().x((drawing.startIndex ?? 0) - win().start) + 5}
-                      y={geo().yPrice(drawing.price ?? 0) - 5}
-                    >
-                      {drawing.text || '标注'}
-                    </text>
-                  </g>
-                ) : drawing.type === 'fib' ? (
-                  <g>
-                    <For
-                      each={fibonacciLevels(
-                        drawing.startPrice ?? 0,
-                        drawing.endPrice ?? 0,
-                        drawing.extended
-                      )}
-                    >
-                      {(level) => (
-                        <g>
-                          <line
-                            class="chart-drawing chart-drawing-fib"
-                            x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                            x2={geo().x((drawing.endIndex ?? 0) - win().start)}
-                            y1={geo().yPrice(level.price)}
-                            y2={geo().yPrice(level.price)}
-                          />
-                          <text
-                            class="chart-drawing-label"
-                            x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
-                            y={geo().yPrice(level.price) - 2}
-                          >
-                            {(level.ratio * 100).toFixed(1)}% {fixed(level.price)}
-                          </text>
-                        </g>
-                      )}
-                    </For>
-                  </g>
-                ) : drawing.type === 'measure' ? (
-                  <g>
-                    {(() => {
-                      const percent = measurementPercent(
-                        drawing.startPrice ?? 0,
-                        drawing.endPrice ?? 0
-                      )
-                      const bars = measurementBars(drawing.startIndex ?? 0, drawing.endIndex ?? 0)
-                      return (
-                        <>
-                          <line
-                            class="chart-drawing chart-drawing-measure"
-                            x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                            y1={geo().yPrice(drawing.startPrice ?? 0)}
-                            x2={geo().x((drawing.endIndex ?? 0) - win().start)}
-                            y2={geo().yPrice(drawing.endPrice ?? 0)}
-                          />
-                          <circle
-                            class="chart-drawing-point"
-                            cx={geo().x((drawing.startIndex ?? 0) - win().start)}
-                            cy={geo().yPrice(drawing.startPrice ?? 0)}
-                            r="2.5"
-                          />
-                          <circle
-                            class="chart-drawing-point"
-                            cx={geo().x((drawing.endIndex ?? 0) - win().start)}
-                            cy={geo().yPrice(drawing.endPrice ?? 0)}
-                            r="2.5"
-                          />
-                          <text
-                            class="chart-drawing-label"
-                            x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
-                            y={geo().yPrice(drawing.endPrice ?? 0) - 4}
-                          >
-                            {percent === null
-                              ? '—'
-                              : `${percent >= 0 ? '+' : ''}${fixed(percent)}% / ${bars} 根`}
-                          </text>
-                        </>
-                      )
-                    })()}
-                  </g>
-                ) : drawing.type === 'arrow' ? (
-                  <g>
-                    <line
-                      class="chart-drawing"
-                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                      y1={geo().yPrice(drawing.startPrice ?? 0)}
-                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
-                      y2={geo().yPrice(drawing.endPrice ?? 0)}
-                    />
-                    <polygon
-                      class="chart-drawing-arrow"
-                      points={arrowHeadPoints(
-                        {
-                          x: geo().x((drawing.startIndex ?? 0) - win().start),
-                          y: geo().yPrice(drawing.startPrice ?? 0)
-                        },
-                        {
-                          x: geo().x((drawing.endIndex ?? 0) - win().start),
-                          y: geo().yPrice(drawing.endPrice ?? 0)
-                        }
-                      )
-                        .map((point) => `${point.x},${point.y}`)
-                        .join(' ')}
-                    />
-                  </g>
-                ) : drawing.type === 'channel' ? (
-                  <g>
-                    <polygon
-                      class="chart-drawing-channel-fill"
-                      points={[
-                        [drawing.startIndex ?? 0, drawing.startPrice ?? 0],
-                        [drawing.endIndex ?? 0, drawing.endPrice ?? 0],
-                        [drawing.endIndex ?? 0, (drawing.endPrice ?? 0) + (drawing.offset ?? 0)],
-                        [drawing.startIndex ?? 0, (drawing.startPrice ?? 0) + (drawing.offset ?? 0)]
-                      ]
-                        .map(
-                          ([index, price]) =>
-                            `${geo().x(index - win().start)},${geo().yPrice(price)}`
+            {/* ---------- 画线（默认隐藏，由工具栏开关控制） ---------- */}
+            <Show when={props.showDrawings ?? false}>
+              <For each={drawings()}>
+                {(drawing) =>
+                  drawing.type === 'horizontal' ? (
+                    <>
+                      <line
+                        class="chart-drawing"
+                        x1={geo().padding.left}
+                        x2={geo().width - geo().padding.right}
+                        y1={geo().yPrice(drawing.price ?? 0)}
+                        y2={geo().yPrice(drawing.price ?? 0)}
+                      />
+                      <text
+                        class="chart-drawing-label"
+                        x={geo().width - geo().padding.right - 2}
+                        y={geo().yPrice(drawing.price ?? 0) - 3}
+                        text-anchor="end"
+                      >
+                        {fixed(drawing.price ?? 0)}
+                      </text>
+                    </>
+                  ) : drawing.type === 'vertical' ? (
+                    <>
+                      <line
+                        class="chart-drawing"
+                        x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                        x2={geo().x((drawing.startIndex ?? 0) - win().start)}
+                        y1={geo().priceTop}
+                        y2={geo().volumeBottom}
+                      />
+                      <text
+                        class="chart-drawing-label"
+                        x={geo().x((drawing.startIndex ?? 0) - win().start) + 4}
+                        y={geo().priceTop + 12}
+                      >
+                        {allBars()[drawing.startIndex ?? 0]?.date ?? ''}
+                      </text>
+                    </>
+                  ) : drawing.type === 'text' ? (
+                    <g>
+                      <circle
+                        class="chart-drawing-point"
+                        cx={geo().x((drawing.startIndex ?? 0) - win().start)}
+                        cy={geo().yPrice(drawing.price ?? 0)}
+                        r="2.5"
+                      />
+                      <text
+                        class="chart-drawing-text"
+                        x={geo().x((drawing.startIndex ?? 0) - win().start) + 5}
+                        y={geo().yPrice(drawing.price ?? 0) - 5}
+                      >
+                        {drawing.text || '标注'}
+                      </text>
+                    </g>
+                  ) : drawing.type === 'fib' ? (
+                    <g>
+                      <For
+                        each={fibonacciLevels(
+                          drawing.startPrice ?? 0,
+                          drawing.endPrice ?? 0,
+                          drawing.extended
+                        )}
+                      >
+                        {(level) => (
+                          <g>
+                            <line
+                              class="chart-drawing chart-drawing-fib"
+                              x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                              x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                              y1={geo().yPrice(level.price)}
+                              y2={geo().yPrice(level.price)}
+                            />
+                            <text
+                              class="chart-drawing-label"
+                              x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
+                              y={geo().yPrice(level.price) - 2}
+                            >
+                              {(level.ratio * 100).toFixed(1)}% {fixed(level.price)}
+                            </text>
+                          </g>
+                        )}
+                      </For>
+                    </g>
+                  ) : drawing.type === 'measure' ? (
+                    <g>
+                      {(() => {
+                        const percent = measurementPercent(
+                          drawing.startPrice ?? 0,
+                          drawing.endPrice ?? 0
                         )
-                        .join(' ')}
-                    />
-                    <line
-                      class="chart-drawing"
-                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                      y1={geo().yPrice(drawing.startPrice ?? 0)}
-                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
-                      y2={geo().yPrice(drawing.endPrice ?? 0)}
-                    />
-                    <line
-                      class="chart-drawing"
-                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                      y1={geo().yPrice((drawing.startPrice ?? 0) + (drawing.offset ?? 0))}
-                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
-                      y2={geo().yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))}
-                    />
-                    <circle
-                      class="chart-drawing-point chart-drawing-channel-handle"
-                      cx={geo().x((drawing.endIndex ?? 0) - win().start)}
-                      cy={geo().yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))}
-                      r="4"
-                    />
-                  </g>
-                ) : (
-                  <>
-                    <line
-                      class="chart-drawing"
-                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                      y1={geo().yPrice(drawing.startPrice ?? 0)}
-                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
-                      y2={geo().yPrice(drawing.endPrice ?? 0)}
-                    />
-                    <text
-                      class="chart-drawing-label"
-                      x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
-                      y={geo().yPrice(drawing.endPrice ?? 0) - 3}
-                    >
-                      {fixed(drawing.endPrice ?? 0)}
-                    </text>
-                  </>
-                )
-              }
-            </For>
+                        const bars = measurementBars(drawing.startIndex ?? 0, drawing.endIndex ?? 0)
+                        return (
+                          <>
+                            <line
+                              class="chart-drawing chart-drawing-measure"
+                              x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                              y1={geo().yPrice(drawing.startPrice ?? 0)}
+                              x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                              y2={geo().yPrice(drawing.endPrice ?? 0)}
+                            />
+                            <circle
+                              class="chart-drawing-point"
+                              cx={geo().x((drawing.startIndex ?? 0) - win().start)}
+                              cy={geo().yPrice(drawing.startPrice ?? 0)}
+                              r="2.5"
+                            />
+                            <circle
+                              class="chart-drawing-point"
+                              cx={geo().x((drawing.endIndex ?? 0) - win().start)}
+                              cy={geo().yPrice(drawing.endPrice ?? 0)}
+                              r="2.5"
+                            />
+                            <text
+                              class="chart-drawing-label"
+                              x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
+                              y={geo().yPrice(drawing.endPrice ?? 0) - 4}
+                            >
+                              {percent === null
+                                ? '—'
+                                : `${percent >= 0 ? '+' : ''}${fixed(percent)}% / ${bars} 根`}
+                            </text>
+                          </>
+                        )
+                      })()}
+                    </g>
+                  ) : drawing.type === 'arrow' ? (
+                    <g>
+                      <line
+                        class="chart-drawing"
+                        x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                        y1={geo().yPrice(drawing.startPrice ?? 0)}
+                        x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                        y2={geo().yPrice(drawing.endPrice ?? 0)}
+                      />
+                      <polygon
+                        class="chart-drawing-arrow"
+                        points={arrowHeadPoints(
+                          {
+                            x: geo().x((drawing.startIndex ?? 0) - win().start),
+                            y: geo().yPrice(drawing.startPrice ?? 0)
+                          },
+                          {
+                            x: geo().x((drawing.endIndex ?? 0) - win().start),
+                            y: geo().yPrice(drawing.endPrice ?? 0)
+                          }
+                        )
+                          .map((point) => `${point.x},${point.y}`)
+                          .join(' ')}
+                      />
+                    </g>
+                  ) : drawing.type === 'channel' ? (
+                    <g>
+                      <polygon
+                        class="chart-drawing-channel-fill"
+                        points={[
+                          [drawing.startIndex ?? 0, drawing.startPrice ?? 0],
+                          [drawing.endIndex ?? 0, drawing.endPrice ?? 0],
+                          [drawing.endIndex ?? 0, (drawing.endPrice ?? 0) + (drawing.offset ?? 0)],
+                          [
+                            drawing.startIndex ?? 0,
+                            (drawing.startPrice ?? 0) + (drawing.offset ?? 0)
+                          ]
+                        ]
+                          .map(
+                            ([index, price]) =>
+                              `${geo().x(index - win().start)},${geo().yPrice(price)}`
+                          )
+                          .join(' ')}
+                      />
+                      <line
+                        class="chart-drawing"
+                        x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                        y1={geo().yPrice(drawing.startPrice ?? 0)}
+                        x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                        y2={geo().yPrice(drawing.endPrice ?? 0)}
+                      />
+                      <line
+                        class="chart-drawing"
+                        x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                        y1={geo().yPrice((drawing.startPrice ?? 0) + (drawing.offset ?? 0))}
+                        x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                        y2={geo().yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))}
+                      />
+                      <circle
+                        class="chart-drawing-point chart-drawing-channel-handle"
+                        cx={geo().x((drawing.endIndex ?? 0) - win().start)}
+                        cy={geo().yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))}
+                        r="4"
+                      />
+                    </g>
+                  ) : (
+                    <>
+                      <line
+                        class="chart-drawing"
+                        x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                        y1={geo().yPrice(drawing.startPrice ?? 0)}
+                        x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                        y2={geo().yPrice(drawing.endPrice ?? 0)}
+                      />
+                      <text
+                        class="chart-drawing-label"
+                        x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
+                        y={geo().yPrice(drawing.endPrice ?? 0) - 3}
+                      >
+                        {fixed(drawing.endPrice ?? 0)}
+                      </text>
+                    </>
+                  )
+                }
+              </For>
 
-            {/* ---------- 区间统计选区 ---------- */}
-            <Show when={rangeOverlay()}>
-              {(box) => (
-                <rect
-                  class="chart-range"
-                  x={box().x}
-                  y={geo().priceTop}
-                  width={box().width}
-                  height={geo().volumeBottom - geo().priceTop}
-                />
+              {/* ---------- 区间统计选区 ---------- */}
+              <Show when={rangeOverlay()}>
+                {(box) => (
+                  <rect
+                    class="chart-range"
+                    x={box().x}
+                    y={geo().priceTop}
+                    width={box().width}
+                    height={geo().volumeBottom - geo().priceTop}
+                  />
+                )}
+              </Show>
+            </Show>
+
+            {/* ---------- 选中画线的手柄 ---------- */}
+            <Show when={selectedDrawing() ? selectedAnchors() : null}>
+              {(points) => (
+                <g class="chart-drawing-selection">
+                  <For each={points()}>
+                    {(point) => (
+                      <>
+                        <circle cx={point.x} cy={point.y} r="7" />
+                        <circle cx={point.x} cy={point.y} r="3" />
+                      </>
+                    )}
+                  </For>
+                </g>
               )}
             </Show>
 

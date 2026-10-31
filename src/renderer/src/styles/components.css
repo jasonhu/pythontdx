@@ -6513,3 +6513,59 @@
   color: var(--text-2);
   font-weight: 600;
 }
+
+.chart-drawing-selection circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.chart-drawing-selection circle + circle {
+  fill: var(--accent);
+  stroke: var(--bg-base);
+  stroke-width: 1.5;
+}
+
+.chart-draw {
+  position: relative;
+}
+
+.chart-draw-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 260px;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: var(--shadow-lg);
+}
+
+.chart-draw-menu__show {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 8px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.chart-draw-menu__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.chart-draw-menu__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 10px;
+}

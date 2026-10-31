@@ -22,6 +22,7 @@ const GROUPS: Array<{ title: string; items: Array<[string, string]> }> = [
       ['↑ / ↓', '放大 / 缩小可见根数'],
       ['← / →', '移动十字光标'],
       ['End', '回到最新一根'],
+      ['Delete', '删除选中的画线'],
       ['Esc', '收起十字光标']
     ]
   }

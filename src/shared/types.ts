@@ -868,6 +868,10 @@ export interface AppSettings {
   klineAdjust?: KLineAdjust
   /** 主图是否叠加 BOLL */
   showBoll?: boolean
+  /** 是否显示已保存的画线；默认关闭 */
+  showDrawings?: boolean
+  /** 是否显示均线；默认开启，可关闭只看裸 K/BOLL */
+  showAverages?: boolean
   /** 指标面板参数 */
   indicatorParams?: IndicatorParams
   /** K 线副图 */
@@ -1023,6 +1027,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maPeriods: [5, 10, 20, 60, 120],
   subIndicator: 'none',
   showBoll: false,
+  showDrawings: false,
+  showAverages: true,
   sidebarHidden: false,
   sidebarWidth: 280,
   railWidth: 330

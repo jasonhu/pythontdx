@@ -57,7 +57,10 @@ const FUNCTIONS = new Set([
   'INTPART',
   'AND',
   'OR',
-  'NOT'
+  'NOT',
+  'RSI',
+  'BIAS',
+  'ATR'
 ])
 
 function tokenize(expression: string): Token[] {
@@ -442,6 +445,57 @@ function evaluate(node: Node, bars: KLineBar[]): number[] {
         case 'NOT': {
           if (node.args.length !== 1) throw new FormulaError('NOT 需要 1 个参数')
           return evaluate(node.args[0], bars).map((value) => (value > 0 ? 0 : 1))
+        }
+        case 'RSI': {
+          if (node.args.length !== 2) throw new FormulaError('RSI 需要 2 个参数')
+          const values = evaluate(node.args[0], bars)
+          const count = withCount(node.args[1], bars)
+          return values.map((_, index) => {
+            if (index < count) return Number.NaN
+            let gain = 0
+            let loss = 0
+            for (let offset = 0; offset < count; offset += 1) {
+              const current = values[index - offset]
+              const previous = values[index - offset - 1]
+              if (!Number.isFinite(current) || !Number.isFinite(previous)) return Number.NaN
+              const change = current - previous
+              if (change >= 0) gain += change
+              else loss -= change
+            }
+            if (loss === 0) return 100
+            return 100 - 100 / (1 + gain / loss)
+          })
+        }
+        case 'BIAS': {
+          if (node.args.length !== 2) throw new FormulaError('BIAS 需要 2 个参数')
+          const values = evaluate(node.args[0], bars)
+          const count = withCount(node.args[1], bars)
+          return values.map((value, index) => {
+            if (index + 1 < count) return Number.NaN
+            const window = values.slice(index - count + 1, index + 1)
+            if (window.some((item) => !Number.isFinite(item))) return Number.NaN
+            const mean = window.reduce((sum, item) => sum + item, 0) / count
+            return mean === 0 ? Number.NaN : ((value - mean) / mean) * 100
+          })
+        }
+        case 'ATR': {
+          if (node.args.length !== 1) throw new FormulaError('ATR 需要 1 个参数')
+          const count = withCount(node.args[0], bars)
+          return bars.map((_, index) => {
+            if (index + 1 < count || index === 0) return Number.NaN
+            let total = 0
+            for (let offset = 0; offset < count; offset += 1) {
+              const current = bars[index - offset]
+              const previous = bars[index - offset - 1]
+              if (!current || !previous) return Number.NaN
+              total += Math.max(
+                current.high - current.low,
+                Math.abs(current.high - previous.close),
+                Math.abs(current.low - previous.close)
+              )
+            }
+            return total / count
+          })
         }
         default:
           throw new FormulaError(`未知函数：${node.name}`)

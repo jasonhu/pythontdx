@@ -48,6 +48,10 @@ describe('evaluateFormula', () => {
     expect(evaluateFormula('ROUND(1.6)', bars([1])).latest).toBe(2)
     expect(evaluateFormula('AND(CLOSE > 1, VOL > 0)', bars([2])).latest).toBe(1)
     expect(evaluateFormula('NOT(CLOSE > 1)', bars([2])).latest).toBe(0)
+    const rsi = evaluateFormula('RSI(CLOSE,2)', bars([1, 2, 3]))
+    expect(rsi.values[2]).toBe(100)
+    expect(evaluateFormula('BIAS(CLOSE,2)', bars([1, 2, 3])).values[2]).toBeCloseTo(20, 6)
+    expect(evaluateFormula('ATR(2)', bars([1, 2, 3])).values[2]).toBeCloseTo(2, 6)
   })
 
   it('CROSS 只在穿越那根为 1', () => {

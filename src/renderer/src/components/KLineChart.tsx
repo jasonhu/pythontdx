@@ -1573,17 +1573,14 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                             />
                             <text
                               class="chart-drawing-label"
-                              x={
-                                (geo().x((drawing.startIndex ?? 0) - win().start) +
-                                  geo().x((drawing.endIndex ?? 0) - win().start)) /
-                                2
-                              }
-                              y={
-                                (geo().yPrice(drawing.startPrice ?? 0) +
-                                  geo().yPrice(drawing.endPrice ?? 0)) /
-                                  2 -
-                                6
-                              }
+                              x={Math.max(
+                                geo().padding.left + 34,
+                                Math.min(
+                                  geo().x((drawing.endIndex ?? 0) - win().start),
+                                  geo().width - geo().padding.right - 34
+                                )
+                              )}
+                              y={geo().priceBottom + 10}
                               text-anchor="middle"
                             >
                               {percent === null

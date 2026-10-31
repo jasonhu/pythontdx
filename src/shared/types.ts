@@ -847,6 +847,7 @@ export interface AppSettings {
     | 'psy'
     | 'vr'
     | 'cr'
+    | 'bbi'
   /** 价格坐标是否对数 */
   logScale?: boolean
   /** K 线画线（按 code/period 保存） */

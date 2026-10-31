@@ -6,10 +6,22 @@
 import { createMemo, For, Show, type JSX } from 'solid-js'
 import type { IndicatorParams, KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { bias, cci, cr, dmi, kdj, macd, obv, psy, roc, rsi, vr, wr } from '@shared/indicators'
+import { bbi, bias, cci, cr, dmi, kdj, macd, obv, psy, roc, rsi, vr, wr } from '@shared/indicators'
 
 export type SubIndicator =
-  'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi' | 'obv' | 'roc' | 'psy' | 'vr' | 'cr'
+  | 'macd'
+  | 'kdj'
+  | 'rsi'
+  | 'wr'
+  | 'cci'
+  | 'bias'
+  | 'dmi'
+  | 'obv'
+  | 'roc'
+  | 'psy'
+  | 'vr'
+  | 'cr'
+  | 'bbi'
 
 const W = 900
 const H = 120
@@ -31,6 +43,7 @@ const COLORS = {
   psy: '#22d3ee',
   vr: '#c084fc',
   cr: '#f0b429',
+  bbi: '#22d3ee',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -267,6 +280,17 @@ export function IndicatorSubchart(props: {
         lines: [{ label: `CR${period}`, color: COLORS.cr, d: path(values, min, max) }],
         hist: [],
         latest: `CR${period} ${fixed(values.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'bbi') {
+      const values = slice(bbi(all))
+      const finite = values.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [{ label: 'BBI', color: COLORS.bbi, d: path(values, min, max) }],
+        hist: [],
+        latest: `BBI ${fixed(values.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all, props.params?.rsiPeriod ?? 14))

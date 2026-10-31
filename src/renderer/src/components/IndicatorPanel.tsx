@@ -6,7 +6,22 @@
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { bias, boll, cci, cr, dmi, kdj, macd, obv, psy, roc, rsi, vr, wr } from '@shared/indicators'
+import {
+  bbi,
+  bias,
+  boll,
+  cci,
+  cr,
+  dmi,
+  kdj,
+  macd,
+  obv,
+  psy,
+  roc,
+  rsi,
+  vr,
+  wr
+} from '@shared/indicators'
 import { api, errorMessage } from '../lib/ipc'
 import { appState, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
@@ -24,6 +39,7 @@ type Tab =
   | 'psy'
   | 'vr'
   | 'cr'
+  | 'bbi'
   | 'boll'
 
 const W = 900
@@ -44,6 +60,7 @@ const COLORS = {
   psy: '#22d3ee',
   vr: '#c084fc',
   cr: '#f0b429',
+  bbi: '#22d3ee',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -365,6 +382,17 @@ export function IndicatorPanel(props: {
         latest: [[`CR${period}`, line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'bbi') {
+      const line = slice(bbi(all))
+      const finite = line.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [{ label: 'BBI', color: COLORS.bbi, path: linePath(line, min, max) }],
+        hist: [],
+        latest: [['BBI', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -426,6 +454,7 @@ export function IndicatorPanel(props: {
                 ['psy', 'PSY'],
                 ['vr', 'VR'],
                 ['cr', 'CR'],
+                ['bbi', 'BBI'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }

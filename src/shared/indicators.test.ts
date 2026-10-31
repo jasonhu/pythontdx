@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { boll, ema, kdj, macd, rsi, wr, cci, bias, dmi, obv, roc, psy, vr, cr } from './indicators'
+import {
+  bbi,
+  boll,
+  ema,
+  kdj,
+  macd,
+  rsi,
+  wr,
+  cci,
+  bias,
+  dmi,
+  obv,
+  roc,
+  psy,
+  vr,
+  cr
+} from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -163,5 +179,12 @@ describe('roc / psy / vr / cr', () => {
     expect(values[1]).toBeNaN()
     expect(values[2]).toBe(100)
     expect(values[3]).toBe(75)
+  })
+
+  it('BBI 是 MA3/6/12/24 的均值，前 23 根为 NaN', () => {
+    const values = bbi(bars(Array.from({ length: 30 }, (_, index) => index + 1)))
+    expect(values[22]).toBeNaN()
+    expect(values[23]).toBeCloseTo(18.875, 6)
+    expect(values[29]).toBeCloseTo(24.875, 6)
   })
 })

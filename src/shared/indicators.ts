@@ -300,3 +300,28 @@ export function cr(bars: readonly KLineBar[], period = 26): number[] {
     return down === 0 ? Number.NaN : (up / down) * 100
   })
 }
+
+/**
+ * BBI（多空指数）：MA3/MA6/MA12/MA24 的平均。
+ * 前 23 根没有 MA24，返回 NaN；之后四条均线的均值。
+ */
+export function bbi(bars: readonly KLineBar[]): number[] {
+  const closes = bars.map((bar) => bar.close)
+  const periods = [3, 6, 12, 24] as const
+  const averages = periods.map((period) => {
+    const result: number[] = []
+    let sum = 0
+    for (let index = 0; index < closes.length; index += 1) {
+      sum += closes[index]
+      if (index >= period) sum -= closes[index - period]
+      result.push(index + 1 >= period ? sum / period : Number.NaN)
+    }
+    return result
+  })
+  return closes.map((_, index) => {
+    const values = averages.map((series) => series[index])
+    return values.every(Number.isFinite)
+      ? values.reduce((total, value) => total + value, 0) / values.length
+      : Number.NaN
+  })
+}

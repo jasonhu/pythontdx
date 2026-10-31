@@ -487,6 +487,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <option value="psy">PSY</option>
               <option value="vr">VR</option>
               <option value="cr">CR</option>
+              <option value="bbi">BBI</option>
             </select>
           </Show>
 

@@ -3588,6 +3588,7 @@
 
 .indicator-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 8px 24px;
   border-bottom: 1px solid var(--border);

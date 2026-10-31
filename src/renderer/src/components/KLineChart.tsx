@@ -63,8 +63,12 @@ interface KLineDrawing {
 
 export interface KLineChartProps {
   series: KLineSeries
-  /** 是否叠加 BOLL(20,2) */
+  /** 是否叠加 BOLL */
   boll?: boolean
+  /** BOLL 周期，默认 20 */
+  bollPeriod?: number
+  /** BOLL 倍数，默认 2 */
+  bollK?: number
   /** 对数价格坐标 */
   logScale?: boolean
   /** 区间统计选择模式 */
@@ -226,7 +230,9 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     }))
   })
 
-  const bollBands = createMemo(() => (props.boll ? boll(allBars(), 20, 2) : null))
+  const bollBands = createMemo(() =>
+    props.boll ? boll(allBars(), props.bollPeriod ?? 20, props.bollK ?? 2) : null
+  )
   const visibleBoll = createMemo(() => {
     const bands = bollBands()
     if (!bands) return null

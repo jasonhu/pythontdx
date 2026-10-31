@@ -14,7 +14,7 @@ import type {
   LocalImportResult,
   LocalDayWriteResult,
   DataInventory,
-  KLineCacheResult,
+  FullKLineCacheResult,
   KLineExportResult,
   SnapshotArchiveResult,
   SnapshotArchiveItem,
@@ -75,7 +75,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [klinePeriod, setKlinePeriod] = createSignal('day')
   const [klineCount, setKlineCount] = createSignal(240)
   const [cacheLoading, setCacheLoading] = createSignal(false)
-  const [cacheResult, setCacheResult] = createSignal<KLineCacheResult | null>(null)
+  const [cacheResult, setCacheResult] = createSignal<FullKLineCacheResult | null>(null)
   const [cacheError, setCacheError] = createSignal<string | null>(null)
   const [inventory, setInventory] = createSignal<DataInventory | null>(null)
   const [inventoryLoading, setInventoryLoading] = createSignal(true)
@@ -88,7 +88,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [bulkCurrent, setBulkCurrent] = createSignal('')
   const [bulkFailed, setBulkFailed] = createSignal(0)
   const [bulkIncremental, setBulkIncremental] = createSignal(true)
-  const [bulkFullHistory, setBulkFullHistory] = createSignal(true)
   const [bulkPeriod, setBulkPeriod] = createSignal<'day' | '1m'>('day')
   const [bulkError, setBulkError] = createSignal<string | null>(null)
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
@@ -275,31 +274,21 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     try {
       const codes = bulkScope() === 'watchlist' ? watchCodes() : await allAShareCodes()
       setBulkTotal(codes.length)
-      const full = bulkFullHistory()
-      const chunkSize = full ? 1 : 10
-      for (let start = 0; start < codes.length && !bulkCancel; start += chunkSize) {
-        const chunk = codes.slice(start, start + chunkSize)
-        setBulkCurrent(chunk[0] ?? '')
+      for (const code of codes) {
+        if (bulkCancel) break
+        setBulkCurrent(code)
         try {
-          const result = full
-            ? await api.data.fullCacheKlines({
-                codes: chunk,
-                period,
-                adjust: 'none',
-                skipExisting: bulkIncremental()
-              })
-            : await api.data.cacheKlines({
-                codes: chunk,
-                period,
-                count: 800,
-                adjust: 'qfq',
-                skipExisting: bulkIncremental()
-              })
+          const result = await api.data.fullCacheKlines({
+            codes: [code],
+            period,
+            adjust: 'none',
+            skipExisting: bulkIncremental()
+          })
           setBulkDone((value) => value + result.cached + result.skipped)
           setBulkSkipped((value) => value + result.skipped)
           setBulkFailed((value) => value + result.failed.length)
         } catch {
-          setBulkFailed((value) => value + chunk.length)
+          setBulkFailed((value) => value + 1)
         }
       }
     } catch (cause) {
@@ -409,11 +398,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setCacheError(null)
     try {
       setCacheResult(
-        await api.data.cacheKlines({
+        await api.data.fullCacheKlines({
           codes: watchCodes(),
           period: 'day',
-          count: 800,
-          adjust: 'qfq'
+          adjust: 'none',
+          skipExisting: true
         })
       )
     } catch (cause) {
@@ -674,15 +663,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 />
                 增量：跳过已有
               </label>
-              <label class="data__incremental">
-                <input
-                  type="checkbox"
-                  checked={bulkFullHistory()}
-                  disabled={downloadRunning()}
-                  onChange={() => setBulkFullHistory((value) => !value)}
-                />
-                全部历史（自动探测）
-              </label>
               <button
                 class="btn btn--primary data__download-run"
                 disabled={downloadRunning()}
@@ -871,15 +851,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 />
                 增量：跳过已有
               </label>
-              <label class="data__incremental">
-                <input
-                  type="checkbox"
-                  checked={bulkFullHistory()}
-                  disabled={bulkRunning()}
-                  onChange={() => setBulkFullHistory((value) => !value)}
-                />
-                全部历史（自动探测）
-              </label>
               <Show
                 when={bulkRunning()}
                 fallback={
@@ -958,7 +929,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             <div>
               <div class="data__label">离线 K 线缓存</div>
               <div class="data__sub">
-                为自选股预热最近 800 根前复权日 K；行情失败时图表自动回退到本地缓存。
+                为自选股自动探测并写入全部可用日 K；行情失败时图表自动回退到 800 根缓存。
               </div>
             </div>
             <button
@@ -982,7 +953,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 <div class="data__path">
                   <span>结果</span>
                   <code>
-                    {data().cached} 只 / {data().count} 根 / 失败 {data().failed.length} 只
+                    {data().cached} 只 / 跳过 {data().skipped} / 失败 {data().failed.length} 只
                   </code>
                 </div>
               </div>

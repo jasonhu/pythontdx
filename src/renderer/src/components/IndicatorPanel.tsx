@@ -73,6 +73,10 @@ export function IndicatorPanel(props: {
   const [cciPeriod, setCciPeriod] = createSignal('14')
   const [bollPeriod, setBollPeriod] = createSignal('20')
   const [bollK, setBollK] = createSignal('2')
+  const [biasShort, setBiasShort] = createSignal('6')
+  const [biasMid, setBiasMid] = createSignal('12')
+  const [biasLong, setBiasLong] = createSignal('24')
+  const [dmiPeriod, setDmiPeriod] = createSignal('14')
 
   const num = (value: () => string, fallback: number): number => {
     const parsed = Number(value())
@@ -96,6 +100,10 @@ export function IndicatorPanel(props: {
     setCciPeriod(String(saved.cciPeriod ?? 14))
     setBollPeriod(String(saved.bollPeriod))
     setBollK(String(saved.bollK))
+    setBiasShort(String(saved.biasShort ?? 6))
+    setBiasMid(String(saved.biasMid ?? 12))
+    setBiasLong(String(saved.biasLong ?? 24))
+    setDmiPeriod(String(saved.dmiPeriod ?? 14))
   })
 
   const persistParams = (): void => {
@@ -112,7 +120,11 @@ export function IndicatorPanel(props: {
         wrPeriod: num(wrPeriod, 14),
         cciPeriod: num(cciPeriod, 14),
         bollPeriod: num(bollPeriod, 20),
-        bollK: num(bollK, 2)
+        bollK: num(bollK, 2),
+        biasShort: num(biasShort, 6),
+        biasMid: num(biasMid, 12),
+        biasLong: num(biasLong, 24),
+        dmiPeriod: num(dmiPeriod, 14)
       }
     })
   }
@@ -224,28 +236,31 @@ export function IndicatorPanel(props: {
       }
     }
     if (tab() === 'bias') {
-      const b6 = slice(bias(all, 6))
-      const b12 = slice(bias(all, 12))
-      const b24 = slice(bias(all, 24))
+      const shortPeriod = num(biasShort, 6)
+      const midPeriod = num(biasMid, 12)
+      const longPeriod = num(biasLong, 24)
+      const b6 = slice(bias(all, shortPeriod))
+      const b12 = slice(bias(all, midPeriod))
+      const b24 = slice(bias(all, longPeriod))
       const numbers = [...b6, ...b12, ...b24].filter(Number.isFinite)
       const min = Math.min(...numbers)
       const max = Math.max(...numbers)
       return {
         lines: [
-          { label: 'BIAS6', color: COLORS.bias6, path: linePath(b6, min, max) },
-          { label: 'BIAS12', color: COLORS.bias12, path: linePath(b12, min, max) },
-          { label: 'BIAS24', color: COLORS.bias24, path: linePath(b24, min, max) }
+          { label: `BIAS${shortPeriod}`, color: COLORS.bias6, path: linePath(b6, min, max) },
+          { label: `BIAS${midPeriod}`, color: COLORS.bias12, path: linePath(b12, min, max) },
+          { label: `BIAS${longPeriod}`, color: COLORS.bias24, path: linePath(b24, min, max) }
         ],
         hist: [],
         latest: [
-          ['BIAS6', b6.at(-1)],
-          ['BIAS12', b12.at(-1)],
-          ['BIAS24', b24.at(-1)]
+          [`BIAS${shortPeriod}`, b6.at(-1)],
+          [`BIAS${midPeriod}`, b12.at(-1)],
+          [`BIAS${longPeriod}`, b24.at(-1)]
         ] as Array<[string, number | undefined]>
       }
     }
     if (tab() === 'dmi') {
-      const values = dmi(all)
+      const values = dmi(all, num(dmiPeriod, 14))
       const pdi = slice(values.plus)
       const mdi = slice(values.minus)
       const adx = slice(values.adx)
@@ -501,6 +516,62 @@ export function IndicatorPanel(props: {
                 value={bollK()}
                 onInput={(e) => {
                   setBollK(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'bias'}>
+            <label>
+              <span>短</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={biasShort()}
+                onInput={(e) => {
+                  setBiasShort(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+            <label>
+              <span>中</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={biasMid()}
+                onInput={(e) => {
+                  setBiasMid(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+            <label>
+              <span>长</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={biasLong()}
+                onInput={(e) => {
+                  setBiasLong(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'dmi'}>
+            <label>
+              <span>周期</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={dmiPeriod()}
+                onInput={(e) => {
+                  setDmiPeriod(e.currentTarget.value)
                   persistParams()
                 }}
               />

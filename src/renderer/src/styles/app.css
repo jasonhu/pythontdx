@@ -32,6 +32,16 @@
   display: none;
 }
 
+/* 一键收起左侧自选栏；标题栏按钮始终保留，再点恢复 */
+.app--sidebar-hidden {
+  grid-template-columns: 0 minmax(0, 1fr) var(--rail-w);
+}
+
+.app--sidebar-hidden .sidebar,
+.app--sidebar-hidden .layout-resizer--sidebar {
+  display: none;
+}
+
 /* ================================================================ 标题栏 */
 .titlebar {
   grid-column: 1 / -1;
@@ -845,6 +855,20 @@
 /* 盘口面板吃掉右栏剩余空间 */
 .panel--book {
   flex: 1 1 auto;
+}
+
+/* 五档在上、逐笔/指标在下，上下两段固定分配 */
+.rail--stacked .panel--book {
+  flex: 0 0 auto;
+}
+
+.rail--stacked .panel--book .panel__body {
+  min-height: 300px;
+}
+
+.panel--detail {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* 指标面板按内容高度，放在右栏底部 */

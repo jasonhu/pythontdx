@@ -82,7 +82,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
-- Linux AppImage / deb / linux-unpacked，Nuitka 编译的桥接进程随包分发（不含 Python 源码；Windows/macOS 不处理）
+- 代码跨 Windows / Linux / macOS，各自在对应系统本机构建；Nuitka 编译的桥接进程随包分发（不含 Python 源码；当前自动化仅验证 Linux）
 - 图形后端：Wayland 原生优先；Vulkan 与 Wayland 表面当前不兼容，可用 `STOCKLENS_GRAPHICS=vulkan` 切 XWayland 尝试
 
 **仍为部分 / 非目标**
@@ -183,7 +183,7 @@ npm run build:mac              # macOS dmg（需在 macOS 上执行）
 npm run build:linux            # Linux AppImage / deb
 ```
 
-产物在 `release/<版本号>/`。**平台范围：只做 Linux**（Windows/macOS 不处理）：
+产物在 `release/<版本号>/`。代码跨平台，但必须在对应系统本机构建，不做交叉编译；当前只实测了 Linux：
 
 |      | AppImage              | deb            |
 | ---- | --------------------- | -------------- |

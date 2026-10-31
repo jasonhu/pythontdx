@@ -95,7 +95,9 @@ export default function App(): JSX.Element {
   const [fullWatchlistOpen, setFullWatchlistOpen] = createSignal(false)
   const [dataOpen, setDataOpen] = createSignal(false)
   const [alertsOpen, setAlertsOpen] = createSignal(false)
-  const [railTab, setRailTab] = createSignal<'book' | 'tape' | 'price' | 'flow' | 'auction'>('book')
+  const [railTab, setRailTab] = createSignal<'tape' | 'stats' | 'price' | 'flow' | 'auction'>(
+    'tape'
+  )
   const [widths, setWidths] = createSignal<{ sidebar: number; rail: number } | null>(null)
   let stopResize: (() => void) | null = null
 
@@ -216,7 +218,11 @@ export default function App(): JSX.Element {
   return (
     <div
       class="app"
-      classList={{ 'app--empty': !activeQuote(), 'app--focus': focusMode() }}
+      classList={{
+        'app--empty': !activeQuote(),
+        'app--focus': focusMode(),
+        'app--sidebar-hidden': appState.settings.sidebarHidden === true
+      }}
       style={appStyle()}
     >
       <TitleBar
@@ -227,6 +233,10 @@ export default function App(): JSX.Element {
         onOpenAlerts={() => setAlertsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSecondary={() => void api.window.openSecondary()}
+        sidebarHidden={appState.settings.sidebarHidden === true}
+        onToggleSidebar={() =>
+          updateSettings({ sidebarHidden: !(appState.settings.sidebarHidden === true) })
+        }
       />
       <Sidebar
         onOpenRanking={() => setRankingOpen(true)}
@@ -253,6 +263,9 @@ export default function App(): JSX.Element {
                 onOpenReplay={() => setReplayOpen(true)}
                 onOpenFormula={() => setFormulaOpen(true)}
                 onOpenIndicators={() => setIndicatorOpen(true)}
+                onChartTabChange={(next) => {
+                  if (next === 'minute' || next === 'five') setRailTab('tape')
+                }}
                 focusMode={focusMode()}
                 onToggleFocus={() => setFocusMode((value) => !value)}
               />
@@ -262,22 +275,23 @@ export default function App(): JSX.Element {
       </main>
 
       {/* 右栏：盘口在上（自适应撑开），指标在下（内容高度） */}
-      <aside class="rail">
+      <aside class="rail rail--stacked">
         <Show when={activeQuote()}>
           {(quote) => (
             <>
               <section class="card panel panel--book">
+                <div class="panel__head">
+                  <span class="card__title">五档盘口</span>
+                  <span class="statusbar__text">手</span>
+                </div>
+                <div class="panel__body panel__body--fill">
+                  <OrderBook quote={quote()} />
+                </div>
+              </section>
+
+              <section class="card panel panel--detail">
                 <div class="panel__head panel__head--tabs">
-                  <div class="rail-tabs" role="tablist" aria-label="盘口与成交">
-                    <button
-                      class="rail-tab rail-tab--book"
-                      classList={{ 'rail-tab--active': railTab() === 'book' }}
-                      role="tab"
-                      aria-selected={railTab() === 'book'}
-                      onClick={() => setRailTab('book')}
-                    >
-                      五档
-                    </button>
+                  <div class="rail-tabs" role="tablist" aria-label="成交与指标">
                     <button
                       class="rail-tab rail-tab--tape"
                       classList={{ 'rail-tab--active': railTab() === 'tape' }}
@@ -286,6 +300,15 @@ export default function App(): JSX.Element {
                       onClick={() => setRailTab('tape')}
                     >
                       明细
+                    </button>
+                    <button
+                      class="rail-tab rail-tab--stats"
+                      classList={{ 'rail-tab--active': railTab() === 'stats' }}
+                      role="tab"
+                      aria-selected={railTab() === 'stats'}
+                      onClick={() => setRailTab('stats')}
+                    >
+                      指标
                     </button>
                     <button
                       class="rail-tab rail-tab--price"
@@ -316,19 +339,21 @@ export default function App(): JSX.Element {
                     </button>
                   </div>
                   <span class="statusbar__text">
-                    {railTab() === 'book'
-                      ? '手'
-                      : railTab() === 'tape'
-                        ? '60 笔'
+                    {railTab() === 'tape'
+                      ? '60 笔'
+                      : railTab() === 'stats'
+                        ? quote().market === 'HK'
+                          ? '港股'
+                          : 'A 股'
                         : railTab() === 'flow'
                           ? '5 日'
                           : '快照'}
                   </span>
                 </div>
                 <div class="panel__body panel__body--fill">
-                  <Switch fallback={<OrderBook quote={quote()} />}>
-                    <Match when={railTab() === 'tape'}>
-                      <TradeTape code={quote().code} />
+                  <Switch fallback={<TradeTape code={quote().code} />}>
+                    <Match when={railTab() === 'stats'}>
+                      <StatsGrid quote={quote()} />
                     </Match>
                     <Match when={railTab() === 'price'}>
                       <PriceDistribution code={quote().code} />
@@ -340,16 +365,6 @@ export default function App(): JSX.Element {
                       <AuctionTape code={quote().code} />
                     </Match>
                   </Switch>
-                </div>
-              </section>
-
-              <section class="card panel panel--stats">
-                <div class="panel__head">
-                  <span class="card__title">关键指标</span>
-                  <span class="statusbar__text">{quote().market === 'HK' ? '港股' : 'A 股'}</span>
-                </div>
-                <div class="panel__body">
-                  <StatsGrid quote={quote()} />
                 </div>
               </section>
             </>

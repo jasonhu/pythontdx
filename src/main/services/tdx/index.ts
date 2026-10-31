@@ -447,15 +447,23 @@ function readKlineCacheFile(
 ): KLineSeries {
   const root =
     process.env.STOCKLENS_DATA_DIR ?? join(homedir(), '.local', 'share', 'stocklens', 'data')
-  const path = join(
-    root,
-    'cache',
-    'klines',
-    `${code.toLowerCase()}_${period}_${count}_${adjust}.json`
-  )
-  const parsed = JSON.parse(readFileSync(path, 'utf8')) as KLineSeries & { source?: string }
+  const directory = join(root, 'cache', 'klines')
+  const path = join(directory, `${code.toLowerCase()}_${period}_${count}_${adjust}.json`)
+  let parsed: KLineSeries & { source?: string }
+  let cachePath = path
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8')) as KLineSeries & { source?: string }
+  } catch (error) {
+    // 全量下载写的是 *_all_none.json；首屏回退时取最后 count 根即可。
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    cachePath = join(directory, `${code.toLowerCase()}_${period}_all_none.json`)
+    const full = JSON.parse(readFileSync(cachePath, 'utf8')) as KLineSeries & {
+      source?: string
+    }
+    parsed = { ...full, bars: full.bars.slice(-count) }
+  }
   if (!Array.isArray(parsed.bars)) throw new Error('K 线缓存损坏')
-  return { ...parsed, code, period, source: 'cache', cachePath: path }
+  return { ...parsed, code, period, source: 'cache', cachePath }
 }
 
 export async function fetchKline(

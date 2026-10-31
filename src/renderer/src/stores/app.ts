@@ -377,8 +377,8 @@ export function savePositions(positions: PortfolioPosition[]): void {
 }
 
 function plainSettings(): AppSettings {
-  // Solid store 的嵌套数组是代理，直接走 IPC 会 "could not be cloned"；
-  // 设置里只有画线是对象数组，这里显式拍平。
+  // Solid store 的嵌套对象/数组是代理，直接走 IPC 会 "could not be cloned"；
+  // 这里把设置里的嵌套结构显式拍平。
   return {
     ...state.settings,
     chartDrawings: state.settings.chartDrawings?.map((drawing) => ({ ...drawing })),
@@ -386,6 +386,9 @@ function plainSettings(): AppSettings {
     screenPresets: state.settings.screenPresets?.map((preset) => ({ ...preset })),
     recentSearches: state.settings.recentSearches?.map((item) => ({ ...item })),
     maPeriods: state.settings.maPeriods ? [...state.settings.maPeriods] : undefined,
+    indicatorParams: state.settings.indicatorParams
+      ? { ...state.settings.indicatorParams }
+      : undefined,
     trackingPresetIds: state.settings.trackingPresetIds?.slice()
   }
 }

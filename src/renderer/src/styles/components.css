@@ -729,6 +729,87 @@
   text-align: right;
 }
 
+.tape__row--selected {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.tape__extra {
+  display: none;
+}
+
+.tape-large-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 4vh 4vw;
+  background: rgb(0 0 0 / 55%);
+}
+
+.tape-large {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 92vw);
+  height: min(78vh, 760px);
+  padding: 12px;
+  outline: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  /* 大窗覆盖在图表上，必须用不透明底色，不能沿用半透明 panel */
+  background: var(--bg-base);
+  box-shadow: var(--shadow-2);
+}
+
+.tape-large__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tape-large__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tape-large__actions .btn {
+  height: 26px;
+  font-size: var(--fs-2xs);
+}
+
+.tape-large__meta {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 2px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.tape__rows--large {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tape__rows--large .tape__head,
+.tape__rows--large .tape__row {
+  grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1fr) 70px 110px 42px;
+}
+
+.tape__rows--large .tape__row {
+  padding: 5px 2px;
+  font-size: var(--fs-xs);
+}
+
+.tape__rows--large .tape__extra {
+  display: block;
+}
+
 .tape__empty {
   padding: 28px 4px;
   color: var(--text-3);

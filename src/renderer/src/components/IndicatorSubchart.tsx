@@ -4,7 +4,7 @@
  * 与指标面板共用 shared/indicators 的纯函数；只画最后 160 根，避免副图挤成噪声。
  */
 import { createMemo, For, type JSX } from 'solid-js'
-import type { KLineBar } from '@shared/types'
+import type { IndicatorParams, KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
 import { bias, cci, dmi, kdj, macd, obv, rsi, wr } from '@shared/indicators'
 
@@ -46,7 +46,11 @@ function path(values: number[], min: number, max: number): string {
     .join(' ')
 }
 
-export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator }): JSX.Element {
+export function IndicatorSubchart(props: {
+  bars: KLineBar[]
+  kind: SubIndicator
+  params?: IndicatorParams
+}): JSX.Element {
   const visible = createMemo(() => props.bars.slice(-VISIBLE))
 
   const chart = createMemo(() => {
@@ -56,7 +60,12 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
     const offset = Math.max(0, all.length - data.length)
     const slice = (values: number[]): number[] => values.slice(offset)
     if (props.kind === 'macd') {
-      const values = macd(all)
+      const values = macd(
+        all,
+        props.params?.macdFast ?? 12,
+        props.params?.macdSlow ?? 26,
+        props.params?.macdSignal ?? 9
+      )
       const dif = slice(values.dif)
       const dea = slice(values.dea)
       const hist = slice(values.hist)
@@ -80,7 +89,12 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
       }
     }
     if (props.kind === 'kdj') {
-      const values = kdj(all)
+      const values = kdj(
+        all,
+        props.params?.kdjPeriod ?? 9,
+        props.params?.kdjM1 ?? 3,
+        props.params?.kdjM2 ?? 3
+      )
       const k = slice(values.k)
       const d = slice(values.d)
       const j = slice(values.j)
@@ -98,7 +112,7 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
       }
     }
     if (props.kind === 'wr') {
-      const values = slice(wr(all))
+      const values = slice(wr(all, props.params?.wrPeriod ?? 14))
       return {
         lines: [{ label: 'WR14', color: COLORS.wr, d: path(values, 0, 100) }],
         hist: [],
@@ -106,7 +120,7 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
       }
     }
     if (props.kind === 'cci') {
-      const values = slice(cci(all))
+      const values = slice(cci(all, props.params?.cciPeriod ?? 14))
       const numbers = values.filter(Number.isFinite)
       const min = Math.min(...numbers)
       const max = Math.max(...numbers)
@@ -117,24 +131,27 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
       }
     }
     if (props.kind === 'bias') {
-      const b6 = slice(bias(all, 6))
-      const b12 = slice(bias(all, 12))
-      const b24 = slice(bias(all, 24))
+      const shortPeriod = props.params?.biasShort ?? 6
+      const midPeriod = props.params?.biasMid ?? 12
+      const longPeriod = props.params?.biasLong ?? 24
+      const b6 = slice(bias(all, shortPeriod))
+      const b12 = slice(bias(all, midPeriod))
+      const b24 = slice(bias(all, longPeriod))
       const numbers = [...b6, ...b12, ...b24].filter(Number.isFinite)
       const min = Math.min(...numbers)
       const max = Math.max(...numbers)
       return {
         lines: [
-          { label: 'BIAS6', color: COLORS.bias6, d: path(b6, min, max) },
-          { label: 'BIAS12', color: COLORS.bias12, d: path(b12, min, max) },
-          { label: 'BIAS24', color: COLORS.bias24, d: path(b24, min, max) }
+          { label: `BIAS${shortPeriod}`, color: COLORS.bias6, d: path(b6, min, max) },
+          { label: `BIAS${midPeriod}`, color: COLORS.bias12, d: path(b12, min, max) },
+          { label: `BIAS${longPeriod}`, color: COLORS.bias24, d: path(b24, min, max) }
         ],
         hist: [],
-        latest: `6 ${fixed(b6.at(-1) ?? 0)} · 12 ${fixed(b12.at(-1) ?? 0)} · 24 ${fixed(b24.at(-1) ?? 0)}`
+        latest: `${shortPeriod} ${fixed(b6.at(-1) ?? 0)} · ${midPeriod} ${fixed(b12.at(-1) ?? 0)} · ${longPeriod} ${fixed(b24.at(-1) ?? 0)}`
       }
     }
     if (props.kind === 'dmi') {
-      const values = dmi(all)
+      const values = dmi(all, props.params?.dmiPeriod ?? 14)
       const pdi = slice(values.plus)
       const mdi = slice(values.minus)
       const adx = slice(values.adx)
@@ -161,7 +178,7 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
         latest: `OBV ${fixed(values.at(-1) ?? 0)}`
       }
     }
-    const values = slice(rsi(all))
+    const values = slice(rsi(all, props.params?.rsiPeriod ?? 14))
     return {
       lines: [{ label: 'RSI14', color: COLORS.rsi, d: path(values, 0, 100) }],
       hist: [],

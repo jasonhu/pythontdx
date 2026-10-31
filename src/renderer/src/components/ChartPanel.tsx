@@ -89,6 +89,8 @@ export interface ChartPanelProps {
   onOpenReplay: () => void
   onOpenFormula: () => void
   onOpenIndicators: () => void
+  /** 切到分时/五日时通知外壳联动右侧逐笔 */
+  onChartTabChange?: (tab: Tab) => void
   focusMode?: boolean
   onToggleFocus?: () => void
   /** 独立窗口：隐藏会打开模态框/主窗口交互的按钮 */
@@ -268,6 +270,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     setHover(null)
     setTab(next)
     updateSettings({ chartTab: next })
+    props.onChartTabChange?.(next)
   }
 
   return (
@@ -659,6 +662,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                   <KLineChart
                     series={series()}
                     boll={showBoll()}
+                    bollPeriod={appState.settings.indicatorParams?.bollPeriod ?? 20}
+                    bollK={appState.settings.indicatorParams?.bollK ?? 2}
                     logScale={logScale()}
                     rangeMode={rangeMode()}
                     onRangeStats={setRangeStats}
@@ -671,7 +676,11 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               </Show>
               <Show when={subIndicator() !== 'none' ? klineSeries() : undefined}>
                 {(series) => (
-                  <IndicatorSubchart bars={series().bars} kind={subIndicator() as SubIndicator} />
+                  <IndicatorSubchart
+                    bars={series().bars}
+                    kind={subIndicator() as SubIndicator}
+                    params={appState.settings.indicatorParams}
+                  />
                 )}
               </Show>
             </Show>

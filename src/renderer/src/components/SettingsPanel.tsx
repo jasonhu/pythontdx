@@ -304,7 +304,7 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
           <div class="settings__row">
             <div>
               <div class="settings__label">主图均线</div>
-              <div class="settings__hint">三条均线周期，K 线重启后继续生效。</div>
+              <div class="settings__hint">五条均线周期，K 线重启后继续生效。</div>
             </div>
             <div class="settings__ma">
               <For each={[0, 1, 2, 3, 4]}>

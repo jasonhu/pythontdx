@@ -716,6 +716,10 @@ export interface IndicatorParams {
   bollK: number
   wrPeriod?: number
   cciPeriod?: number
+  biasShort?: number
+  biasMid?: number
+  biasLong?: number
+  dmiPeriod?: number
 }
 
 export interface PortfolioPosition {
@@ -771,6 +775,8 @@ export interface AppSettings {
   closeToTray?: boolean
   /** 自选侧栏宽度（px） */
   sidebarWidth?: number
+  /** 一键隐藏自选侧栏 */
+  sidebarHidden?: boolean
   /** 右侧盘口栏宽度（px） */
   railWidth?: number
   /** 自定义版面槽（最多 3 个） */
@@ -887,6 +893,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maPeriods: [5, 10, 20, 60, 120],
   subIndicator: 'none',
   showBoll: false,
+  sidebarHidden: false,
   sidebarWidth: 280,
   railWidth: 330
 }

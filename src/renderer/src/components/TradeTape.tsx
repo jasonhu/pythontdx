@@ -4,7 +4,17 @@
  * 默认每 3 秒拉当日最近 60 笔；选历史日期后停轮询，改查 0x0fc6。
  * 竞价快照（status=8）不是成交，弱化显示，不参与金额。
  */
-import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onCleanup,
+  onMount,
+  Show,
+  type JSX
+} from 'solid-js'
+import { Portal } from 'solid-js/web'
 import type { TradeTick } from '@shared/types'
 import { fixed, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
@@ -16,6 +26,71 @@ interface TradeTapeProps {
 const PAGE_SIZE = 60
 const REFRESH_MS = 3000
 
+function TickList(props: {
+  rows: TradeTick[]
+  selected: number
+  large?: boolean
+  onSelect: (index: number) => void
+  onOpen: () => void
+}): JSX.Element {
+  return (
+    <div class="tape__rows" classList={{ 'tape__rows--large': props.large }}>
+      <div class="tape__head">
+        <span>时间</span>
+        <span class="tape__num">价格</span>
+        <span class="tape__num">量</span>
+        <span class="tape__num tape__extra">笔数</span>
+        <span class="tape__num tape__extra">金额</span>
+        <span class="tape__side">方向</span>
+      </div>
+      <For each={props.rows}>
+        {(tick, index) => (
+          <div
+            class="tape__row"
+            classList={{
+              'tape__row--auction': tick.eventKind === 'auction_snapshot',
+              'tape__row--after': tick.status === 5,
+              'tape__row--selected': index() === props.selected
+            }}
+            title={`${tick.time} · ${tick.orderCount} 笔 · ${
+              tick.eventKind === 'opening_match' ? '开盘撮合' : tick.eventKind
+            }`}
+            onClick={() => props.onSelect(index())}
+            onDblClick={props.onOpen}
+          >
+            <span class="tape__time num">{tick.time}</span>
+            <span
+              class="tape__price num"
+              classList={{
+                'tone-up': tick.side === 'buy',
+                'tone-down': tick.side === 'sell'
+              }}
+            >
+              {fixed(tick.price)}
+            </span>
+            <span class="tape__vol num">{thousands(tick.volume)}</span>
+            <span class="tape__num tape__extra">{thousands(tick.orderCount)}</span>
+            <span class="tape__num tape__extra">
+              {tick.tradeAmount ? thousands(Math.round(tick.tradeAmount)) : '—'}
+            </span>
+            <span class="tape__side">
+              {tick.eventKind === 'auction_snapshot'
+                ? '竞价'
+                : tick.status === 5
+                  ? '盘后'
+                  : tick.side === 'buy'
+                    ? 'B'
+                    : tick.side === 'sell'
+                      ? 'S'
+                      : '—'}
+            </span>
+          </div>
+        )}
+      </For>
+    </div>
+  )
+}
+
 export function TradeTape(props: TradeTapeProps): JSX.Element {
   const [ticks, setTicks] = createSignal<TradeTick[]>([])
   const [loading, setLoading] = createSignal(true)
@@ -25,7 +100,46 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   const [loadingMore, setLoadingMore] = createSignal(false)
   const [loadingAll, setLoadingAll] = createSignal(false)
   const [hasMore, setHasMore] = createSignal(true)
+  const [selected, setSelected] = createSignal(-1)
+  const [large, setLarge] = createSignal(false)
+  let panelRef: HTMLElement | undefined
   let requestId = 0
+  const rows = createMemo(() => [...ticks()].reverse())
+
+  const isTyping = (event: KeyboardEvent): boolean => {
+    const target = event.target as HTMLElement | null
+    if (!target) return false
+    return (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable
+    )
+  }
+
+  const scrollSelected = (): void => {
+    queueMicrotask(() => {
+      for (const element of document.querySelectorAll('.tape__row--selected')) {
+        element.scrollIntoView({ block: 'nearest' })
+      }
+    })
+  }
+
+  const moveSelection = (delta: number): void => {
+    if (rows().length === 0) return
+    setSelected((current) => {
+      const next = current < 0 ? 0 : Math.min(rows().length - 1, Math.max(0, current + delta))
+      return next
+    })
+    scrollSelected()
+  }
+
+  const onTapeKeys = (event: KeyboardEvent): void => {
+    if (isTyping(event)) return
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+    event.preventDefault()
+    moveSelection(event.key === 'ArrowDown' ? 1 : -1)
+  }
 
   const load = async (code: string, tradingDate = '', start = 0): Promise<void> => {
     const current = ++requestId
@@ -53,6 +167,8 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
     const code = props.code
     const tradingDate = date()
     setExpanded(false)
+    setLarge(false)
+    setSelected(-1)
     void load(code, tradingDate, 0)
   })
 
@@ -66,7 +182,14 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   const chooseDate = (value: string): void => {
     setDate(value)
     setTicks([])
+    setSelected(-1)
     setExpanded(false)
+    setLarge(false)
+  }
+
+  const openLarge = (): void => {
+    setLarge(true)
+    queueMicrotask(() => panelRef?.focus())
   }
 
   const loadAll = async (): Promise<void> => {
@@ -124,122 +247,157 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
     void load(props.code, date(), 0)
   }
 
-  // 服务端一页是时间正序；盘口习惯把最新一笔放最上面
-  const latestFirst = (): TradeTick[] => [...ticks()].reverse()
-
   return (
-    <div class="tape">
-      <div class="tape__meta">
-        <span>{loading() ? '刷新中…' : `${ticks().length} 笔`}</span>
-        <span>{expanded() ? '已展开' : date() ? '历史' : '每 3 秒'}</span>
-      </div>
+    <>
+      <div
+        class="tape"
+        tabindex="0"
+        aria-label="逐笔成交：上下键翻行，双击放大"
+        onKeyDown={onTapeKeys}
+        onClick={(event) => {
+          const target = event.target as HTMLElement
+          if (target.closest('input, button, select')) return
+          event.currentTarget.focus()
+        }}
+      >
+        <div class="tape__meta">
+          <span>{loading() ? '刷新中…' : `${ticks().length} 笔`}</span>
+          <span>{expanded() ? '已展开' : date() ? '历史' : '每 3 秒'}</span>
+        </div>
 
-      <div class="tape__toolbar">
-        <input
-          class="tape__date"
-          type="date"
-          value={date()}
-          aria-label="成交明细日期"
-          onChange={(event) => chooseDate(event.currentTarget.value)}
-        />
-        <Show when={date()}>
-          <button
-            class="tape__today"
-            onClick={() => {
-              chooseDate('')
-            }}
-          >
-            回今天
-          </button>
-        </Show>
-        <Show
-          when={expanded()}
-          fallback={
-            <>
-              <button
-                class="tape__today tape__all"
-                disabled={loadingAll() || loadingMore() || ticks().length === 0}
-                onClick={() => void loadAll()}
-              >
-                {loadingAll() ? '加载中…' : '全部'}
-              </button>
-              <button
-                class="tape__today tape__more"
-                disabled={!hasMore() || loadingMore() || loadingAll() || ticks().length === 0}
-                onClick={() => void loadMore()}
-              >
-                {loadingMore() ? '…' : hasMore() ? '更早' : '最早'}
-              </button>
-            </>
-          }
-        >
-          <button class="tape__today tape__more" onClick={resetLatest}>
-            最新
-          </button>
-        </Show>
-      </div>
-
-      <Show when={error()}>
-        {(message) => (
-          <div class="tape__error" role="alert">
-            {message()}
-            <button class="tape__retry" onClick={() => void load(props.code, date())}>
-              重试
-            </button>
-          </div>
-        )}
-      </Show>
-
-      <div class="tape__head">
-        <span>时间</span>
-        <span class="tape__num">价格</span>
-        <span class="tape__num">量</span>
-        <span class="tape__side">方向</span>
-      </div>
-
-      <div class="tape__rows">
-        <For each={latestFirst()}>
-          {(tick) => (
-            <div
-              class="tape__row"
-              classList={{
-                'tape__row--auction': tick.eventKind === 'auction_snapshot',
-                'tape__row--after': tick.status === 5
+        <div class="tape__toolbar">
+          <input
+            class="tape__date"
+            type="date"
+            value={date()}
+            aria-label="成交明细日期"
+            onChange={(event) => chooseDate(event.currentTarget.value)}
+          />
+          <Show when={date()}>
+            <button
+              class="tape__today"
+              onClick={() => {
+                chooseDate('')
               }}
-              title={`${tick.time} · ${tick.orderCount} 笔 · ${
-                tick.eventKind === 'opening_match' ? '开盘撮合' : tick.eventKind
-              }`}
             >
-              <span class="tape__time num">{tick.time}</span>
-              <span
-                class="tape__price num"
-                classList={{
-                  'tone-up': tick.side === 'buy',
-                  'tone-down': tick.side === 'sell'
-                }}
-              >
-                {fixed(tick.price)}
-              </span>
-              <span class="tape__vol num">{thousands(tick.volume)}</span>
-              <span class="tape__side">
-                {tick.eventKind === 'auction_snapshot'
-                  ? '竞价'
-                  : tick.status === 5
-                    ? '盘后'
-                    : tick.side === 'buy'
-                      ? 'B'
-                      : tick.side === 'sell'
-                        ? 'S'
-                        : '—'}
-              </span>
+              回今天
+            </button>
+          </Show>
+          <button
+            class="tape__today tape__large"
+            disabled={ticks().length === 0}
+            onClick={openLarge}
+          >
+            放大
+          </button>
+          <Show
+            when={expanded()}
+            fallback={
+              <>
+                <button
+                  class="tape__today tape__all"
+                  disabled={loadingAll() || loadingMore() || ticks().length === 0}
+                  onClick={() => void loadAll()}
+                >
+                  {loadingAll() ? '加载中…' : '全部'}
+                </button>
+                <button
+                  class="tape__today tape__more"
+                  disabled={!hasMore() || loadingMore() || loadingAll() || ticks().length === 0}
+                  onClick={() => void loadMore()}
+                >
+                  {loadingMore() ? '…' : hasMore() ? '更早' : '最早'}
+                </button>
+              </>
+            }
+          >
+            <button class="tape__today tape__more" onClick={resetLatest}>
+              最新
+            </button>
+          </Show>
+        </div>
+
+        <Show when={error()}>
+          {(message) => (
+            <div class="tape__error" role="alert">
+              {message()}
+              <button class="tape__retry" onClick={() => void load(props.code, date())}>
+                重试
+              </button>
             </div>
           )}
-        </For>
+        </Show>
+
+        <TickList rows={rows()} selected={selected()} onSelect={setSelected} onOpen={openLarge} />
+
+        <Show when={!loading() && ticks().length === 0 && !error()}>
+          <div class="tape__empty">暂无成交</div>
+        </Show>
       </div>
 
-      <Show when={!loading() && ticks().length === 0 && !error()}>
-        <div class="tape__empty">暂无成交</div>
-      </Show>
-    </div>
+      <Portal>
+        <Show when={large()}>
+          <div class="tape-large-backdrop" onClick={() => setLarge(false)}>
+            <section
+              class="tape-large"
+              role="dialog"
+              aria-modal="true"
+              aria-label="放大逐笔成交"
+              tabindex="0"
+              ref={(element) => {
+                panelRef = element
+              }}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  setLarge(false)
+                  return
+                }
+                onTapeKeys(event)
+              }}
+            >
+              <header class="tape-large__head">
+                <div>
+                  <div class="data__label">逐笔成交 · {props.code.toUpperCase()}</div>
+                  <div class="data__sub">{ticks().length} 笔 · 上下键翻行 · 双击行可继续放大</div>
+                </div>
+                <div class="tape-large__actions">
+                  <button
+                    class="btn"
+                    disabled={loadingAll() || ticks().length === 0}
+                    onClick={() => void loadAll()}
+                  >
+                    {loadingAll() ? '加载中…' : '全部 1800 笔'}
+                  </button>
+                  <button class="btn" onClick={resetLatest}>
+                    最新
+                  </button>
+                  <button
+                    class="btn btn--icon btn--bare"
+                    title="关闭"
+                    onClick={() => setLarge(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+              </header>
+              <div class="tape-large__meta">
+                <span>{date() || '今天'}</span>
+                <span>
+                  {selected() >= 0 ? `第 ${selected() + 1} / ${rows().length} 笔` : '未选中'}
+                </span>
+              </div>
+              <TickList
+                large
+                rows={rows()}
+                selected={selected()}
+                onSelect={setSelected}
+                onOpen={() => undefined}
+              />
+            </section>
+          </div>
+        </Show>
+      </Portal>
+    </>
   )
 }

@@ -13,6 +13,7 @@ import { appInfo, toggleTheme, appState } from '../stores/app'
 import {
   IconBell,
   IconClose,
+  IconColumns,
   IconMaximize,
   IconMinimize,
   IconMoon,
@@ -30,6 +31,8 @@ interface TitleBarProps {
   onOpenAlerts: () => void
   onOpenSettings: () => void
   onOpenSecondary: () => void
+  sidebarHidden: boolean
+  onToggleSidebar: () => void
 }
 
 export function TitleBar(props: TitleBarProps): JSX.Element {
@@ -46,6 +49,15 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
       <div class="titlebar__drag" />
 
       <div class="titlebar__actions">
+        <button
+          class="btn btn--icon btn--bare sidebar-toggle"
+          title={props.sidebarHidden ? '显示左侧自选栏' : '隐藏左侧自选栏'}
+          aria-label={props.sidebarHidden ? '显示左侧自选栏' : '隐藏左侧自选栏'}
+          aria-pressed={props.sidebarHidden}
+          onClick={() => props.onToggleSidebar()}
+        >
+          <IconColumns size={15} />
+        </button>
         <button
           class="btn btn--icon btn--bare alerts-open"
           title="行情预警"

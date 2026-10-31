@@ -74,6 +74,7 @@ export function Sparkline(props: SparklineProps): JSX.Element {
           width={geo().width}
           height={geo().height}
           viewBox={`0 0 ${geo().width} ${geo().height}`}
+          preserveAspectRatio="none"
           fill="none"
         >
           <Show when={props.title}>

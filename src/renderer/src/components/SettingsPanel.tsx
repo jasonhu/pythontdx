@@ -13,7 +13,7 @@ import { normalizeMaPeriods } from '@shared/ma'
 const INTERVALS = [1000, 3000, 5000, 10_000] as const
 
 const LAYOUTS = [
-  { id: 'default', label: '默认', sidebar: 340, rail: 330 },
+  { id: 'default', label: '默认', sidebar: 280, rail: 330 },
   { id: 'chart', label: '宽图表', sidebar: 224, rail: 280 },
   { id: 'rail', label: '宽盘口', sidebar: 280, rail: 380 }
 ] as const

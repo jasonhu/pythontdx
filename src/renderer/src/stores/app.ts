@@ -83,9 +83,10 @@ export async function bootstrapAppState(): Promise<void> {
   // 旧版默认 264 侧栏在 1440 窗口会挤压名称/迷你图，迁移到 300。
   if (
     (mergedSettings.sidebarWidth === 264 && mergedSettings.railWidth === 318) ||
-    (mergedSettings.sidebarWidth === 300 && mergedSettings.railWidth === 320)
+    (mergedSettings.sidebarWidth === 300 && mergedSettings.railWidth === 320) ||
+    (mergedSettings.sidebarWidth === 340 && mergedSettings.railWidth === 330)
   ) {
-    mergedSettings.sidebarWidth = 340
+    mergedSettings.sidebarWidth = 280
     mergedSettings.railWidth = 330
   }
 

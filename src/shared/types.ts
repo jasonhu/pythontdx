@@ -848,7 +848,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maPeriods: [5, 10, 20, 60, 120],
   subIndicator: 'none',
   showBoll: false,
-  sidebarWidth: 340,
+  sidebarWidth: 280,
   railWidth: 330
 }
 

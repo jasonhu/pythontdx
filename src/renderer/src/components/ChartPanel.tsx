@@ -662,7 +662,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               onClick={() => {
                 const next = !rangeMode()
                 setRangeMode(next)
-                if (!next) setRangeStats(null)
+                if (!next) {
+                  setRangeStats(null)
+                  setRangeAnchor(null)
+                }
               }}
             >
               区间

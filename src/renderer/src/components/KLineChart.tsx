@@ -338,6 +338,21 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   createEffect(
     on(
+      () => props.rangeMode,
+      (enabled, previous) => {
+        if (previous && !enabled) {
+          setRangeStart(null)
+          setRangeEnd(null)
+          props.onRangeStats?.(null)
+          props.onRangeAnchor?.(null)
+        }
+      },
+      { defer: true }
+    )
+  )
+
+  createEffect(
+    on(
       () => props.clearDrawingsKey,
       () => {
         if (drawings().length > 0) commitDrawings([])

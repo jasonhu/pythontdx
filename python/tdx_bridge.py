@@ -3532,7 +3532,10 @@ class Bridge:
 
     def limit_review(self, date: str) -> dict:
         """扫描本地全部日 K 缓存，复盘指定交易日的涨停/跌停/炸板。"""
-        self.index.ensure(self.conn)
+        try:
+            self.index.ensure(self.conn)
+        except Exception:  # noqa: BLE001 - 离线时仍允许按代码扫描本地缓存
+            pass
         by_code = self.index.by_code
         rows: list[dict] = []
         scanned = 0

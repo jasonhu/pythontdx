@@ -36,3 +36,34 @@ export function measurementBars(startIndex: number, endIndex: number): number {
   if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return 0
   return Math.abs(Math.round(endIndex) - Math.round(startIndex))
 }
+
+export interface ArrowPoint {
+  x: number
+  y: number
+}
+
+/**
+ * 箭头头部的三个点：终点 + 两侧回折。
+ * 用屏幕坐标计算，线宽/方向变化时箭头始终指向终点。
+ */
+export function arrowHeadPoints(
+  start: ArrowPoint,
+  end: ArrowPoint,
+  size = 9
+): [ArrowPoint, ArrowPoint, ArrowPoint] | [] {
+  const values = [start.x, start.y, end.x, end.y]
+  if (values.some((value) => !Number.isFinite(value)) || size <= 0) return []
+  const angle = Math.atan2(end.y - start.y, end.x - start.x)
+  const spread = 0.45
+  return [
+    end,
+    {
+      x: end.x - size * Math.cos(angle - spread),
+      y: end.y - size * Math.sin(angle - spread)
+    },
+    {
+      x: end.x - size * Math.cos(angle + spread),
+      y: end.y - size * Math.sin(angle + spread)
+    }
+  ]
+}

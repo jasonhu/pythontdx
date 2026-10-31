@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { FIB_RATIOS, fibonacciLevels, measurementBars, measurementPercent } from './drawing'
+import {
+  arrowHeadPoints,
+  FIB_RATIOS,
+  fibonacciLevels,
+  measurementBars,
+  measurementPercent
+} from './drawing'
 
 describe('fibonacciLevels', () => {
   it('按固定比例在两端之间插值', () => {
@@ -44,5 +50,22 @@ describe('measurement', () => {
     expect(measurementBars(12, 20)).toBe(8)
     expect(measurementBars(20, 12)).toBe(8)
     expect(measurementBars(12, 12)).toBe(0)
+  })
+})
+
+describe('arrowHeadPoints', () => {
+  it('箭头指向终点，两翼在终点后方且对称', () => {
+    const points = arrowHeadPoints({ x: 0, y: 0 }, { x: 10, y: 0 }, 8)
+    expect(points).toHaveLength(3)
+    if (points.length !== 3) return
+    expect(points[0]).toEqual({ x: 10, y: 0 })
+    expect(points[1].x).toBeLessThan(10)
+    expect(points[2].x).toBeLessThan(10)
+    expect(points[1].y).toBeCloseTo(-points[2].y, 6)
+  })
+
+  it('非法坐标或尺寸返回空数组', () => {
+    expect(arrowHeadPoints({ x: 0, y: 0 }, { x: Number.NaN, y: 0 })).toEqual([])
+    expect(arrowHeadPoints({ x: 0, y: 0 }, { x: 10, y: 0 }, 0)).toEqual([])
   })
 })

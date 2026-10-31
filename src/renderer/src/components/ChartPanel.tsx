@@ -423,6 +423,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               测量
             </button>
             <button
+              class="chip chart-draw-arrow"
+              data-active={drawMode() === 'arrow'}
+              title="点两下画箭头"
+              onClick={() => setDrawMode((mode) => (mode === 'arrow' ? 'none' : 'arrow'))}
+            >
+              箭头
+            </button>
+            <button
               class="chip chart-draw-fib"
               data-active={drawMode() === 'fib'}
               title="点两下画斐波那契回撤"

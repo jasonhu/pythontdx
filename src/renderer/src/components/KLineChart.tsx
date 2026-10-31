@@ -43,18 +43,23 @@ import {
 } from '../lib/chart-geometry'
 import { chartOwnsKeys } from '../lib/chart-keys'
 import { useElementSize } from '../lib/dom'
-import { fibonacciLevels, measurementBars, measurementPercent } from '@shared/drawing'
+import {
+  arrowHeadPoints,
+  fibonacciLevels,
+  measurementBars,
+  measurementPercent
+} from '@shared/drawing'
 import { appState, updateSettings } from '../stores/app'
 
 /** 均线配色；周期来自设置 */
 const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc', '#22d3ee', '#f472b6'] as const
 
 export type DrawingMode =
-  'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'fibExt' | 'measure'
+  'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'fibExt' | 'measure' | 'arrow'
 
 interface KLineDrawing {
   id: number
-  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure' | 'arrow'
   price?: number
   startIndex?: number
   startPrice?: number
@@ -418,7 +423,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         }
         if (Math.hypot(point.x - x, point.y - y) <= 10) return { drawing, part: 'end' }
       }
-      if (drawing.type === 'trend' || drawing.type === 'fib' || drawing.type === 'measure') {
+      if (
+        drawing.type === 'trend' ||
+        drawing.type === 'fib' ||
+        drawing.type === 'measure' ||
+        drawing.type === 'arrow'
+      ) {
         const start = {
           x: drawX(drawing.startIndex ?? 0),
           y: geo.yPrice(drawing.startPrice ?? 0)
@@ -536,9 +546,11 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           type:
             props.drawMode === 'measure'
               ? ('measure' as const)
-              : props.drawMode === 'fib' || props.drawMode === 'fibExt'
-                ? ('fib' as const)
-                : ('trend' as const),
+              : props.drawMode === 'arrow'
+                ? ('arrow' as const)
+                : props.drawMode === 'fib' || props.drawMode === 'fibExt'
+                  ? ('fib' as const)
+                  : ('trend' as const),
           extended: props.drawMode === 'fibExt',
           startIndex: pending.index,
           startPrice: pending.price,
@@ -578,7 +590,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           if (drawing.id !== drag) return drawing
           if (drawing.type === 'horizontal') return { ...drawing, price: point.price }
           if (drawing.type === 'vertical') return { ...drawing, startIndex: point.index }
-          if (drawing.type === 'trend' || drawing.type === 'fib' || drawing.type === 'measure') {
+          if (
+            drawing.type === 'trend' ||
+            drawing.type === 'fib' ||
+            drawing.type === 'measure' ||
+            drawing.type === 'arrow'
+          ) {
             return dragPart() === 'start'
               ? { ...drawing, startIndex: point.index, startPrice: point.price }
               : { ...drawing, endIndex: point.index, endPrice: point.price }
@@ -1129,6 +1146,31 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                         </>
                       )
                     })()}
+                  </g>
+                ) : drawing.type === 'arrow' ? (
+                  <g>
+                    <line
+                      class="chart-drawing"
+                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                      y1={geo().yPrice(drawing.startPrice ?? 0)}
+                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                      y2={geo().yPrice(drawing.endPrice ?? 0)}
+                    />
+                    <polygon
+                      class="chart-drawing-arrow"
+                      points={arrowHeadPoints(
+                        {
+                          x: geo().x((drawing.startIndex ?? 0) - win().start),
+                          y: geo().yPrice(drawing.startPrice ?? 0)
+                        },
+                        {
+                          x: geo().x((drawing.endIndex ?? 0) - win().start),
+                          y: geo().yPrice(drawing.endPrice ?? 0)
+                        }
+                      )
+                        .map((point) => `${point.x},${point.y}`)
+                        .join(' ')}
+                    />
                   </g>
                 ) : (
                   <>

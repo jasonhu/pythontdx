@@ -2310,7 +2310,30 @@ def data_inventory() -> dict:
     }.items():
         files, size = _dir_stats(root / relative)
         sections[name] = {"files": files, "bytes": size, "path": str(root / relative)}
-    return {"root": str(root), **sections}
+    cache_dir = root / "cache" / "klines"
+    cache_files = list(cache_dir.glob("*.json")) if cache_dir.exists() else []
+    codes: set[str] = set()
+    periods: set[str] = set()
+    latest = 0
+    for file in cache_files:
+        parts = file.stem.split("_")
+        if len(parts) >= 2:
+            codes.add(parts[0])
+            periods.add(parts[1])
+        try:
+            latest = max(latest, int(file.stat().st_mtime * 1000))
+        except OSError:
+            continue
+    return {
+        "root": str(root),
+        **sections,
+        "klineCache": {
+            "files": len(cache_files),
+            "codes": len(codes),
+            "periods": sorted(periods),
+            "latest": latest,
+        },
+    }
 
 
 def _kline_cache_path(code: str, period: str, count: int, adjust: str) -> Path:

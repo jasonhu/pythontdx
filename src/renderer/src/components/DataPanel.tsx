@@ -498,6 +498,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                       )}
                     </For>
                   </div>
+                  <div class="data__kline-manifest">
+                    K 线缓存：{data().klineCache.files} 文件 · {data().klineCache.codes} 只 ·{' '}
+                    {data().klineCache.periods.join(' / ') || '无'} · 最近{' '}
+                    {data().klineCache.latest > 0
+                      ? new Date(data().klineCache.latest).toLocaleString('zh-CN')
+                      : '无'}
+                  </div>
                 </>
               )}
             </Show>

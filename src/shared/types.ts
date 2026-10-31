@@ -628,6 +628,12 @@ export interface DataInventory {
   exports: DataInventorySection
   normalized: DataInventorySection
   local: DataInventorySection
+  klineCache: {
+    files: number
+    codes: number
+    periods: string[]
+    latest: number
+  }
 }
 
 export interface KLineCacheResult {

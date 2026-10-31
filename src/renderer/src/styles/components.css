@@ -1517,6 +1517,13 @@
   font-family: var(--font-mono);
 }
 
+.data__kline-manifest {
+  margin-top: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  overflow-wrap: anywhere;
+}
+
 .data__table {
   width: 100%;
   margin-top: var(--sp-3);

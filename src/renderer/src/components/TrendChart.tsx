@@ -15,6 +15,8 @@
 import { createEffect, createMemo, createSignal, For, on, Show, type JSX } from 'solid-js'
 import type { MinuteTrend } from '@shared/types'
 import { fixed, minuteLabel, signed, signedPct } from '@shared/format'
+import { ruleConditions } from '@shared/alerts'
+import { appState } from '../stores/app'
 import {
   DAY_SLOTS,
   buildTrendAveragePath,
@@ -61,6 +63,19 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     const geo = geometry()
     return geo ? buildTrendLevels(days(), geo) : []
   })
+  const alertPrices = createMemo(() => {
+    const code = days()[0]?.code
+    if (!code) return []
+    const result: Array<{ price: number; label: string }> = []
+    for (const rule of appState.alerts) {
+      if (!rule.enabled || rule.code !== code) continue
+      for (const condition of ruleConditions(rule)) {
+        if (condition.metric === 'price') result.push({ price: condition.value, label: rule.name })
+      }
+    }
+    return result
+  })
+
   const ticks = createMemo(() => buildTrendTicks(days()))
   const separators = createMemo(() => buildTrendSeparators(days()))
   const dayPaths = createMemo(() => {
@@ -213,6 +228,28 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
                   </g>
                 )
               }}
+            </For>
+
+            {/* ---------- 预警目标价 ---------- */}
+            <For each={alertPrices()}>
+              {(alert) => (
+                <g class="chart-alert">
+                  <title>{`${alert.label} · 预警 ${fixed(alert.price)}`}</title>
+                  <line
+                    x1={geo().padding.left}
+                    x2={geo().width - geo().padding.right}
+                    y1={geo().yPrice(alert.price)}
+                    y2={geo().yPrice(alert.price)}
+                  />
+                  <text
+                    x={geo().width - geo().padding.right - 2}
+                    y={geo().yPrice(alert.price) - 3}
+                    text-anchor="end"
+                  >
+                    预警 {fixed(alert.price)}
+                  </text>
+                </g>
+              )}
             </For>
 
             {/* ---------- 成交量柱 ---------- */}

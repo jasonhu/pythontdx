@@ -68,8 +68,37 @@ export function arrowHeadPoints(
   ]
 }
 
-/** 平行通道的垂直偏移：第三点价格减终点价格。 */
+/** 平行通道的垂直偏移：第三点价格减终点价格（旧接口）。 */
 export function channelOffset(endPrice: number, thirdPrice: number): number | null {
   if (!Number.isFinite(endPrice) || !Number.isFinite(thirdPrice)) return null
   return thirdPrice - endPrice
+}
+
+/**
+ * 平行通道的偏移量：以第一、第二点定义基准线，计算第三点到该线在
+ * 第三点所在下标的价差。必须把横坐标算进去，否则第三点不在终点时
+ * 通道会画歪。
+ */
+export function channelOffsetAt(
+  startIndex: number,
+  startPrice: number,
+  endIndex: number,
+  endPrice: number,
+  thirdIndex: number,
+  thirdPrice: number
+): number | null {
+  if (
+    !Number.isFinite(startIndex) ||
+    !Number.isFinite(startPrice) ||
+    !Number.isFinite(endIndex) ||
+    !Number.isFinite(endPrice) ||
+    !Number.isFinite(thirdIndex) ||
+    !Number.isFinite(thirdPrice) ||
+    endIndex === startIndex
+  ) {
+    return null
+  }
+  const slope = (endPrice - startPrice) / (endIndex - startIndex)
+  const linePrice = startPrice + slope * (thirdIndex - startIndex)
+  return thirdPrice - linePrice
 }

@@ -116,7 +116,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     appState.settings.subIndicator ?? 'none'
   )
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
-  const [rangeMode, setRangeMode] = createSignal(false)
+  const [clearRangeKey, setClearRangeKey] = createSignal(0)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
   const [rangeAnchor, setRangeAnchor] = createSignal<{ x: number; y: number } | null>(null)
   const [chartCardEl, setChartCardEl] = createSignal<HTMLElement | undefined>(undefined)
@@ -658,17 +658,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           <Show when={!isTrend()}>
             <button
               class="chip chart-range-toggle"
-              data-active={rangeMode()}
+              title="清除区间统计选区"
               onClick={() => {
-                const next = !rangeMode()
-                setRangeMode(next)
-                if (!next) {
-                  setRangeStats(null)
-                  setRangeAnchor(null)
-                }
+                setRangeStats(null)
+                setRangeAnchor(null)
+                setClearRangeKey((value) => value + 1)
               }}
             >
-              区间
+              清除区间
             </button>
           </Show>
 
@@ -809,7 +806,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         </div>
       </div>
 
-      <Show when={rangeMode() || rangeStats()}>
+      <Show when={rangeStats()}>
         <div
           class="chart-tooltip chart-range-stats"
           style={{
@@ -940,7 +937,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     bollPeriod={appState.settings.indicatorParams?.bollPeriod ?? 20}
                     bollK={appState.settings.indicatorParams?.bollK ?? 2}
                     logScale={logScale()}
-                    rangeMode={rangeMode()}
+                    clearRangeKey={clearRangeKey()}
                     onRangeStats={setRangeStats}
                     onRangeAnchor={setRangeAnchor}
                     onCursorChange={setSubCursor}

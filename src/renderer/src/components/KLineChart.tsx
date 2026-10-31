@@ -45,7 +45,7 @@ import { chartOwnsKeys } from '../lib/chart-keys'
 import { useElementSize } from '../lib/dom'
 import {
   arrowHeadPoints,
-  channelOffset,
+  channelOffsetAt,
   fibonacciLevels,
   measurementBars,
   measurementPercent
@@ -94,9 +94,9 @@ export interface KLineChartProps {
   logScale?: boolean
   /** 当前复权方式；画线按 code + period + adjust 隔离 */
   adjust?: 'none' | 'qfq' | 'hfq'
-  /** 区间统计选择模式 */
-  rangeMode?: boolean
   onRangeStats?: (stats: KLineRangeStats | null) => void
+  /** 清除区间统计选区 */
+  clearRangeKey?: number
   /** 区间统计跟随鼠标的屏幕坐标 */
   onRangeAnchor?: (anchor: { x: number; y: number } | null) => void
   /** 光标绝对下标变化（用于副图十字线联动） */
@@ -338,14 +338,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   createEffect(
     on(
-      () => props.rangeMode,
-      (enabled, previous) => {
-        if (previous && !enabled) {
-          setRangeStart(null)
-          setRangeEnd(null)
-          props.onRangeStats?.(null)
-          props.onRangeAnchor?.(null)
-        }
+      () => props.clearRangeKey,
+      () => {
+        setRangeStart(null)
+        setRangeEnd(null)
+        props.onRangeStats?.(null)
+        props.onRangeAnchor?.(null)
       },
       { defer: true }
     )
@@ -640,7 +638,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     event: PointerEvent,
     geo: KLineGeometry
   ): { drawing: KLineDrawing; part: 'start' | 'end' | 'offset' | 'move' } | null => {
-    if (props.rangeMode || props.drawMode !== 'none') return null
+    if (props.drawMode !== 'none') return null
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
@@ -715,7 +713,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   const onDoubleClick = (event: MouseEvent): void => {
     const geo = geometry()
-    if (!geo || props.rangeMode || props.drawMode !== 'none') return
+    if (!geo || props.drawMode !== 'none') return
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
@@ -825,7 +823,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           return
         }
         drawingId += 1
-        const offset = channelOffset(second.price, price) ?? 0
+        const offset =
+          channelOffsetAt(first.index, first.price, second.index, second.price, index, price) ?? 0
         const next = [
           ...drawings(),
           {
@@ -874,21 +873,6 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       setPendingPoint(null)
       return
     }
-    if (!props.rangeMode) return
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
-    if (index === null) return
-    if (rangeStart() === null || rangeEnd() !== null) {
-      setRangeStart(index)
-      setRangeEnd(null)
-      props.onRangeStats?.(null)
-      props.onRangeAnchor?.({ x: event.clientX, y: event.clientY })
-      return
-    }
-    setRangeEnd(index)
-    const start = rangeStart()!
-    props.onRangeStats?.(klineRangeStats(allBars(), start, index))
-    props.onRangeAnchor?.({ x: event.clientX, y: event.clientY })
   }
 
   const onPointerMove = (event: PointerEvent): void => {
@@ -933,7 +917,15 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           if (drawing.type === 'channel' && dragPart() === 'offset') {
             return {
               ...drawing,
-              offset: channelOffset(drawing.endPrice ?? 0, point.price) ?? 0
+              offset:
+                channelOffsetAt(
+                  drawing.startIndex ?? 0,
+                  drawing.startPrice ?? 0,
+                  drawing.endIndex ?? 0,
+                  drawing.endPrice ?? 0,
+                  point.index,
+                  point.price
+                ) ?? 0
             }
           }
           if (

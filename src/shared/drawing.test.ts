@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   arrowHeadPoints,
   channelOffset,
+  channelOffsetAt,
   FIB_RATIOS,
   fibonacciLevels,
   measurementBars,
@@ -80,5 +81,17 @@ describe('channelOffset', () => {
   it('非法价格返回 null', () => {
     expect(channelOffset(Number.NaN, 12)).toBeNull()
     expect(channelOffset(10, Number.POSITIVE_INFINITY)).toBeNull()
+  })
+})
+
+describe('channelOffsetAt', () => {
+  it('按第三点所在下标计算基准线价差', () => {
+    expect(channelOffsetAt(0, 10, 10, 20, 5, 5)).toBe(-10)
+    expect(channelOffsetAt(0, 10, 10, 20, 5, 25)).toBe(10)
+  })
+
+  it('相同下标或非法值返回 null', () => {
+    expect(channelOffsetAt(5, 10, 5, 20, 5, 15)).toBeNull()
+    expect(channelOffsetAt(0, Number.NaN, 10, 20, 5, 15)).toBeNull()
   })
 })

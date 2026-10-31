@@ -346,6 +346,14 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   /* -------------------------------------------------------- 其它 */
 
+  ipcMain.handle(IPC.appGraphics, () => ({
+    session: process.env.XDG_SESSION_TYPE ?? 'unknown',
+    wayland: Boolean(process.env.WAYLAND_DISPLAY),
+    requested: process.env.STOCKLENS_GRAPHICS ?? 'wayland',
+    platform: process.platform,
+    gpuFeatureStatus: app.getGPUFeatureStatus()
+  }))
+
   ipcMain.handle(IPC.appInfo, () => ({
     name: app.getName(),
     version: app.getVersion(),

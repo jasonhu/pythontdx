@@ -882,6 +882,14 @@ export interface WindowState {
   platform: string
 }
 
+export interface GraphicsInfo {
+  session: string
+  wayland: boolean
+  requested: string
+  platform: string
+  gpuFeatureStatus: Record<string, string>
+}
+
 export interface AppInfo {
   name: string
   version: string

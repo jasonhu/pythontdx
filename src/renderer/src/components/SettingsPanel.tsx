@@ -1,10 +1,11 @@
 /**
  * 设置面板：把散落在顶栏/状态栏/图表的开关集中到一处。
  */
-import { createSignal, For, Show, type JSX } from 'solid-js'
-import type { AppSettings, LayoutSlot, ThemeMode } from '@shared/types'
+import { createSignal, For, onMount, Show, type JSX } from 'solid-js'
+import type { AppSettings, GraphicsInfo, LayoutSlot, ThemeMode } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { appInfo, appState, toggleTheme, updateSettings } from '../stores/app'
+import { api } from '../lib/ipc'
 import { downloadText } from '../lib/download'
 import { IconClose } from './Icons'
 import { normalizeMaPeriods } from '@shared/ma'
@@ -18,6 +19,15 @@ const LAYOUTS = [
 ] as const
 
 export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
+  const [graphics, setGraphics] = createSignal<GraphicsInfo | null>(null)
+
+  onMount(() => {
+    void api.app
+      .graphics()
+      .then(setGraphics)
+      .catch(() => setGraphics(null))
+  })
+
   const [permission, setPermission] = createSignal(
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
   )
@@ -275,6 +285,20 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
                 }}
               />
             </div>
+          </div>
+
+          <div class="settings__row">
+            <div>
+              <div class="settings__label">图形系统</div>
+              <div class="settings__hint">
+                {graphics()
+                  ? `${graphics()!.session} · ${graphics()!.requested} · Vulkan ${graphics()!.gpuFeatureStatus.vulkan ?? 'unknown'}`
+                  : '读取中…'}
+              </div>
+            </div>
+            <span class="settings__graphics">
+              {graphics()?.wayland ? 'Wayland 会话' : 'X11 / Web'}
+            </span>
           </div>
 
           <div class="settings__row">

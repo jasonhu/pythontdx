@@ -5871,3 +5871,8 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
 }
+
+.settings__graphics {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

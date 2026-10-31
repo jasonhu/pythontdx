@@ -33,7 +33,7 @@ StockLens 的所有重要变更都记录在这里。
 ### 验证
 
 - `npm run check`：209 TS + 112 Python（2 skipped）；
-- 包：AppImage 130 MB `55956ac9…47bc8c` / deb 105 MB `42f0148b…45673fa`；
+- 包：AppImage 130 MB `6bfe79e4…136878` / deb 105 MB `a1fda7ed…3c8185`；
 - 截图：`chart-5ma.png`、`f11-fullscreen.png`、`watchlist-full-24.png`、
   `f10-markdown.png`、`data-offline.png`、`sidebar-resize.png`。
 
@@ -184,7 +184,7 @@ StockLens 的所有重要变更都记录在这里。
 - **MAC 资金流**：`0x1218` 今日主力/散户 + 5 日大单/中单；资金流页签补充卡；92 Python。
 - **公式函数扩充**：SUM/HHV/LLV/STD/IF，前后端同子集；183 TS + 91 Python。
 - **全表排序**：MAC 分批 400 只拉全 A 5,615 只报价，按涨幅/跌幅/成交额/现价重排；榜单首屏 *ST航图 +20.04%。
-- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `55956ac9…`、deb 105 MB `42f0148b…`，AppImage 实机启动截图；包内全表排序、MAC 资金流、组合预警（且/或）、垂直线/文字、多周期、F10 18 页签、条件预设、多预设自动池、浏览器通知、数据湖归档历史均已验证；Linux 桌面关联改为 stocklens。
+- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `6bfe79e4…`、deb 105 MB `a1fda7ed…`，AppImage 实机启动截图；包内全表排序、MAC 资金流、组合预警（且/或）、垂直线/文字、多周期、F10 18 页签、条件预设、多预设自动池、浏览器通知、数据湖归档历史均已验证；Linux 桌面关联改为 stocklens。
 - **MAC 报价兜底**：`0x122B` 三步握手 + 字段 0~7 + 五档；7709 报价失败时自动切 MAC，89 Python。
 - **REITs 分栏**：基金内按 508/180 前缀单列，101 条。
 - **F10 交易数据扩充**：涨停/跌停/可转债/主力盘口四个分区；涨停 30 行实测。

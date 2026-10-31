@@ -6,6 +6,7 @@
  */
 import type {
   AppInfo,
+  GraphicsInfo,
   AppState,
   AuctionPoint,
   BlockKind,
@@ -204,7 +205,9 @@ export const IPC = {
   /** 用系统默认浏览器打开链接（invoke） */
   appOpenExternal: 'app:open-external',
   /** 系统通知（invoke） */
-  appNotify: 'app:notify'
+  appNotify: 'app:notify',
+  /** 图形后端诊断（invoke） */
+  appGraphics: 'app:graphics'
 } as const
 
 export interface KLineRequest {
@@ -371,6 +374,8 @@ export interface StockLensApi {
   }
   app: {
     info(): Promise<AppInfo>
+    /** Linux 图形后端 / GPU 帧特性诊断 */
+    graphics(): Promise<GraphicsInfo>
     /** 交给系统浏览器打开，避免在应用内弹出新窗口 */
     openExternal(url: string): Promise<void>
     /** 系统通知；不支持/未授权时静默失败 */

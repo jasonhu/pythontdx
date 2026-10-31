@@ -6,6 +6,7 @@
  */
 import type {
   AppInfo,
+  GraphicsInfo,
   AppState,
   AuctionPoint,
   BlockKind,
@@ -411,6 +412,13 @@ export function createHttpApi(): StockLensApi {
       onStateChange: () => () => undefined
     },
     app: {
+      graphics: async (): Promise<GraphicsInfo> => ({
+        session: 'web',
+        wayland: false,
+        requested: 'web',
+        platform: 'web',
+        gpuFeatureStatus: {}
+      }),
       info: async (): Promise<AppInfo> => ({
         name: 'StockLens Web',
         version: '0.7.0-web',

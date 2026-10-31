@@ -43,17 +43,18 @@ import {
 } from '../lib/chart-geometry'
 import { chartOwnsKeys } from '../lib/chart-keys'
 import { useElementSize } from '../lib/dom'
-import { fibonacciLevels } from '@shared/drawing'
+import { fibonacciLevels, measurementBars, measurementPercent } from '@shared/drawing'
 import { appState, updateSettings } from '../stores/app'
 
 /** 均线配色；周期来自设置 */
 const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc', '#22d3ee', '#f472b6'] as const
 
-export type DrawingMode = 'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'fibExt'
+export type DrawingMode =
+  'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'fibExt' | 'measure'
 
 interface KLineDrawing {
   id: number
-  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure'
   price?: number
   startIndex?: number
   startPrice?: number
@@ -417,7 +418,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         }
         if (Math.hypot(point.x - x, point.y - y) <= 10) return { drawing, part: 'end' }
       }
-      if (drawing.type === 'trend' || drawing.type === 'fib') {
+      if (drawing.type === 'trend' || drawing.type === 'fib' || drawing.type === 'measure') {
         const start = {
           x: drawX(drawing.startIndex ?? 0),
           y: geo.yPrice(drawing.startPrice ?? 0)
@@ -533,9 +534,11 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         {
           id: drawingId,
           type:
-            props.drawMode === 'fib' || props.drawMode === 'fibExt'
-              ? ('fib' as const)
-              : ('trend' as const),
+            props.drawMode === 'measure'
+              ? ('measure' as const)
+              : props.drawMode === 'fib' || props.drawMode === 'fibExt'
+                ? ('fib' as const)
+                : ('trend' as const),
           extended: props.drawMode === 'fibExt',
           startIndex: pending.index,
           startPrice: pending.price,
@@ -575,7 +578,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           if (drawing.id !== drag) return drawing
           if (drawing.type === 'horizontal') return { ...drawing, price: point.price }
           if (drawing.type === 'vertical') return { ...drawing, startIndex: point.index }
-          if (drawing.type === 'trend' || drawing.type === 'fib') {
+          if (drawing.type === 'trend' || drawing.type === 'fib' || drawing.type === 'measure') {
             return dragPart() === 'start'
               ? { ...drawing, startIndex: point.index, startPrice: point.price }
               : { ...drawing, endIndex: point.index, endPrice: point.price }
@@ -1084,6 +1087,48 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                         </g>
                       )}
                     </For>
+                  </g>
+                ) : drawing.type === 'measure' ? (
+                  <g>
+                    {(() => {
+                      const percent = measurementPercent(
+                        drawing.startPrice ?? 0,
+                        drawing.endPrice ?? 0
+                      )
+                      const bars = measurementBars(drawing.startIndex ?? 0, drawing.endIndex ?? 0)
+                      return (
+                        <>
+                          <line
+                            class="chart-drawing chart-drawing-measure"
+                            x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                            y1={geo().yPrice(drawing.startPrice ?? 0)}
+                            x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                            y2={geo().yPrice(drawing.endPrice ?? 0)}
+                          />
+                          <circle
+                            class="chart-drawing-point"
+                            cx={geo().x((drawing.startIndex ?? 0) - win().start)}
+                            cy={geo().yPrice(drawing.startPrice ?? 0)}
+                            r="2.5"
+                          />
+                          <circle
+                            class="chart-drawing-point"
+                            cx={geo().x((drawing.endIndex ?? 0) - win().start)}
+                            cy={geo().yPrice(drawing.endPrice ?? 0)}
+                            r="2.5"
+                          />
+                          <text
+                            class="chart-drawing-label"
+                            x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
+                            y={geo().yPrice(drawing.endPrice ?? 0) - 4}
+                          >
+                            {percent === null
+                              ? '—'
+                              : `${percent >= 0 ? '+' : ''}${fixed(percent)}% / ${bars} 根`}
+                          </text>
+                        </>
+                      )
+                    })()}
                   </g>
                 ) : (
                   <>

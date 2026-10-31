@@ -415,6 +415,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               趋势
             </button>
             <button
+              class="chip chart-draw-measure"
+              data-active={drawMode() === 'measure'}
+              title="点两下测量涨跌幅与跨过的 K 线根数"
+              onClick={() => setDrawMode((mode) => (mode === 'measure' ? 'none' : 'measure'))}
+            >
+              测量
+            </button>
+            <button
               class="chip chart-draw-fib"
               data-active={drawMode() === 'fib'}
               title="点两下画斐波那契回撤"

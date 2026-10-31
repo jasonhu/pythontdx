@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FIB_RATIOS, fibonacciLevels } from './drawing'
+import { FIB_RATIOS, fibonacciLevels, measurementBars, measurementPercent } from './drawing'
 
 describe('fibonacciLevels', () => {
   it('按固定比例在两端之间插值', () => {
@@ -29,5 +29,20 @@ describe('fibonacciLevels', () => {
     expect(levels[7].price).toBeCloseTo(49.37, 2)
     expect(levels[8].ratio).toBe(1.618)
     expect(levels[8].price).toBeCloseTo(54.01, 2)
+  })
+})
+
+describe('measurement', () => {
+  it('涨跌幅按起点价格计算，负值保留方向', () => {
+    expect(measurementPercent(10, 11)).toBeCloseTo(10, 6)
+    expect(measurementPercent(10, 9)).toBeCloseTo(-10, 6)
+    expect(measurementPercent(0, 9)).toBeNull()
+    expect(measurementPercent(Number.NaN, 9)).toBeNull()
+  })
+
+  it('根数取两端下标差的绝对值', () => {
+    expect(measurementBars(12, 20)).toBe(8)
+    expect(measurementBars(20, 12)).toBe(8)
+    expect(measurementBars(12, 12)).toBe(0)
   })
 })

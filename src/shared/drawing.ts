@@ -24,3 +24,15 @@ export function fibonacciLevels(
     price: startPrice + (endPrice - startPrice) * ratio
   }))
 }
+
+/** 测量线涨跌幅；起点价格非正/无效返回 null，避免显示 Infinity。 */
+export function measurementPercent(startPrice: number, endPrice: number): number | null {
+  if (!Number.isFinite(startPrice) || !Number.isFinite(endPrice) || startPrice <= 0) return null
+  return ((endPrice - startPrice) / startPrice) * 100
+}
+
+/** 测量线跨过的 K 线根数（端点在同一根为 0）。 */
+export function measurementBars(startIndex: number, endIndex: number): number {
+  if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return 0
+  return Math.abs(Math.round(endIndex) - Math.round(startIndex))
+}

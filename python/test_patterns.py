@@ -26,7 +26,7 @@ def zigzag():
 class TestPatterns(unittest.TestCase):
     def test_smart_combo(self):
         plans = build_smart_drawings(zigzag())
-        self.assertEqual([plan["type"] for plan in plans], ["fib", "measure", "trend", "channel", "horizontal", "arrow"])
+        self.assertEqual([plan["type"] for plan in plans], ["fib", "measure", "channel", "horizontal", "arrow"])
         self.assertTrue(all(plan["algorithm"] == ALGORITHM_VERSION for plan in plans))
         channel = next(plan for plan in plans if plan["type"] == "channel")
         self.assertNotEqual(channel["offset"], 0)
@@ -47,7 +47,7 @@ class TestPatterns(unittest.TestCase):
     def test_summary(self):
         summary = pattern_summary(build_smart_drawings(zigzag()))
         self.assertEqual(summary["algorithm"], ALGORITHM_VERSION)
-        self.assertEqual(summary["count"], 6)
+        self.assertEqual(summary["count"], 5)
 
 
 if __name__ == "__main__":

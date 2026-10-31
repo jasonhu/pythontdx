@@ -115,25 +115,6 @@ def build_smart_drawings(bars: list[dict], lookback: int = 160) -> list[dict]:
         first_price = price_at(first, "low" if up else "high")
         second_price = price_at(second, "low" if up else "high")
 
-        # 通道的基准线由主摆动同侧点定义；趋势线取对侧摆动点，
-        # 避免两条线完全重合，让用户能同时看到趋势与通道。
-        trend_indices = [index for index in (highs if up else lows) if first <= index <= second]
-        trend_start = trend_indices[0] if len(trend_indices) >= 2 else first
-        trend_end = trend_indices[-1] if len(trend_indices) >= 2 else second
-        trend_start_price = price_at(trend_start, "high" if up else "low")
-        trend_end_price = price_at(trend_end, "high" if up else "low")
-        if trend_end > trend_start and trend_end - trend_start >= 2:
-            plans.append(
-                {
-                    "type": "trend",
-                    "startDate": date_at(trend_start),
-                    "endDate": date_at(trend_end),
-                    "startPrice": trend_start_price,
-                    "endPrice": trend_end_price,
-                    "algorithm": ALGORITHM_VERSION,
-                }
-            )
-
         # 通道用最近 60 根的摆动定义，并延伸到最新一根，便于观察突破；
         # 主摆动斐波那契仍用原 lookback，二者用途不同。
         recent_start = max(0, len(bars) - 60)

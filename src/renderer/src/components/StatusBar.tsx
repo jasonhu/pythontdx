@@ -147,7 +147,8 @@ export function StatusBar(props: {
             <span class="tone-down">{value().down}</span> / 平 {value().flat}
             <Show when={value().limitUp !== undefined}>
               <span class="statusbar__limit">
-                {' '}· 停 {value().limitUp}/{value().limitDown}
+                {' '}
+                · 停 {value().limitUp}/{value().limitDown}
               </span>
             </Show>
           </button>

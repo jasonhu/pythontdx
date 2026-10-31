@@ -156,21 +156,21 @@ npm run build:win     # 或 build:mac / build:linux
 
 ## 🛠 常用命令
 
-| 命令                        | 作用                                                |
-| --------------------------- | --------------------------------------------------- |
-| `npm run dev`               | 开发模式（主进程重启 + 渲染层热更新 + Python 桥接） |
-| `python3 python/tdx_server.py --port 8765` | 只读 HTTP API（Web 端数据入口）          |
-| `python3 python/tdx_server.py --web-dir out/web` | 单端口托管 Web 静态页 + API + SSE |
-| `npm run dev:web`           | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174）          |
-| `npm run build:web`         | 构建 Web 产物到 `out/web/`                          |
-| `npm run check`             | 类型检查 + Lint + TS 测试 + Python 测试，一条命令   |
-| `npm run test`              | Vitest（173 个 TS 用例）                            |
-| `npm run test:python`       | Python 协议/HTTP 测试（86 个用例，真实 fixture）    |
-| `npm run build:python`      | PyInstaller 打行情桥接单文件（打包前必跑）          |
-| `npm run shot`              | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收 |
-| `npm run lint` / `lint:fix` | ESLint（含 Solid 响应式规则）                       |
-| `npm run format`            | Prettier 格式化                                     |
-| `npm run icon`              | 重新生成应用图标（纯 Node 手写 PNG/ICO）            |
+| 命令                                             | 作用                                                   |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| `npm run dev`                                    | 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）    |
+| `python3 python/tdx_server.py --port 8765`       | 只读 HTTP API（Web 端数据入口）                        |
+| `python3 python/tdx_server.py --web-dir out/web` | 单端口托管 Web 静态页 + API + SSE                      |
+| `npm run dev:web`                                | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174） |
+| `npm run build:web`                              | 构建 Web 产物到 `out/web/`                             |
+| `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
+| `npm run test`                                   | Vitest（173 个 TS 用例）                               |
+| `npm run test:python`                            | Python 协议/HTTP 测试（86 个用例，真实 fixture）       |
+| `npm run build:python`                           | PyInstaller 打行情桥接单文件（打包前必跑）             |
+| `npm run shot`                                   | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收    |
+| `npm run lint` / `lint:fix`                      | ESLint（含 Solid 响应式规则）                          |
+| `npm run format`                                 | Prettier 格式化                                        |
+| `npm run icon`                                   | 重新生成应用图标（纯 Node 手写 PNG/ICO）               |
 
 ---
 
@@ -187,12 +187,12 @@ npm run build:linux            # Linux AppImage / deb
 
 产物在 `release/<版本号>/`。**平台范围：只做 Linux**（Windows/macOS 不处理）：
 
-|      | AppImage                | deb              |
-| ---- | ----------------------- | ---------------- |
-| 文件 | 约 131 MB，单文件       | 约 106 MB        |
-| 安装 | 不需要，chmod +x 即用   | `dpkg -i` 安装   |
-| 启动 | 约 2–3 秒               | 约 1–2 秒        |
-| 卸载 | 删文件 + 数据目录       | `apt remove`     |
+|      | AppImage              | deb            |
+| ---- | --------------------- | -------------- |
+| 文件 | 约 131 MB，单文件     | 约 106 MB      |
+| 安装 | 不需要，chmod +x 即用 | `dpkg -i` 安装 |
+| 启动 | 约 2–3 秒             | 约 1–2 秒      |
+| 卸载 | 删文件 + 数据目录     | `apt remove`   |
 
 > 便携版把数据写在 exe 旁边（只读位置回退到 `%APPDATA%`），
 > 拷走 exe + `StockLens-data/` 就等于带走自选股。
@@ -288,17 +288,17 @@ docs/                      # 目标、架构、协议、UI、路线图、踩坑�
 
 ## 📚 文档
 
-| 文档                                                       | 内容                                        |
-| ---------------------------------------------------------- | ------------------------------------------- |
-| [docs/00-项目章程.md](docs/00-项目章程.md)                 | 六条目标、范围、目标架构、数据/ML、成功标准 |
-| [docs/01-快速开始.md](docs/01-快速开始.md)                 | 环境、命令、目录、调试                      |
-| [docs/02-架构设计.md](docs/02-架构设计.md)                 | 现状 v0.6 + 目标 v0.7 架构                  |
-| [docs/03-通达信行情手册.md](docs/03-通达信行情手册.md)     | 7709 帧、字段表、主机策略                   |
-| [docs/04-UI设计系统.md](docs/04-UI设计系统.md)             | 设计令牌、配色、排版、动效                  |
-| [docs/05-开发路线图.md](docs/05-开发路线图.md)             | 里程碑、功能对齐矩阵                        |
-| [docs/06-踩坑笔记.md](docs/06-踩坑笔记.md)                 | 31 个真实踩坑记录                           |
-| [docs/07-手动编译发布手册.md](docs/07-手动编译发布手册.md) | 桌面端发布流程与验收                        |
-| [docs/08-通达信资料索引.md](docs/08-通达信资料索引.md)     | 协议矩阵、主机、官方下载、参考资料          |
+| 文档                                                           | 内容                                        |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| [docs/00-项目章程.md](docs/00-项目章程.md)                     | 六条目标、范围、目标架构、数据/ML、成功标准 |
+| [docs/01-快速开始.md](docs/01-快速开始.md)                     | 环境、命令、目录、调试                      |
+| [docs/02-架构设计.md](docs/02-架构设计.md)                     | 现状 v0.6 + 目标 v0.7 架构                  |
+| [docs/03-通达信行情手册.md](docs/03-通达信行情手册.md)         | 7709 帧、字段表、主机策略                   |
+| [docs/04-UI设计系统.md](docs/04-UI设计系统.md)                 | 设计令牌、配色、排版、动效                  |
+| [docs/05-开发路线图.md](docs/05-开发路线图.md)                 | 里程碑、功能对齐矩阵                        |
+| [docs/06-踩坑笔记.md](docs/06-踩坑笔记.md)                     | 31 个真实踩坑记录                           |
+| [docs/07-手动编译发布手册.md](docs/07-手动编译发布手册.md)     | 桌面端发布流程与验收                        |
+| [docs/08-通达信资料索引.md](docs/08-通达信资料索引.md)         | 协议矩阵、主机、官方下载、参考资料          |
 | [docs/09-官方客户端功能清单.md](docs/09-官方客户端功能清单.md) | 官方功能基线、现状矩阵、数据通道、验收      |
 
 **工程规则**：[AGENTS.md](AGENTS.md)（索引与硬规则）、

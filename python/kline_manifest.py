@@ -33,9 +33,26 @@ def row_count(data_path: Path) -> int:
     return int(row[0]) if row else 0
 
 
+def date_range(data_path: Path) -> tuple[str | None, str | None]:
+    duckdb = _duckdb()
+    connection = duckdb.connect(":memory:")
+    try:
+        row = connection.execute(
+            f"SELECT min(date), max(date) FROM read_parquet('{str(data_path.resolve()).replace(chr(39), chr(39) * 2)}')"
+        ).fetchone()
+    finally:
+        connection.close()
+    if not row:
+        return None, None
+    return (str(row[0]) if row[0] is not None else None, str(row[1]) if row[1] is not None else None)
+
+
 def write_kline_manifest(data_path: Path, metadata: dict | None = None) -> dict:
     meta = dict(metadata or {})
     rows = row_count(data_path)
+    first_date, last_date = date_range(data_path)
+    meta.setdefault("firstDate", first_date)
+    meta.setdefault("lastDate", last_date)
     payload = {
         "schema": "stocklens.kline_cache.v1",
         "file": data_path.name,
@@ -59,7 +76,21 @@ def backfill_kline_manifests(root: Path) -> dict:
     failed = 0
     for data_path in sorted(Path(root).glob("*.parquet")):
         if manifest_path(data_path).is_file():
-            skipped += 1
+            try:
+                existing = json.loads(manifest_path(data_path).read_text("utf-8"))
+                if existing.get("firstDate") and existing.get("lastDate"):
+                    skipped += 1
+                    continue
+                write_kline_manifest(
+                    data_path,
+                    {
+                        "source": existing.get("source") or "legacy-backfill",
+                        "fetchedAt": existing.get("fetchedAt"),
+                    },
+                )
+                created += 1
+            except Exception:  # noqa: BLE001
+                skipped += 1
             continue
         try:
             write_kline_manifest(data_path, {"source": "legacy-backfill"})

@@ -164,6 +164,11 @@ def main() -> int:
         )
         periods = set((kline.get("periods") or {}).keys())
         check("5s/15s 缓存", {"5s", "15s"} <= periods, ",".join(sorted(periods)))
+        check(
+            "K 线日期范围",
+            bool(kline.get("oldest")) and bool(kline.get("newest")),
+            f"{kline.get('oldest')}..{kline.get('newest')}",
+        )
     except Exception as error:  # noqa: BLE001 - 自检要报告而不是闪退
         failures.append(f"调用失败：{error}")
 

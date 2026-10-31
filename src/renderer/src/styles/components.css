@@ -5391,3 +5391,7 @@
     display: none;
   }
 }
+
+.chart-pin[data-active='true'] {
+  color: var(--accent);
+}

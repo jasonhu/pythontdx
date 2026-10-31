@@ -104,6 +104,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [drawMode, setDrawMode] = createSignal<DrawingMode>('none')
   const [drawingText, setDrawingText] = createSignal('标注')
   const [clearDrawingsKey, setClearDrawingsKey] = createSignal(0)
+  const [pinned, setPinned] = createSignal(false)
 
   // 首屏可能在 state 落盘读取完成前创建，设置到达后再同步一次
   createEffect(() => {
@@ -462,6 +463,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                 onClick={() => props.onToggleFocus?.()}
               >
                 {props.focusMode ? '退出专注' : '专注'}
+              </button>
+              <button
+                class="btn btn--bare chart-pin"
+                title="当前窗口置顶（再次点击取消）"
+                data-active={pinned()}
+                onClick={() => void api.window.toggleAlwaysOnTop().then(setPinned)}
+              >
+                {pinned() ? '取消置顶' : '置顶'}
               </button>
               <button
                 class="btn btn--bare chart-export"

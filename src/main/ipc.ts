@@ -6,7 +6,7 @@
  *  - 处理器内部不吞异常：抛出后 Electron 会把它序列化回渲染层，
  *    渲染层由 lib/ipc.ts 的 safeInvoke 统一转成可读的中文提示。
  */
-import { ipcMain, app, shell, Notification, type BrowserWindow } from 'electron'
+import { ipcMain, app, shell, Notification, BrowserWindow } from 'electron'
 import type {
   AppState,
   BlockKind,
@@ -279,6 +279,14 @@ export function registerIpcHandlers(context: IpcContext): void {
       bounds: store.secondaryBounds,
       onBoundsChange: (bounds) => store.saveSecondaryBounds(bounds)
     })
+  })
+
+  ipcMain.handle(IPC.windowAlwaysOnTop, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return false
+    const next = !window.isAlwaysOnTop()
+    window.setAlwaysOnTop(next)
+    return next
   })
 
   ipcMain.handle(IPC.windowControl, (_event, action: string) => {

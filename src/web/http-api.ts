@@ -396,6 +396,7 @@ export function createHttpApi(): StockLensApi {
       openSecondary: async () => {
         throw new Error('浏览器版不支持第二窗口')
       },
+      toggleAlwaysOnTop: async () => false,
       onStateChange: () => () => undefined
     },
     app: {

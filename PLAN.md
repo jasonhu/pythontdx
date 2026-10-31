@@ -20,7 +20,7 @@
 | 健康度   | `npm run check` 全绿（215 TS + 114 Python，20 个 TS 文件）；2026-10-31 复核通过   |
 | 目标     | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`） |
 | 数据源   | 通达信 7709 + MAC + 7615 + 文件下载/本地文件；7727/EX 不做                     |
-| 分发     | Linux AppImage/deb 已实测（`cfa5b401…` / `cb34e13d…`）；Windows/macOS 需在对应系统本机构建 |
+| 分发     | Linux AppImage/deb 已实测（`cceba6fb…` / `d8960e8b…`）；Windows/macOS 需在对应系统本机构建 |
 | 平台验证 | 代码跨 Windows/Linux/macOS；当前仅 Linux 自动化验证，Windows/macOS 待实机验收 |
 
 **已交付能力**（详见 `README.md` 与 `docs/09`）：

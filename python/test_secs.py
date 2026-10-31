@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import struct
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
-from tdx_bridge import parse_f10_catalog
+from tdx_bridge import active_endpoints, parse_connect_cfg, parse_f10_catalog
 from tdx_mac import parse_transactions
 
 
@@ -35,6 +38,36 @@ class TestF10CatalogNames(unittest.TestCase):
         self.assertEqual(sections[0]["name"], "公司大事")
         self.assertNotIn("\x00", sections[0]["name"])
         self.assertEqual(sections[0]["filename"], "gpsz")
+
+
+class TestConnectCfg(unittest.TestCase):
+    def test_parse_hqhost_with_primary_rotation(self) -> None:
+        content = (
+            "[HQHOST]\r\n"
+            "HostNum=2\r\n"
+            "PrimaryHost=2\r\n"
+            "HostName01=通达信主站一\r\n"
+            "IPAddress01=1.1.1.1\r\n"
+            "Port01=7709\r\n"
+            "HostName02=通达信主站二\r\n"
+            "IPAddress02=2.2.2.2\r\n"
+            "Port02=7709\r\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "connect.cfg"
+            path.write_bytes(content.encode("gb18030"))
+            hosts = parse_connect_cfg(path)
+        self.assertEqual(hosts, [("2.2.2.2", 7709), ("1.1.1.1", 7709)])
+
+    def test_active_endpoints_uses_env_file(self) -> None:
+        content = "[HQHOST]\nPrimaryHost=1\nIPAddress01=3.3.3.3\nPort01=7709\n"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "connect.cfg"
+            path.write_bytes(content.encode("gb18030"))
+            with mock.patch.dict("os.environ", {"STOCKLENS_CONNECT_CFG": str(path)}):
+                hosts, source = active_endpoints()
+        self.assertEqual(hosts, [("3.3.3.3", 7709)])
+        self.assertEqual(source, str(path))
 
 
 if __name__ == "__main__":

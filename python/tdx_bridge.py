@@ -123,6 +123,95 @@ SERVER_HOSTS = [
 ]
 ENDPOINTS = SERVER_HOSTS
 
+# Windows 客户端安装/解包目录里的 connect.cfg 优先；以下路径按常见安装方式探测。
+# 兼容 Linux 下用 Wine 解包 Windows 客户端的场景。
+CONNECT_CFG_CANDIDATES = [
+    Path.home() / ".local/share/tdxcfv/drive_c/tc/connect.cfg",
+    Path.home() / ".wine/drive_c/tc/connect.cfg",
+    Path.home() / ".local/share/tdxcfv/drive_c/new_tdx/connect.cfg",
+    Path.home() / ".wine/drive_c/new_tdx/connect.cfg",
+    Path("/mnt/c/new_tdx/connect.cfg"),
+    Path("C:/new_tdx/connect.cfg"),
+    Path("C:/tdx/connect.cfg"),
+]
+
+
+def _connect_cfg_candidates() -> list[Path]:
+    configured = os.environ.get("STOCKLENS_CONNECT_CFG")
+    candidates: list[Path] = [Path(configured).expanduser()] if configured else []
+    candidates.extend(CONNECT_CFG_CANDIDATES)
+    for pattern in (
+        "~/.local/share/tdxcfv/drive_c/*/connect.cfg",
+        "~/.wine/drive_c/*/connect.cfg",
+    ):
+        candidates.extend(Path(pattern).expanduser().parent.glob(Path(pattern).name))
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for path in candidates:
+        if path not in seen:
+            seen.add(path)
+            unique.append(path)
+    return unique
+
+
+def parse_connect_cfg(path: Path) -> list[tuple[str, int]]:
+    """解析通达信 connect.cfg 的 [HQHOST]；名称是 GBK/GB18030，失败不影响 IP。"""
+    try:
+        source = path.read_bytes().decode("gb18030", "replace")
+    except OSError:
+        return []
+    section = ""
+    primary = 0
+    entries: dict[int, dict[str, str]] = {}
+    for line in source.splitlines():
+        text = line.strip()
+        if not text or text.startswith(";") or text.startswith("#"):
+            continue
+        if text.startswith("[") and text.endswith("]"):
+            section = text[1:-1].strip().upper()
+            continue
+        if section != "HQHOST" or "=" not in text:
+            continue
+        key, value = (part.strip() for part in text.split("=", 1))
+        if key.upper() == "PRIMARYHOST":
+            try:
+                primary = int(value)
+            except ValueError:
+                primary = 0
+            continue
+        match = re.match(r"(IPAddress|Port|HostName)(\d+)$", key, re.IGNORECASE)
+        if not match:
+            continue
+        kind, raw_index = match.groups()
+        index = int(raw_index)
+        entries.setdefault(index, {})[kind.lower()] = value
+    hosts: list[tuple[str, int]] = []
+    for index in sorted(entries):
+        item = entries[index]
+        host = item.get("ipaddress", "").strip()
+        if not re.fullmatch(r"[0-9A-Za-z._:-]+", host):
+            continue
+        try:
+            port = int(item.get("port", "7709"))
+        except ValueError:
+            port = 7709
+        if 0 < port <= 65535:
+            hosts.append((host, port))
+    if hosts and 0 < primary <= len(hosts):
+        hosts = hosts[primary - 1 :] + hosts[: primary - 1]
+    return hosts
+
+
+def active_endpoints() -> tuple[list[tuple[str, int]], str]:
+    """优先返回客户端 connect.cfg 的主站；找不到才用公开回退列表。"""
+    for path in _connect_cfg_candidates():
+        if not path.is_file():
+            continue
+        hosts = parse_connect_cfg(path)
+        if hosts:
+            return hosts, str(path)
+    return list(SERVER_HOSTS), "builtin-public-list"
+
 
 def _server_config_path() -> Path:
     return stocklens_data_dir() / "server.json"
@@ -134,20 +223,26 @@ def _preferred_host() -> str | None:
     except (OSError, ValueError):
         return None
     host = str(payload.get("preferredHost") or "").strip()
-    return host if any(item[0] == host for item in SERVER_HOSTS) else None
+    hosts, _source = active_endpoints()
+    return host if any(item[0] == host for item in hosts) else None
 
 
 def _ordered_endpoints(preferred: str | None = None) -> list[tuple[str, int]]:
+    hosts, _source = active_endpoints()
     selected = preferred or _preferred_host()
     if not selected:
-        return list(SERVER_HOSTS)
-    found = [item for item in SERVER_HOSTS if item[0] == selected]
-    return found + [item for item in SERVER_HOSTS if item[0] != selected]
+        return hosts
+    found = [item for item in hosts if item[0] == selected]
+    return found + [item for item in hosts if item[0] != selected]
 
 
 def speed_test_hosts(timeout: float = 0.9) -> dict:
-    """并发测试公开行情主站 TCP 建连时延；只做只读连接，不发隐私数据。"""
+    """并发测试行情主站 TCP 建连时延；只做只读连接，不发隐私数据。"""
+    hosts, source = active_endpoints()
     preferred = _preferred_host()
+    if preferred is None and hosts:
+        # 没有保存选择时，Bridge 实际会按列表第一台（PrimaryHost）建连。
+        preferred = hosts[0][0]
 
     def probe(host: str, port: int) -> dict:
         started = time.perf_counter()
@@ -168,10 +263,10 @@ def speed_test_hosts(timeout: float = 0.9) -> dict:
             "preferred": host == preferred,
         }
 
-    with ThreadPoolExecutor(max_workers=len(SERVER_HOSTS)) as pool:
-        results = list(pool.map(lambda item: probe(*item), SERVER_HOSTS))
+    with ThreadPoolExecutor(max_workers=max(1, len(hosts))) as pool:
+        results = list(pool.map(lambda item: probe(*item), hosts))
     results.sort(key=lambda item: (item["status"] != "ok", item["latencyMs"]))
-    return {"hosts": results, "preferred": preferred}
+    return {"hosts": results, "preferred": preferred, "source": source}
 
 # 0x0ffc 在普通行情节点上可能只返回日期、金额全 0；这些节点实测有完整分档。
 MONEY_FLOW_HOSTS = [
@@ -2504,7 +2599,8 @@ class Bridge:
 
     def select_server(self, host: str) -> dict:
         selected = str(host or "").strip()
-        if not any(item[0] == selected for item in SERVER_HOSTS):
+        hosts, _source = active_endpoints()
+        if not any(item[0] == selected for item in hosts):
             raise TdxError("未知行情主站")
         target = _server_config_path()
         target.parent.mkdir(parents=True, exist_ok=True)

@@ -27,6 +27,8 @@ export class QuotePoller {
   private inFlight = false
   private latest: Quote[] = []
   private abortController: AbortController | null = null
+  /** 连续失败次数：用于断线后的快速重连退避 */
+  private failures = 0
 
   constructor(private readonly options: QuotePollerOptions) {}
 
@@ -78,12 +80,12 @@ export class QuotePoller {
     return isTradingNow() ? this.intervalMs : Math.max(this.intervalMs * 10, IDLE_MIN_INTERVAL)
   }
 
-  private schedule(): void {
+  private schedule(delay?: number): void {
     if (this.timer) clearTimeout(this.timer)
     this.timer = setTimeout(() => {
       this.timer = null
       void this.tick(false)
-    }, this.effectiveInterval())
+    }, delay ?? this.effectiveInterval())
   }
 
   private async tick(force: boolean): Promise<void> {
@@ -100,14 +102,20 @@ export class QuotePoller {
     try {
       const quotes = await fetchQuotes(this.codes, this.abortController.signal)
       this.latest = quotes
+      this.failures = 0
       this.options.emit({ quotes, at: Date.now() })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      this.failures += 1
       this.options.emit({ quotes: [], at: Date.now(), error: message })
     } finally {
       this.inFlight = false
       this.abortController = null
-      this.schedule()
+      // 断线后 1s/2s/4s/8s 快速重连；连续失败到 10s 后回到正常节奏。
+      // 行情请求是只读的，重试不会产生交易副作用。
+      const retryDelay =
+        this.failures > 0 ? Math.min(1000 * 2 ** (this.failures - 1), 10_000) : undefined
+      this.schedule(retryDelay)
     }
   }
 }

@@ -5689,6 +5689,34 @@
   opacity: 0.8;
 }
 
+.chart-extreme-line {
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.55;
+}
+
+.chart-extreme-line--high {
+  stroke: var(--up);
+}
+
+.chart-extreme-line--low {
+  stroke: var(--down);
+}
+
+.chart-extreme-label {
+  font-family: var(--font-num);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.chart-extreme-label--high {
+  fill: var(--up);
+}
+
+.chart-extreme-label--low {
+  fill: var(--down);
+}
+
 .data__kline-options {
   display: flex;
   align-items: center;

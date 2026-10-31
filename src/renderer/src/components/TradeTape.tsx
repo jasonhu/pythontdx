@@ -1,7 +1,7 @@
 /**
  * 成交明细（0x0fc5 当日 / 0x0fc6 历史）。
  *
- * 默认每 3 秒拉当日最近 60 笔；选历史日期后停轮询，改查 0x0fc6。
+ * 默认每 1 秒拉当日最近 60 笔；选历史日期后停轮询，改查 0x0fc6。
  * 竞价快照（status=8）不是成交，弱化显示，不参与金额。
  */
 import {
@@ -24,7 +24,7 @@ interface TradeTapeProps {
 }
 
 const PAGE_SIZE = 60
-const REFRESH_MS = 3000
+const REFRESH_MS = 1000
 
 function previousTradingDate(): string {
   const date = new Date()
@@ -272,7 +272,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
       >
         <div class="tape__meta">
           <span>{loading() ? '刷新中…' : `${ticks().length} 笔`}</span>
-          <span>{expanded() ? '已展开' : date() ? '历史' : '每 3 秒'}</span>
+          <span>{expanded() ? '已展开' : date() ? '历史' : '每 1 秒'}</span>
         </div>
 
         <div class="tape__toolbar">

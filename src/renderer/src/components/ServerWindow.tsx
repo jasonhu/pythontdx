@@ -64,7 +64,11 @@ export function ServerWindow(): JSX.Element {
           <div class="server-page__eyebrow">通达信 Windows 公开主站 · TCP 7709</div>
           <h1 class="server-page__title">行情服务器</h1>
           <p class="server-page__sub">
-            只测 TCP 建连延迟，不发送账户或交易数据。默认只显示可达站点，失败站点自动隐藏。
+            优先读取 Windows 客户端解包的 <code>connect.cfg</code>；只测 TCP 建连延迟，
+            不发送账户或交易数据。默认只显示可达站点，失败站点自动隐藏。
+          </p>
+          <p class="server-page__source">
+            列表来源：<code>{result()?.source ?? '读取中…'}</code>
           </p>
         </div>
         <button

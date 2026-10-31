@@ -333,7 +333,8 @@ export function slotFromX(
 
 /* ============================================================ K 线图 */
 
-export const KLINE_PADDING: Padding = { top: 18, right: 64, bottom: 22, left: 10 }
+// 顶部给 MA 图例/缩放提示留空间，底部留给最高/最低价和横轴标签。
+export const KLINE_PADDING: Padding = { top: 54, right: 64, bottom: 30, left: 10 }
 
 export interface KLineGeometry {
   width: number

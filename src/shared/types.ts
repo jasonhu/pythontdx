@@ -955,6 +955,8 @@ export interface ServerHostResult {
 export interface ServerSpeedResult {
   hosts: ServerHostResult[]
   preferred: string | null
+  /** connect.cfg 路径或 builtin-public-list */
+  source: string
 }
 
 export interface AppInfo {

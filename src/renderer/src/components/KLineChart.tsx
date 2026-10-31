@@ -262,6 +262,24 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const extra = bands ? [...bands.upper, ...bands.middle, ...bands.lower] : []
     return buildKLineGeometry(bars(), size().width, size().height, undefined, extra, props.logScale)
   })
+  const extremes = createMemo(() => {
+    const data = bars()
+    const geo = geometry()
+    if (!geo || data.length === 0) return null
+    let high = Number.NEGATIVE_INFINITY
+    let low = Number.POSITIVE_INFINITY
+    for (const bar of data) {
+      if (bar.high > high) high = bar.high
+      if (bar.low < low) low = bar.low
+    }
+    return {
+      high,
+      low,
+      highY: geo.yPrice(high),
+      lowY: geo.yPrice(low)
+    }
+  })
+
   const formulaOverlay = createMemo(() => {
     const expression = props.overlayFormula
     const geo = geometry()
@@ -771,6 +789,42 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                 </g>
               )}
             </For>
+
+            {/* ---------- 窗口最高/最低价标记 ---------- */}
+            <Show when={extremes()}>
+              {(current) => (
+                <g class="chart-extremes">
+                  <line
+                    x1={geo().padding.left}
+                    x2={geo().width - geo().padding.right}
+                    y1={current().highY}
+                    y2={current().highY}
+                    class="chart-extreme-line chart-extreme-line--high"
+                  />
+                  <text
+                    x={geo().width - geo().padding.right + 7}
+                    y={current().highY + 4}
+                    class="chart-extreme-label chart-extreme-label--high"
+                  >
+                    最高 {fixed(current().high, 2)}
+                  </text>
+                  <line
+                    x1={geo().padding.left}
+                    x2={geo().width - geo().padding.right}
+                    y1={current().lowY}
+                    y2={current().lowY}
+                    class="chart-extreme-line chart-extreme-line--low"
+                  />
+                  <text
+                    x={geo().width - geo().padding.right + 7}
+                    y={Math.min(geo().height - 24, current().lowY + 14)}
+                    class="chart-extreme-label chart-extreme-label--low"
+                  >
+                    最低 {fixed(current().low, 2)}
+                  </text>
+                </g>
+              )}
+            </Show>
 
             {/* ---------- 成交量柱 ---------- */}
             <For each={bars()}>

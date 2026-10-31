@@ -96,6 +96,16 @@ def build_smart_drawings(bars: list[dict], lookback: int = 160) -> list[dict]:
             "algorithm": ALGORITHM_VERSION,
         }
     )
+    plans.append(
+        {
+            "type": "measure",
+            "startDate": date_at(high if not up else low),
+            "endDate": date_at(low if not up else high),
+            "startPrice": high_price if not up else low_price,
+            "endPrice": low_price if not up else high_price,
+            "algorithm": ALGORITHM_VERSION,
+        }
+    )
 
     candidates = [index for index in (lows if up else highs) if swing_start < index < swing_end]
     base_indices = [swing_start, *candidates]
@@ -124,22 +134,50 @@ def build_smart_drawings(bars: list[dict], lookback: int = 160) -> list[dict]:
                 }
             )
 
-        slope = (second_price - first_price) / (second - first)
-        projected_end_price = first_price + slope * (swing_end - first)
-        third_price = high_price if up else low_price
-        offset = channel_offset_at(first, first_price, second, second_price, swing_end, third_price)
-        if offset is not None and abs(offset) > 0.01:
-            plans.append(
-                {
-                    "type": "channel",
-                    "startDate": date_at(first),
-                    "endDate": date_at(swing_end),
-                    "startPrice": first_price,
-                    "endPrice": projected_end_price,
-                    "offset": offset,
-                    "algorithm": ALGORITHM_VERSION,
-                }
+        # 通道用最近 60 根的摆动定义，并延伸到最新一根，便于观察突破；
+        # 主摆动斐波那契仍用原 lookback，二者用途不同。
+        recent_start = max(0, len(bars) - 60)
+        recent_highs, recent_lows = _pivots(bars, recent_start, len(bars) - 1)
+        recent_high = max(range(recent_start, len(bars)), key=lambda i: price_at(i, "high"))
+        recent_low = min(range(recent_start, len(bars)), key=lambda i: price_at(i, "low"))
+        recent_up = recent_low < recent_high
+        channel_start = recent_low if recent_up else recent_high
+        channel_end_pivot = recent_high if recent_up else recent_low
+        channel_pivots = [
+            index
+            for index in (recent_lows if recent_up else recent_highs)
+            if channel_start < index < channel_end_pivot
+        ]
+        channel_first = channel_start
+        channel_second = channel_pivots[-1] if channel_pivots else min(channel_end_pivot - 1, channel_first + 2)
+        if channel_second > channel_first and channel_second < channel_end_pivot:
+            channel_first_price = price_at(channel_first, "low" if recent_up else "high")
+            channel_second_price = price_at(channel_second, "low" if recent_up else "high")
+            latest = len(bars) - 1
+            slope = (channel_second_price - channel_first_price) / (channel_second - channel_first)
+            projected_end_price = channel_first_price + slope * (latest - channel_first)
+            third_index = recent_high if recent_up else recent_low
+            third_price = price_at(third_index, "high" if recent_up else "low")
+            offset = channel_offset_at(
+                channel_first,
+                channel_first_price,
+                channel_second,
+                channel_second_price,
+                third_index,
+                third_price,
             )
+            if offset is not None and abs(offset) > 0.01 and latest > channel_second:
+                plans.append(
+                    {
+                        "type": "channel",
+                        "startDate": date_at(channel_first),
+                        "endDate": date_at(latest),
+                        "startPrice": channel_first_price,
+                        "endPrice": projected_end_price,
+                        "offset": offset,
+                        "algorithm": ALGORITHM_VERSION,
+                    }
+                )
 
     pivot_index = (lows if up else highs)[-1] if (lows if up else highs) else None
     if pivot_index is not None:
@@ -148,6 +186,22 @@ def build_smart_drawings(bars: list[dict], lookback: int = 160) -> list[dict]:
                 "type": "horizontal",
                 "price": price_at(pivot_index, "low" if up else "high"),
                 "startDate": date_at(pivot_index),
+                "algorithm": ALGORITHM_VERSION,
+            }
+        )
+
+    # 箭头标出主摆动之后的阶段折返（下跌后的反弹高点 / 上涨后的回踩低点）
+    later_pivots = [index for index in (highs if not up else lows) if index > swing_end]
+    if later_pivots:
+        arrow_end = later_pivots[-1]
+        arrow_start = swing_end
+        plans.append(
+            {
+                "type": "arrow",
+                "startDate": date_at(arrow_start),
+                "endDate": date_at(arrow_end),
+                "startPrice": price_at(arrow_start, "low" if not up else "high"),
+                "endPrice": price_at(arrow_end, "high" if not up else "low"),
                 "algorithm": ALGORITHM_VERSION,
             }
         )

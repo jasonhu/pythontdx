@@ -26,9 +26,10 @@ def zigzag():
 class TestPatterns(unittest.TestCase):
     def test_smart_combo(self):
         plans = build_smart_drawings(zigzag())
-        self.assertEqual([plan["type"] for plan in plans], ["fib", "trend", "channel", "horizontal"])
+        self.assertEqual([plan["type"] for plan in plans], ["fib", "measure", "trend", "channel", "horizontal", "arrow"])
         self.assertTrue(all(plan["algorithm"] == ALGORITHM_VERSION for plan in plans))
-        self.assertNotEqual(plans[2]["offset"], 0)
+        channel = next(plan for plan in plans if plan["type"] == "channel")
+        self.assertNotEqual(channel["offset"], 0)
         self.assertTrue(all("score" in plan for plan in plans))
 
     def test_insufficient_or_flat(self):
@@ -46,7 +47,7 @@ class TestPatterns(unittest.TestCase):
     def test_summary(self):
         summary = pattern_summary(build_smart_drawings(zigzag()))
         self.assertEqual(summary["algorithm"], ALGORITHM_VERSION)
-        self.assertEqual(summary["count"], 4)
+        self.assertEqual(summary["count"], 6)
 
 
 if __name__ == "__main__":

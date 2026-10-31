@@ -1,6 +1,6 @@
 /** Python 技术形态识别返回的计划；只含日期/价格，不含屏幕坐标。 */
 export interface SmartDrawingPlan {
-  type: 'fib' | 'trend' | 'channel' | 'horizontal'
+  type: 'fib' | 'measure' | 'trend' | 'channel' | 'horizontal' | 'arrow'
   startDate?: string
   endDate?: string
   startIndex?: number

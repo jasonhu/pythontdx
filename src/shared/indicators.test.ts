@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { boll, ema, kdj, macd, rsi, wr } from './indicators'
+import { boll, ema, kdj, macd, rsi, wr, cci } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -51,5 +51,22 @@ describe('wr', () => {
     expect(values[13]).toBeTypeOf('number')
     expect(values[19]).toBeGreaterThanOrEqual(0)
     expect(values[19]).toBeLessThanOrEqual(100)
+  })
+})
+
+describe('cci', () => {
+  it('计算 CCI 并保留前导空值', () => {
+    const bars = Array.from({ length: 20 }, (_, index) => ({
+      date: String(index),
+      open: 10,
+      high: 11 + index,
+      low: 9 + index,
+      close: 10.5 + index,
+      volume: 1
+    }))
+    const values = cci(bars, 14)
+    expect(Number.isNaN(values[12])).toBe(true)
+    expect(values[13]).toBeTypeOf('number')
+    expect(Number.isFinite(values[19])).toBe(true)
   })
 })

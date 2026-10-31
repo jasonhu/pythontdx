@@ -647,6 +647,7 @@ export interface IndicatorParams {
   bollPeriod: number
   bollK: number
   wrPeriod?: number
+  cciPeriod?: number
 }
 
 export interface PortfolioPosition {
@@ -691,7 +692,7 @@ export interface AppSettings {
   /** 指标面板参数 */
   indicatorParams?: IndicatorParams
   /** K 线副图 */
-  subIndicator?: 'none' | 'macd' | 'kdj' | 'rsi' | 'wr'
+  subIndicator?: 'none' | 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci'
   /** 价格坐标是否对数 */
   logScale?: boolean
   /** K 线画线（按 code/period 保存） */

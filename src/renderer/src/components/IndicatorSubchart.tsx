@@ -6,9 +6,9 @@
 import { createMemo, For, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { kdj, macd, rsi, wr } from '@shared/indicators'
+import { cci, kdj, macd, rsi, wr } from '@shared/indicators'
 
-export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr'
+export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci'
 
 const W = 900
 const H = 120
@@ -23,7 +23,8 @@ const COLORS = {
   d: '#f0b429',
   j: '#c084fc',
   rsi: '#5b8cff',
-  wr: '#22d3ee'
+  wr: '#22d3ee',
+  cci: '#f59e0b'
 }
 
 function path(values: number[], min: number, max: number): string {
@@ -96,6 +97,17 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
         lines: [{ label: 'WR14', color: COLORS.wr, d: path(values, 0, 100) }],
         hist: [],
         latest: `WR14 ${fixed(values.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'cci') {
+      const values = slice(cci(all))
+      const numbers = values.filter(Number.isFinite)
+      const min = Math.min(...numbers)
+      const max = Math.max(...numbers)
+      return {
+        lines: [{ label: 'CCI14', color: COLORS.cci, d: path(values, min, max) }],
+        hist: [],
+        latest: `CCI14 ${fixed(values.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all))

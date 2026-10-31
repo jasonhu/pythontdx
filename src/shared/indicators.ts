@@ -136,3 +136,20 @@ export function wr(bars: readonly KLineBar[], period = 14): number[] {
   }
   return result
 }
+
+/** CCI（顺势指标）：(典型价 - 均值) / (0.015 × 平均绝对偏差)，无固定上下界。 */
+export function cci(bars: readonly KLineBar[], period = 14): number[] {
+  const result: number[] = []
+  const typical = bars.map((bar) => (bar.high + bar.low + bar.close) / 3)
+  for (let index = 0; index < bars.length; index += 1) {
+    if (index < period - 1) {
+      result.push(Number.NaN)
+      continue
+    }
+    const window = typical.slice(index - period + 1, index + 1)
+    const average = window.reduce((sum, value) => sum + value, 0) / period
+    const deviation = window.reduce((sum, value) => sum + Math.abs(value - average), 0) / period
+    result.push(deviation === 0 ? 0 : (typical[index] - average) / (0.015 * deviation))
+  }
+  return result
+}

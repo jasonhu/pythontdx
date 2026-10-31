@@ -133,6 +133,9 @@ CONNECT_CFG_CANDIDATES = [
     Path("/mnt/c/new_tdx/connect.cfg"),
     Path("C:/new_tdx/connect.cfg"),
     Path("C:/tdx/connect.cfg"),
+    # 工程内置快照：Nuitka onefile 的临时解包目录 / resources/tdx-bridge/connect.cfg。
+    Path(__file__).resolve().parent / "connect.cfg",
+    Path(sys.executable).resolve().parent / "connect.cfg",
 ]
 
 

@@ -26,16 +26,6 @@ interface TradeTapeProps {
 const PAGE_SIZE = 60
 const REFRESH_MS = 1000
 
-function previousTradingDate(): string {
-  const date = new Date()
-  date.setDate(date.getDate() - 1)
-  while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() - 1)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function TickList(props: {
   rows: TradeTick[]
   selected: number
@@ -151,9 +141,26 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
     moveSelection(event.key === 'ArrowDown' ? 1 : -1)
   }
 
-  const load = async (code: string, tradingDate = '', start = 0): Promise<void> => {
+  const sameTicks = (next: TradeTick[]): boolean => {
+    const current = ticks()
+    if (current.length !== next.length) return false
+    return next.every((tick, index) => {
+      const previous = current[index]
+      return (
+        previous !== undefined &&
+        previous.index === tick.index &&
+        previous.time === tick.time &&
+        previous.price === tick.price &&
+        previous.volume === tick.volume &&
+        previous.orderCount === tick.orderCount
+      )
+    })
+  }
+
+  const load = async (code: string, tradingDate = '', start = 0, silent = false): Promise<void> => {
     const current = ++requestId
-    setLoading(true)
+    // 1 秒轮询是后台刷新：有数据时不要把“刷新中”写回界面，避免整块闪烁。
+    if (!silent || ticks().length === 0) setLoading(true)
     try {
       const data = await api.trade.ticks({
         code,
@@ -162,6 +169,10 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
         date: tradingDate || undefined
       })
       if (current !== requestId) return
+      if (silent && sameTicks(data)) {
+        setError(null)
+        return
+      }
       setTicks(data)
       setHasMore(data.length === PAGE_SIZE)
       setError(null)
@@ -184,7 +195,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
 
   onMount(() => {
     const timer = window.setInterval(() => {
-      if (!date() && !expanded()) void load(props.code, '', 0)
+      if (!date() && !expanded()) void load(props.code, '', 0, true)
     }, REFRESH_MS)
     onCleanup(() => window.clearInterval(timer))
   })
@@ -271,7 +282,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
         }}
       >
         <div class="tape__meta">
-          <span>{loading() ? '刷新中…' : `${ticks().length} 笔`}</span>
+          <span>{ticks().length} 笔</span>
           <span>{expanded() ? '已展开' : date() ? '历史' : '每 1 秒'}</span>
         </div>
 
@@ -281,6 +292,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
             type="date"
             value={date()}
             aria-label="成交明细日期"
+            title="选择日期查看历史逐笔"
             onChange={(event) => chooseDate(event.currentTarget.value)}
           />
           <Show when={date()}>
@@ -291,16 +303,6 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
               }}
             >
               回今天
-            </button>
-          </Show>
-          <Show when={!date()}>
-            <button
-              class="tape__today tape__history"
-              disabled={loading()}
-              title="查看上一交易日逐笔"
-              onClick={() => chooseDate(previousTradingDate())}
-            >
-              历史
             </button>
           </Show>
           <button

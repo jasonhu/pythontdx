@@ -64,6 +64,8 @@ def build_nuitka() -> None:
         f"--output-dir={ROOT / 'dist'}",
         "--output-filename=tdx-bridge",
         "--assume-yes-for-downloads",
+        # 客户端解包的主站列表随 sidecar 一起分发，用户目录没有 connect.cfg 时仍可用。
+        f"--include-data-files={ROOT / 'connect.cfg'}=connect.cfg",
         str(ROOT / "tdx_bridge.py"),
     ]
     print("[build] Nuitka:", " ".join(command), flush=True)

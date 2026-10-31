@@ -24,6 +24,9 @@ extraResources:
     to: tdx-bridge
     filter:
       - 'tdx-bridge*'
+  # 工程内置的 Windows 客户端主站快照；与 sidecar 同目录，便于离线/无客户端环境使用。
+  - from: python/connect.cfg
+    to: tdx-bridge/connect.cfg
 
 # 生产依赖里如果有原生模块，这里开 rebuild；纯 JS 项目关掉可以显著加速
 npmRebuild: false

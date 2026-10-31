@@ -4,8 +4,10 @@
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { BrowserWindow, shell } from 'electron'
+import { BrowserWindow, screen, shell } from 'electron'
 import { is } from '@electron-toolkit/utils'
+import type { DisplayInfo } from '@shared/types'
+import { centerOnWorkArea } from '@shared/window'
 import { setupCapture } from './capture'
 import { attachDiagnostics } from './diagnostics'
 import type { WindowBounds } from './services/store'
@@ -124,6 +126,39 @@ export function createMainWindow(options: CreateWindowOptions = {}): BrowserWind
   }
 
   return window
+}
+
+/** 列出显示器；Web 端由 http-api 自己返回虚拟项。 */
+export function listDisplays(window: BrowserWindow): DisplayInfo[] {
+  const primary = screen.getPrimaryDisplay()
+  const current = screen.getDisplayMatching(window.getBounds())
+  return screen.getAllDisplays().map((display, index) => ({
+    id: display.id,
+    label: `显示器 ${index + 1}${display.id === primary.id ? ' · 主屏' : ''}`,
+    width: display.size.width,
+    height: display.size.height,
+    scaleFactor: display.scaleFactor,
+    primary: display.id === primary.id,
+    current: display.id === current.id
+  }))
+}
+
+/**
+ * 把当前窗口居中放到目标显示器。
+ *
+ * 先取消最大化，否则部分窗口管理器会把 setPosition 当成无效操作；
+ * 尺寸不跨屏改变，保留用户当前窗口大小。
+ */
+export function moveWindowToDisplay(window: BrowserWindow, displayId: number): boolean {
+  const target = screen.getAllDisplays().find((display) => display.id === displayId)
+  if (!target) return false
+  if (window.isMaximized()) window.unmaximize()
+  if (window.isFullScreen()) window.setFullScreen(false)
+  const bounds = window.getBounds()
+  const position = centerOnWorkArea(bounds, target.workArea)
+  window.setPosition(position.x, position.y)
+  window.focus()
+  return true
 }
 
 export function createSecondaryWindow(

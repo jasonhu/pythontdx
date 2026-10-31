@@ -58,6 +58,7 @@ import type {
   TdxStatsExport,
   TdxStatsSummary,
   TradeTick,
+  DisplayInfo,
   WindowAction,
   WindowState
 } from './types'
@@ -217,6 +218,10 @@ export const IPC = {
   windowServers: 'window:servers',
   /** 当前窗口置顶切换（invoke，返回新状态） */
   windowAlwaysOnTop: 'window:always-on-top',
+  /** 显示器列表（invoke） */
+  windowDisplays: 'window:displays',
+  /** 将当前窗口移到指定显示器（invoke） */
+  windowMoveDisplay: 'window:move-display',
   /** 窗口状态变化（on） */
   windowState: 'window:state',
 
@@ -413,6 +418,10 @@ export interface StockLensApi {
     openSecondary(): Promise<void>
     openServers(): Promise<void>
     toggleAlwaysOnTop(): Promise<boolean>
+    /** 显示器列表；current 表示窗口当前在哪块屏 */
+    displays(): Promise<DisplayInfo[]>
+    /** 将当前窗口移到指定显示器；找不到返回 false */
+    moveToDisplay(displayId: number): Promise<boolean>
     onStateChange(listener: (state: WindowState) => void): () => void
   }
   app: {

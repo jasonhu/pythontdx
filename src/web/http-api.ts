@@ -15,6 +15,7 @@ import type {
   AuctionPoint,
   BlockKind,
   BlockList,
+  DisplayInfo,
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
@@ -430,6 +431,18 @@ export function createHttpApi(): StockLensApi {
         throw new Error('浏览器版请使用设置中的行情主站')
       },
       toggleAlwaysOnTop: async () => false,
+      displays: async (): Promise<DisplayInfo[]> => [
+        {
+          id: 0,
+          label: '浏览器窗口',
+          width: window.screen.width,
+          height: window.screen.height,
+          scaleFactor: window.devicePixelRatio || 1,
+          primary: true,
+          current: true
+        }
+      ],
+      moveToDisplay: async () => false,
       onStateChange: () => () => undefined
     },
     app: {

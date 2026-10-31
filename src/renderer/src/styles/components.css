@@ -4107,6 +4107,25 @@
   background: var(--accent-soft);
 }
 
+.settings__choice:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.settings__display {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings__error {
+  margin: -4px 0 10px;
+  color: var(--down);
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
 .settings__reset {
   height: 26px;
   padding: 0 10px;

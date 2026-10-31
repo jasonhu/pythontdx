@@ -4,6 +4,7 @@
 import { createSignal, For, onMount, Show, type JSX } from 'solid-js'
 import type {
   AppSettings,
+  DisplayInfo,
   GraphicsInfo,
   LayoutSlot,
   ServerSpeedResult,
@@ -30,6 +31,33 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
   const [serverLoading, setServerLoading] = createSignal(false)
   const [serverError, setServerError] = createSignal<string | null>(null)
   const [serverSelecting, setServerSelecting] = createSignal<string | null>(null)
+  const [displays, setDisplays] = createSignal<DisplayInfo[]>([])
+  const [displayError, setDisplayError] = createSignal<string | null>(null)
+  const [movingDisplay, setMovingDisplay] = createSignal<number | null>(null)
+
+  const loadDisplays = async (): Promise<void> => {
+    try {
+      setDisplays(await api.window.displays())
+      setDisplayError(null)
+    } catch (cause) {
+      setDisplayError(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
+
+  const moveToDisplay = async (displayId: number): Promise<void> => {
+    if (movingDisplay() !== null) return
+    setMovingDisplay(displayId)
+    setDisplayError(null)
+    try {
+      const moved = await api.window.moveToDisplay(displayId)
+      if (!moved) setDisplayError('没有找到该显示器')
+      await loadDisplays()
+    } catch (cause) {
+      setDisplayError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setMovingDisplay(null)
+    }
+  }
 
   const runServerSpeedTest = async (): Promise<void> => {
     setServerLoading(true)
@@ -69,6 +97,7 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
       .graphics()
       .then(setGraphics)
       .catch(() => setGraphics(null))
+    void loadDisplays()
   })
 
   const [permission, setPermission] = createSignal(
@@ -162,6 +191,33 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
               </For>
             </div>
           </div>
+
+          <Show when={displays().length > 0}>
+            <div class="settings__row">
+              <div>
+                <div class="settings__label">多屏</div>
+                <div class="settings__hint">把当前窗口移到指定显示器；Web 端固定为浏览器窗口。</div>
+              </div>
+              <div class="settings__choices">
+                <For each={displays()}>
+                  {(display) => (
+                    <button
+                      class="settings__choice settings__display"
+                      data-active={display.current}
+                      disabled={movingDisplay() !== null}
+                      title={`${display.width}×${display.height} @${display.scaleFactor}x`}
+                      onClick={() => void moveToDisplay(display.id)}
+                    >
+                      {display.label}
+                    </button>
+                  )}
+                </For>
+              </div>
+            </div>
+            <Show when={displayError()}>
+              {(message) => <div class="settings__error">{message()}</div>}
+            </Show>
+          </Show>
 
           <div class="settings__row">
             <div>

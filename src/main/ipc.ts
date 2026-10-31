@@ -17,7 +17,13 @@ import type {
 } from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { AppStore } from './services/store'
-import { createChartWindow, createSecondaryWindow, createServerWindow } from './window'
+import {
+  createChartWindow,
+  createSecondaryWindow,
+  createServerWindow,
+  listDisplays,
+  moveWindowToDisplay
+} from './window'
 import type { QuotePoller } from './services/poller'
 import {
   fetchAuctionArchiveBatch,
@@ -336,6 +342,16 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.windowServers, () => {
     createServerWindow()
+  })
+
+  ipcMain.handle(IPC.windowDisplays, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender) ?? getWindow()
+    return window ? listDisplays(window) : []
+  })
+
+  ipcMain.handle(IPC.windowMoveDisplay, (event, displayId: number) => {
+    const window = BrowserWindow.fromWebContents(event.sender) ?? getWindow()
+    return window ? moveWindowToDisplay(window, displayId) : false
   })
 
   ipcMain.handle(IPC.windowAlwaysOnTop, (event) => {

@@ -1003,6 +1003,18 @@ export interface WindowState {
   platform: string
 }
 
+/** 一块物理/逻辑显示器；Web 端返回一个虚拟项。 */
+export interface DisplayInfo {
+  id: number
+  label: string
+  width: number
+  height: number
+  scaleFactor: number
+  primary: boolean
+  /** 当前窗口是否在这块屏上 */
+  current: boolean
+}
+
 export interface GraphicsInfo {
   session: string
   wayland: boolean

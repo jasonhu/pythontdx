@@ -126,6 +126,8 @@ const api: StockLensApi = {
     openSecondary: () => ipcRenderer.invoke(IPC.windowSecondary),
     openServers: () => ipcRenderer.invoke(IPC.windowServers),
     toggleAlwaysOnTop: () => ipcRenderer.invoke(IPC.windowAlwaysOnTop),
+    displays: () => ipcRenderer.invoke(IPC.windowDisplays),
+    moveToDisplay: (displayId) => ipcRenderer.invoke(IPC.windowMoveDisplay, displayId),
     onStateChange: (listener) => subscribe<WindowState>(IPC.windowState, listener)
   },
   app: {

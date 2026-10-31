@@ -122,14 +122,14 @@ StockLens 的所有重要变更都记录在这里。
 ### 验证
 
 - 状态：功能矩阵 **334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**，6 项边界；
-  `npm run check` 退出码 0（259 TS + 144 Python），Linux 包哈希与 `docs/07` 一致。
+  `npm run check` 退出码 0（259 TS + 148 Python），Linux 包哈希与 `docs/07` 一致。
 - `0x0547` 休市探针（2026-10-31，sh600519）：cursor 0 / 1 / 0xFFFFFFFF
   均返回同一 129 字节快照（价格 1392.05、记录内 update=153001）；
   只能说明休市无新数据时游标无差异，**不能判定盘中无增量/推送**。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
-- `npm run check` → **259 TS + 144 Python（1 skipped，25 个 TS 文件）**，全绿；
+- `npm run check` → **259 TS + 148 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `ae1f4475…` / deb 123 MB `b09cb165…`；
+- Linux AppImage 147 MB `edec4e92…` / deb 123 MB `2bfb9973…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

@@ -60,6 +60,7 @@ import type {
   TdxStatsSummary,
   TradeTick
 } from '@shared/types'
+import type { ChartPatternsRequest, ChartPatternsResult } from '@shared/patterns'
 import type { CategoryRequest, TradesRequest } from '@shared/ipc'
 import { splitCode } from '@shared/market'
 import { TtlCache } from '../cache'
@@ -453,6 +454,10 @@ export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {
 
 export async function dataInventory(): Promise<DataInventory> {
   return bridge.send<DataInventory>('data_inventory', {}, 20_000)
+}
+
+export async function fetchChartPatterns(req: ChartPatternsRequest): Promise<ChartPatternsResult> {
+  return bridge.send<ChartPatternsResult>('chart_patterns', { ...req }, 120_000)
 }
 
 export async function limitReview(date: string): Promise<LimitReviewResult> {

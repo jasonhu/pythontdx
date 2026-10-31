@@ -4,6 +4,7 @@
  * 主进程和 preload 都 import 这里的常量，避免「字符串写错但编译通过」这类低级事故。
  * 渲染层不直接接触通道名——它只使用 preload 暴露的 window.api。
  */
+import type { ChartPatternsRequest, ChartPatternsResult } from './patterns'
 import type {
   AppInfo,
   GraphicsInfo,
@@ -174,6 +175,8 @@ export const IPC = {
   dataInventory: 'data:inventory',
   /** 本地日 K 缓存涨停复盘（invoke） */
   limitReview: 'data:limit-review',
+  /** Python 技术形态识别（invoke） */
+  chartPatterns: 'chart:patterns',
   /** 全市场快照归档到数据湖（invoke） */
   archiveSnapshot: 'data:archive-snapshot',
   /** 数据湖归档列表（invoke） */
@@ -413,6 +416,7 @@ export interface StockLensApi {
       workers?: number
     }): Promise<FullKLineCacheResult>
     limitReview(date: string): Promise<LimitReviewResult>
+    patterns(req: ChartPatternsRequest): Promise<ChartPatternsResult>
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
     tickArchiveSave(code: string, date: string): Promise<TickArchiveResult>

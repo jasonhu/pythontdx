@@ -50,7 +50,7 @@ import {
   measurementBars,
   measurementPercent
 } from '@shared/drawing'
-import { buildSmartDrawings } from '@shared/auto-drawing'
+import type { SmartDrawingPlan } from '@shared/patterns'
 import { appState, updateSettings } from '../stores/app'
 
 /** 均线配色；周期来自设置 */
@@ -99,8 +99,8 @@ export interface KLineChartProps {
   onRangeStats?: (stats: KLineRangeStats | null) => void
   /** 清除区间统计选区 */
   clearRangeKey?: number
-  /** 智能画线触发器 */
-  smartDrawKey?: number
+  /** Python 技术形态识别结果 */
+  smartPlans?: SmartDrawingPlan[]
   /** 区间统计跟随鼠标的屏幕坐标 */
   onRangeAnchor?: (anchor: { x: number; y: number } | null) => void
   /** 光标绝对下标变化（用于副图十字线联动） */
@@ -356,21 +356,39 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   createEffect(
     on(
-      () => props.smartDrawKey,
-      () => {
-        const plans = buildSmartDrawings(allBars())
-        if (plans.length === 0) return
+      () => props.smartPlans,
+      (plans) => {
+        if (!plans || plans.length === 0) return
+        const mapped: KLineDrawing[] = []
+        for (const plan of plans) {
+          const startIndex = dateIndex(plan.startDate) ?? plan.startIndex
+          const endIndex = dateIndex(plan.endDate) ?? plan.endIndex
+          if (plan.type !== 'horizontal' && (startIndex === undefined || endIndex === undefined)) {
+            continue
+          }
+          mapped.push({
+            id: 0,
+            type: plan.type,
+            startIndex,
+            endIndex,
+            startPrice: plan.startPrice,
+            endPrice: plan.endPrice,
+            price: plan.price,
+            offset: plan.offset,
+            extended: plan.extended,
+            startDate: plan.startDate,
+            endDate: plan.endDate,
+            smart: true
+          })
+        }
+        if (mapped.length === 0) return
         const manual = drawings().filter((drawing) => !drawing.smart)
         const base = drawingId
-        const next: KLineDrawing[] = [
+        const next = [
           ...manual,
-          ...plans.map((plan, index) => ({
-            ...plan,
-            id: base + index + 1,
-            smart: true
-          }))
+          ...mapped.map((drawing, index) => ({ ...drawing, id: base + index + 1 }))
         ]
-        drawingId = base + plans.length
+        drawingId = base + mapped.length
         setSelectedId(null)
         commitDrawings(next)
       },

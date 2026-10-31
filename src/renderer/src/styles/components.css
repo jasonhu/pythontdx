@@ -6531,12 +6531,14 @@
   z-index: 30;
   top: calc(100% + 6px);
   left: 0;
-  width: 260px;
+  width: max-content;
+  max-width: calc(100vw - 40px);
   padding: 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
-  background: var(--panel);
+  background: var(--panel-elevated);
   box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
 }
 
 .chart-draw-menu__show {
@@ -6550,8 +6552,19 @@
 
 .chart-draw-menu__tools {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 5px;
+}
+
+.chart-draw-menu__tools .chip {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-hover);
+  color: var(--text-2);
+  white-space: nowrap;
 }
 
 .chart-draw-menu__foot {
@@ -6624,4 +6637,13 @@
   display: block;
   color: var(--danger);
   margin-bottom: 3px;
+}
+
+.chart-draw-menu__error {
+  margin-top: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--danger);
+  border-radius: var(--r-xs);
+  color: var(--danger);
+  font-size: var(--fs-2xs);
 }

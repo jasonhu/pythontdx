@@ -78,6 +78,7 @@ from f10_pit import list_f10_snapshots, read_f10_snapshot, write_f10_snapshot
 from flow_archive import list_flow_archives, read_flow_archive, write_flow_archive
 from data_coverage import collect_data_coverage
 from data_integrity import verify_data_integrity
+from patterns import build_smart_drawings, pattern_summary
 from kline_manifest import write_kline_manifest
 from server_catalog import list_server_catalogs, write_server_catalog
 from tick_archive import (
@@ -4194,6 +4195,28 @@ class Bridge:
             "dir": str(kline_cache_dir()),
         }
 
+    def chart_patterns(
+        self,
+        code: str,
+        period: str = "day",
+        adjust: str = "qfq",
+        lookback: int = 160,
+    ) -> dict:
+        """智能画线：优先本地 800 根 K，缺失时再走网络。"""
+        try:
+            result = self.kline(code, period, 800, adjust, cache_only=True)
+        except Exception:
+            result = self.kline(code, period, 800, adjust)
+        plans = build_smart_drawings(list(result.get("bars") or []), lookback)
+        return {
+            "code": code,
+            "period": period,
+            "adjust": adjust,
+            "source": result.get("source", "network"),
+            "summary": pattern_summary(plans),
+            "plans": plans,
+        }
+
     def limit_review(self, date: str) -> dict:
         """扫描本地全部日 K 缓存，复盘指定交易日的涨停/跌停/炸板。"""
         try:
@@ -4632,6 +4655,13 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("adjust", "none")),
             bool(payload.get("skipExisting")),
             int(payload.get("workers", 1)),
+        )
+    if cmd == "chart_patterns":
+        return bridge.chart_patterns(
+            str(payload.get("code") or ""),
+            str(payload.get("period", "day")),
+            str(payload.get("adjust", "qfq")),
+            int(payload.get("lookback", 160)),
         )
     if cmd == "limit_review":
         return bridge.limit_review(str(payload.get("date") or ""))

@@ -30,6 +30,7 @@ import { toCsv } from '@shared/csv'
 import { appState, updateSettings } from '../stores/app'
 import { normalizeMaPeriods } from '@shared/ma'
 import type { KLineRangeStats } from '../lib/chart-geometry'
+import type { SmartDrawingPlan } from '@shared/patterns'
 import { toneOf } from '../lib/tone'
 import { KLineChart } from './KLineChart'
 import { ChartSkeleton } from './ChartSkeleton'
@@ -117,7 +118,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   )
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
   const [clearRangeKey, setClearRangeKey] = createSignal(0)
-  const [smartDrawKey, setSmartDrawKey] = createSignal(0)
+  const [smartPlans, setSmartPlans] = createSignal<SmartDrawingPlan[] | null>(null)
+  const [smartLoading, setSmartLoading] = createSignal(false)
+  const [smartError, setSmartError] = createSignal<string | null>(null)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
   const [rangeAnchor, setRangeAnchor] = createSignal<{ x: number; y: number } | null>(null)
   const [chartCardEl, setChartCardEl] = createSignal<HTMLElement | undefined>(undefined)
@@ -331,6 +334,28 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     if (!current) return false
     if (current.kind === 'kline') return current.series.bars.length === 0
     return current.days.every((day) => day.points.length === 0)
+  }
+
+  const runSmartDrawings = async (): Promise<void> => {
+    if (smartLoading()) return
+    setSmartLoading(true)
+    setSmartError(null)
+    try {
+      const result = await api.data.patterns({
+        code: props.code,
+        period: tab(),
+        adjust: adjust(),
+        lookback: 160
+      })
+      setSmartPlans(result.plans)
+      setShowDrawings(true)
+      updateSettings({ showDrawings: true })
+      setDrawMenuOpen(false)
+    } catch (cause) {
+      setSmartError(errorMessage(cause))
+    } finally {
+      setSmartLoading(false)
+    }
   }
 
   /** 切 tab 或切股票时清掉残留的读数，避免显示上一只票的数值 */
@@ -618,18 +643,16 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     </button>
                     <button
                       class="chip chart-draw-smart"
-                      title="按主要摆动自动画斐波那契、趋势线、通道和支撑/压力"
-                      onClick={() => {
-                        const next = true
-                        setShowDrawings(next)
-                        updateSettings({ showDrawings: next })
-                        setSmartDrawKey((value) => value + 1)
-                        setDrawMenuOpen(false)
-                      }}
+                      disabled={smartLoading()}
+                      title="由 Python 识别主要摆动，自动画斐波那契、趋势线、通道和支撑/压力"
+                      onClick={() => void runSmartDrawings()}
                     >
-                      智能
+                      {smartLoading() ? '分析中…' : '智能'}
                     </button>
                   </div>
+                  <Show when={smartError()}>
+                    {(message) => <div class="chart-draw-menu__error">{message()}</div>}
+                  </Show>
                   <div class="chart-draw-menu__foot">
                     <button
                       class="chip chart-draw-undo"
@@ -952,7 +975,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     bollK={appState.settings.indicatorParams?.bollK ?? 2}
                     logScale={logScale()}
                     clearRangeKey={clearRangeKey()}
-                    smartDrawKey={smartDrawKey()}
+                    smartPlans={smartPlans() ?? undefined}
                     onRangeStats={setRangeStats}
                     onRangeAnchor={setRangeAnchor}
                     onCursorChange={setSubCursor}

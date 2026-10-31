@@ -707,6 +707,17 @@ class ApiHandler(BaseHTTPRequestHandler):
                     )
                 return
 
+            if parsed.path == "/api/chart_patterns":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.chart_patterns(
+                            str(payload.get("code") or ""),
+                            str(payload.get("period", "day")),
+                            str(payload.get("adjust", "qfq")),
+                            int(payload.get("lookback", 160)),
+                        )
+                    )
+                return
             if parsed.path == "/api/limit_review":
                 with self.server.lock:
                     self._ok(self.server.bridge.limit_review(str(payload.get("date") or "")))

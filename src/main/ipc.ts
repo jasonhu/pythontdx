@@ -17,6 +17,7 @@ import type {
   ScreenRequest
 } from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
+import type { ChartPatternsRequest } from '@shared/patterns'
 import type { AppStore } from './services/store'
 import {
   createChartWindow,
@@ -55,6 +56,7 @@ import {
   cacheKlines,
   cacheFullKlines,
   dataInventory,
+  fetchChartPatterns,
   limitReview,
   speedTestServers,
   selectServer,
@@ -260,6 +262,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.dataInventory, () => dataInventory())
 
   ipcMain.handle(IPC.limitReview, (_event, date: string) => limitReview(date))
+
+  ipcMain.handle(IPC.chartPatterns, (_event, req: ChartPatternsRequest) => fetchChartPatterns(req))
 
   ipcMain.handle(IPC.archiveSnapshot, () => archiveSnapshot())
 

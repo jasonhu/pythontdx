@@ -4,6 +4,7 @@
  * 桌面走 preload + IPC；浏览器不能碰 IPC，所以这里用只读 HTTP API 实现同一份
  * StockLensApi 契约。组件仍然只依赖 window.api，不需要知道自己在哪一端。
  */
+import type { ChartPatternsResult } from '@shared/patterns'
 import type {
   AppInfo,
   ServerSpeedResult,
@@ -460,6 +461,7 @@ export function createHttpApi(): StockLensApi {
       fullCacheKlines: (req) => post<FullKLineCacheResult>('/api/cache_full_klines', req),
       inventory: () => post<DataInventory>('/api/data_inventory', {}),
       limitReview: (date) => post<LimitReviewResult>('/api/limit_review', { date }),
+      patterns: (req) => post<ChartPatternsResult>('/api/chart_patterns', req),
       archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {}),
       lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit }),
       tickArchiveSave: (code, date) =>

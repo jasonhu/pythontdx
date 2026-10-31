@@ -868,12 +868,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
               {(mark) => (
                 <g class="chart-dividend">
                   <title>{`${mark.date} ${mark.label}`}</title>
-                  <line
-                    x1={mark.x}
-                    x2={mark.x}
-                    y1={geo().priceTop}
-                    y2={geo().volumeBottom}
-                  />
+                  <line x1={mark.x} x2={mark.x} y1={geo().priceTop} y2={geo().volumeBottom} />
                   <circle cx={mark.x} cy={geo().priceTop + 5} r="2.5" />
                   <text
                     x={mark.x}

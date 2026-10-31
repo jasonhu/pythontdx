@@ -73,6 +73,10 @@ from auction_archive import (
     write_auction_archive,
 )
 from snapshot_archive import list_snapshot_archives, write_snapshot_archive
+from f10_pit import list_f10_snapshots, read_f10_snapshot, write_f10_snapshot
+from flow_archive import list_flow_archives, read_flow_archive, write_flow_archive
+from data_coverage import collect_data_coverage
+from server_catalog import list_server_catalogs, write_server_catalog
 from tick_archive import (
     TickArchiveError,
     list_tick_archives,
@@ -2713,8 +2717,13 @@ class Bridge:
         return quotes
 
     def mac_money_flow(self, code: str) -> dict:
-        """MAC 0x1218 今日/5 日资金流。"""
-        return fetch_capital_flow(code)
+        """MAC 0x1218 今日/5 日资金流；成功结果自动按交易日归档。"""
+        result = fetch_capital_flow(code)
+        try:
+            write_flow_archive(stocklens_data_dir() / "lake" / "money_flow", code, result)
+        except Exception as error:  # noqa: BLE001 - 归档失败不影响查询
+            print(f"[tdx] 资金流归档失败：{error}", file=sys.stderr)
+        return result
 
     def mac_money_flow_batch(self, codes: list[str], workers: int = 12) -> list[dict]:
         """批量 MAC 0x1218；全市场资金流排行的数据通道。"""
@@ -3314,7 +3323,19 @@ class Bridge:
             CMD_AUCTION,
             auction_data(market, symbol, trading_date, selector, start, limit),
         )
-        return parse_auctions(body)
+        points = parse_auctions(body)
+        if selector == 0 and points:
+            target_date = trading_date or datetime.now().astimezone().strftime("%Y-%m-%d")
+            try:
+                write_auction_archive(
+                    stocklens_data_dir() / "lake" / "auction",
+                    code,
+                    target_date,
+                    points,
+                )
+            except Exception as error:  # noqa: BLE001 - 归档失败不影响查询
+                print(f"[tdx] 竞价自动归档失败：{error}", file=sys.stderr)
+        return points
 
     def auction_archive_save(
         self, code: str, trading_date: str | None = None
@@ -3635,6 +3656,21 @@ class Bridge:
             "sha256": saved["sha256"],
             "savedTo": saved["savedTo"],
         }
+
+    def server_catalog(self) -> dict:
+        """zhb.zip 已知服务器文件清单 + 与上一版差分；不是完整目录枚举。"""
+        data, saved, chunks = self._zhb_bytes()
+        result = write_server_catalog(
+            stocklens_data_dir() / "lake" / "server_files",
+            data,
+            str(saved.get("sha256") or ""),
+            str(saved.get("savedTo") or ""),
+        )
+        result["chunks"] = chunks
+        return result
+
+    def server_catalog_list(self, limit: int = 20) -> list[dict]:
+        return list_server_catalogs(stocklens_data_dir() / "lake" / "server_files", limit)
 
     def tdx_stats(self) -> dict:
         """下载 zhb.zip，保存原始 ZIP，并解析两份 tdxstat CFG 摘要。"""
@@ -4289,6 +4325,20 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.tick_archive_batch(
             payload.get("codes") or [], str(payload.get("date") or "")
         )
+    if cmd == "server_catalog":
+        return bridge.server_catalog()
+    if cmd == "flow_archive_list":
+        return list_flow_archives(
+            stocklens_data_dir() / "lake" / "money_flow", int(payload.get("limit", 50))
+        )
+    if cmd == "flow_archive_read":
+        return read_flow_archive(
+            stocklens_data_dir() / "lake" / "money_flow",
+            str(payload.get("code") or ""),
+            str(payload.get("date") or ""),
+        )
+    if cmd == "server_catalog_list":
+        return bridge.server_catalog_list(int(payload.get("limit", 20)))
     if cmd == "file_read":
         return bridge.file_read(
             payload.get("path", ""),
@@ -4384,6 +4434,17 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_announcements(payload.get("code", ""))
     if cmd == "f10_profile":
         return bridge.f10_profile(payload.get("code", ""))
+    if cmd == "f10_pit_list":
+        return list_f10_snapshots(
+            stocklens_data_dir() / "lake" / "f10_pit", int(payload.get("limit", 50))
+        )
+    if cmd == "f10_pit_read":
+        return read_f10_snapshot(
+            stocklens_data_dir() / "lake" / "f10_pit",
+            str(payload.get("code") or ""),
+            str(payload.get("table") or ""),
+            str(payload.get("date") or ""),
+        )
     if cmd == "f10_valuation":
         return bridge.f10_valuation(payload.get("code", ""))
     if cmd == "f10_finance":
@@ -4436,6 +4497,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("adjust", "qfq")),
             bool(payload.get("cacheOnly")),
         )
+    if cmd == "data_coverage":
+        return collect_data_coverage(stocklens_data_dir())
     if cmd == "data_inventory":
         return data_inventory()
     if cmd == "cache_klines":

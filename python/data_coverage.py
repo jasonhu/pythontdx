@@ -1,0 +1,54 @@
+"""本地数据覆盖清单：只读扫描，不写入、不删除。"""
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from pathlib import Path
+
+
+def _scan(root: Path, name: str, patterns: tuple[str, ...], partition: str) -> dict:
+    files: list[Path] = []
+    for pattern in patterns:
+        files.extend(path for path in root.glob(pattern) if path.is_file())
+    files = sorted(set(files))
+    total = 0
+    dates: list[str] = []
+    for path in files:
+        try:
+            total += path.stat().st_size
+        except OSError:
+            continue
+        for part in path.parts:
+            if part.startswith(f"{partition}="):
+                dates.append(part.split("=", 1)[1])
+                break
+    return {
+        "name": name,
+        "files": len(files),
+        "bytes": total,
+        "oldest": min(dates) if dates else None,
+        "newest": max(dates) if dates else None,
+        "status": "ok" if files else "empty",
+    }
+
+
+def collect_data_coverage(root: Path) -> dict:
+    base = Path(root)
+    datasets = [
+        _scan(base, "klines", ("cache/klines/*.parquet",), "trade_date"),
+        _scan(base, "ticks", ("lake/ticks/**/*.parquet",), "trade_date"),
+        _scan(base, "auction", ("lake/auction/**/*.jsonl.gz",), "trade_date"),
+        _scan(base, "money_flow", ("lake/money_flow/**/*.parquet",), "trade_date"),
+        _scan(base, "f10_pit", ("lake/f10_pit/**/*.parquet",), "snapshot_date"),
+        _scan(base, "server_files", ("lake/server_files/**/catalog.json",), "snapshot_date"),
+        _scan(base, "quotes", ("lake/quotes/**/*",), "trade_date"),
+        _scan(base, "normalized", ("normalized/**/*.jsonl.gz",), "trade_date"),
+        _scan(base, "raw", ("raw/**/*",), "snapshot_date"),
+    ]
+    return {
+        "generatedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "root": str(base.resolve()),
+        "datasets": datasets,
+        "totalFiles": sum(item["files"] for item in datasets),
+        "totalBytes": sum(item["bytes"] for item in datasets),
+    }

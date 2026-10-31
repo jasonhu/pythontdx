@@ -1123,3 +1123,63 @@ def fetch_industry(code: str, section: str = "summary") -> dict:
         "rows": rows,
         "count": len(rows),
     }
+
+
+# ---------------------------------------------------------------- PIT 自动快照
+#
+# 所有公开 F10 fetch 统一包一层：成功返回后按 snapshot_date + code + table 写
+# point-in-time。放在 fetch 层而不是 Electron/HTTP 路由，保证桌面、Web、脚本
+# 三条调用路径都会留下同一份快照；失败只告警，不阻断资料查询。
+
+_F10_PIT_TABLES = (
+    "announcements",
+    "business",
+    "capital_structure",
+    "change_plans",
+    "circulating_shareholders",
+    "controller",
+    "dividend",
+    "finance",
+    "industry",
+    "institutions",
+    "news",
+    "profile",
+    "reports",
+    "shareholder_changes",
+    "shareholder_count",
+    "shareholders",
+    "statement",
+    "trading",
+    "valuation",
+)
+
+
+def _wrap_f10_pit(name: str, function):
+    from functools import wraps
+
+    @wraps(function)
+    def wrapped(code: str, *args, **kwargs):
+        result = function(code, *args, **kwargs)
+        try:
+            from f10_pit import default_root, write_f10_snapshot
+
+            section = kwargs.get("section")
+            if section is None and args:
+                section = args[0]
+            table = f"f10_{name}"
+            if section:
+                table = f"{table}_{section}"
+            write_f10_snapshot(default_root(), code, table, result)
+        except Exception as error:  # noqa: BLE001 - 快照不能影响在线查询
+            import sys
+
+            print(f"[f10] point-in-time 快照失败：{error}", file=sys.stderr)
+        return result
+
+    return wrapped
+
+
+for _pit_name in _F10_PIT_TABLES:
+    _pit_function = globals().get(f"fetch_{_pit_name}")
+    if callable(_pit_function):
+        globals()[f"fetch_{_pit_name}"] = _wrap_f10_pit(_pit_name, _pit_function)

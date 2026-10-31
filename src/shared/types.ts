@@ -1037,14 +1037,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   railWidth: 330
 }
 
-/** 首次启动时的示例自选股，让界面一打开就是「满的」 */
+/** 首次启动只内置四个宽基指数，不预置任何个股。 */
 const SEED_ITEMS: WatchItem[] = [
-  { code: 'sh600519', name: '贵州茅台', market: 'SH' },
-  { code: 'sz300750', name: '宁德时代', market: 'SZ' },
-  { code: 'sz002594', name: '比亚迪', market: 'SZ' },
-  { code: 'sh601318', name: '中国平安', market: 'SH' },
-  { code: 'sz000858', name: '五粮液', market: 'SZ' },
-  { code: 'sz300059', name: '东方财富', market: 'SZ' }
+  { code: 'sh000001', name: '上证指数', market: 'SH' },
+  { code: 'sz399001', name: '深证成指', market: 'SZ' },
+  { code: 'sz399006', name: '创业板指', market: 'SZ' },
+  { code: 'sh000688', name: '科创50', market: 'SH' }
 ]
 
 /**

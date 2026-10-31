@@ -495,6 +495,32 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.money_flow(payload.get("code", "")))
                 return
+            if parsed.path == "/api/f10_pit_list":
+                with self.server.lock:
+                    from f10_pit import list_f10_snapshots
+                    from tdx_bridge import stocklens_data_dir
+
+                    self._ok(
+                        list_f10_snapshots(
+                            stocklens_data_dir() / "lake" / "f10_pit",
+                            int(payload.get("limit", 50)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_pit_read":
+                with self.server.lock:
+                    from f10_pit import read_f10_snapshot
+                    from tdx_bridge import stocklens_data_dir
+
+                    self._ok(
+                        read_f10_snapshot(
+                            stocklens_data_dir() / "lake" / "f10_pit",
+                            str(payload.get("code") or ""),
+                            str(payload.get("table") or ""),
+                            str(payload.get("date") or ""),
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_catalog":
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_catalog(payload.get("code", "")))
@@ -599,9 +625,48 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/data_coverage":
+                with self.server.lock:
+                    self._ok(self.server.bridge.data_coverage())
+                return
             if parsed.path == "/api/data_inventory":
                 with self.server.lock:
                     self._ok(self.server.bridge.data_inventory())
+                return
+            if parsed.path == "/api/flow_archive_list":
+                with self.server.lock:
+                    from flow_archive import list_flow_archives
+                    from tdx_bridge import stocklens_data_dir
+
+                    self._ok(
+                        list_flow_archives(
+                            stocklens_data_dir() / "lake" / "money_flow",
+                            int(payload.get("limit", 50)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/flow_archive_read":
+                with self.server.lock:
+                    from flow_archive import read_flow_archive
+                    from tdx_bridge import stocklens_data_dir
+
+                    self._ok(
+                        read_flow_archive(
+                            stocklens_data_dir() / "lake" / "money_flow",
+                            str(payload.get("code") or ""),
+                            str(payload.get("date") or ""),
+                        )
+                    )
+                return
+            if parsed.path == "/api/server_catalog":
+                with self.server.lock:
+                    self._ok(self.server.bridge.server_catalog())
+                return
+            if parsed.path == "/api/server_catalog_list":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.server_catalog_list(int(payload.get("limit", 20)))
+                    )
                 return
             if parsed.path == "/api/cache_klines":
                 with self.server.lock:

@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS } from './types'
+import { DEFAULT_SETTINGS, SEED_GROUPS } from './types'
 
 describe('DEFAULT_SETTINGS', () => {
   it('默认 1 秒刷新', () => {
     expect(DEFAULT_SETTINGS.refreshInterval).toBe(1000)
+  })
+
+  it('默认自选只有四个宽基指数，不预置个股', () => {
+    expect(SEED_GROUPS[0].items.map((item) => item.code)).toEqual([
+      'sh000001',
+      'sz399001',
+      'sz399006',
+      'sh000688'
+    ])
   })
 
   it('默认五条均线且只显示均线', () => {

@@ -94,13 +94,16 @@ def main() -> int:
         add("F10 估值", call("f10_valuation", {"code": "sh688499"}), 1)
         add("F10 财务", call("f10_finance", {"code": "sh688499"}), 1)
         add("F10 新闻", call("f10_news", {"code": "sh688499"}), 1)
+        add("F10 PIT", call("f10_pit_list", {"limit": 5}), 1)
         add("板块列表", call("mac_boards", {"boardType": 255}), 10)
         add("板块概念", call("blocks", {"kind": "gn"}), 1)
         add("行业", call("industries", {}), 1)
         add("沪深异动", call("mac_unusual", {"count": 10}), 1)
         add("资金流", call("mac_money_flow", {"code": "sh688499"}), 1)
+        add("资金流归档", call("flow_archive_list", {"limit": 5}), 1)
         add("龙虎榜", call("f10_lhb_market", {}), 1)
         add("数据清单", call("data_inventory", {}))
+        add("覆盖清单", call("data_coverage", {}), 1)
     except Exception as error:  # noqa: BLE001 - 自检要报告而不是闪退
         failures.append(f"调用失败：{error}")
 

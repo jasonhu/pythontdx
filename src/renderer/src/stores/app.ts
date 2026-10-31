@@ -529,13 +529,33 @@ export function startAutoArchive(): void {
       await api.data.archiveSnapshot()
       // 竞价只保留最近交易日：顺手把自选池的当日竞价也归档。
       const codes = watchCodes()
+      const date = localDateKey(now)
       if (codes.length > 0) {
         const auction = await api.auction.archiveBatch(codes)
         if (auction.failedCount > 0) {
           console.warn(`自动归档竞价：${auction.savedCount} 成功 / ${auction.failedCount} 失败`)
         }
+        for (const code of codes) {
+          try {
+            await api.data.tickArchiveSave(code, date)
+            // 资金流查询成功后由 Python 侧自动写 lake/money_flow。
+            await api.money.macFlow(code)
+            // 5s/15s 只保留服务器当前可回溯窗口，收盘后把自选池的最近 800 根缓存下来。
+            for (const period of ['5s', '15s']) {
+              await api.data.cacheKlines({
+                codes: [code],
+                period,
+                count: 800,
+                adjust: 'none',
+                skipExisting: true
+              })
+            }
+          } catch (cause) {
+            console.warn(`自动归档 ${code} 失败`, cause)
+          }
+        }
       }
-      updateSettings({ autoArchiveLastDate: localDateKey(now) })
+      updateSettings({ autoArchiveLastDate: date })
     } catch (cause) {
       console.warn('自动归档失败，下一分钟重试', cause)
     } finally {

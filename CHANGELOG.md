@@ -56,7 +56,7 @@ StockLens 的所有重要变更都记录在这里。
   规范化 JSONL、SHA256/行数校验、`.part` 原子写入；历史日期优先读本地归档，
   服务器不再保留的日期仍可回看已归档内容。实测 `sh688499` 66 点归档并回读。
 - **批量/自动竞价归档**：新增 `auction_archive_batch`，数据工具「归档自选竞价」
-  实测 7/7 只；收盘自动任务在原有开关下同时归档快照与自选竞价，单只失败不阻断其他项。
+  实测 7/7 只；收盘自动任务在原有开关下同时归档快照、自选竞价、逐笔、资金流与 5s/15s K 缓存，单只失败不阻断其他项。
 - **竞价归档清单**：数据工具读取 `lake/auction` 最近 20 个文件，显示日期/代码/点数/大小；
   实测列出 8 条，只读不修改原始数据。
 - **条件选股扩展**：新增 PB、流通市值、总市值上下限筛选；结果表增加 PB/流通市值/总市值列；
@@ -117,7 +117,7 @@ StockLens 的所有重要变更都记录在这里。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
 - `npm run check` → **259 TS + 144 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `6a3ba06b…` / deb 123 MB `ff28fe0d…`；
+- Linux AppImage 147 MB `80a09665…` / deb 123 MB `782411ab…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

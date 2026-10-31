@@ -1157,7 +1157,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               checked={appState.settings.autoArchive ?? false}
               onChange={(event) => updateSettings({ autoArchive: event.currentTarget.checked })}
             />
-            <span>工作日 15:05–15:40 自动归档全市场快照 + 自选竞价</span>
+            <span>工作日 15:05–15:40 自动归档全市场快照 + 自选竞价/逐笔/资金流/5s/15s</span>
             <Show when={appState.settings.autoArchiveLastDate}>
               {(date) => <em>最近 {date()}</em>}
             </Show>

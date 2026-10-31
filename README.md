@@ -77,7 +77,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 类型契约桌面 / Web / 后端共享，改错立刻编译报错
 - 组合分析（当日快照 + 本地持仓盈亏 + 持股回溯）、独立 K 线窗口、第二主窗口（状态广播/位置记忆）、当前窗口置顶、多股同列：当前分组 6/9 格切换，日 K / 当日分时迷你图，点击切换主图
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
-- 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选/全 A 分批日 K + 1 分钟 K + 指数 K + 板块文件缓存（可跳过已有缓存续跑；日 K/1m/指数自动探测全部历史，写 *_all_none.parquet） + 网络失败回退；数据缓存统一为 Parquet(ZSTD)，DuckDB 负责读写/查询；pandas 供数据挖掘，pyarrow 仅旧 stats 导出可选
+- 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选/全 A 分批日 K + 1 分钟 K + 指数 K + 板块文件缓存（可跳过已有缓存续跑；日 K/1m/指数自动探测全部历史，写 *_all_none.parquet） + 网络失败回退；数据缓存统一为 Parquet(ZSTD)，DuckDB 负责读写/查询；pandas/pyarrow/numpy 供数据挖掘与 ML，sidecar 不打包
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 前端（本地状态可写）（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
 - 257 个 TS 单元测试 + 134 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
@@ -146,7 +146,7 @@ npm run build:win     # 或 build:mac / build:linux
 | Node.js     | ≥ 20.19 | 推荐 22 LTS 或更高                    |
 | npm         | ≥ 10    | 随 Node 安装                          |
 | Python      | ≥ 3.10  | 开发/打包需要；运行桌面版 exe 不需要  |
-| pyarrow     | ≥ 26    | 可选：旧 stats.db → Parquet 导出      |
+| pyarrow     | ≥ 26    | pandas 读 Parquet / ML；sidecar 不打包 |
 | duckdb      | ≥ 2.0   | 本地 Parquet 列式查询                 |
 | pandas      | ≥ 3.1   | 数据挖掘/特征工程（项目不强制 import）|
 | Nuitka      | 4.x     | 仅打包需要；`requirements.txt` 已含 `patchelf` |
@@ -189,7 +189,7 @@ python3 -m pip install -r requirements.txt
 ## 📦 打包
 
 ```bash
-python3 -m pip install -r requirements.txt   # 只需一次（Linux，含 duckdb/pandas/nuitka）
+python3 -m pip install -r requirements.txt   # 只需一次（Linux，含 duckdb/pyarrow/pandas/nuitka）
 npm run build:win              # 安装包 + 单文件便携版
 npm run build:win:portable     # 只要单文件便携版
 npm run build:win:setup        # 只要 NSIS 安装包

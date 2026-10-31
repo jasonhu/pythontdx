@@ -4,11 +4,12 @@
 #   python3 -m pip install -r requirements.txt
 #
 # 版本基线：Python 3.10+；当前开发机验证 3.14。
-# 核心 Parquet 读写只依赖 duckdb；pandas 供数据挖掘/特征工程直接使用。
-# 旧 stats.db -> Parquet 导出仍可选使用 pyarrow；它不进入 sidecar。
+# 核心 Parquet 读写由 DuckDB 承担；pyarrow/pandas/numpy 供数据挖掘与 ML 使用。
+# sidecar 打包时通过 --nofollow-import-to 排除 pyarrow/pandas，避免单文件膨胀。
 duckdb>=2.0.0
+pyarrow>=26.0.0
 pandas>=3.1.0
-# pyarrow>=26.0.0  # 可选：仅 parquet_export.py / 旧数据导出需要
+numpy>=2.3.3
 
 # 打包单文件 sidecar（仅构建时需要；运行时用户不需要 Python）
 nuitka>=4.3.0

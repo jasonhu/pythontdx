@@ -103,6 +103,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [bulkTickDate, setBulkTickDate] = createSignal(previousTradingDate())
   const [bulkTickAll, setBulkTickAll] = createSignal(true)
   const [bulkError, setBulkError] = createSignal<string | null>(null)
+  const [bulkFailures, setBulkFailures] = createSignal<string[]>([])
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
     kline: true,
     kline1m: true,
@@ -330,6 +331,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setBulkFailed(0)
     setBulkCurrent('')
     setBulkTotal(0)
+    setBulkFailures([])
     try {
       const targetDate = bulkTickDate().trim()
       if (period === 'ticks' && !bulkTickAll() && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
@@ -349,8 +351,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               try {
                 const result = await api.data.tickArchiveSave(code, date)
                 if (result.skipped) setBulkSkipped((value) => value + 1)
-              } catch {
+              } catch (cause) {
                 setBulkFailed((value) => value + 1)
+                setBulkFailures((items) =>
+                  [...items, `${code} ${date}: ${errorMessage(cause)}`].slice(-100)
+                )
               }
             }
             setBulkDone((value) => value + 1)
@@ -364,9 +369,17 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             setBulkDone((value) => value + result.cached + result.skipped)
             setBulkSkipped((value) => value + result.skipped)
             setBulkFailed((value) => value + result.failed.length)
+            if (result.failed.length > 0) {
+              setBulkFailures((items) =>
+                [...items, ...result.failed.map((item) => `${item.code}: ${item.error}`)].slice(
+                  -100
+                )
+              )
+            }
           }
-        } catch {
+        } catch (cause) {
           setBulkFailed((value) => value + 1)
+          setBulkFailures((items) => [...items, `${code}: ${errorMessage(cause)}`].slice(-100))
         }
       }
     } catch (cause) {
@@ -388,6 +401,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setBulkFailed(0)
     setBulkCurrent('')
     setBulkTotal(0)
+    setBulkFailures([])
     try {
       const catalog = await api.quote.catalog()
       const codes = catalog.filter((item) => item.kind === 'ZS').map((item) => item.code)
@@ -994,6 +1008,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 {bulkDone()} / {bulkTotal()} 完成 · 跳过 {bulkSkipped()} · 失败 {bulkFailed()}
                 {bulkCurrent() ? ` · 当前 ${bulkCurrent().toUpperCase()}` : ''}
                 {bulkRunning() ? ' · 进行中' : ' · 已结束'}
+              </div>
+            </Show>
+            <Show when={bulkFailures().length > 0}>
+              <div class="data__bulk-failures">
+                <strong>失败清单（最近 {bulkFailures().length} 条）</strong>
+                <For each={bulkFailures().slice(-20)}>{(item) => <div>{item}</div>}</For>
               </div>
             </Show>
             <Show when={bulkError()}>

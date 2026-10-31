@@ -6612,3 +6612,21 @@
   gap: 6px;
   margin-left: auto;
 }
+
+.data__bulk-failures {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--danger);
+  border-radius: var(--r-xs);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.data__bulk-failures strong {
+  display: block;
+  color: var(--danger);
+  margin-bottom: 3px;
+}

@@ -33,11 +33,13 @@ interface DataPanelProps {
   onClose: () => void
 }
 
-type DownloadKey = 'kline' | 'kline1m' | 'indexKline' | 'blocks' | 'snapshot' | 'stats' | 'archive'
+type DownloadKey =
+  'kline' | 'kline1m' | 'ticks' | 'indexKline' | 'blocks' | 'snapshot' | 'stats' | 'archive'
 
 const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> = [
   { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，全历史自动探测' },
   { key: 'kline1m', label: '1 分钟 K 缓存', hint: '自选/全 A，全历史自动探测' },
+  { key: 'ticks', label: '历史逐笔', hint: '最近 20 个交易日，自选/全 A' },
   { key: 'indexKline', label: '指数 K 缓存', hint: 'ZS 指数全历史' },
   { key: 'blocks', label: '板块文件', hint: '概念/风格/指数/一般' },
   { key: 'snapshot', label: '全市场快照', hint: 'MAC 报价导出 CSV' },
@@ -107,6 +109,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
     kline: true,
     kline1m: true,
+    ticks: false,
     indexKline: true,
     blocks: true,
     snapshot: true,
@@ -454,6 +457,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setDownloadSelection({
       kline: value,
       kline1m: value,
+      ticks: value,
       indexKline: value,
       blocks: value,
       snapshot: value,
@@ -483,6 +487,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         setDownloadMessage(`正在下载：${task?.label ?? key}`)
         if (key === 'kline') await runBulkCache('day', bulkScope())
         else if (key === 'kline1m') await runBulkCache('1m', bulkScope())
+        else if (key === 'ticks') await runBulkCache('ticks', bulkScope())
         else if (key === 'indexKline') await runIndexCache()
         else if (key === 'blocks') {
           for (const kind of BLOCK_KINDS) await api.block.list(kind)
@@ -762,8 +767,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 disabled={downloadRunning() || !downloadSelection().kline}
                 onChange={(event) => setBulkScope(event.currentTarget.value as 'watchlist' | 'all')}
               >
-                <option value="watchlist">K 线：仅自选</option>
-                <option value="all">K 线：全 A 股</option>
+                <option value="watchlist">仅自选</option>
+                <option value="all">全 A 股</option>
               </select>
               <label class="data__incremental">
                 <input

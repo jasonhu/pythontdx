@@ -3855,15 +3855,25 @@
 }
 
 .chart-range-stats {
+  position: absolute;
+  z-index: 8;
+  top: 64px;
+  right: 64px;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px 14px;
   align-items: baseline;
-  padding: 5px 16px;
-  border-bottom: 1px solid var(--border);
+  max-width: min(460px, 60%);
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--bg-1) 92%, transparent);
+  box-shadow: var(--shadow-2);
   color: var(--text-3);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
+  pointer-events: none;
+  backdrop-filter: blur(8px);
 }
 
 .chart-range-stats__title {

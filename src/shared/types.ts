@@ -835,12 +835,17 @@ export interface ChartDrawing {
   id: string
   code: string
   period: KLinePeriod
+  /** 复权方式；旧数据没有该字段时按 qfq 处理 */
+  adjust?: 'none' | 'qfq' | 'hfq'
   type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure' | 'arrow' | 'channel'
   price?: number
   startIndex?: number
   startPrice?: number
   endIndex?: number
   endPrice?: number
+  /** 画线锚定日期；数据前插/翻页后比下标更稳 */
+  startDate?: string
+  endDate?: string
   text?: string
   /** 斐波那契是否追加 127.2%/161.8% 扩展位 */
   extended?: boolean

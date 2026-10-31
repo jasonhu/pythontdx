@@ -75,6 +75,8 @@ interface KLineDrawing {
   startPrice?: number
   endIndex?: number
   endPrice?: number
+  startDate?: string
+  endDate?: string
   text?: string
   extended?: boolean
   offset?: number
@@ -90,6 +92,8 @@ export interface KLineChartProps {
   bollK?: number
   /** 对数价格坐标 */
   logScale?: boolean
+  /** 当前复权方式；画线按 code + period + adjust 隔离 */
+  adjust?: 'none' | 'qfq' | 'hfq'
   /** 区间统计选择模式 */
   rangeMode?: boolean
   onRangeStats?: (stats: KLineRangeStats | null) => void
@@ -148,6 +152,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [hovering, setHovering] = createSignal(false)
   const [rangeStart, setRangeStart] = createSignal<number | null>(null)
   const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
+  const [rangeDragging, setRangeDragging] = createSignal(false)
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
   const [selectedId, setSelectedId] = createSignal<number | null>(null)
   const [undoStack, setUndoStack] = createSignal<KLineDrawing[][]>([])
@@ -174,36 +179,61 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   )
   let drawingId = 0
   let drawClipboard: KLineDrawing | null = null
+  let suppressContextUntil = 0
 
   /** 全量 K 线 */
   const allBars = (): KLineSeries['bars'] => props.series.bars
 
+  const drawingAdjust = (): 'none' | 'qfq' | 'hfq' => props.adjust ?? 'qfq'
+  const dateIndex = (date: string | undefined): number | undefined => {
+    if (!date) return undefined
+    const index = allBars().findIndex((bar) => bar.date === date)
+    return index >= 0 ? index : undefined
+  }
+  const anchorDate = (index: number | undefined): string | undefined =>
+    index === undefined ? undefined : allBars()[index]?.date
   const savedDrawings = (): ChartDrawing[] =>
     (appState.settings.chartDrawings ?? []).filter(
-      (drawing) => drawing.code === props.series.code && drawing.period === props.series.period
+      (drawing) =>
+        drawing.code === props.series.code &&
+        drawing.period === props.series.period &&
+        (drawing.adjust ?? 'qfq') === drawingAdjust()
     )
 
   const persistDrawings = (next: KLineDrawing[]): void => {
     const others = (appState.settings.chartDrawings ?? [])
       .filter(
-        (drawing) => drawing.code !== props.series.code || drawing.period !== props.series.period
+        (drawing) =>
+          drawing.code !== props.series.code ||
+          drawing.period !== props.series.period ||
+          (drawing.adjust ?? 'qfq') !== drawingAdjust()
       )
       .map((drawing) => ({ ...drawing }))
     const saved: ChartDrawing[] = next.map((drawing, index) => ({
-      id: `${props.series.code}:${props.series.period}:${drawingId}:${index}`,
+      id: `${props.series.code}:${props.series.period}:${drawingAdjust()}:${drawingId}:${index}`,
       code: props.series.code,
       period: props.series.period,
+      adjust: drawingAdjust(),
       type: drawing.type,
       price: drawing.price,
       startIndex: drawing.startIndex,
       startPrice: drawing.startPrice,
       endIndex: drawing.endIndex,
       endPrice: drawing.endPrice,
+      startDate: anchorDate(drawing.startIndex),
+      endDate: anchorDate(drawing.endIndex),
       text: drawing.text,
       extended: drawing.extended,
       offset: drawing.offset
     }))
     updateSettings({ chartDrawings: [...others, ...saved].slice(-200) })
+    setDrawings(
+      next.map((drawing) => ({
+        ...drawing,
+        startDate: anchorDate(drawing.startIndex),
+        endDate: anchorDate(drawing.endIndex)
+      }))
+    )
   }
 
   const cloneDrawings = (items: KLineDrawing[]): KLineDrawing[] =>
@@ -261,18 +291,45 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
 
   createEffect(
     on(
-      () => `${props.series.code}:${props.series.period}`,
+      () => `${props.series.code}:${props.series.period}:${drawingAdjust()}`,
       () => {
         drawingId = 0
         setRangeStart(null)
         setRangeEnd(null)
-        setDrawings(savedDrawings().map((drawing) => ({ ...drawing, id: ++drawingId })))
+        setDrawings(
+          savedDrawings().map((drawing) => ({
+            ...drawing,
+            startIndex: dateIndex(drawing.startDate) ?? drawing.startIndex,
+            endIndex: dateIndex(drawing.endDate) ?? drawing.endIndex,
+            id: ++drawingId
+          }))
+        )
         setUndoStack([])
         setRedoStack([])
         setPendingPoint(null)
         setPendingSecond(null)
         props.onRangeStats?.(null)
       }
+    )
+  )
+
+  createEffect(
+    on(
+      () =>
+        `${allBars().length}:${allBars()[0]?.date ?? ''}:${
+          allBars()[allBars().length - 1]?.date ?? ''
+        }`,
+      () => {
+        if (allBars().length === 0) return
+        setDrawings((current) =>
+          current.map((drawing) => ({
+            ...drawing,
+            startIndex: dateIndex(drawing.startDate) ?? drawing.startIndex,
+            endIndex: dateIndex(drawing.endDate) ?? drawing.endIndex
+          }))
+        )
+      },
+      { defer: true }
     )
   )
 
@@ -464,8 +521,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const end = rangeEnd() ?? cursorIndex() ?? start
     const from = Math.min(start, end)
     const to = Math.max(start, end)
-    const x1 = geo.x(from) - geo.slot / 2
-    const x2 = geo.x(to) + geo.slot / 2
+    const x1 = geo.x(from - win().start) - geo.slot / 2
+    const x2 = geo.x(to - win().start) + geo.slot / 2
     return { x: x1, width: Math.max(1, x2 - x1) }
   })
 
@@ -666,6 +723,22 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     host?.focus({ preventScroll: true })
     const geo = geometry()
     if (!geo) return
+    if (event.button === 2) {
+      event.preventDefault()
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
+      if (index === null) return
+      setRangeStart(index)
+      setRangeEnd(index)
+      setRangeDragging(true)
+      props.onRangeStats?.(klineRangeStats(allBars(), index, index))
+      try {
+        ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+      } catch {
+        // 合成事件没有 pointerId
+      }
+      return
+    }
     const hit = hitDrawing(event, geo)
     if (hit) {
       dragSnapshot = cloneDrawings(drawings())
@@ -800,6 +873,16 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const onPointerMove = (event: PointerEvent): void => {
     const geo = geometry()
     if (!geo) return
+    if (rangeDragging()) {
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      const index = cursorFromX(event.clientX - rect.left, win(), geo.padding.left, geo.plotW)
+      if (index === null) return
+      setRangeEnd(index)
+      suppressContextUntil = performance.now() + 600
+      const start = rangeStart()
+      if (start !== null) props.onRangeStats?.(klineRangeStats(allBars(), start, index))
+      return
+    }
     const drag = dragId()
     if (drag !== null) {
       const rawPoint = localPoint(event, geo)
@@ -857,6 +940,15 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   }
 
   const onPointerUp = (): void => {
+    if (rangeDragging()) {
+      setRangeDragging(false)
+      const start = rangeStart()
+      const end = rangeEnd()
+      if (start !== null && end !== null) {
+        props.onRangeStats?.(klineRangeStats(allBars(), start, end))
+      }
+      return
+    }
     if (dragId() === null) return
     setDragId(null)
     setDragOrigin(null)
@@ -869,6 +961,10 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   }
 
   const onContextMenu = (event: MouseEvent): void => {
+    if (performance.now() < suppressContextUntil) {
+      event.preventDefault()
+      return
+    }
     const geo = geometry()
     if (!geo) return
     const hit = hitDrawing(event as PointerEvent, geo)

@@ -708,6 +708,7 @@
 
 /* ================================================================ 图表卡 */
 .chart-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   /* 唯一吸收剩余高度的部件：图表永远填满主区剩下的空间 */

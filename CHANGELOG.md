@@ -40,6 +40,10 @@ StockLens 的所有重要变更都记录在这里。
 - **存储升级**：K 线与逐笔改为 Parquet(ZSTD)，读写统一走 DuckDB 2.0，
   不再写 JSON/JSONL 数据；旧 JSON 缓存已按用户指令删除，重新从服务器下载；
   pyarrow 仅保留给旧 stats 导出的可选路径，不进入 sidecar。
+- **自选 4 只实测**：日 K 1 新增/3 跳过 0.57s；1m 3 新增/1 跳过 1.53s；逐笔 20 日 78 新增/2 跳过 60.37s；共 340,190 笔、4.07MB。
+- **画线错位修复**：画线按 `code + period + 复权` 隔离，旧数据按 qfq 处理；保存起止日期锚点，数据前插后按日期重定位；利元亨旧画线切到前复权后对齐。
+- **右键区间统计**：K 线图右键拖拽选区，浮动窗显示根数、涨跌、最高、最低、振幅、成交量；右键删除画线保持可用。
+- **离线下载补逐笔**：数据管理「离线数据下载」任务列表加入历史逐笔（最近 20 个交易日）。
 - **六档下载入口**：日 K / 1 分钟 K / 历史逐笔各自提供「自选股全量」「市场全量」按钮；
   日 K/1m 全历史翻页，逐笔默认最近 20 个交易日；20 只/批、4 连接并行；共用进度/取消/断点续跑/失败清单。
 - **数据完整性**：F10/财务/公告查询自动写 point-in-time；资金流单票查询自动归档；
@@ -119,7 +123,7 @@ StockLens 的所有重要变更都记录在这里。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
 - `npm run check` → **259 TS + 144 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `2d2540bf…` / deb 123 MB `9d9ec2df…`；
+- Linux AppImage 147 MB `c127599c…` / deb 123 MB `c61cb461…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

@@ -17,7 +17,8 @@ import type {
   KLineCacheResult,
   KLineExportResult,
   SnapshotArchiveResult,
-  SnapshotArchiveItem
+  SnapshotArchiveItem,
+  BlockKind
 } from '@shared/types'
 import { thousands } from '@shared/format'
 import { appState, updateSettings, watchCodes } from '../stores/app'
@@ -30,15 +31,18 @@ interface DataPanelProps {
   onClose: () => void
 }
 
-type DownloadKey = 'kline' | 'kline1m' | 'snapshot' | 'stats' | 'archive'
+type DownloadKey = 'kline' | 'kline1m' | 'blocks' | 'snapshot' | 'stats' | 'archive'
 
 const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> = [
   { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，800 根/只' },
   { key: 'kline1m', label: '1 分钟 K 缓存', hint: '自选/全 A，800 根/只' },
+  { key: 'blocks', label: '板块文件', hint: '概念/风格/指数/一般' },
   { key: 'snapshot', label: '全市场快照', hint: 'MAC 报价导出 CSV' },
   { key: 'stats', label: 'TDX 统计', hint: 'zhb.zip + 规范化 tdxstat' },
   { key: 'archive', label: '数据湖归档', hint: '全市场快照按 trade_date 归档' }
 ]
+
+const BLOCK_KINDS: BlockKind[] = ['gn', 'fg', 'zs', 'general']
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
@@ -86,6 +90,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
     kline: true,
     kline1m: true,
+    blocks: true,
     snapshot: true,
     stats: true,
     archive: true
@@ -275,6 +280,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setDownloadSelection({
       kline: value,
       kline1m: value,
+      blocks: value,
       snapshot: value,
       stats: value,
       archive: value
@@ -302,7 +308,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         setDownloadMessage(`正在下载：${task?.label ?? key}`)
         if (key === 'kline') await runBulkCache('day')
         else if (key === 'kline1m') await runBulkCache('1m')
-        else if (key === 'snapshot') await runSnapshotExport()
+        else if (key === 'blocks') {
+          for (const kind of BLOCK_KINDS) await api.block.list(kind)
+        } else if (key === 'snapshot') await runSnapshotExport()
         else if (key === 'stats') await runExport()
         else await runArchive()
         done += 1

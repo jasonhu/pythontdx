@@ -527,6 +527,14 @@ export function startAutoArchive(): void {
     autoArchiveRunning = true
     try {
       await api.data.archiveSnapshot()
+      // 竞价只保留最近交易日：顺手把自选池的当日竞价也归档。
+      const codes = watchCodes()
+      if (codes.length > 0) {
+        const auction = await api.auction.archiveBatch(codes)
+        if (auction.failedCount > 0) {
+          console.warn(`自动归档竞价：${auction.savedCount} 成功 / ${auction.failedCount} 失败`)
+        }
+      }
       updateSettings({ autoArchiveLastDate: localDateKey(now) })
     } catch (cause) {
       console.warn('自动归档失败，下一分钟重试', cause)

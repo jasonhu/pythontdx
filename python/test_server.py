@@ -43,6 +43,15 @@ class FakeBridge:
     def auction_archive_list(self, limit=50):
         return []
 
+    def auction_archive_batch(self, codes, date=None):
+        return {
+            "tradeDate": date or "2026-10-30",
+            "saved": [{"code": code} for code in codes],
+            "failed": [],
+            "savedCount": len(codes),
+            "failedCount": 0,
+        }
+
     def money_flow(self, code):
         return [{"code": code, "date": "2026-10-30"}]
 
@@ -384,6 +393,11 @@ class TestHttpApi(unittest.TestCase):
         status, payload, _ = self.request("POST", "/api/auction_archive_list", {})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])
+        status, payload, _ = self.request(
+            "POST", "/api/auction_archive_batch", {"codes": ["sh600519"]}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["savedCount"], 1)
         status, payload, _ = self.request("POST", "/api/mac_quotes", {"codes": ["sh600519"]})
         self.assertEqual(status, 200)
         self.assertEqual(payload["result"], [])

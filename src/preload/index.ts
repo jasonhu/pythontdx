@@ -48,7 +48,8 @@ const api: StockLensApi = {
     series: (code, date) => ipcRenderer.invoke(IPC.auctionSeries, code, date),
     archiveSave: (code, date) => ipcRenderer.invoke(IPC.auctionArchiveSave, code, date),
     archiveRead: (code, date) => ipcRenderer.invoke(IPC.auctionArchiveRead, code, date),
-    archiveList: (limit) => ipcRenderer.invoke(IPC.auctionArchiveList, limit)
+    archiveList: (limit) => ipcRenderer.invoke(IPC.auctionArchiveList, limit),
+    archiveBatch: (codes, date) => ipcRenderer.invoke(IPC.auctionArchiveBatch, codes, date)
   },
   market: {
     breadth: () => ipcRenderer.invoke(IPC.marketBreadth)

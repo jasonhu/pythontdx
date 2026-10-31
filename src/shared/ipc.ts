@@ -9,6 +9,7 @@ import type {
   GraphicsInfo,
   ServerSpeedResult,
   AppState,
+  AuctionArchiveBatchResult,
   AuctionArchiveItem,
   AuctionArchiveResult,
   AuctionPoint,
@@ -91,6 +92,7 @@ export const IPC = {
   auctionArchiveSave: 'auction:archive-save',
   auctionArchiveRead: 'auction:archive-read',
   auctionArchiveList: 'auction:archive-list',
+  auctionArchiveBatch: 'auction:archive-batch',
   /** F10 段落目录（invoke） */
   f10Catalog: 'f10:catalog',
   /** F10 段落正文（invoke） */
@@ -306,6 +308,8 @@ export interface StockLensApi {
     archiveRead(code: string, date: string): Promise<AuctionArchiveResult>
     /** 列出已归档的竞价文件 */
     archiveList(limit?: number): Promise<AuctionArchiveItem[]>
+    /** 批量归档（收盘自动归档自选）；单只失败记录在 failed */
+    archiveBatch(codes: string[], date?: string): Promise<AuctionArchiveBatchResult>
   }
   market: {
     breadth(): Promise<MarketBreadth>

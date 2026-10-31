@@ -112,6 +112,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [archiving, setArchiving] = createSignal(false)
   const [archive, setArchive] = createSignal<SnapshotArchiveResult | null>(null)
   const [archiveError, setArchiveError] = createSignal<string | null>(null)
+  const [auctionArchiving, setAuctionArchiving] = createSignal(false)
+  const [auctionArchiveNote, setAuctionArchiveNote] = createSignal<string | null>(null)
   const [archives, setArchives] = createSignal<SnapshotArchiveItem[]>([])
   const [archivesLoading, setArchivesLoading] = createSignal(false)
   const [archivesError, setArchivesError] = createSignal<string | null>(null)
@@ -181,6 +183,29 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setArchiveError(errorMessage(cause))
     } finally {
       setArchiving(false)
+    }
+  }
+
+  const runAuctionArchive = async (): Promise<void> => {
+    if (auctionArchiving()) return
+    const codes = watchCodes()
+    if (codes.length === 0) {
+      setAuctionArchiveNote('自选池为空')
+      return
+    }
+    setAuctionArchiving(true)
+    setAuctionArchiveNote(null)
+    try {
+      const result = await api.auction.archiveBatch(codes)
+      setAuctionArchiveNote(
+        `竞价归档 ${result.savedCount}/${codes.length} 只 · ${result.tradeDate}${
+          result.failedCount > 0 ? ` · ${result.failedCount} 只失败` : ''
+        }`
+      )
+    } catch (cause) {
+      setAuctionArchiveNote(`竞价归档失败：${errorMessage(cause)}`)
+    } finally {
+      setAuctionArchiving(false)
     }
   }
 
@@ -1016,13 +1041,33 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               {archiving() ? '归档中…' : '归档全市场'}
             </button>
           </section>
+          <section class="data__kline">
+            <div>
+              <div class="data__label">自选竞价归档</div>
+              <div class="data__sub">
+                {
+                  'lake/auction/trade_date=YYYY-MM-DD/{code}.jsonl.gz + manifest；服务器只保留最近交易日。'
+                }
+              </div>
+            </div>
+            <button
+              class="btn data__auction-archive"
+              disabled={auctionArchiving()}
+              onClick={() => void runAuctionArchive()}
+            >
+              {auctionArchiving() ? '归档中…' : '归档自选竞价'}
+            </button>
+          </section>
+          <Show when={auctionArchiveNote()}>
+            {(note) => <div class="data__sub data__auction-note">{note()}</div>}
+          </Show>
           <label class="data__auto-archive">
             <input
               type="checkbox"
               checked={appState.settings.autoArchive ?? false}
               onChange={(event) => updateSettings({ autoArchive: event.currentTarget.checked })}
             />
-            <span>工作日 15:05–15:40 自动归档全市场</span>
+            <span>工作日 15:05–15:40 自动归档全市场快照 + 自选竞价</span>
             <Show when={appState.settings.autoArchiveLastDate}>
               {(date) => <em>最近 {date()}</em>}
             </Show>

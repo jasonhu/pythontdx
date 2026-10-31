@@ -82,6 +82,23 @@ class TestAuctionArchive(unittest.TestCase):
         self.assertTrue(loaded["found"])
         self.assertEqual(loaded["rows"], 2)
 
+    def test_batch_archives_watchlist_and_reports_failure(self) -> None:
+        bridge = object.__new__(tdx_bridge.Bridge)
+        bridge.auctions = lambda code, **kwargs: points(2)
+        bridge.minute = lambda code: {"date": "2026-10-30"}
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(
+                tdx_bridge, "stocklens_data_dir", return_value=Path(directory)
+            ):
+                result = bridge.auction_archive_batch(
+                    ["sh600519", "bad", "sz000001", "sh600519"]
+                )
+                first = bridge.auction_archive_read("sh600519", "2026-10-30")
+        self.assertEqual(result["tradeDate"], "2026-10-30")
+        self.assertEqual(result["savedCount"], 2)
+        self.assertEqual(result["failedCount"], 1)
+        self.assertEqual(first["rows"], 2)
+
     def test_invalid_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

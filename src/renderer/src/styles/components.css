@@ -5416,6 +5416,11 @@
   flex: none;
 }
 
+.data__auction-note {
+  margin: 0 0 6px;
+  color: var(--accent);
+}
+
 .settings__slots {
   display: flex;
   align-items: center;

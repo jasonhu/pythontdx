@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type {
+  AuctionArchiveBatchResult,
   AuctionArchiveItem,
   AuctionArchiveResult,
   AuctionPoint,
@@ -214,6 +215,17 @@ export async function fetchAuctionArchiveRead(
 
 export async function fetchAuctionArchiveList(limit = 50): Promise<AuctionArchiveItem[]> {
   return bridge.send<AuctionArchiveItem[]>('auction_archive_list', { limit }, QUOTES_TIMEOUT_MS)
+}
+
+export async function fetchAuctionArchiveBatch(
+  codes: string[],
+  date?: string
+): Promise<AuctionArchiveBatchResult> {
+  return bridge.send<AuctionArchiveBatchResult>(
+    'auction_archive_batch',
+    { codes: normalizeCodes(codes), date: date || undefined },
+    90_000
+  )
 }
 
 /** 0x02cf F10 段落目录。 */

@@ -3229,6 +3229,67 @@ class Bridge:
             stocklens_data_dir() / "lake" / "auction", limit
         )
 
+    def auction_archive_batch(
+        self, codes: list[str], trading_date: str | None = None
+    ) -> dict:
+        """批量归档自选竞价；单只失败只记入 failed，不掩盖其他成功项。"""
+        unique: list[str] = []
+        failed: list[dict] = []
+        seen: set[str] = set()
+        for raw in codes:
+            try:
+                code = normalize_auction_code(raw)
+            except AuctionArchiveError as error:
+                failed.append({"code": str(raw), "error": str(error)})
+                continue
+            if code in seen:
+                continue
+            seen.add(code)
+            unique.append(code)
+        if not unique:
+            return {
+                "tradeDate": "",
+                "saved": [],
+                "failed": failed,
+                "savedCount": 0,
+                "failedCount": len(failed),
+            }
+        if trading_date:
+            try:
+                target_date = normalize_auction_date(trading_date)
+            except AuctionArchiveError as error:
+                raise TdxError(str(error)) from error
+        else:
+            try:
+                target_date = normalize_auction_date(
+                    self.minute(unique[0]).get("date") or ""
+                )
+            except Exception as error:  # noqa: BLE001 - 推断失败时不写错日期
+                raise TdxError(f"无法确定交易日，未归档：{error}") from error
+        saved: list[dict] = []
+        for code in unique:
+            try:
+                result = self.auction_archive_save(code, target_date)
+            except Exception as error:  # noqa: BLE001 - 单只失败继续
+                failed.append({"code": code, "error": str(error)})
+                continue
+            saved.append(
+                {
+                    "code": code,
+                    "tradeDate": result["tradeDate"],
+                    "rows": result["rows"],
+                    "dir": result.get("dir"),
+                    "sha256": result.get("sha256"),
+                }
+            )
+        return {
+            "tradeDate": target_date,
+            "saved": saved,
+            "failed": failed,
+            "savedCount": len(saved),
+            "failedCount": len(failed),
+        }
+
     def file_read(
         self, path: str, offset: int = 0, size: int = FILE_CHUNK
     ) -> dict:
@@ -4048,6 +4109,10 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "auction_archive_list":
         return bridge.auction_archive_list(int(payload.get("limit", 50)))
+    if cmd == "auction_archive_batch":
+        return bridge.auction_archive_batch(
+            payload.get("codes") or [], payload.get("date") or None
+        )
     if cmd == "file_read":
         return bridge.file_read(
             payload.get("path", ""),

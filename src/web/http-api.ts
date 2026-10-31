@@ -9,6 +9,7 @@ import type {
   ServerSpeedResult,
   GraphicsInfo,
   AppState,
+  AuctionArchiveBatchResult,
   AuctionArchiveItem,
   AuctionArchiveResult,
   AuctionPoint,
@@ -318,7 +319,9 @@ export function createHttpApi(): StockLensApi {
         post<AuctionArchiveResult>('/api/auction_archive_save', { code, date }),
       archiveRead: (code, date) =>
         post<AuctionArchiveResult>('/api/auction_archive_read', { code, date }),
-      archiveList: (limit) => post<AuctionArchiveItem[]>('/api/auction_archive_list', { limit })
+      archiveList: (limit) => post<AuctionArchiveItem[]>('/api/auction_archive_list', { limit }),
+      archiveBatch: (codes, date) =>
+        post<AuctionArchiveBatchResult>('/api/auction_archive_batch', { codes, date })
     },
     f10: {
       catalog: (code) => post<F10Section[]>('/api/f10_catalog', { code }),

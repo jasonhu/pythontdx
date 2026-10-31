@@ -459,6 +459,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/auction_archive_batch":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.auction_archive_batch(
+                            payload.get("codes") or [], payload.get("date") or None
+                        )
+                    )
+                return
             if parsed.path == "/api/money_flow":
                 with self.server.lock:
                     self._ok(self.server.bridge.money_flow(payload.get("code", "")))

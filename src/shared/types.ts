@@ -325,6 +325,22 @@ export interface AuctionArchiveItem {
   dir: string
 }
 
+export interface AuctionArchiveBatchSaved {
+  code: string
+  tradeDate: string
+  rows: number
+  dir?: string
+  sha256?: string
+}
+
+export interface AuctionArchiveBatchResult {
+  tradeDate: string
+  saved: AuctionArchiveBatchSaved[]
+  failed: Array<{ code: string; error: string }>
+  savedCount: number
+  failedCount: number
+}
+
 /** 0x02cf F10 段落目录 */
 export interface F10Section {
   name: string

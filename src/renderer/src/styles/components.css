@@ -3855,44 +3855,11 @@
 }
 
 .chart-range-stats {
-  position: absolute;
-  z-index: 8;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  align-items: baseline;
-  width: 360px;
-  max-width: min(380px, calc(100% - 32px));
-  padding: 5px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--bg-1) 92%, transparent);
-  box-shadow: var(--shadow-2);
-  color: var(--text-3);
+  z-index: 20;
+  min-width: 210px;
+  max-width: 380px;
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
   pointer-events: none;
-  backdrop-filter: blur(8px);
-}
-
-.chart-range-stats__handle {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-2);
-  cursor: grab;
-  pointer-events: auto;
-  user-select: none;
-}
-
-.chart-range-stats__handle:active {
-  cursor: grabbing;
-}
-
-.chart-range-stats__title {
-  color: var(--text-2);
-  font-weight: 600;
 }
 
 .chart-drawing {

@@ -118,38 +118,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
   const [rangeMode, setRangeMode] = createSignal(false)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
-  const [rangeBox, setRangeBox] = createSignal({ x: 600, y: 150 })
-  let rangeDrag:
-    { startX: number; startY: number; x: number; y: number; maxX: number; maxY: number } | undefined
-  const beginRangeDrag = (event: PointerEvent): void => {
-    const card = (event.currentTarget as HTMLElement).closest('.chart-card') as HTMLElement | null
-    if (!card) return
-    const rect = card.getBoundingClientRect()
-    rangeDrag = {
-      startX: event.clientX,
-      startY: event.clientY,
-      x: rangeBox().x,
-      y: rangeBox().y,
-      maxX: Math.max(8, rect.width - 340),
-      maxY: Math.max(8, rect.height - 90)
-    }
-    event.preventDefault()
-    try {
-      ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-    } catch {
-      // 合成事件没有有效 pointerId
-    }
-  }
-  const moveRangeDrag = (event: PointerEvent): void => {
-    if (!rangeDrag) return
-    setRangeBox({
-      x: Math.max(8, Math.min(rangeDrag.maxX, rangeDrag.x + event.clientX - rangeDrag.startX)),
-      y: Math.max(8, Math.min(rangeDrag.maxY, rangeDrag.y + event.clientY - rangeDrag.startY))
-    })
-  }
-  const endRangeDrag = (): void => {
-    rangeDrag = undefined
-  }
+  const [rangeAnchor, setRangeAnchor] = createSignal<{ x: number; y: number } | null>(null)
+  const [chartCardEl, setChartCardEl] = createSignal<HTMLElement | undefined>(undefined)
   const [drawMode, setDrawMode] = createSignal<DrawingMode>('none')
   const [drawingText, setDrawingText] = createSignal('标注')
   const [clearDrawingsKey, setClearDrawingsKey] = createSignal(0)
@@ -323,6 +293,37 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     return cachedSeries() ?? undefined
   }
 
+  const rangeInfo = createMemo(() => {
+    const stats = rangeStats()
+    const series = klineSeries()
+    if (!stats || !series) return null
+    const from = Math.max(0, Math.min(series.bars.length - 1, Math.min(stats.start, stats.end)))
+    const to = Math.max(0, Math.min(series.bars.length - 1, Math.max(stats.start, stats.end)))
+    const first = series.bars[from]
+    const last = series.bars[to]
+    if (!first || !last) return null
+    return {
+      ...stats,
+      startDate: first.date,
+      endDate: last.date,
+      open: first.open,
+      close: last.close
+    }
+  })
+
+  const rangeTooltipPos = createMemo(() => {
+    const anchor = rangeAnchor()
+    const rect = chartCardEl()?.getBoundingClientRect()
+    if (!rect) return { left: 220, top: 160 }
+    return {
+      left: Math.max(
+        8,
+        Math.min((anchor?.x ?? rect.left + 220) - rect.left + 14, rect.width - 226)
+      ),
+      top: Math.max(8, Math.min((anchor?.y ?? rect.top + 160) - rect.top + 14, rect.height - 200))
+    }
+  })
+
   const isEmpty = (): boolean => {
     if (data.loading || data.error) return false
     const current = data()
@@ -386,7 +387,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   }
 
   return (
-    <section class="card chart-card">
+    <section class="card chart-card" ref={setChartCardEl}>
       <div class="chart-card__head">
         <div class="chart-toolbar chart-toolbar--primary">
           <div class="segmented">
@@ -807,38 +808,61 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
 
       <Show when={rangeMode() || rangeStats()}>
         <div
-          class="chart-range-stats"
-          style={{ left: `${rangeBox().x}px`, top: `${rangeBox().y}px` }}
+          class="chart-tooltip chart-range-stats"
+          style={{
+            position: 'absolute',
+            left: `${rangeTooltipPos().left}px`,
+            top: `${rangeTooltipPos().top}px`
+          }}
         >
-          <span
-            class="chart-range-stats__handle"
-            title="拖动浮动窗"
-            onPointerDown={beginRangeDrag}
-            onPointerMove={moveRangeDrag}
-            onPointerUp={endRangeDrag}
-            onPointerCancel={endRangeDrag}
+          <Show
+            when={rangeInfo()}
+            fallback={<div class="chart-tooltip__row">右键在 K 线上拖拽选择区间</div>}
           >
-            ⠿ 区间
-          </span>
-          <Show when={rangeStats()} fallback={<span>右键拖拽 K 线选择区间</span>}>
-            {(stats) => (
+            {(info) => (
               <>
-                <span class="chart-range-stats__title">{stats().bars} 根</span>
-                <span>
-                  涨跌{' '}
-                  <strong
+                <div class="chart-tooltip__row">
+                  <span class="chart-tooltip__label">区间</span>
+                  <span class="num">{info().bars} 根</span>
+                </div>
+                <div class="chart-tooltip__row">
+                  <span class="chart-tooltip__label">日期</span>
+                  <span class="num">
+                    {info().startDate} ~ {info().endDate}
+                  </span>
+                </div>
+                <div class="chart-tooltip__row">
+                  <span class="chart-tooltip__label">涨跌幅</span>
+                  <span
+                    class="num"
                     classList={{
-                      'tone-up': stats().changePct > 0,
-                      'tone-down': stats().changePct < 0
+                      'tone-up': info().changePct > 0,
+                      'tone-down': info().changePct < 0
                     }}
                   >
-                    {signedPct(stats().changePct)}
-                  </strong>
-                </span>
-                <span>最高 {fixed(stats().high)}</span>
-                <span>最低 {fixed(stats().low)}</span>
-                <span>振幅 {fixed(stats().amplitude)}%</span>
-                <span>量 {thousands(stats().volume)} 手</span>
+                    {signedPct(info().changePct)}
+                  </span>
+                </div>
+                <div class="chart-tooltip__row">
+                  <span class="chart-tooltip__label">开/高</span>
+                  <span class="num">
+                    {fixed(info().open)} / {fixed(info().high)}
+                  </span>
+                </div>
+                <div class="chart-tooltip__row">
+                  <span class="chart-tooltip__label">低/收</span>
+                  <span class="num">
+                    {fixed(info().low)} / {fixed(info().close)}
+                  </span>
+                </div>
+                <div class="chart-tooltip__row">
+                  <span class="chart-tooltip__label">成交量</span>
+                  <span class="num">{thousands(info().volume)} 手</span>
+                </div>
+                <div class="chart-tooltip__row">
+                  <span class="chart-tooltip__label">振幅</span>
+                  <span class="num">{fixed(info().amplitude)}%</span>
+                </div>
               </>
             )}
           </Show>
@@ -915,6 +939,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     logScale={logScale()}
                     rangeMode={rangeMode()}
                     onRangeStats={setRangeStats}
+                    onRangeAnchor={setRangeAnchor}
                     onCursorChange={setSubCursor}
                     onWindowChange={setSubWindow}
                     drawMode={drawMode()}

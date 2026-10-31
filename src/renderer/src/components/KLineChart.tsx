@@ -97,6 +97,8 @@ export interface KLineChartProps {
   /** 区间统计选择模式 */
   rangeMode?: boolean
   onRangeStats?: (stats: KLineRangeStats | null) => void
+  /** 区间统计跟随鼠标的屏幕坐标 */
+  onRangeAnchor?: (anchor: { x: number; y: number } | null) => void
   /** 光标绝对下标变化（用于副图十字线联动） */
   onCursorChange?: (index: number | null) => void
   /** 可见窗口变化（副图必须复用同一窗口和宽度才能对齐横轴） */
@@ -309,6 +311,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         setPendingPoint(null)
         setPendingSecond(null)
         props.onRangeStats?.(null)
+        props.onRangeAnchor?.(null)
       }
     )
   )
@@ -731,6 +734,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       setRangeStart(index)
       setRangeEnd(index)
       setRangeDragging(true)
+      props.onRangeAnchor?.({ x: event.clientX, y: event.clientY })
       props.onRangeStats?.(klineRangeStats(allBars(), index, index))
       try {
         ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
@@ -863,11 +867,13 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       setRangeStart(index)
       setRangeEnd(null)
       props.onRangeStats?.(null)
+      props.onRangeAnchor?.({ x: event.clientX, y: event.clientY })
       return
     }
     setRangeEnd(index)
     const start = rangeStart()!
     props.onRangeStats?.(klineRangeStats(allBars(), start, index))
+    props.onRangeAnchor?.({ x: event.clientX, y: event.clientY })
   }
 
   const onPointerMove = (event: PointerEvent): void => {
@@ -879,6 +885,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       if (index === null) return
       setRangeEnd(index)
       suppressContextUntil = performance.now() + 600
+      props.onRangeAnchor?.({ x: event.clientX, y: event.clientY })
       const start = rangeStart()
       if (start !== null) props.onRangeStats?.(klineRangeStats(allBars(), start, index))
       return
@@ -1491,24 +1498,33 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                           drawing.extended
                         )}
                       >
-                        {(level) => (
-                          <g>
-                            <line
-                              class="chart-drawing chart-drawing-fib"
-                              x1={geo().x((drawing.startIndex ?? 0) - win().start)}
-                              x2={geo().x((drawing.endIndex ?? 0) - win().start)}
-                              y1={geo().yPrice(level.price)}
-                              y2={geo().yPrice(level.price)}
-                            />
-                            <text
-                              class="chart-drawing-label"
-                              x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
-                              y={geo().yPrice(level.price) - 2}
-                            >
-                              {(level.ratio * 100).toFixed(1)}% {fixed(level.price)}
-                            </text>
-                          </g>
-                        )}
+                        {(level) => {
+                          const y = geo().yPrice(level.price)
+                          const inside = y >= geo().priceTop && y <= geo().priceBottom
+                          return (
+                            <Show when={inside}>
+                              <g>
+                                <line
+                                  class="chart-drawing chart-drawing-fib"
+                                  x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                                  x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                                  y1={y}
+                                  y2={y}
+                                />
+                                <text
+                                  class="chart-drawing-label"
+                                  x={geo().x((drawing.endIndex ?? 0) - win().start) + 4}
+                                  y={Math.max(
+                                    geo().priceTop + 9,
+                                    Math.min(y - 2, geo().priceBottom - 4)
+                                  )}
+                                >
+                                  {(level.ratio * 100).toFixed(1)}% {fixed(level.price)}
+                                </text>
+                              </g>
+                            </Show>
+                          )
+                        }}
                       </For>
                     </g>
                   ) : drawing.type === 'measure' ? (

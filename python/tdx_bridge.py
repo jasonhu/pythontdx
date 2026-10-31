@@ -76,6 +76,7 @@ from snapshot_archive import list_snapshot_archives, write_snapshot_archive
 from f10_pit import list_f10_snapshots, read_f10_snapshot, write_f10_snapshot
 from flow_archive import list_flow_archives, read_flow_archive, write_flow_archive
 from data_coverage import collect_data_coverage
+from data_integrity import verify_data_integrity
 from server_catalog import list_server_catalogs, write_server_catalog
 from tick_archive import (
     TickArchiveError,
@@ -4514,6 +4515,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("adjust", "qfq")),
             bool(payload.get("cacheOnly")),
         )
+    if cmd == "data_integrity":
+        return verify_data_integrity(stocklens_data_dir())
     if cmd == "data_coverage":
         return collect_data_coverage(stocklens_data_dir())
     if cmd == "data_inventory":

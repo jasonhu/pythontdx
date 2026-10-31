@@ -1,0 +1,67 @@
+"""本地归档 manifest 校验：文件存在 + SHA256 + 基本行数/结构。"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from auction_archive import read_auction_archive
+from parquet_store import file_sha256
+
+
+def _verify(root: Path, name: str, pattern: str, limit: int = 200) -> dict:
+    checked = 0
+    failed = 0
+    details: list[dict] = []
+    for manifest_path in sorted(Path(root).glob(pattern))[:limit]:
+        checked += 1
+        try:
+            manifest = json.loads(manifest_path.read_text("utf-8"))
+            file_name = str(manifest.get("file") or "")
+            data_path = manifest_path.parent / file_name
+            if not data_path.is_file():
+                raise ValueError("数据文件缺失")
+            digest = file_sha256(data_path)
+            if digest != manifest.get("sha256"):
+                raise ValueError("SHA256 不匹配")
+            rows = manifest.get("rows")
+            if rows is not None and int(rows) < 0:
+                raise ValueError("rows 非法")
+        except Exception as error:  # noqa: BLE001
+            failed += 1
+            details.append({"manifest": str(manifest_path), "error": str(error)})
+    return {"name": name, "checked": checked, "failed": failed, "details": details[:10]}
+
+
+def _verify_auction(root: Path) -> dict:
+    checked = 0
+    failed = 0
+    details: list[dict] = []
+    for manifest_path in sorted((Path(root) / "lake" / "auction").glob("trade_date=*/*.manifest.json")):
+        checked += 1
+        try:
+            manifest = json.loads(manifest_path.read_text("utf-8"))
+            read_auction_archive(
+                Path(root) / "lake" / "auction",
+                str(manifest.get("code") or ""),
+                str(manifest.get("tradeDate") or ""),
+            )
+        except Exception as error:  # noqa: BLE001
+            failed += 1
+            details.append({"manifest": str(manifest_path), "error": str(error)})
+    return {"name": "auction", "checked": checked, "failed": failed, "details": details[:10]}
+
+
+def verify_data_integrity(root: Path) -> dict:
+    checks = [
+        _verify(root, "ticks", "lake/ticks/**/*.manifest.json"),
+        _verify_auction(root),
+        _verify(root, "f10_pit", "lake/f10_pit/**/*.manifest.json"),
+        _verify(root, "money_flow", "lake/money_flow/**/*.manifest.json"),
+        _verify(root, "server_files", "lake/server_files/**/manifest.json"),
+    ]
+    return {
+        "ok": all(item["failed"] == 0 for item in checks),
+        "checks": checks,
+        "checked": sum(item["checked"] for item in checks),
+        "failed": sum(item["failed"] for item in checks),
+    }

@@ -142,6 +142,14 @@ def main() -> int:
         catalog = call("server_catalog", {})
         add("服务器文件清单", catalog.get("entries", []), 10)
         add("服务器文件差分", call("server_catalog_list", {"limit": 5}), 1)
+        integrity = call("data_integrity", {})
+        check(
+            "归档校验",
+            isinstance(integrity, dict)
+            and integrity.get("failed") == 0
+            and integrity.get("checked", 0) > 0,
+            str(integrity.get("failed") if isinstance(integrity, dict) else ""),
+        )
         coverage = call("data_coverage", {})
         required = {"klines", "ticks", "auction", "money_flow", "f10_pit", "server_files", "quotes"}
         present = {

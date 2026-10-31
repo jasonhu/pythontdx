@@ -625,6 +625,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/data_integrity":
+                with self.server.lock:
+                    self._ok(self.server.bridge.data_integrity())
+                return
             if parsed.path == "/api/data_coverage":
                 with self.server.lock:
                     self._ok(self.server.bridge.data_coverage())

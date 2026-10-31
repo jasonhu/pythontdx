@@ -31,11 +31,12 @@ interface DataPanelProps {
   onClose: () => void
 }
 
-type DownloadKey = 'kline' | 'kline1m' | 'blocks' | 'snapshot' | 'stats' | 'archive'
+type DownloadKey = 'kline' | 'kline1m' | 'indexKline' | 'blocks' | 'snapshot' | 'stats' | 'archive'
 
 const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> = [
-  { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，800 根/只' },
-  { key: 'kline1m', label: '1 分钟 K 缓存', hint: '自选/全 A，800 根/只' },
+  { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，全历史自动探测' },
+  { key: 'kline1m', label: '1 分钟 K 缓存', hint: '自选/全 A，全历史自动探测' },
+  { key: 'indexKline', label: '指数 K 缓存', hint: 'ZS 指数全历史' },
   { key: 'blocks', label: '板块文件', hint: '概念/风格/指数/一般' },
   { key: 'snapshot', label: '全市场快照', hint: 'MAC 报价导出 CSV' },
   { key: 'stats', label: 'TDX 统计', hint: 'zhb.zip + 规范化 tdxstat' },
@@ -91,6 +92,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
     kline: true,
     kline1m: true,
+    indexKline: true,
     blocks: true,
     snapshot: true,
     stats: true,
@@ -282,6 +284,42 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     }
   }
 
+  const runIndexCache = async (): Promise<void> => {
+    if (bulkRunning()) return
+    bulkCancel = false
+    setBulkRunning(true)
+    setBulkError(null)
+    setBulkDone(0)
+    setBulkSkipped(0)
+    setBulkFailed(0)
+    setBulkTotal(0)
+    try {
+      const catalog = await api.quote.catalog()
+      const codes = catalog.filter((item) => item.kind === 'ZS').map((item) => item.code)
+      setBulkTotal(codes.length)
+      for (const code of codes) {
+        if (bulkCancel) break
+        try {
+          const result = await api.data.fullCacheKlines({
+            codes: [code],
+            period: 'day',
+            adjust: 'none',
+            skipExisting: bulkIncremental()
+          })
+          setBulkDone((value) => value + result.cached + result.skipped)
+          setBulkSkipped((value) => value + result.skipped)
+          setBulkFailed((value) => value + result.failed.length)
+        } catch {
+          setBulkFailed((value) => value + 1)
+        }
+      }
+    } catch (cause) {
+      setBulkError(errorMessage(cause))
+    } finally {
+      setBulkRunning(false)
+    }
+  }
+
   const toggleDownload = (key: DownloadKey): void => {
     setDownloadSelection((current) => ({ ...current, [key]: !current[key] }))
   }
@@ -290,6 +328,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setDownloadSelection({
       kline: value,
       kline1m: value,
+      indexKline: value,
       blocks: value,
       snapshot: value,
       stats: value,
@@ -318,6 +357,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         setDownloadMessage(`正在下载：${task?.label ?? key}`)
         if (key === 'kline') await runBulkCache('day')
         else if (key === 'kline1m') await runBulkCache('1m')
+        else if (key === 'indexKline') await runIndexCache()
         else if (key === 'blocks') {
           for (const kind of BLOCK_KINDS) await api.block.list(kind)
         } else if (key === 'snapshot') await runSnapshotExport()

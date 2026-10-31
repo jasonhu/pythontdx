@@ -141,7 +141,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
   const [dragId, setDragId] = createSignal<number | null>(null)
-  const [dragPart, setDragPart] = createSignal<'start' | 'end'>('end')
+  const [dragPart, setDragPart] = createSignal<'start' | 'end' | 'offset'>('end')
   const [editing, setEditing] = createSignal<{
     id: number
     left: number
@@ -420,7 +420,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const hitDrawing = (
     event: PointerEvent,
     geo: KLineGeometry
-  ): { drawing: KLineDrawing; part: 'start' | 'end' } | null => {
+  ): { drawing: KLineDrawing; part: 'start' | 'end' | 'offset' } | null => {
     if (props.rangeMode || props.drawMode !== 'none') return null
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const x = event.clientX - rect.left
@@ -460,6 +460,13 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           Math.hypot(point.x - x, point.y - y)
         if (distance(start) <= 8) return { drawing, part: 'start' }
         if (distance(end) <= 8) return { drawing, part: 'end' }
+        if (drawing.type === 'channel') {
+          const offsetPoint = {
+            x: end.x,
+            y: geo.yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))
+          }
+          if (distance(offsetPoint) <= 8) return { drawing, part: 'offset' }
+        }
       }
     }
     return null
@@ -640,6 +647,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           if (drawing.id !== drag) return drawing
           if (drawing.type === 'horizontal') return { ...drawing, price: point.price }
           if (drawing.type === 'vertical') return { ...drawing, startIndex: point.index }
+          if (drawing.type === 'channel' && dragPart() === 'offset') {
+            return {
+              ...drawing,
+              offset: channelOffset(drawing.endPrice ?? 0, point.price) ?? 0
+            }
+          }
           if (
             drawing.type === 'trend' ||
             drawing.type === 'fib' ||
@@ -1252,6 +1265,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                       y1={geo().yPrice((drawing.startPrice ?? 0) + (drawing.offset ?? 0))}
                       x2={geo().x((drawing.endIndex ?? 0) - win().start)}
                       y2={geo().yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))}
+                    />
+                    <circle
+                      class="chart-drawing-point chart-drawing-channel-handle"
+                      cx={geo().x((drawing.endIndex ?? 0) - win().start)}
+                      cy={geo().yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))}
+                      r="4"
                     />
                   </g>
                 ) : (

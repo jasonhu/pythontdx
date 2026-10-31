@@ -54,7 +54,7 @@ StockLens 的所有重要变更都记录在这里。
 - **K 线箭头标注**：新增两点箭头画线，箭头头部随方向旋转，端点可拖动并持久化；
   新增 2 个箭头几何测试。
 - **K 线平行通道**：三点确定基线与偏移，绘制两条平行线和半透明填充；端点可拖动、
-  随画线持久化；新增 2 个偏移测试。
+  偏移手柄可单独拖动，随画线持久化；新增 2 个偏移测试。
 - **斐波那契回撤/扩展画线**：新增 7 档回撤（0/23.6/38.2/50/61.8/78.6/100%）与
   2 档扩展（127.2%/161.8%），端点可拖动；同时修复画线坐标未减去可见窗口起点、
   缩放后画线跑到屏幕外的 bug。
@@ -82,7 +82,7 @@ StockLens 的所有重要变更都记录在这里。
 
 - `npm run check` → **251 TS + 128 Python（2 skipped，23 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `d2fcdf0c…` / deb 105 MB `560108fa…`；
+- Linux AppImage 130 MB `5d480d60…` / deb 105 MB `ffdc35d3…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -92,12 +92,12 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/indicator-roc-params.png`、`screenshots/packaged-indicator-roc.png`、
   `screenshots/multi-screen.png`、`screenshots/screener-pb-cap.png`、
   `screenshots/screener-total-cap.png`、`screenshots/screener-sort-total-cap.png`、`screenshots/kline-fib.png`、
-  `screenshots/kline-fib-ext.png`、`screenshots/chart-measure.png`、`screenshots/chart-arrow.png`、`screenshots/chart-channel.png`、`screenshots/indicator-bbi.png`、
+  `screenshots/kline-fib-ext.png`、`screenshots/chart-measure.png`、`screenshots/chart-arrow.png`、`screenshots/chart-channel.png`、`screenshots/chart-channel-handle.png`、`screenshots/indicator-bbi.png`、
   `screenshots/indicator-dma.png`、`screenshots/indicator-trix.png`、
   `screenshots/indicator-sar.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**330 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+- 矩阵（不含状态图例）：**331 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

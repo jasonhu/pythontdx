@@ -85,6 +85,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [bulkSkipped, setBulkSkipped] = createSignal(0)
   const [bulkFailed, setBulkFailed] = createSignal(0)
   const [bulkIncremental, setBulkIncremental] = createSignal(true)
+  const [bulkFullHistory, setBulkFullHistory] = createSignal(true)
   const [bulkPeriod, setBulkPeriod] = createSignal<'day' | '1m'>('day')
   const [bulkError, setBulkError] = createSignal<string | null>(null)
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
@@ -248,16 +249,25 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     try {
       const codes = bulkScope() === 'watchlist' ? watchCodes() : await allAShareCodes()
       setBulkTotal(codes.length)
-      for (let start = 0; start < codes.length && !bulkCancel; start += 10) {
-        const chunk = codes.slice(start, start + 10)
+      const full = bulkFullHistory()
+      const chunkSize = full ? 1 : 10
+      for (let start = 0; start < codes.length && !bulkCancel; start += chunkSize) {
+        const chunk = codes.slice(start, start + chunkSize)
         try {
-          const result = await api.data.cacheKlines({
-            codes: chunk,
-            period,
-            count: 800,
-            adjust: 'qfq',
-            skipExisting: bulkIncremental()
-          })
+          const result = full
+            ? await api.data.fullCacheKlines({
+                codes: chunk,
+                period,
+                adjust: 'none',
+                skipExisting: bulkIncremental()
+              })
+            : await api.data.cacheKlines({
+                codes: chunk,
+                period,
+                count: 800,
+                adjust: 'qfq',
+                skipExisting: bulkIncremental()
+              })
           setBulkDone((value) => value + result.cached + result.skipped)
           setBulkSkipped((value) => value + result.skipped)
           setBulkFailed((value) => value + result.failed.length)
@@ -595,6 +605,15 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 />
                 增量：跳过已有
               </label>
+              <label class="data__incremental">
+                <input
+                  type="checkbox"
+                  checked={bulkFullHistory()}
+                  disabled={downloadRunning()}
+                  onChange={() => setBulkFullHistory((value) => !value)}
+                />
+                全部历史（自动探测）
+              </label>
               <button
                 class="btn btn--primary data__download-run"
                 disabled={downloadRunning()}
@@ -716,6 +735,15 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   onChange={() => setBulkIncremental((value) => !value)}
                 />
                 增量：跳过已有
+              </label>
+              <label class="data__incremental">
+                <input
+                  type="checkbox"
+                  checked={bulkFullHistory()}
+                  disabled={bulkRunning()}
+                  onChange={() => setBulkFullHistory((value) => !value)}
+                />
+                全部历史（自动探测）
               </label>
               <Show
                 when={bulkRunning()}

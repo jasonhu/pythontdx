@@ -36,6 +36,7 @@ import {
   fetchLocalQuery,
   exportKlines,
   cacheKlines,
+  cacheFullKlines,
   dataInventory,
   archiveSnapshot,
   fetchLakeArchives,
@@ -194,6 +195,10 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.cacheKlines, (_event, req: Parameters<typeof cacheKlines>[0]) =>
     cacheKlines(req)
+  )
+
+  ipcMain.handle(IPC.cacheFullKlines, (_event, req: Parameters<typeof cacheFullKlines>[0]) =>
+    cacheFullKlines(req)
   )
 
   ipcMain.handle(IPC.dataInventory, () => dataInventory())

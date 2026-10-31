@@ -18,6 +18,7 @@ import type {
   LocalDayResult,
   DataInventory,
   KLineCacheResult,
+  FullKLineCacheResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -354,6 +355,7 @@ export function createHttpApi(): StockLensApi {
         post<LocalDayWriteResult>('/api/local_write_min', { path, bars }),
       exportKlines: (req) => post<KLineExportResult>('/api/export_klines', req),
       cacheKlines: (req) => post<KLineCacheResult>('/api/cache_klines', req),
+      fullCacheKlines: (req) => post<FullKLineCacheResult>('/api/cache_full_klines', req),
       inventory: () => post<DataInventory>('/api/data_inventory', {}),
       archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {}),
       lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit })

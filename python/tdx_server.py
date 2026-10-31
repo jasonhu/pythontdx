@@ -536,6 +536,18 @@ class ApiHandler(BaseHTTPRequestHandler):
                     )
                 return
 
+            if parsed.path == "/api/cache_full_klines":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.cache_full_klines(
+                            list(payload.get("codes") or []),
+                            str(payload.get("period") or "day"),
+                            str(payload.get("adjust") or "none"),
+                            bool(payload.get("skipExisting")),
+                        )
+                    )
+                return
+
             if parsed.path == "/api/local_write_min":
                 with self.server.lock:
                     self._ok(

@@ -21,6 +21,7 @@ import type {
   LocalDayResult,
   DataInventory,
   KLineCacheResult,
+  FullKLineCacheResult,
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
@@ -368,6 +369,16 @@ export async function cacheKlines(req: {
   skipExisting?: boolean
 }): Promise<KLineCacheResult> {
   return bridge.send<KLineCacheResult>('cache_klines', req, 60_000)
+}
+
+export async function cacheFullKlines(req: {
+  codes: string[]
+  period?: string
+  adjust?: string
+  skipExisting?: boolean
+}): Promise<FullKLineCacheResult> {
+  // 全历史需要多次 800 根分页；给足 10 分钟，逐只失败会返回在 failed 里。
+  return bridge.send<FullKLineCacheResult>('cache_full_klines', req, 600_000)
 }
 
 export async function exportKlines(req: {

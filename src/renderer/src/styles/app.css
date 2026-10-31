@@ -759,9 +759,11 @@
   min-height: 0;
 }
 
-/* 图表拿到焦点（正在准备接收上下键）时给个内描边：外描边会被卡片裁掉 */
+/* 图表用滚轮/方向键操作，不要绘制焦点框；键盘归属仍由 aria-label 与快捷键说明表达 */
+.chart-host:focus,
 .chart-host:focus-visible {
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: none;
   border-radius: var(--r-sm);
 }
 

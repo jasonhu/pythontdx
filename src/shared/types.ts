@@ -647,6 +647,15 @@ export interface KLineCacheResult {
   dir: string
 }
 
+export interface FullKLineCacheResult {
+  cached: number
+  skipped: number
+  failed: Array<{ code: string; error: string }>
+  period: string
+  adjust: string
+  dir: string
+}
+
 /* ----------------------------------------------------------------- 搜索 */
 
 export interface SearchItem {

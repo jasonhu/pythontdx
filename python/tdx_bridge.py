@@ -2341,6 +2341,10 @@ def _kline_cache_path(code: str, period: str, count: int, adjust: str) -> Path:
     return kline_cache_dir() / safe
 
 
+def _full_kline_cache_path(code: str, period: str, adjust: str) -> Path:
+    return kline_cache_dir() / f"{code.lower()}_{period}_all_{adjust}.json"
+
+
 def _write_kline_cache(
     code: str, period: str, count: int, adjust: str, bars: list[dict], source: str
 ) -> Path:
@@ -2352,6 +2356,28 @@ def _write_kline_cache(
         "adjust": adjust,
         "source": source,
         "fetchedAt": int(time.time() * 1000),
+        "bars": bars,
+    }
+    temporary = target.with_name(target.name + ".part")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), "utf-8")
+    os.replace(temporary, target)
+    return target
+
+
+def _write_full_kline_cache(
+    code: str, period: str, adjust: str, bars: list[dict], pages: int, complete: bool
+) -> Path:
+    target = _full_kline_cache_path(code, period, adjust)
+    payload = {
+        "code": code,
+        "period": period,
+        "count": len(bars),
+        "adjust": adjust,
+        "source": "network",
+        "fetchedAt": int(time.time() * 1000),
+        "pages": pages,
+        "complete": complete,
+        "fullHistory": True,
         "bars": bars,
     }
     temporary = target.with_name(target.name + ".part")
@@ -3409,6 +3435,101 @@ class Bridge:
                 return cached
             raise
 
+    def full_kline(
+        self, code: str, period: str = "day", adjust: str = "none"
+    ) -> dict:
+        """按 800 根分页自动探测该代码全部可用历史，写 *_all_*.json。"""
+        market, symbol = parse_code(code)
+        if period not in PERIOD_RAW:
+            raise TdxError("不支持的 K 线周期")
+        safe_adjust = adjust if adjust in {"none", "qfq", "hfq"} else "none"
+        kind = "index" if is_index_code(market, symbol) else "stock"
+        period_param = {
+            '5s': 5, '15s': 15, '2m': 2, '3m': 3, '4m': 4, '6m': 6, '8m': 8,
+            '10m': 10, '12m': 12, '18m': 18, '20m': 20, '24m': 24, '36m': 36,
+            '48m': 48, '2d': 2, '3d': 3, '4d': 4, '6d': 6, '9d': 9, '12d': 12,
+            '18d': 18, '24d': 24, '45d': 45
+        }.get(period, 1)
+        page_size = 800
+        max_pages = 200
+        start = 0
+        pages = 0
+        bars_by_date: dict[str, dict] = {}
+        complete = False
+        while start <= 0xFFFF and pages < max_pages:
+            body = self.conn.request(
+                CMD_BARS,
+                bars_data(
+                    market,
+                    symbol,
+                    PERIOD_RAW[period],
+                    page_size,
+                    {'none': 0, 'qfq': 1, 'hfq': 2}.get(safe_adjust, 0),
+                    start,
+                    period_param,
+                ),
+            )
+            page = parse_bars(body, kind, PERIOD_RAW[period])
+            if not page:
+                complete = True
+                break
+            pages += 1
+            for bar in page:
+                bars_by_date[bar["date"]] = bar
+            if len(page) < page_size:
+                complete = True
+                break
+            start += len(page)
+        bars = sorted(bars_by_date.values(), key=lambda bar: bar["date"])
+        if not bars:
+            cached = _read_kline_cache(code, period, 800, safe_adjust)
+            if cached is not None:
+                return cached
+            raise TdxError("服务端未返回 K 线数据")
+        target = _write_full_kline_cache(
+            code, period, safe_adjust, bars, pages, complete
+        )
+        return {
+            "code": code,
+            "period": period,
+            "adjust": safe_adjust,
+            "bars": bars,
+            "source": "network",
+            "pages": pages,
+            "complete": complete,
+            "cachePath": str(target),
+            "fetchedAt": int(time.time() * 1000),
+        }
+
+    def cache_full_klines(
+        self,
+        codes: list[str],
+        period: str = "day",
+        adjust: str = "none",
+        skip_existing: bool = False,
+    ) -> dict:
+        """批量全历史下载；已有 *_all_*.json 时支持断点续跑。"""
+        cached = 0
+        skipped = 0
+        failed: list[dict] = []
+        for code in codes:
+            try:
+                if skip_existing and _full_kline_cache_path(code, period, adjust).exists():
+                    skipped += 1
+                    continue
+                self.full_kline(code, period, adjust)
+                cached += 1
+            except Exception as error:  # noqa: BLE001 - 逐只返回失败原因
+                failed.append({"code": code, "error": str(error)})
+        return {
+            "cached": cached,
+            "skipped": skipped,
+            "failed": failed,
+            "period": period,
+            "adjust": adjust,
+            "dir": str(kline_cache_dir()),
+        }
+
     def cache_klines(
         self,
         codes: list[str],
@@ -3694,6 +3815,13 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("period", "day")),
             int(payload.get("count", 800)),
             str(payload.get("adjust", "qfq")),
+            bool(payload.get("skipExisting")),
+        )
+    if cmd == "cache_full_klines":
+        return bridge.cache_full_klines(
+            list(payload.get("codes") or []),
+            str(payload.get("period", "day")),
+            str(payload.get("adjust", "none")),
             bool(payload.get("skipExisting")),
         )
     if cmd == "minute":

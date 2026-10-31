@@ -1,12 +1,13 @@
 /**
  * 个股行情头部：名称、代码、最新价、涨跌，以及一排核心指标。
  */
-import { type JSX } from 'solid-js'
+import { createEffect, createSignal, type JSX } from 'solid-js'
 import { MARKET_LABEL, type Quote } from '@shared/types'
 import { compactAmount, compactVolume, fixed, signed, signedPct, timeOfDay } from '@shared/format'
 import { createValueFlash } from '../lib/dom'
 import { toneOf, type Tone } from '../lib/tone'
 import { addWatchItem, removeWatchItem, watchItemOf } from '../stores/app'
+import { api } from '../lib/ipc'
 import { IconStar, IconStarFilled } from './Icons'
 
 export interface QuoteHeaderProps {
@@ -18,6 +19,27 @@ export interface QuoteHeaderProps {
 export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
   const tone = (): Tone => toneOf(props.quote.changePct)
   const flash = createValueFlash(() => props.quote.price)
+  const [estimatedVolumeRatio, setEstimatedVolumeRatio] = createSignal<number | undefined>(
+    undefined
+  )
+  const limits = (): { up?: number; down?: number } => limitPrices(props.quote)
+
+  createEffect(() => {
+    const code = props.quote.code
+    setEstimatedVolumeRatio(undefined)
+    void (async () => {
+      try {
+        const kline = await api.trend.kline({ code, period: 'day', count: 6 })
+        if (kline.bars.length < 2) return
+        const history = kline.bars.slice(0, -1).slice(-5)
+        const average =
+          history.reduce((sum, bar) => sum + bar.volume, 0) / Math.max(1, history.length)
+        if (average > 0) setEstimatedVolumeRatio(props.quote.volume / average)
+      } catch {
+        // 量比是辅助值，失败保持 —
+      }
+    })()
+  })
 
   const inWatchlist = (): boolean => watchItemOf(props.quote.code) !== undefined
 
@@ -108,11 +130,43 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
         <Metric label="最高" value={fixed(props.quote.high)} tone="up" />
         <Metric label="最低" value={fixed(props.quote.low)} tone="down" />
         <Metric label="昨收" value={fixed(props.quote.prevClose)} />
+        <Metric label="换手" value={percent(props.quote.turnoverRate)} />
+        <Metric label="量比" value={fixed(props.quote.volumeRatio ?? estimatedVolumeRatio())} />
+        <Metric label="振幅" value={percent(props.quote.amplitude)} />
+        <Metric label="均价" value={fixed(props.quote.avgPrice)} />
+        <Metric label="涨停" value={fixed(limits().up)} tone="up" />
+        <Metric label="跌停" value={fixed(limits().down)} tone="down" />
         <Metric label="成交量" value={compactVolume(props.quote.volume)} />
         <Metric label="成交额" value={compactAmount(props.quote.amount)} />
       </div>
     </section>
   )
+}
+
+function limitPrices(quote: Quote): { up?: number; down?: number } {
+  if (quote.limitUp !== undefined && quote.limitDown !== undefined) {
+    return { up: quote.limitUp, down: quote.limitDown }
+  }
+  if (!(quote.prevClose > 0)) return {}
+  const limitPct = quote.name.toUpperCase().includes('ST')
+    ? 5
+    : quote.market === 'BJ'
+      ? 30
+      : /^(300|301|302|688|689)/.test(quote.symbol)
+        ? 20
+        : 10
+  return {
+    up: roundPrice(quote.prevClose * (1 + limitPct / 100)),
+    down: roundPrice(quote.prevClose * (1 - limitPct / 100))
+  }
+}
+
+function roundPrice(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function percent(value: number | undefined): string {
+  return value === undefined ? '—' : `${value.toFixed(2)}%`
 }
 
 interface MetricProps {

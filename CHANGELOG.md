@@ -43,6 +43,7 @@ StockLens 的所有重要变更都记录在这里。
 - **自选 4 只实测**：日 K 1 新增/3 跳过 0.57s；1m 3 新增/1 跳过 1.53s；逐笔 20 日 78 新增/2 跳过 60.37s；共 340,190 笔、4.07MB。
 - **画线错位修复**：画线按 `code + period + 复权` 隔离，旧数据按 qfq 处理；保存起止日期锚点，数据前插后按日期重定位；利元亨旧画线切到前复权后对齐。
 - **右键区间统计**：K 线图右键拖拽选区，浮动窗显示根数、涨跌、最高、最低、振幅、成交量，可拖动调整位置；默认跟随鼠标，采用与 K 线读数一致的 chart-tooltip 行式布局；右键删除画线保持可用。
+- **行情头指标**：今开/最高/最低/昨收旁增加换手、量比、振幅、均价、涨停、跌停；右侧指标面板移除这些交易字段，只保留估值/财务/市值。
 - **K 线缩放上限**：可见档位从最大 160 根扩到 500 根，仍保留 800 根均线计算数据。
 - **智能组合补充**：增加测量线（高点→低点，显示涨跌幅/根数）和箭头（低点→阶段高点）；通道改用最近 60 根并延伸到最新交易日。
 - **智能画线收口**：智能组合不再生成趋势线（趋势线保留手工工具，起终点都显示价格）；智能组合为斐波那契、测量、箭头、通道、水平支撑/压力。
@@ -132,7 +133,7 @@ StockLens 的所有重要变更都记录在这里。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
 - `npm run check` → **259 TS + 148 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `ee0b50a6…` / deb 123 MB `a759db27…`；
+- Linux AppImage 147 MB `d1ffaac5…` / deb 123 MB `64185c99…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

@@ -78,12 +78,30 @@ def backfill_kline_manifests(root: Path) -> dict:
         if manifest_path(data_path).is_file():
             try:
                 existing = json.loads(manifest_path(data_path).read_text("utf-8"))
-                if existing.get("firstDate") and existing.get("lastDate"):
+                if (
+                    existing.get("firstDate")
+                    and existing.get("lastDate")
+                    and existing.get("code")
+                    and existing.get("period")
+                ):
                     skipped += 1
                     continue
+                parts = data_path.stem.split("_")
+                inferred = {}
+                if len(parts) >= 4:
+                    inferred = {
+                        "code": parts[0],
+                        "period": parts[1],
+                        "adjust": parts[3],
+                    }
+                    if parts[2] != "all":
+                        inferred["count"] = int(parts[2])
+                    else:
+                        inferred["fullHistory"] = True
                 write_kline_manifest(
                     data_path,
                     {
+                        **inferred,
                         "source": existing.get("source") or "legacy-backfill",
                         "fetchedAt": existing.get("fetchedAt"),
                     },

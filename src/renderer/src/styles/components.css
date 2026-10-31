@@ -6576,3 +6576,39 @@
   gap: 3px;
   margin-left: auto;
 }
+
+.data__bulk-grid {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 8px;
+}
+
+.data__bulk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+
+.data__bulk-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 92px;
+  gap: 1px;
+}
+
+.data__bulk-label strong {
+  color: var(--text-1);
+  font-size: 12px;
+}
+
+.data__bulk-label small {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.data__bulk-buttons {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}

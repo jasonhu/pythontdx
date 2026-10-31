@@ -82,7 +82,7 @@
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
 npm run test                # 只跑 TS 测试（202 个用例）
-npm run test:python         # 只跑 Python 协议/HTTP 测试（109 个用例）
+npm run test:python         # 只跑 Python 协议/HTTP 测试（110 个用例）
 npm run build:python        # PyInstaller 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
 npm run dev:web             # Web 前端（行情只读/本地状态可写；需先起 python/tdx_server.py）

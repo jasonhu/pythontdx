@@ -118,6 +118,38 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
   const [rangeMode, setRangeMode] = createSignal(false)
   const [rangeStats, setRangeStats] = createSignal<KLineRangeStats | null>(null)
+  const [rangeBox, setRangeBox] = createSignal({ x: 660, y: 116 })
+  let rangeDrag:
+    { startX: number; startY: number; x: number; y: number; maxX: number; maxY: number } | undefined
+  const beginRangeDrag = (event: PointerEvent): void => {
+    const card = (event.currentTarget as HTMLElement).closest('.chart-card') as HTMLElement | null
+    if (!card) return
+    const rect = card.getBoundingClientRect()
+    rangeDrag = {
+      startX: event.clientX,
+      startY: event.clientY,
+      x: rangeBox().x,
+      y: rangeBox().y,
+      maxX: Math.max(8, rect.width - 340),
+      maxY: Math.max(8, rect.height - 90)
+    }
+    event.preventDefault()
+    try {
+      ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+    } catch {
+      // 合成事件没有有效 pointerId
+    }
+  }
+  const moveRangeDrag = (event: PointerEvent): void => {
+    if (!rangeDrag) return
+    setRangeBox({
+      x: Math.max(8, Math.min(rangeDrag.maxX, rangeDrag.x + event.clientX - rangeDrag.startX)),
+      y: Math.max(8, Math.min(rangeDrag.maxY, rangeDrag.y + event.clientY - rangeDrag.startY))
+    })
+  }
+  const endRangeDrag = (): void => {
+    rangeDrag = undefined
+  }
   const [drawMode, setDrawMode] = createSignal<DrawingMode>('none')
   const [drawingText, setDrawingText] = createSignal('标注')
   const [clearDrawingsKey, setClearDrawingsKey] = createSignal(0)
@@ -774,11 +806,24 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
       </div>
 
       <Show when={rangeMode() || rangeStats()}>
-        <div class="chart-range-stats">
-          <Show when={rangeStats()} fallback={<span>区间统计：在图上点两下选择起点/终点</span>}>
+        <div
+          class="chart-range-stats"
+          style={{ left: `${rangeBox().x}px`, top: `${rangeBox().y}px` }}
+        >
+          <span
+            class="chart-range-stats__handle"
+            title="拖动浮动窗"
+            onPointerDown={beginRangeDrag}
+            onPointerMove={moveRangeDrag}
+            onPointerUp={endRangeDrag}
+            onPointerCancel={endRangeDrag}
+          >
+            ⠿ 区间
+          </span>
+          <Show when={rangeStats()} fallback={<span>右键拖拽 K 线选择区间</span>}>
             {(stats) => (
               <>
-                <span class="chart-range-stats__title">区间 {stats().bars} 根</span>
+                <span class="chart-range-stats__title">{stats().bars} 根</span>
                 <span>
                   涨跌{' '}
                   <strong

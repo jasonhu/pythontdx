@@ -3857,14 +3857,13 @@
 .chart-range-stats {
   position: absolute;
   z-index: 8;
-  top: 64px;
-  right: 64px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
   align-items: baseline;
-  max-width: min(460px, 60%);
-  padding: 9px 12px;
+  width: 320px;
+  max-width: min(340px, 70%);
+  padding: 7px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--bg-1) 92%, transparent);
@@ -3874,6 +3873,21 @@
   font-size: var(--fs-2xs);
   pointer-events: none;
   backdrop-filter: blur(8px);
+}
+
+.chart-range-stats__handle {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  cursor: grab;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.chart-range-stats__handle:active {
+  cursor: grabbing;
 }
 
 .chart-range-stats__title {

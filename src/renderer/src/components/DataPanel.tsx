@@ -122,6 +122,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [downloadMessage, setDownloadMessage] = createSignal('')
   const [downloadError, setDownloadError] = createSignal<string | null>(null)
   let bulkCancel = false
+  let downloadCancel = false
   const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
   const [snapshotExporting, setSnapshotExporting] = createSignal(false)
   const [snapshotResult, setSnapshotResult] = createSignal<number | null>(null)
@@ -480,9 +481,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setDownloadError(null)
     setDownloadDone(0)
     setDownloadTotal(keys.length)
+    downloadCancel = false
     let done = 0
     try {
       for (const key of keys) {
+        if (downloadCancel) break
         const task = DOWNLOAD_TASKS.find((item) => item.key === key)
         setDownloadMessage(`正在下载：${task?.label ?? key}`)
         if (key === 'kline') await runBulkCache('day', bulkScope())
@@ -779,6 +782,18 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 />
                 增量：跳过已有
               </label>
+              <Show when={downloadRunning()}>
+                <button
+                  class="btn data__bulk-cancel"
+                  onClick={() => {
+                    downloadCancel = true
+                    bulkCancel = true
+                    setDownloadMessage('正在终止…')
+                  }}
+                >
+                  终止下载
+                </button>
+              </Show>
               <button
                 class="btn btn--primary data__download-run"
                 disabled={downloadRunning()}

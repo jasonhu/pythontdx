@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   arrowHeadPoints,
+  channelOffset,
   FIB_RATIOS,
   fibonacciLevels,
   measurementBars,
@@ -67,5 +68,17 @@ describe('arrowHeadPoints', () => {
   it('非法坐标或尺寸返回空数组', () => {
     expect(arrowHeadPoints({ x: 0, y: 0 }, { x: Number.NaN, y: 0 })).toEqual([])
     expect(arrowHeadPoints({ x: 0, y: 0 }, { x: 10, y: 0 }, 0)).toEqual([])
+  })
+})
+
+describe('channelOffset', () => {
+  it('偏移等于第三点减终点', () => {
+    expect(channelOffset(10, 12)).toBe(2)
+    expect(channelOffset(10, 8)).toBe(-2)
+  })
+
+  it('非法价格返回 null', () => {
+    expect(channelOffset(Number.NaN, 12)).toBeNull()
+    expect(channelOffset(10, Number.POSITIVE_INFINITY)).toBeNull()
   })
 })

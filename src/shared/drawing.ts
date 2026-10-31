@@ -67,3 +67,9 @@ export function arrowHeadPoints(
     }
   ]
 }
+
+/** 平行通道的垂直偏移：第三点价格减终点价格。 */
+export function channelOffset(endPrice: number, thirdPrice: number): number | null {
+  if (!Number.isFinite(endPrice) || !Number.isFinite(thirdPrice)) return null
+  return thirdPrice - endPrice
+}

@@ -3895,6 +3895,12 @@
   stroke-width: 1;
 }
 
+.chart-drawing-channel-fill {
+  fill: var(--accent);
+  fill-opacity: 0.08;
+  stroke: none;
+}
+
 .price-dist {
   display: flex;
   flex-direction: column;

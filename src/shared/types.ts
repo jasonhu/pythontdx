@@ -807,7 +807,7 @@ export interface ChartDrawing {
   id: string
   code: string
   period: KLinePeriod
-  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure' | 'arrow'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure' | 'arrow' | 'channel'
   price?: number
   startIndex?: number
   startPrice?: number
@@ -816,6 +816,8 @@ export interface ChartDrawing {
   text?: string
   /** 斐波那契是否追加 127.2%/161.8% 扩展位 */
   extended?: boolean
+  /** 平行通道的垂直价格偏移 */
+  offset?: number
 }
 
 export interface AppSettings {

@@ -431,6 +431,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               箭头
             </button>
             <button
+              class="chip chart-draw-channel"
+              data-active={drawMode() === 'channel'}
+              title="点三下画平行通道：基线两点 + 偏移一点"
+              onClick={() => setDrawMode((mode) => (mode === 'channel' ? 'none' : 'channel'))}
+            >
+              通道
+            </button>
+            <button
               class="chip chart-draw-fib"
               data-active={drawMode() === 'fib'}
               title="点两下画斐波那契回撤"

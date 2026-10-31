@@ -45,6 +45,7 @@ import { chartOwnsKeys } from '../lib/chart-keys'
 import { useElementSize } from '../lib/dom'
 import {
   arrowHeadPoints,
+  channelOffset,
   fibonacciLevels,
   measurementBars,
   measurementPercent
@@ -55,11 +56,20 @@ import { appState, updateSettings } from '../stores/app'
 const MA_COLORS = ['#f0b429', '#5b8cff', '#c084fc', '#22d3ee', '#f472b6'] as const
 
 export type DrawingMode =
-  'none' | 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'fibExt' | 'measure' | 'arrow'
+  | 'none'
+  | 'horizontal'
+  | 'trend'
+  | 'vertical'
+  | 'text'
+  | 'fib'
+  | 'fibExt'
+  | 'measure'
+  | 'arrow'
+  | 'channel'
 
 interface KLineDrawing {
   id: number
-  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure' | 'arrow'
+  type: 'horizontal' | 'trend' | 'vertical' | 'text' | 'fib' | 'measure' | 'arrow' | 'channel'
   price?: number
   startIndex?: number
   startPrice?: number
@@ -67,6 +77,7 @@ interface KLineDrawing {
   endPrice?: number
   text?: string
   extended?: boolean
+  offset?: number
 }
 
 export interface KLineChartProps {
@@ -140,6 +151,9 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [pendingPoint, setPendingPoint] = createSignal<{ index: number; price: number } | null>(
     null
   )
+  const [pendingSecond, setPendingSecond] = createSignal<{ index: number; price: number } | null>(
+    null
+  )
   let drawingId = 0
 
   /** 全量 K 线 */
@@ -167,7 +181,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       endIndex: drawing.endIndex,
       endPrice: drawing.endPrice,
       text: drawing.text,
-      extended: drawing.extended
+      extended: drawing.extended,
+      offset: drawing.offset
     }))
     updateSettings({ chartDrawings: [...others, ...saved].slice(-200) })
   }
@@ -181,6 +196,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         setRangeEnd(null)
         setDrawings(savedDrawings().map((drawing) => ({ ...drawing, id: ++drawingId })))
         setPendingPoint(null)
+        setPendingSecond(null)
         props.onRangeStats?.(null)
       }
     )
@@ -192,6 +208,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       () => {
         setDrawings([])
         setPendingPoint(null)
+        setPendingSecond(null)
         persistDrawings([])
       },
       { defer: true }
@@ -201,6 +218,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   createEffect(() => {
     void props.drawMode
     setPendingPoint(null)
+    setPendingSecond(null)
   })
   const total = (): number => allBars().length
 
@@ -427,7 +445,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         drawing.type === 'trend' ||
         drawing.type === 'fib' ||
         drawing.type === 'measure' ||
-        drawing.type === 'arrow'
+        drawing.type === 'arrow' ||
+        drawing.type === 'channel'
       ) {
         const start = {
           x: drawX(drawing.startIndex ?? 0),
@@ -533,6 +552,37 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         persistDrawings(next)
         return
       }
+      if (props.drawMode === 'channel') {
+        const first = pendingPoint()
+        if (!first) {
+          setPendingPoint({ index, price })
+          return
+        }
+        const second = pendingSecond()
+        if (!second) {
+          setPendingSecond({ index, price })
+          return
+        }
+        drawingId += 1
+        const offset = channelOffset(second.price, price) ?? 0
+        const next = [
+          ...drawings(),
+          {
+            id: drawingId,
+            type: 'channel' as const,
+            startIndex: first.index,
+            startPrice: first.price,
+            endIndex: second.index,
+            endPrice: second.price,
+            offset
+          }
+        ]
+        setDrawings(next)
+        persistDrawings(next)
+        setPendingPoint(null)
+        setPendingSecond(null)
+        return
+      }
       const pending = pendingPoint()
       if (!pending) {
         setPendingPoint({ index, price })
@@ -594,7 +644,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
             drawing.type === 'trend' ||
             drawing.type === 'fib' ||
             drawing.type === 'measure' ||
-            drawing.type === 'arrow'
+            drawing.type === 'arrow' ||
+            drawing.type === 'channel'
           ) {
             return dragPart() === 'start'
               ? { ...drawing, startIndex: point.index, startPrice: point.price }
@@ -1170,6 +1221,37 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                       )
                         .map((point) => `${point.x},${point.y}`)
                         .join(' ')}
+                    />
+                  </g>
+                ) : drawing.type === 'channel' ? (
+                  <g>
+                    <polygon
+                      class="chart-drawing-channel-fill"
+                      points={[
+                        [drawing.startIndex ?? 0, drawing.startPrice ?? 0],
+                        [drawing.endIndex ?? 0, drawing.endPrice ?? 0],
+                        [drawing.endIndex ?? 0, (drawing.endPrice ?? 0) + (drawing.offset ?? 0)],
+                        [drawing.startIndex ?? 0, (drawing.startPrice ?? 0) + (drawing.offset ?? 0)]
+                      ]
+                        .map(
+                          ([index, price]) =>
+                            `${geo().x(index - win().start)},${geo().yPrice(price)}`
+                        )
+                        .join(' ')}
+                    />
+                    <line
+                      class="chart-drawing"
+                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                      y1={geo().yPrice(drawing.startPrice ?? 0)}
+                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                      y2={geo().yPrice(drawing.endPrice ?? 0)}
+                    />
+                    <line
+                      class="chart-drawing"
+                      x1={geo().x((drawing.startIndex ?? 0) - win().start)}
+                      y1={geo().yPrice((drawing.startPrice ?? 0) + (drawing.offset ?? 0))}
+                      x2={geo().x((drawing.endIndex ?? 0) - win().start)}
+                      y2={geo().yPrice((drawing.endPrice ?? 0) + (drawing.offset ?? 0))}
                     />
                   </g>
                 ) : (

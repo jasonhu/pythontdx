@@ -373,3 +373,39 @@ export function dma(
   }
   return { dma: dmaValues, ama }
 }
+
+/**
+ * TRIX（三重指数平滑平均）：对收盘价做三次 EMA，再取一阶变化率。
+ * 第二行是 TRIX 的 signal 日均线；前两根没有变化率，返回 NaN。
+ */
+export function trix(
+  bars: readonly KLineBar[],
+  period = 12,
+  signal = 9
+): { trix: number[]; signal: number[] } {
+  const closes = bars.map((bar) => bar.close)
+  const safePeriod = Math.max(1, Math.min(200, Math.floor(period)))
+  const safeSignal = Math.max(1, Math.min(200, Math.floor(signal)))
+  const first = ema(closes, safePeriod)
+  const second = ema(first, safePeriod)
+  const third = ema(second, safePeriod)
+  const trixValues = closes.map((_, index) => {
+    if (index === 0) return Number.NaN
+    const previous = third[index - 1]
+    return previous === 0 ? Number.NaN : ((third[index] - previous) / previous) * 100
+  })
+  const signalValues: number[] = []
+  const window: number[] = []
+  for (const value of trixValues) {
+    if (Number.isFinite(value)) {
+      window.push(value)
+      if (window.length > safeSignal) window.shift()
+    }
+    signalValues.push(
+      window.length === safeSignal
+        ? window.reduce((total, item) => total + item, 0) / safeSignal
+        : Number.NaN
+    )
+  }
+  return { trix: trixValues, signal: signalValues }
+}

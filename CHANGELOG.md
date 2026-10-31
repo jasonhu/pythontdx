@@ -43,6 +43,8 @@ StockLens 的所有重要变更都记录在这里。
   共用；新增 1 个边界测试。
 - **DMA 指标**：新增平行线差 `DMA = MA10 - MA50` 与 `AMA = MA(DMA,10)`，短/长/M
   三参数可编辑并记忆；指标面板与副图共用；15 个页签正常排布；新增 1 个边界测试。
+- **TRIX 指标**：新增三重指数平滑平均 `TRIX12` 与 `MATRIX9`，N/M 参数可编辑并记忆；
+  指标面板与副图共用；16 个页签正常排布；新增 1 个边界测试。
 - **斐波那契回撤/扩展画线**：新增 7 档回撤（0/23.6/38.2/50/61.8/78.6/100%）与
   2 档扩展（127.2%/161.8%），端点可拖动；同时修复画线坐标未减去可见窗口起点、
   缩放后画线跑到屏幕外的 bug。
@@ -68,9 +70,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` → **243 TS + 126 Python（2 skipped，23 个 TS 文件）**，全绿；
+- `npm run check` → **244 TS + 126 Python（2 skipped，23 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `76cca42c…` / deb 105 MB `92708479…`；
+- Linux AppImage 130 MB `2ff4b3ac…` / deb 105 MB `cfa5c8fa…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -81,10 +83,10 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/multi-screen.png`、`screenshots/screener-pb-cap.png`、
   `screenshots/screener-total-cap.png`、`screenshots/kline-fib.png`、
   `screenshots/kline-fib-ext.png`、`screenshots/indicator-bbi.png`、
-  `screenshots/indicator-dma.png`、
+  `screenshots/indicator-dma.png`、`screenshots/indicator-trix.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**324 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+- 矩阵（不含状态图例）：**325 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 

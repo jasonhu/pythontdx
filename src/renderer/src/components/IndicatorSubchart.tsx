@@ -19,6 +19,7 @@ import {
   psy,
   roc,
   rsi,
+  trix as trixIndicator,
   vr,
   wr
 } from '@shared/indicators'
@@ -38,6 +39,7 @@ export type SubIndicator =
   | 'cr'
   | 'bbi'
   | 'dma'
+  | 'trix'
 
 const W = 900
 const H = 120
@@ -62,6 +64,8 @@ const COLORS = {
   bbi: '#22d3ee',
   dma: '#5b8cff',
   ama: '#f0b429',
+  trix: '#22d3ee',
+  trixSignal: '#c084fc',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -330,6 +334,23 @@ export function IndicatorSubchart(props: {
         ],
         hist: [],
         latest: `DMA ${fixed(dif.at(-1) ?? 0)} · AMA ${fixed(ama.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'trix') {
+      const period = props.params?.trixPeriod ?? 12
+      const result = trixIndicator(all, period, props.params?.trixSignal ?? 9)
+      const line = slice(result.trix)
+      const signalLine = slice(result.signal)
+      const finite = [...line, ...signalLine].filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [
+          { label: `TRIX${period}`, color: COLORS.trix, d: path(line, min, max) },
+          { label: 'MATRIX', color: COLORS.trixSignal, d: path(signalLine, min, max) }
+        ],
+        hist: [],
+        latest: `TRIX ${fixed(line.at(-1) ?? 0)} · MATRIX ${fixed(signalLine.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all, props.params?.rsiPeriod ?? 14))

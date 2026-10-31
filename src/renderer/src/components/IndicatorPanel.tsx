@@ -20,6 +20,7 @@ import {
   psy,
   roc,
   rsi,
+  trix as trixIndicator,
   vr,
   wr
 } from '@shared/indicators'
@@ -42,6 +43,7 @@ type Tab =
   | 'cr'
   | 'bbi'
   | 'dma'
+  | 'trix'
   | 'boll'
 
 const W = 900
@@ -65,6 +67,8 @@ const COLORS = {
   bbi: '#22d3ee',
   dma: '#5b8cff',
   ama: '#f0b429',
+  trix: '#22d3ee',
+  trixSignal: '#c084fc',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -122,6 +126,8 @@ export function IndicatorPanel(props: {
   const [dmaShort, setDmaShort] = createSignal('10')
   const [dmaLong, setDmaLong] = createSignal('50')
   const [dmaSignal, setDmaSignal] = createSignal('10')
+  const [trixPeriod, setTrixPeriod] = createSignal('12')
+  const [trixSignal, setTrixSignal] = createSignal('9')
 
   const num = (value: () => string, fallback: number): number => {
     const parsed = Number(value())
@@ -156,6 +162,8 @@ export function IndicatorPanel(props: {
     setDmaShort(String(saved.dmaShort ?? 10))
     setDmaLong(String(saved.dmaLong ?? 50))
     setDmaSignal(String(saved.dmaSignal ?? 10))
+    setTrixPeriod(String(saved.trixPeriod ?? 12))
+    setTrixSignal(String(saved.trixSignal ?? 9))
   })
 
   const persistParams = (): void => {
@@ -183,7 +191,9 @@ export function IndicatorPanel(props: {
         crPeriod: num(crPeriod, 26),
         dmaShort: num(dmaShort, 10),
         dmaLong: num(dmaLong, 50),
-        dmaSignal: num(dmaSignal, 10)
+        dmaSignal: num(dmaSignal, 10),
+        trixPeriod: num(trixPeriod, 12),
+        trixSignal: num(trixSignal, 9)
       }
     })
   }
@@ -425,6 +435,26 @@ export function IndicatorPanel(props: {
         ] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'trix') {
+      const period = num(trixPeriod, 12)
+      const values = trixIndicator(all, period, num(trixSignal, 9))
+      const line = slice(values.trix)
+      const signalLine = slice(values.signal)
+      const finite = [...line, ...signalLine].filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [
+          { label: `TRIX${period}`, color: COLORS.trix, path: linePath(line, min, max) },
+          { label: 'MATRIX', color: COLORS.trixSignal, path: linePath(signalLine, min, max) }
+        ],
+        hist: [],
+        latest: [
+          [`TRIX${period}`, line.at(-1)],
+          ['MATRIX', signalLine.at(-1)]
+        ] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -488,6 +518,7 @@ export function IndicatorPanel(props: {
                 ['cr', 'CR'],
                 ['bbi', 'BBI'],
                 ['dma', 'DMA'],
+                ['trix', 'TRIX'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }
@@ -818,6 +849,34 @@ export function IndicatorPanel(props: {
               />
             </label>
           </Show>
+          <Show when={tab() === 'trix'}>
+            <label>
+              <span>N</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={trixPeriod()}
+                onInput={(e) => {
+                  setTrixPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+            <label>
+              <span>M</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={trixSignal()}
+                onInput={(e) => {
+                  setTrixSignal(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
         </div>
 
         <div class="indicator__body">
@@ -880,7 +939,8 @@ export function IndicatorPanel(props: {
             {num(kdjPeriod, 9)},{num(kdjM1, 3)},{num(kdjM2, 3)}) · RSI{num(rsiPeriod, 14)} · BOLL(
             {num(bollPeriod, 20)},{num(bollK, 2)}) · ROC{num(rocPeriod, 12)} · PSY
             {num(psyPeriod, 12)} · VR{num(vrPeriod, 26)} · CR{num(crPeriod, 26)} · DMA(
-            {num(dmaShort, 10)},{num(dmaLong, 50)},{num(dmaSignal, 10)})
+            {num(dmaShort, 10)},{num(dmaLong, 50)},{num(dmaSignal, 10)}) · TRIX(
+            {num(trixPeriod, 12)},{num(trixSignal, 9)})
           </span>
           <span>不构成交易建议</span>
         </footer>

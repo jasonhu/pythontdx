@@ -790,6 +790,8 @@ export interface IndicatorParams {
   dmaShort?: number
   dmaLong?: number
   dmaSignal?: number
+  trixPeriod?: number
+  trixSignal?: number
 }
 
 export interface PortfolioPosition {
@@ -852,6 +854,7 @@ export interface AppSettings {
     | 'cr'
     | 'bbi'
     | 'dma'
+    | 'trix'
   /** 价格坐标是否对数 */
   logScale?: boolean
   /** K 线画线（按 code/period 保存） */

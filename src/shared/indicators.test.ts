@@ -16,7 +16,8 @@ import {
   roc,
   psy,
   vr,
-  cr
+  cr,
+  trix
 } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
@@ -197,5 +198,15 @@ describe('roc / psy / vr / cr', () => {
     expect(values.ama[6]).toBeNaN()
     expect(values.ama[7]).toBeCloseTo(1.5, 6)
     expect(values.ama[59]).toBeCloseTo(1.5, 6)
+  })
+
+  it('TRIX 对常数序列为 0，signal 预热后为 0；上涨序列为正', () => {
+    const flat = trix(bars(Array.from({ length: 30 }, () => 10)), 3, 3)
+    expect(flat.trix[0]).toBeNaN()
+    expect(flat.trix[1]).toBe(0)
+    expect(flat.signal[2]).toBeNaN()
+    expect(flat.signal[3]).toBe(0)
+    const rising = trix(bars(Array.from({ length: 30 }, (_, index) => index + 1)), 3, 3)
+    expect(rising.trix.at(-1)).toBeGreaterThan(0)
   })
 })

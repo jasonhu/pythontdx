@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { boll, ema, kdj, macd, rsi } from './indicators'
+import { boll, ema, kdj, macd, rsi, wr } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -33,5 +33,23 @@ describe('indicators', () => {
     const bands = boll(bars(Array.from({ length: 25 }, (_, i) => i + 1)), 20)
     expect(bands.middle.at(-1)).toBe(15.5)
     expect(bands.upper.at(-1)).toBeGreaterThan(bands.middle.at(-1)!)
+  })
+})
+
+describe('wr', () => {
+  it('计算 14 日威廉指标并保留前导空值', () => {
+    const bars = Array.from({ length: 20 }, (_, index) => ({
+      date: String(index),
+      open: 10,
+      high: 10 + index,
+      low: 9 + index,
+      close: 9.5 + index,
+      volume: 1
+    }))
+    const values = wr(bars, 14)
+    expect(Number.isNaN(values[12])).toBe(true)
+    expect(values[13]).toBeTypeOf('number')
+    expect(values[19]).toBeGreaterThanOrEqual(0)
+    expect(values[19]).toBeLessThanOrEqual(100)
   })
 })

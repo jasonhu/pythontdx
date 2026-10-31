@@ -6,9 +6,9 @@
 import { createMemo, For, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { kdj, macd, rsi } from '@shared/indicators'
+import { kdj, macd, rsi, wr } from '@shared/indicators'
 
-export type SubIndicator = 'macd' | 'kdj' | 'rsi'
+export type SubIndicator = 'macd' | 'kdj' | 'rsi' | 'wr'
 
 const W = 900
 const H = 120
@@ -22,7 +22,8 @@ const COLORS = {
   k: '#5b8cff',
   d: '#f0b429',
   j: '#c084fc',
-  rsi: '#5b8cff'
+  rsi: '#5b8cff',
+  wr: '#22d3ee'
 }
 
 function path(values: number[], min: number, max: number): string {
@@ -87,6 +88,14 @@ export function IndicatorSubchart(props: { bars: KLineBar[]; kind: SubIndicator 
         ],
         hist: [],
         latest: `K ${fixed(k.at(-1) ?? 0)} · D ${fixed(d.at(-1) ?? 0)} · J ${fixed(j.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'wr') {
+      const values = slice(wr(all))
+      return {
+        lines: [{ label: 'WR14', color: COLORS.wr, d: path(values, 0, 100) }],
+        hist: [],
+        latest: `WR14 ${fixed(values.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all))

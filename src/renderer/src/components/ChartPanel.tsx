@@ -404,6 +404,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               <option value="macd">MACD</option>
               <option value="kdj">KDJ</option>
               <option value="rsi">RSI</option>
+              <option value="wr">WR</option>
             </select>
           </Show>
 

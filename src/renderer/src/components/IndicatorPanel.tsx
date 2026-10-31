@@ -1,17 +1,17 @@
 /**
- * 技术指标面板：MACD / KDJ / RSI / BOLL。
+ * 技术指标面板：MACD / KDJ / RSI / WR / BOLL。
  *
  * 纯本地计算，不请求额外数据；图表只取最近 160 根日 K 显示。
  */
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { boll, kdj, macd, rsi } from '@shared/indicators'
+import { boll, kdj, macd, rsi, wr } from '@shared/indicators'
 import { api, errorMessage } from '../lib/ipc'
 import { appState, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
 
-type Tab = 'macd' | 'kdj' | 'rsi' | 'boll'
+type Tab = 'macd' | 'kdj' | 'rsi' | 'wr' | 'boll'
 
 const W = 900
 const H = 300
@@ -25,6 +25,7 @@ const COLORS = {
   d: '#f0b429',
   j: '#c084fc',
   rsi: '#5b8cff',
+  wr: '#22d3ee',
   close: '#d7dce7',
   upper: '#f0b429',
   middle: '#5b8cff',
@@ -61,6 +62,7 @@ export function IndicatorPanel(props: {
   const [kdjM1, setKdjM1] = createSignal('3')
   const [kdjM2, setKdjM2] = createSignal('3')
   const [rsiPeriod, setRsiPeriod] = createSignal('14')
+  const [wrPeriod, setWrPeriod] = createSignal('14')
   const [bollPeriod, setBollPeriod] = createSignal('20')
   const [bollK, setBollK] = createSignal('2')
 
@@ -82,6 +84,7 @@ export function IndicatorPanel(props: {
     setKdjM1(String(saved.kdjM1))
     setKdjM2(String(saved.kdjM2))
     setRsiPeriod(String(saved.rsiPeriod))
+    setWrPeriod(String(saved.wrPeriod ?? 14))
     setBollPeriod(String(saved.bollPeriod))
     setBollK(String(saved.bollK))
   })
@@ -97,6 +100,7 @@ export function IndicatorPanel(props: {
         kdjM1: num(kdjM1, 3),
         kdjM2: num(kdjM2, 3),
         rsiPeriod: num(rsiPeriod, 14),
+        wrPeriod: num(wrPeriod, 14),
         bollPeriod: num(bollPeriod, 20),
         bollK: num(bollK, 2)
       }
@@ -188,6 +192,15 @@ export function IndicatorPanel(props: {
         latest: [['RSI14', line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'wr') {
+      const values = wr(all, num(wrPeriod, 14))
+      const line = slice(values)
+      return {
+        lines: [{ label: 'WR14', color: COLORS.wr, path: linePath(line, 0, 100) }],
+        hist: [],
+        latest: [['WR14', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -240,6 +253,7 @@ export function IndicatorPanel(props: {
                 ['macd', 'MACD'],
                 ['kdj', 'KDJ'],
                 ['rsi', 'RSI'],
+                ['wr', 'WR'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }
@@ -349,6 +363,21 @@ export function IndicatorPanel(props: {
                 value={rsiPeriod()}
                 onInput={(e) => {
                   setRsiPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'wr'}>
+            <label>
+              <span>N</span>
+              <input
+                type="number"
+                min="2"
+                max="60"
+                value={wrPeriod()}
+                onInput={(e) => {
+                  setWrPeriod(e.currentTarget.value)
                   persistParams()
                 }}
               />

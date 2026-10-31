@@ -118,3 +118,21 @@ export function lastFinite(values: readonly number[]): number | null {
   }
   return null
 }
+
+/** 威廉指标 WR：0~100，数值越大越超卖（国内常用口径）。 */
+export function wr(bars: readonly KLineBar[], period = 14): number[] {
+  const result: number[] = []
+  for (let index = 0; index < bars.length; index += 1) {
+    if (index < period - 1) {
+      result.push(Number.NaN)
+      continue
+    }
+    const window = bars.slice(index - period + 1, index + 1)
+    const highest = Math.max(...window.map((bar) => bar.high))
+    const lowest = Math.min(...window.map((bar) => bar.low))
+    result.push(
+      highest === lowest ? 50 : ((highest - bars[index].close) / (highest - lowest)) * 100
+    )
+  }
+  return result
+}

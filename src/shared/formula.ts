@@ -42,7 +42,22 @@ const FUNCTIONS = new Set([
   'HHV',
   'LLV',
   'STD',
-  'IF'
+  'IF',
+  'SMA',
+  'WMA',
+  'COUNT',
+  'EVERY',
+  'EXIST',
+  'BARSLAST',
+  'HHVBARS',
+  'LLVBARS',
+  'SQRT',
+  'POW',
+  'ROUND',
+  'INTPART',
+  'AND',
+  'OR',
+  'NOT'
 ])
 
 function tokenize(expression: string): Token[] {
@@ -320,6 +335,113 @@ function evaluate(node: Node, bars: KLineBar[]): number[] {
           return condition.map((value, index) =>
             Number.isFinite(value) && value > 0 ? whenTrue[index] : whenFalse[index]
           )
+        }
+        case 'SMA': {
+          if (node.args.length !== 3) throw new FormulaError('SMA 需要 3 个参数')
+          const values = evaluate(node.args[0], bars)
+          const count = withCount(node.args[1], bars)
+          const weight = withCount(node.args[2], bars)
+          if (weight > count) throw new FormulaError('SMA 的 M 不能大于 N')
+          let previous = Number.NaN
+          return values.map((value) => {
+            if (!Number.isFinite(value)) return Number.NaN
+            previous = Number.isFinite(previous)
+              ? (weight * value + (count - weight) * previous) / count
+              : value
+            return previous
+          })
+        }
+        case 'WMA': {
+          if (node.args.length !== 2) throw new FormulaError('WMA 需要 2 个参数')
+          const values = evaluate(node.args[0], bars)
+          const count = withCount(node.args[1], bars)
+          const divisor = (count * (count + 1)) / 2
+          return values.map((_, index) => {
+            if (index + 1 < count) return Number.NaN
+            let total = 0
+            for (let offset = 0; offset < count; offset += 1) {
+              const value = values[index - offset]
+              if (!Number.isFinite(value)) return Number.NaN
+              total += value * (count - offset)
+            }
+            return total / divisor
+          })
+        }
+        case 'COUNT':
+        case 'EVERY':
+        case 'EXIST': {
+          if (node.args.length !== 2) throw new FormulaError(`${node.name} 需要 2 个参数`)
+          const values = evaluate(node.args[0], bars)
+          const count = withCount(node.args[1], bars)
+          return values.map((_, index) => {
+            if (index + 1 < count) return Number.NaN
+            const window = values.slice(index - count + 1, index + 1)
+            if (node.name === 'COUNT') return window.filter((value) => value > 0).length
+            if (node.name === 'EVERY') return window.every((value) => value > 0) ? 1 : 0
+            return window.some((value) => value > 0) ? 1 : 0
+          })
+        }
+        case 'BARSLAST': {
+          if (node.args.length !== 1) throw new FormulaError('BARSLAST 需要 1 个参数')
+          const values = evaluate(node.args[0], bars)
+          let last = -1
+          return values.map((value, index) => {
+            if (value > 0) last = index
+            return last >= 0 ? index - last : Number.NaN
+          })
+        }
+        case 'HHVBARS':
+        case 'LLVBARS': {
+          if (node.args.length !== 2) throw new FormulaError(`${node.name} 需要 2 个参数`)
+          const values = evaluate(node.args[0], bars)
+          const count = withCount(node.args[1], bars)
+          return values.map((_, index) => {
+            if (index + 1 < count) return Number.NaN
+            const window = values.slice(index - count + 1, index + 1)
+            let target = node.name === 'HHVBARS' ? -Infinity : Infinity
+            for (const value of window) {
+              target = node.name === 'HHVBARS' ? Math.max(target, value) : Math.min(target, value)
+            }
+            return count - 1 - window.lastIndexOf(target)
+          })
+        }
+        case 'SQRT': {
+          if (node.args.length !== 1) throw new FormulaError('SQRT 需要 1 个参数')
+          return evaluate(node.args[0], bars).map((value) =>
+            value < 0 ? Number.NaN : Math.sqrt(value)
+          )
+        }
+        case 'POW': {
+          if (node.args.length !== 2) throw new FormulaError('POW 需要 2 个参数')
+          const left = evaluate(node.args[0], bars)
+          const right = evaluate(node.args[1], bars)
+          return left.map((value, index) => value ** right[index])
+        }
+        case 'ROUND':
+        case 'INTPART': {
+          if (node.args.length !== 1) throw new FormulaError(`${node.name} 需要 1 个参数`)
+          return evaluate(node.args[0], bars).map((value) =>
+            node.name === 'ROUND' ? Math.round(value) : Math.trunc(value)
+          )
+        }
+        case 'AND':
+        case 'OR': {
+          if (node.args.length !== 2) throw new FormulaError(`${node.name} 需要 2 个参数`)
+          const left = evaluate(node.args[0], bars)
+          const right = evaluate(node.args[1], bars)
+          return left.map((value, index) =>
+            node.name === 'AND'
+              ? value > 0 && right[index] > 0
+                ? 1
+                : 0
+              : value > 0 || right[index] > 0
+                ? 1
+                : 0
+          )
+        }
+        case 'NOT': {
+          if (node.args.length !== 1) throw new FormulaError('NOT 需要 1 个参数')
+          return evaluate(node.args[0], bars).map((value) => (value > 0 ? 0 : 1))
         }
         default:
           throw new FormulaError(`未知函数：${node.name}`)

@@ -48,6 +48,8 @@ import type {
   MoneyFlowRecord,
   MultiDayTrend,
   Quote,
+  PushTask,
+  PushUpdate,
   QuoteUpdate,
   SearchItem,
   ScreenRequest,
@@ -73,6 +75,12 @@ export const IPC = {
   quoteUnsubscribe: 'quote:unsubscribe',
   /** 主进程 → 渲染进程的行情推送（on） */
   quoteUpdate: 'quote:update',
+  /** 订阅面板级推送任务，返回订阅 id（invoke） */
+  pushSubscribe: 'push:subscribe',
+  /** 取消面板级推送（invoke） */
+  pushUnsubscribe: 'push:unsubscribe',
+  /** 主进程 → 渲染进程的面板数据推送（on） */
+  pushUpdate: 'push:update',
   /** 分类行情/排行榜（invoke） */
   quoteCategory: 'quote:category',
   /** 成交明细（invoke） */
@@ -290,6 +298,14 @@ export interface StockLensApi {
     macQuotes(codes: string[]): Promise<Quote[]>
     /** MAC 报价 + 财务；市值排序用，财务失败时字段缺失 */
     macQuotesFinance(codes: string[]): Promise<Quote[]>
+  }
+  push: {
+    /** 订阅一个面板级推送任务，返回订阅 id */
+    subscribe(task: PushTask, intervalMs: number): Promise<number>
+    /** 取消订阅 */
+    unsubscribe(id: number): Promise<void>
+    /** 监听主进程推送，返回取消监听的函数 */
+    onUpdate(listener: (update: PushUpdate) => void): () => void
   }
   trade: {
     /** 成交明细：不传 date 走当日 0x0fc5，传 date 走历史 0x0fc6 */

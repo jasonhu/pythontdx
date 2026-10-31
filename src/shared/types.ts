@@ -1090,6 +1090,38 @@ export interface QuoteUpdate {
   error?: string
 }
 
+/**
+ * 面板级推送任务。
+ *
+ * 上游 0x0547 已实测为快照，不能做真正的服务端推送；这里由主进程持有
+ * 订阅、拉取并推给渲染层，界面组件不再各自 setInterval。任务只描述
+ * 「要什么数据」，调度和 IPC 都在主进程，避免每个面板各拉一套。
+ */
+export type PushTask =
+  | {
+      kind: 'category'
+      category: number
+      sortType: number
+      start: number
+      count: number
+      ascending?: boolean
+    }
+  | { kind: 'ticks'; code: string; date?: string; start?: number; count?: number }
+  | { kind: 'auction'; code: string; date?: string }
+  | { kind: 'moneyFlow'; code: string }
+  | { kind: 'kline'; code: string; period: KLinePeriod; count: number; adjust: KLineAdjust }
+  | { kind: 'minute'; code: string }
+  | { kind: 'fiveDay'; code: string }
+
+/** 主进程推给某个面板订阅的一帧数据 */
+export interface PushUpdate {
+  id: number
+  at: number
+  task: PushTask
+  data?: unknown
+  error?: string
+}
+
 /* ------------------------------------------------------------------ 状态 */
 
 /** 行情连接质量，用于状态栏指示灯 */

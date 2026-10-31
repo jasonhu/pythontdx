@@ -15,9 +15,16 @@ import {
   Show,
   type JSX
 } from 'solid-js'
-import type { KLineAdjust, KLinePeriod, KLineSeries, MinuteTrend } from '@shared/types'
+import type {
+  KLineAdjust,
+  KLinePeriod,
+  KLineSeries,
+  MinuteTrend,
+  MultiDayTrend
+} from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { subscribePush } from '../lib/push'
 import { downloadText } from '../lib/download'
 import { toCsv } from '@shared/csv'
 import { appState, updateSettings } from '../stores/app'
@@ -134,7 +141,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     const saved = appState.settings.logScale
     if (saved !== undefined && saved !== logScale()) setLogScale(saved)
   })
-  const [tick, setTick] = createSignal(0)
+  const [pushed, setPushed] = createSignal<ChartData | null>(null)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
   const [subCursor, setSubCursor] = createSignal<number | null>(null)
   const [subWindow, setSubWindow] = createSignal({ start: 0, count: 0, width: 0 })
@@ -150,9 +157,6 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const isTrend = (): boolean => tab() === 'minute' || tab() === 'five'
   const [cachedSeries, setCachedSeries] = createSignal<KLineSeries | null>(null)
   let cacheSequence = 0
-
-  const timer = setInterval(() => setTick((value) => value + 1), REFRESH_MS)
-  onCleanup(() => clearInterval(timer))
 
   // 首屏先读本地 K 线缓存；网络返回后由 data resource 覆盖。
   createEffect(() => {
@@ -178,9 +182,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
 
   const [data, { refetch }] = createResource<
     ChartData,
-    { code: string; tab: Tab; tick: number; adjust: KLineAdjust }
+    { code: string; tab: Tab; adjust: KLineAdjust }
   >(
-    () => ({ code: code(), tab: tab(), tick: isTrend() ? tick() : 0, adjust: adjust() }),
+    () => ({ code: code(), tab: tab(), adjust: adjust() }),
     async (source) => {
       if (source.tab === 'five') {
         const multi = await api.trend.fiveDay(source.code)
@@ -202,12 +206,52 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     }
   )
 
+  createEffect(() => {
+    const currentCode = code()
+    const currentTab = tab()
+    const currentAdjust = adjust()
+    setPushed(null)
+    const task =
+      currentTab === 'minute'
+        ? ({ kind: 'minute', code: currentCode } as const)
+        : currentTab === 'five'
+          ? ({ kind: 'fiveDay', code: currentCode } as const)
+          : ({
+              kind: 'kline',
+              code: currentCode,
+              period: currentTab,
+              count: KLINE_COUNT,
+              adjust: currentAdjust
+            } as const)
+    const dispose = subscribePush<MinuteTrend | MultiDayTrend | KLineSeries>(
+      task,
+      REFRESH_MS,
+      (payload) => {
+        if (code() !== currentCode || tab() !== currentTab) return
+        if (currentTab === 'minute') {
+          const trend = payload as MinuteTrend
+          setPushed({ kind: 'trend', days: [trend] })
+        } else if (currentTab === 'five') {
+          const multi = payload as MultiDayTrend
+          setPushed({ kind: 'trend', days: multi.days })
+        } else {
+          setPushed({ kind: 'kline', series: payload as KLineSeries })
+        }
+      }
+    )
+    onCleanup(dispose)
+  })
+
   const trendDays = (): MinuteTrend[] | undefined => {
+    const pushedData = pushed()
+    if (pushedData?.kind === 'trend') return pushedData.days
     const current = data()
     return current?.kind === 'trend' ? current.days : undefined
   }
 
   const klineSeries = (): KLineSeries | undefined => {
+    const pushedData = pushed()
+    if (pushedData?.kind === 'kline') return pushedData.series
     const current = data()
     if (current?.kind === 'kline') return current.series
     return cachedSeries() ?? undefined

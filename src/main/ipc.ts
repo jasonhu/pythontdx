@@ -13,6 +13,7 @@ import type {
   F10Section,
   LocalDayBar,
   FormulaScreenRequest,
+  PushTask,
   ScreenRequest
 } from '@shared/types'
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
@@ -25,6 +26,7 @@ import {
   moveWindowToDisplay
 } from './window'
 import type { QuotePoller } from './services/poller'
+import type { PushHub } from './services/push'
 import {
   fetchAuctionArchiveBatch,
   fetchAuctionArchiveList,
@@ -100,11 +102,12 @@ import {
 export interface IpcContext {
   store: AppStore
   poller: QuotePoller
+  pushHub: PushHub
   getWindow: () => BrowserWindow | null
 }
 
 export function registerIpcHandlers(context: IpcContext): void {
-  const { store, poller, getWindow } = context
+  const { store, poller, pushHub, getWindow } = context
 
   /* ---------------------------------------------------------- 行情 */
 
@@ -282,6 +285,14 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.quoteUnsubscribe, () => {
     poller.setSubscription([], 3000)
+  })
+
+  ipcMain.handle(IPC.pushSubscribe, (_event, task: PushTask, intervalMs: number) =>
+    pushHub.subscribe(task, intervalMs)
+  )
+
+  ipcMain.handle(IPC.pushUnsubscribe, (_event, id: number) => {
+    pushHub.unsubscribe(id)
   })
 
   /* ---------------------------------------------------- 分时 / K 线 */

@@ -16,6 +16,7 @@ import {
   mergeMoneyFlowRanking
 } from '@shared/ranking'
 import { api, errorMessage } from '../lib/ipc'
+import { subscribePush } from '../lib/push'
 import { IconClose } from './Icons'
 
 interface RankingPanelProps {
@@ -106,6 +107,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
   const [flowProgress, setFlowProgress] = createSignal<{ done: number; total: number } | null>(null)
   const [flowMatched, setFlowMatched] = createSignal(0)
   let requestId = 0
+  let pushDispose: (() => void) | undefined
 
   const flowMode = (): boolean => sort().label === '资金流'
   const financeMode = (): boolean => sort().label === '流通市值' || sort().label === '总市值'
@@ -240,25 +242,45 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
 
   // sort() 变化 → 重新向服务端要第一页；首次挂载也会走这里
   createEffect(() => {
-    sort()
-    fullMode()
+    const active = sort()
+    const full = fullMode()
+    pushDispose?.()
+    pushDispose = undefined
     setExpanded(false)
     void load()
+    if (!full && active.label !== '资金流') {
+      pushDispose = subscribePush<CategoryQuote[]>(
+        {
+          kind: 'category',
+          category: 6,
+          sortType: active.sortType,
+          start: 0,
+          count: 80
+        },
+        10_000,
+        (data) => {
+          if (expanded() || sort().label !== active.label) return
+          setRows(data)
+          setHasMore(data.length === 80)
+          setError(null)
+        },
+        (message) => {
+          if (!expanded()) setError(message)
+        }
+      )
+    }
+    onCleanup(() => {
+      pushDispose?.()
+      pushDispose = undefined
+    })
   })
 
   onMount(() => {
-    const timer = window.setInterval(() => {
-      // 全市场资金流要扫数千只，不能每 10 秒重跑；切 tab/重试时再刷新。
-      if (!expanded() && !flowMode()) void load()
-    }, 10_000)
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
     }
     window.addEventListener('keydown', onKeyDown)
-    onCleanup(() => {
-      window.clearInterval(timer)
-      window.removeEventListener('keydown', onKeyDown)
-    })
+    onCleanup(() => window.removeEventListener('keydown', onKeyDown))
   })
 
   return (

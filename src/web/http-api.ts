@@ -47,6 +47,8 @@ import type {
   MultiDayTrend,
   Quote,
   QuoteUpdate,
+  PushTask,
+  PushUpdate,
   ScreenRequest,
   ScreenResult,
   SearchItem,
@@ -262,6 +264,85 @@ export function createHttpApi(): StockLensApi {
     return searchEntries(searchCache, keyword)
   }
 
+  const pushListeners = new Set<(update: PushUpdate) => void>()
+  const pushTimers = new Map<number, number>()
+  let nextPushId = 1
+
+  const fetchPushTask = (task: PushTask): Promise<unknown> => {
+    switch (task.kind) {
+      case 'category':
+        return post<CategoryQuote[]>('/api/category', {
+          category: task.category,
+          sortType: task.sortType,
+          start: task.start,
+          count: task.count,
+          ascending: task.ascending
+        })
+      case 'ticks':
+        return post<TradeTick[]>('/api/trades', {
+          code: task.code,
+          date: task.date,
+          start: task.start,
+          count: task.count
+        })
+      case 'auction':
+        return post<AuctionPoint[]>('/api/auctions', { code: task.code, date: task.date })
+      case 'moneyFlow':
+        return Promise.all([
+          post<MoneyFlowRecord[]>('/api/money_flow', { code: task.code }),
+          post<MacMoneyFlow>('/api/mac_money_flow', { code: task.code })
+        ]).then(([flow, mac]) => ({ flow, mac }))
+      case 'kline': {
+        const params = new URLSearchParams({
+          code: task.code,
+          period: task.period,
+          count: String(task.count),
+          adjust: task.adjust
+        })
+        return request<KLineSeries>(`/api/kline?${params.toString()}`)
+      }
+      case 'minute':
+        return request<MinuteTrend>(`/api/minute?code=${encodeURIComponent(task.code)}`)
+      case 'fiveDay':
+        return request<MultiDayTrend>(`/api/five_day?code=${encodeURIComponent(task.code)}`)
+    }
+  }
+
+  const emitPush = (update: PushUpdate): void => {
+    pushListeners.forEach((listener) => listener(update))
+  }
+
+  const push = {
+    subscribe: async (task: PushTask, intervalMs: number): Promise<number> => {
+      const id = nextPushId++
+      const tick = async (): Promise<void> => {
+        try {
+          emitPush({ id, at: Date.now(), task, data: await fetchPushTask(task) })
+        } catch (error) {
+          emitPush({
+            id,
+            at: Date.now(),
+            task,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        }
+      }
+      await tick()
+      const timer = window.setInterval(() => void tick(), Math.max(1000, intervalMs))
+      pushTimers.set(id, timer)
+      return id
+    },
+    unsubscribe: async (id: number): Promise<void> => {
+      const timer = pushTimers.get(id)
+      if (timer !== undefined) window.clearInterval(timer)
+      pushTimers.delete(id)
+    },
+    onUpdate: (listener: (update: PushUpdate) => void): (() => void) => {
+      pushListeners.add(listener)
+      return () => pushListeners.delete(listener)
+    }
+  }
+
   const market = {
     breadth: () => post<MarketBreadth>('/api/market_breadth', {})
   }
@@ -301,6 +382,7 @@ export function createHttpApi(): StockLensApi {
       macQuotes: (codes) => post<Quote[]>('/api/mac_quotes', { codes }),
       macQuotesFinance: (codes) => post<Quote[]>('/api/mac_quotes_finance', { codes })
     },
+    push,
     market,
     trade: {
       ticks: (req: TradesRequest) => post<TradeTick[]>('/api/trades', req)

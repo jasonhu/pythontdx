@@ -4,20 +4,12 @@
  * 默认每 1 秒拉当日最近 60 笔；选历史日期后停轮询，改查 0x0fc6。
  * 竞价快照（status=8）不是成交，弱化显示，不参与金额。
  */
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  onMount,
-  Show,
-  type JSX
-} from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import type { TradeTick } from '@shared/types'
 import { fixed, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { subscribePush } from '../lib/push'
 
 interface TradeTapeProps {
   code: string
@@ -104,6 +96,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   const [large, setLarge] = createSignal(false)
   let panelRef: HTMLElement | undefined
   let requestId = 0
+  let liveDispose: (() => void) | undefined
   const rows = createMemo(() => [...ticks()].reverse())
 
   const isTyping = (event: KeyboardEvent): boolean => {
@@ -187,17 +180,33 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   createEffect(() => {
     const code = props.code
     const tradingDate = date()
+    liveDispose?.()
+    liveDispose = undefined
     setExpanded(false)
     setLarge(false)
     setSelected(-1)
-    void load(code, tradingDate, 0)
-  })
-
-  onMount(() => {
-    const timer = window.setInterval(() => {
-      if (!date() && !expanded()) void load(props.code, '', 0, true)
-    }, REFRESH_MS)
-    onCleanup(() => window.clearInterval(timer))
+    if (tradingDate) {
+      void load(code, tradingDate, 0)
+    } else {
+      liveDispose = subscribePush<TradeTick[]>(
+        { kind: 'ticks', code, start: 0, count: PAGE_SIZE },
+        REFRESH_MS,
+        (data) => {
+          setTicks(data)
+          setHasMore(data.length === PAGE_SIZE)
+          setLoading(false)
+          setError(null)
+        },
+        (message) => {
+          setLoading(false)
+          setError(message)
+        }
+      )
+    }
+    onCleanup(() => {
+      liveDispose?.()
+      liveDispose = undefined
+    })
   })
 
   const chooseDate = (value: string): void => {
@@ -215,6 +224,8 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
 
   const loadAll = async (): Promise<void> => {
     if (loadingAll() || loadingMore() || ticks().length === 0) return
+    liveDispose?.()
+    liveDispose = undefined
     const current = ++requestId
     setLoadingAll(true)
     try {
@@ -239,6 +250,8 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
 
   const loadMore = async (): Promise<void> => {
     if (!hasMore() || loadingMore()) return
+    liveDispose?.()
+    liveDispose = undefined
     const current = ++requestId
     setLoadingMore(true)
     setExpanded(true)

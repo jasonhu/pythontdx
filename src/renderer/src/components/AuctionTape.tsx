@@ -5,10 +5,11 @@
  * 没有归档才回退实时查询。归档写入数据湖 `lake/auction/trade_date=.../`，
  * 虚拟匹配量不是真实成交，只用于观察竞价过程。
  */
-import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import type { AuctionPoint } from '@shared/types'
 import { fixed, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { subscribePush } from '../lib/push'
 
 interface AuctionTapeProps {
   code: string
@@ -27,6 +28,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
   const [archiveBusy, setArchiveBusy] = createSignal(false)
   const [archiveNote, setArchiveNote] = createSignal<string | null>(null)
   let requestId = 0
+  let liveDispose: (() => void) | undefined
 
   const load = async (code: string, tradingDate = date()): Promise<void> => {
     const current = ++requestId
@@ -65,14 +67,32 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
 
   createEffect(() => {
     const tradingDate = date()
-    void load(props.code, tradingDate)
-  })
-
-  onMount(() => {
-    const timer = window.setInterval(() => {
-      if (!date()) void load(props.code, '')
-    }, REFRESH_MS)
-    onCleanup(() => window.clearInterval(timer))
+    liveDispose?.()
+    liveDispose = undefined
+    if (tradingDate) {
+      void load(props.code, tradingDate)
+    } else {
+      liveDispose = subscribePush<AuctionPoint[]>(
+        { kind: 'auction', code: props.code },
+        REFRESH_MS,
+        (data) => {
+          setRows(data)
+          setSource(data.length > 0 ? 'live' : 'none')
+          setError(null)
+          setLoading(false)
+        },
+        (message) => {
+          setRows([])
+          setSource('none')
+          setError(message)
+          setLoading(false)
+        }
+      )
+    }
+    onCleanup(() => {
+      liveDispose?.()
+      liveDispose = undefined
+    })
   })
 
   const previousTradingDate = (): string => {

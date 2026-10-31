@@ -162,14 +162,14 @@ export function StatusBar(props: {
       </span>
 
       <div class="statusbar__group">
-        <span class="statusbar__text">刷新</span>
+        <span class="statusbar__text">推送</span>
         <For each={INTERVAL_OPTIONS}>
           {(option) => (
             <button
               class="statusbar__btn"
               data-active={appState.settings.refreshInterval === option.value}
               onClick={() => updateSettings({ refreshInterval: option.value })}
-              title={`每 ${option.label} 刷新一次`}
+              title={`主进程每 ${option.label} 推送一次（上游快照）`}
             >
               {option.label}
             </button>

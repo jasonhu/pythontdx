@@ -12,6 +12,8 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc'
 import { registerIpcHandlers } from './ipc'
 import { QuotePoller } from './services/poller'
+import { PushHub } from './services/push'
+import { fetchPushTask } from './services/push-fetch'
 import { closeTdx } from './services/tdx'
 import { AppStore } from './services/store'
 import { createMainWindow } from './window'
@@ -26,6 +28,7 @@ const PORTABLE_DATA_DIR = 'StockLens-data'
 let mainWindow: BrowserWindow | null = null
 let store: AppStore | undefined
 let poller: QuotePoller | undefined
+let pushHub: PushHub | undefined
 let flushing = false
 let quitting = false
 
@@ -149,6 +152,7 @@ function bootstrap(): void {
     flushing = true
     event.preventDefault()
     poller?.stop()
+    pushHub?.stop()
     closeTdx()
     void store.flush().finally(() => app.quit())
   })
@@ -193,9 +197,26 @@ function onReady(): void {
     }
   })
 
+  const canFetch = (): boolean => {
+    if (!currentStore.state.settings.pauseWhenHidden) return true
+    if (!mainWindow || mainWindow.isDestroyed()) return false
+    return mainWindow.isVisible() && !mainWindow.isMinimized()
+  }
+
+  pushHub = new PushHub(
+    (update) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send(IPC.pushUpdate, update)
+      }
+    },
+    fetchPushTask,
+    canFetch
+  )
+
   registerIpcHandlers({
     store: currentStore,
     poller,
+    pushHub,
     getWindow: () => mainWindow
   })
 
@@ -217,6 +238,7 @@ function onReady(): void {
   mainWindow.on('closed', () => {
     mainWindow = null
     poller?.stop()
+    pushHub?.stop()
   })
 
   setupTray(mainWindow)

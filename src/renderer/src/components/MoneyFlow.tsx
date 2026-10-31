@@ -3,19 +3,10 @@
  *
  * 服务端固定返回 5 天，不能翻页；盘口右侧栏「资金流」页签使用。
  */
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  onMount,
-  Show,
-  type JSX
-} from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import type { MacMoneyFlow, MoneyFlowRecord } from '@shared/types'
 import { compactAmount, compactVolume, signedPct } from '@shared/format'
-import { api, errorMessage } from '../lib/ipc'
+import { subscribePush } from '../lib/push'
 import { quoteOf } from '../stores/quotes'
 
 interface MoneyFlowProps {
@@ -27,46 +18,36 @@ const REFRESH_MS = 60_000
 export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
   const [rows, setRows] = createSignal<MoneyFlowRecord[]>([])
   const [loading, setLoading] = createSignal(true)
+  const [retry, setRetry] = createSignal(0)
   const [error, setError] = createSignal<string | null>(null)
   const [mac, setMac] = createSignal<MacMoneyFlow | null>(null)
   const [selectedDate, setSelectedDate] = createSignal<string | null>(null)
   const quote = (): ReturnType<typeof quoteOf> => quoteOf(props.code)
-  let requestId = 0
-
-  const load = async (code: string): Promise<void> => {
-    const current = ++requestId
-    setLoading(true)
-    try {
-      const [data, macData] = await Promise.all([
-        api.money.flow(code),
-        api.money.macFlow(code).catch(() => null)
-      ])
-      if (current !== requestId) return
-      setRows(data)
-      setMac(macData)
-      if (data.length > 0 && !data.some((row) => row.date === selectedDate())) {
-        setSelectedDate(data[0].date)
-      }
-      setError(null)
-    } catch (cause) {
-      if (current !== requestId) return
-      setError(errorMessage(cause))
-    } finally {
-      if (current === requestId) setLoading(false)
-    }
-  }
-
-  createEffect(() => {
-    void load(props.code)
-  })
-
   const selected = createMemo(
     () => rows().find((row) => row.date === selectedDate()) ?? rows()[0] ?? null
   )
 
-  onMount(() => {
-    const timer = window.setInterval(() => void load(props.code), REFRESH_MS)
-    onCleanup(() => window.clearInterval(timer))
+  createEffect(() => {
+    retry()
+    const code = props.code
+    const dispose = subscribePush<{ flow: MoneyFlowRecord[]; mac: MacMoneyFlow | null }>(
+      { kind: 'moneyFlow', code },
+      REFRESH_MS,
+      (data) => {
+        setRows(data.flow)
+        setMac(data.mac)
+        if (data.flow.length > 0 && !data.flow.some((row) => row.date === selectedDate())) {
+          setSelectedDate(data.flow[0].date)
+        }
+        setError(null)
+        setLoading(false)
+      },
+      (message) => {
+        setError(message)
+        setLoading(false)
+      }
+    )
+    onCleanup(dispose)
   })
 
   return (
@@ -102,7 +83,7 @@ export function MoneyFlow(props: MoneyFlowProps): JSX.Element {
         {(message) => (
           <div class="flow__error" role="alert">
             {message()}
-            <button class="flow__retry" onClick={() => void load(props.code)}>
+            <button class="flow__retry" onClick={() => setRetry((value) => value + 1)}>
               重试
             </button>
           </div>

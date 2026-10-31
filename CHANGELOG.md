@@ -14,6 +14,11 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 新增
 
+- **面板级推送**：新增 `PushHub` 与 `push:subscribe/unsubscribe/update` IPC；
+  排行榜、成交明细、集合竞价、资金流、主图（分时/五日/K 线）不再各自
+  `setInterval`，统一由主进程按任务推送。Web 端 `api.push` 同步实现；
+  新增 4 个调度测试（立即首帧、重复、取消、失败、窗口隐藏暂停）。
+  边界：上游 `0x0547` 仍是快照，主进程内部按订阅频率拉取，不是服务端推送。
 - **全市场资金流排行**：新增 MAC `0x1218` 批量命令 `mac_money_flow_batch`
   （1~24 并发，单只失败跳过），排行榜新增「资金流」tab；先取全市场 MAC 报价，
   再分块补资金流并按主力净额排序，显示「净额 · 占成交额」。
@@ -81,13 +86,13 @@ StockLens 的所有重要变更都记录在这里。
 ### 验证
 
 - 完成判定：非 ⛔ 功能矩阵 **331 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔** 收口；
-  `npm run check` 退出码 0（251 TS + 128 Python），Linux 包哈希与 `docs/07` 一致。
+  `npm run check` 退出码 0（255 TS + 128 Python），Linux 包哈希与 `docs/07` 一致。
 - `0x0547` 游标实测（2026-10-31，sh600519）：cursor 0 / 1 / 0xFFFFFFFF
   三次均返回同一 129 字节快照（价格 1392.05、记录内 update=153001），确认是快照而非推送；
   结论写回 `docs/03` / `docs/08` / `PLAN.md`。
-- `npm run check` → **251 TS + 128 Python（2 skipped，23 个 TS 文件）**，全绿；
+- `npm run check` → **255 TS + 128 Python（2 skipped，24 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `5d480d60…` / deb 105 MB `ffdc35d3…`；
+- Linux AppImage 130 MB `492cd1a9…` / deb 105 MB `07d80624…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

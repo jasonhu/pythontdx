@@ -221,8 +221,10 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
 
           <div class="settings__row">
             <div>
-              <div class="settings__label">行情刷新</div>
-              <div class="settings__hint">轮询间隔越短越实时，也越耗网络。</div>
+              <div class="settings__label">行情推送间隔</div>
+              <div class="settings__hint">
+                主进程按此频率推送；上游 0x0547 是快照，不能做真正的服务端推送。
+              </div>
             </div>
             <div class="settings__choices">
               <For each={INTERVALS}>
@@ -241,8 +243,8 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
 
           <label class="settings__row">
             <div>
-              <div class="settings__label">窗口失焦暂停刷新</div>
-              <div class="settings__hint">切到别的应用时停止轮询。</div>
+              <div class="settings__label">窗口失焦暂停推送</div>
+              <div class="settings__hint">切到别的应用时暂停主进程推送。</div>
             </div>
             <input
               type="checkbox"

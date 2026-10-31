@@ -22,10 +22,20 @@ interface SortTab {
   full: boolean
   /** 该排序只在全市场 MAC 模式有效 */
   fullOnly?: boolean
+  /** 全市场本地排序方向 */
+  ascending?: boolean
 }
 
 const SORTS: SortTab[] = [
   { label: '涨幅', sortType: 0x000e, metric: (quote) => quote.changePct, full: true },
+  {
+    label: '跌幅',
+    sortType: 0x000e,
+    metric: (quote) => quote.changePct,
+    full: true,
+    fullOnly: true,
+    ascending: true
+  },
   { label: '成交额', sortType: 0x000a, metric: (quote) => quote.amount, full: true },
   { label: '涨速', sortType: 0x002e, metric: (quote) => quote.riseSpeed ?? 0, full: true },
   {
@@ -76,7 +86,11 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
       quotes.push(...(chunk as CategoryQuote[]))
     }
     const activeSort = sort()
-    quotes.sort((a, b) => activeSort.metric(b) - activeSort.metric(a))
+    quotes.sort((a, b) =>
+      activeSort.ascending
+        ? activeSort.metric(a) - activeSort.metric(b)
+        : activeSort.metric(b) - activeSort.metric(a)
+    )
     setFullTotal(quotes.length)
     setRows(quotes.slice(0, 300))
     setHasMore(false)
@@ -200,11 +214,11 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
             {(item) => (
               <button
                 class="ranking__tab"
-                classList={{ 'ranking__tab--active': item.sortType === sort().sortType }}
+                classList={{ 'ranking__tab--active': item.label === sort().label }}
                 disabled={fullMode() && !item.full}
                 title={fullMode() && !item.full ? '该指标仅 0x054b 提供' : undefined}
                 role="tab"
-                aria-selected={item.sortType === sort().sortType}
+                aria-selected={item.label === sort().label}
                 onClick={() => {
                   if (item.fullOnly && !fullMode()) setFullMode(true)
                   setSort(item)

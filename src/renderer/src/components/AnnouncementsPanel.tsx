@@ -3,7 +3,17 @@
  *
  * 只调用免费 HTTP 网关；公告详情交系统浏览器，不抓取研报正文，也不绕过授权。
  */
-import { createSignal, For, Match, onCleanup, onMount, Show, Switch, type JSX } from 'solid-js'
+import {
+  createEffect,
+  createSignal,
+  For,
+  Match,
+  onCleanup,
+  onMount,
+  Show,
+  Switch,
+  type JSX
+} from 'solid-js'
 import type { F10Announcement, F10NewsItem, F10ProfileTable, F10TradingTable } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
@@ -319,30 +329,77 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadedTabs = new Set<OnlineTab>()
+
+  const ensureTab = (next: OnlineTab): void => {
+    if (loadedTabs.has(next)) return
+    loadedTabs.add(next)
+    switch (next) {
+      case 'announcements':
+        void loadAnnouncements()
+        break
+      case 'profile':
+        void loadProfile()
+        break
+      case 'valuation':
+        void loadValuation()
+        break
+      case 'finance':
+        void loadFinance()
+        break
+      case 'business':
+        void loadBusiness()
+        break
+      case 'shareholders':
+        void loadShareholders()
+        break
+      case 'reports':
+        void loadReports()
+        break
+      case 'dividend':
+        void loadDividend()
+        break
+      case 'shareholderCount':
+        void loadShareholderCount()
+        break
+      case 'capital':
+        void loadCapital('structure')
+        break
+      case 'circulating':
+        void loadCirculating()
+        break
+      case 'shareholderChanges':
+        void loadShareholderChanges()
+        break
+      case 'institutions':
+        void loadInstitutions()
+        break
+      case 'controller':
+        void loadController()
+        break
+      case 'changePlans':
+        void loadChangePlans()
+        break
+      case 'statement':
+        void loadStatement('zcfzb')
+        break
+      case 'news':
+        void loadNews()
+        break
+      case 'trading':
+        void loadTrading('margin')
+        break
+    }
+  }
+
+  createEffect(() => ensureTab(tab()))
+
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') props.onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     onCleanup(() => window.removeEventListener('keydown', onKeyDown))
-    void loadAnnouncements()
-    void loadProfile()
-    void loadValuation()
-    void loadFinance()
-    void loadBusiness()
-    void loadShareholders()
-    void loadReports()
-    void loadDividend()
-    void loadShareholderCount()
-    void loadCapital('structure')
-    void loadCirculating()
-    void loadShareholderChanges()
-    void loadInstitutions()
-    void loadController()
-    void loadChangePlans()
-    void loadStatement('zcfzb')
-    void loadNews()
-    void loadTrading('margin')
   })
 
   const cell = (value: string | number | null | undefined): string =>

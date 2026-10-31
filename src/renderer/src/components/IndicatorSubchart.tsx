@@ -226,43 +226,47 @@ export function IndicatorSubchart(props: {
       }
     }
     if (props.kind === 'roc') {
-      const values = slice(roc(all, 12))
+      const period = props.params?.rocPeriod ?? 12
+      const values = slice(roc(all, period))
       const min = Math.min(...values.filter(Number.isFinite))
       const max = Math.max(...values.filter(Number.isFinite))
       return {
-        lines: [{ label: 'ROC12', color: COLORS.roc, d: path(values, min, max) }],
+        lines: [{ label: `ROC${period}`, color: COLORS.roc, d: path(values, min, max) }],
         hist: [],
-        latest: `ROC12 ${fixed(values.at(-1) ?? 0)}%`
+        latest: `ROC${period} ${fixed(values.at(-1) ?? 0)}%`
       }
     }
     if (props.kind === 'psy') {
-      const values = slice(psy(all, 12))
+      const period = props.params?.psyPeriod ?? 12
+      const values = slice(psy(all, period))
       return {
-        lines: [{ label: 'PSY12', color: COLORS.psy, d: path(values, 0, 100) }],
+        lines: [{ label: `PSY${period}`, color: COLORS.psy, d: path(values, 0, 100) }],
         hist: [],
-        latest: `PSY12 ${fixed(values.at(-1) ?? 0)}%`
+        latest: `PSY${period} ${fixed(values.at(-1) ?? 0)}%`
       }
     }
     if (props.kind === 'vr') {
-      const values = slice(vr(all, 26))
+      const period = props.params?.vrPeriod ?? 26
+      const values = slice(vr(all, period))
       const finite = values.filter(Number.isFinite)
       const min = finite.length > 0 ? Math.min(...finite) : 0
       const max = finite.length > 0 ? Math.max(...finite) : 100
       return {
-        lines: [{ label: 'VR26', color: COLORS.vr, d: path(values, min, max) }],
+        lines: [{ label: `VR${period}`, color: COLORS.vr, d: path(values, min, max) }],
         hist: [],
-        latest: `VR26 ${fixed(values.at(-1) ?? 0)}%`
+        latest: `VR${period} ${fixed(values.at(-1) ?? 0)}%`
       }
     }
     if (props.kind === 'cr') {
-      const values = slice(cr(all, 26))
+      const period = props.params?.crPeriod ?? 26
+      const values = slice(cr(all, period))
       const finite = values.filter(Number.isFinite)
       const min = finite.length > 0 ? Math.min(...finite) : 0
       const max = finite.length > 0 ? Math.max(...finite) : 100
       return {
-        lines: [{ label: 'CR26', color: COLORS.cr, d: path(values, min, max) }],
+        lines: [{ label: `CR${period}`, color: COLORS.cr, d: path(values, min, max) }],
         hist: [],
-        latest: `CR26 ${fixed(values.at(-1) ?? 0)}`
+        latest: `CR${period} ${fixed(values.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all, props.params?.rsiPeriod ?? 14))

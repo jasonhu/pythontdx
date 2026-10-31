@@ -94,6 +94,10 @@ export function IndicatorPanel(props: {
   const [biasMid, setBiasMid] = createSignal('12')
   const [biasLong, setBiasLong] = createSignal('24')
   const [dmiPeriod, setDmiPeriod] = createSignal('14')
+  const [rocPeriod, setRocPeriod] = createSignal('12')
+  const [psyPeriod, setPsyPeriod] = createSignal('12')
+  const [vrPeriod, setVrPeriod] = createSignal('26')
+  const [crPeriod, setCrPeriod] = createSignal('26')
 
   const num = (value: () => string, fallback: number): number => {
     const parsed = Number(value())
@@ -121,6 +125,10 @@ export function IndicatorPanel(props: {
     setBiasMid(String(saved.biasMid ?? 12))
     setBiasLong(String(saved.biasLong ?? 24))
     setDmiPeriod(String(saved.dmiPeriod ?? 14))
+    setRocPeriod(String(saved.rocPeriod ?? 12))
+    setPsyPeriod(String(saved.psyPeriod ?? 12))
+    setVrPeriod(String(saved.vrPeriod ?? 26))
+    setCrPeriod(String(saved.crPeriod ?? 26))
   })
 
   const persistParams = (): void => {
@@ -141,7 +149,11 @@ export function IndicatorPanel(props: {
         biasShort: num(biasShort, 6),
         biasMid: num(biasMid, 12),
         biasLong: num(biasLong, 24),
-        dmiPeriod: num(dmiPeriod, 14)
+        dmiPeriod: num(dmiPeriod, 14),
+        rocPeriod: num(rocPeriod, 12),
+        psyPeriod: num(psyPeriod, 12),
+        vrPeriod: num(vrPeriod, 26),
+        crPeriod: num(crPeriod, 26)
       }
     })
   }
@@ -309,44 +321,48 @@ export function IndicatorPanel(props: {
       }
     }
     if (tab() === 'roc') {
-      const line = slice(roc(all, 12))
+      const period = num(rocPeriod, 12)
+      const line = slice(roc(all, period))
       const finite = line.filter(Number.isFinite)
       const min = finite.length > 0 ? Math.min(...finite) : 0
       const max = finite.length > 0 ? Math.max(...finite) : 1
       return {
-        lines: [{ label: 'ROC12', color: COLORS.roc, path: linePath(line, min, max) }],
+        lines: [{ label: `ROC${period}`, color: COLORS.roc, path: linePath(line, min, max) }],
         hist: [],
-        latest: [['ROC12', line.at(-1)]] as Array<[string, number | undefined]>
+        latest: [[`ROC${period}`, line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
     if (tab() === 'psy') {
-      const line = slice(psy(all, 12))
+      const period = num(psyPeriod, 12)
+      const line = slice(psy(all, period))
       return {
-        lines: [{ label: 'PSY12', color: COLORS.psy, path: linePath(line, 0, 100) }],
+        lines: [{ label: `PSY${period}`, color: COLORS.psy, path: linePath(line, 0, 100) }],
         hist: [],
-        latest: [['PSY12', line.at(-1)]] as Array<[string, number | undefined]>
+        latest: [[`PSY${period}`, line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
     if (tab() === 'vr') {
-      const line = slice(vr(all, 26))
+      const period = num(vrPeriod, 26)
+      const line = slice(vr(all, period))
       const finite = line.filter(Number.isFinite)
       const min = finite.length > 0 ? Math.min(...finite) : 0
       const max = finite.length > 0 ? Math.max(...finite) : 100
       return {
-        lines: [{ label: 'VR26', color: COLORS.vr, path: linePath(line, min, max) }],
+        lines: [{ label: `VR${period}`, color: COLORS.vr, path: linePath(line, min, max) }],
         hist: [],
-        latest: [['VR26', line.at(-1)]] as Array<[string, number | undefined]>
+        latest: [[`VR${period}`, line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
     if (tab() === 'cr') {
-      const line = slice(cr(all, 26))
+      const period = num(crPeriod, 26)
+      const line = slice(cr(all, period))
       const finite = line.filter(Number.isFinite)
       const min = finite.length > 0 ? Math.min(...finite) : 0
       const max = finite.length > 0 ? Math.max(...finite) : 100
       return {
-        lines: [{ label: 'CR26', color: COLORS.cr, path: linePath(line, min, max) }],
+        lines: [{ label: `CR${period}`, color: COLORS.cr, path: linePath(line, min, max) }],
         hist: [],
-        latest: [['CR26', line.at(-1)]] as Array<[string, number | undefined]>
+        latest: [[`CR${period}`, line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
@@ -639,6 +655,66 @@ export function IndicatorPanel(props: {
               />
             </label>
           </Show>
+          <Show when={tab() === 'roc'}>
+            <label>
+              <span>N</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={rocPeriod()}
+                onInput={(e) => {
+                  setRocPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'psy'}>
+            <label>
+              <span>N</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={psyPeriod()}
+                onInput={(e) => {
+                  setPsyPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'vr'}>
+            <label>
+              <span>N</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={vrPeriod()}
+                onInput={(e) => {
+                  setVrPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
+          <Show when={tab() === 'cr'}>
+            <label>
+              <span>N</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={crPeriod()}
+                onInput={(e) => {
+                  setCrPeriod(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
         </div>
 
         <div class="indicator__body">
@@ -699,7 +775,8 @@ export function IndicatorPanel(props: {
           <span>
             MACD({num(macdFast, 12)},{num(macdSlow, 26)},{num(macdSignal, 9)}) · KDJ(
             {num(kdjPeriod, 9)},{num(kdjM1, 3)},{num(kdjM2, 3)}) · RSI{num(rsiPeriod, 14)} · BOLL(
-            {num(bollPeriod, 20)},{num(bollK, 2)})
+            {num(bollPeriod, 20)},{num(bollK, 2)}) · ROC{num(rocPeriod, 12)} · PSY
+            {num(psyPeriod, 12)} · VR{num(vrPeriod, 26)} · CR{num(crPeriod, 26)}
           </span>
           <span>不构成交易建议</span>
         </footer>

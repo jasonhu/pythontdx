@@ -773,6 +773,10 @@ export interface IndicatorParams {
   biasMid?: number
   biasLong?: number
   dmiPeriod?: number
+  rocPeriod?: number
+  psyPeriod?: number
+  vrPeriod?: number
+  crPeriod?: number
 }
 
 export interface PortfolioPosition {

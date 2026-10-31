@@ -19,22 +19,25 @@ export interface QuoteHeaderProps {
 export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
   const tone = (): Tone => toneOf(props.quote.changePct)
   const flash = createValueFlash(() => props.quote.price)
-  const [estimatedVolumeRatio, setEstimatedVolumeRatio] = createSignal<number | undefined>(
-    undefined
-  )
+  const [baseVolume, setBaseVolume] = createSignal<number | undefined>(undefined)
+  let volumeRequest = 0
   const limits = (): { up?: number; down?: number } => limitPrices(props.quote)
+  const volumeRatio = (): number | undefined =>
+    props.quote.volumeRatio ??
+    (baseVolume() && baseVolume()! > 0 ? props.quote.volume / baseVolume()! : undefined)
 
   createEffect(() => {
     const code = props.quote.code
-    setEstimatedVolumeRatio(undefined)
+    const request = ++volumeRequest
+    setBaseVolume(undefined)
     void (async () => {
       try {
         const kline = await api.trend.kline({ code, period: 'day', count: 6 })
-        if (kline.bars.length < 2) return
+        if (request !== volumeRequest || kline.bars.length < 2) return
         const history = kline.bars.slice(0, -1).slice(-5)
         const average =
           history.reduce((sum, bar) => sum + bar.volume, 0) / Math.max(1, history.length)
-        if (average > 0) setEstimatedVolumeRatio(props.quote.volume / average)
+        if (average > 0) setBaseVolume(average)
       } catch {
         // 量比是辅助值，失败保持 —
       }
@@ -131,7 +134,7 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
         <Metric label="最低" value={fixed(props.quote.low)} tone="down" />
         <Metric label="昨收" value={fixed(props.quote.prevClose)} />
         <Metric label="换手" value={percent(props.quote.turnoverRate)} />
-        <Metric label="量比" value={fixed(props.quote.volumeRatio ?? estimatedVolumeRatio())} />
+        <Metric label="量比" value={fixed(volumeRatio())} />
         <Metric label="振幅" value={percent(props.quote.amplitude)} />
         <Metric label="均价" value={fixed(props.quote.avgPrice)} />
         <Metric label="涨停" value={fixed(limits().up)} tone="up" />

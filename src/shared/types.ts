@@ -707,6 +707,8 @@ export interface AppSettings {
   layoutSlots?: LayoutSlot[]
   /** 条件选股预设（最多 10 个） */
   screenPresets?: ScreenPreset[]
+  /** 主图叠加公式；为空则关闭 */
+  mainFormula?: string
   /** 正在自动跟踪的预设 id；为空则不跟踪 */
   trackingPresetId?: string
   /** 可同时跟踪多个预设 */

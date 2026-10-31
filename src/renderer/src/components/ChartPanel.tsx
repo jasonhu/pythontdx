@@ -450,6 +450,15 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
               >
                 公式
               </button>
+              <Show when={appState.settings.mainFormula}>
+                <button
+                  class="btn btn--bare chart-formula-clear"
+                  title={`清除主图公式：${appState.settings.mainFormula}`}
+                  onClick={() => updateSettings({ mainFormula: undefined })}
+                >
+                  清公式
+                </button>
+              </Show>
               <button
                 class="btn btn--bare replay-open"
                 title="日 K 复盘"
@@ -590,6 +599,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     rangeMode={rangeMode()}
                     onRangeStats={setRangeStats}
                     drawMode={drawMode()}
+                    overlayFormula={appState.settings.mainFormula}
                     clearDrawingsKey={clearDrawingsKey()}
                   />
                 )}

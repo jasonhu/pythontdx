@@ -14,7 +14,7 @@ import {
   type FormulaPortfolioBacktest,
   type FormulaResult
 } from '@shared/formula'
-import { activeItems, appState, removeFormula, saveFormula } from '../stores/app'
+import { activeItems, appState, removeFormula, saveFormula, updateSettings } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -114,6 +114,16 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
       setPortfolioError(cause instanceof Error ? cause.message : String(cause))
     } finally {
       setPortfolioLoading(false)
+    }
+  }
+
+  const applyMain = (): void => {
+    try {
+      evaluateFormula(expression(), bars())
+      updateSettings({ mainFormula: expression() })
+      props.onClose()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
     }
   }
 
@@ -276,6 +286,14 @@ export function FormulaPanel(props: FormulaPanelProps): JSX.Element {
           </button>
           <button class="btn formula__save" onClick={save}>
             保存公式
+          </button>
+          <button
+            class="btn formula__apply-main"
+            title="归一化叠加到主图，仅看形态"
+            disabled={loading() || bars().length === 0}
+            onClick={applyMain}
+          >
+            应用到主图
           </button>
         </div>
 

@@ -20,6 +20,7 @@ import {
 import type { ChartDrawing, KLineSeries } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { boll } from '@shared/indicators'
+import { evaluateFormula } from '@shared/formula'
 import {
   accumulateWheel,
   buildKLineGeometry,
@@ -75,6 +76,8 @@ export interface KLineChartProps {
   drawMode?: DrawingMode
   /** 文字标注内容 */
   drawingText?: string
+  /** 主图叠加公式；归一化显示 */
+  overlayFormula?: string
   /** 改变时清空画线 */
   clearDrawingsKey?: number
 }
@@ -239,6 +242,34 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const extra = bands ? [...bands.upper, ...bands.middle, ...bands.lower] : []
     return buildKLineGeometry(bars(), size().width, size().height, undefined, extra, props.logScale)
   })
+  const formulaOverlay = createMemo(() => {
+    const expression = props.overlayFormula
+    const geo = geometry()
+    if (!expression || !geo || allBars().length === 0) return null
+    try {
+      const result = evaluateFormula(expression, allBars())
+      const values = result.values.slice(win().start, win().start + bars().length)
+      const finite = values.filter((value) => Number.isFinite(value))
+      if (finite.length < 2) return null
+      const min = Math.min(...finite)
+      const max = Math.max(...finite)
+      const span = max - min || 1
+      const path = buildLinePath(
+        values.map((value, index) =>
+          Number.isFinite(value)
+            ? {
+                x: geo.x(index),
+                y: geo.priceBottom - ((value - min) / span) * (geo.priceBottom - geo.priceTop)
+              }
+            : null
+        )
+      )
+      return { path, label: expression, min, max }
+    } catch {
+      return null
+    }
+  })
+
   const rangeOverlay = createMemo(() => {
     const start = rangeStart()
     const geo = geometry()
@@ -764,6 +795,25 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                       />
                     )}
                   </For>
+                </g>
+              )}
+            </Show>
+
+            {/* ---------- 主图公式叠加（归一化） ---------- */}
+            <Show when={formulaOverlay()}>
+              {(overlay) => (
+                <g>
+                  <path
+                    class="chart-formula"
+                    d={overlay().path}
+                    fill="none"
+                    stroke="#22d3ee"
+                    stroke-width="1.2"
+                    opacity="0.85"
+                  />
+                  <text x={geo().padding.left + 120} y="12" fill="#22d3ee" font-size="10">
+                    公式 {overlay().label}
+                  </text>
                 </g>
               )}
             </Show>

@@ -191,6 +191,19 @@ describe('buildTrendGeometry', () => {
     expect(geo.totalSlots).toBe(DAY_SLOTS - 1)
   })
 
+  it('五日分时也能缩放到某一天的一段', () => {
+    const geo = buildTrendGeometry(FIVE_DAYS, 800, 400, undefined, {
+      start: DAY_SLOTS + 1,
+      end: DAY_SLOTS + 2
+    })!
+    expect(geo.slotStart).toBe(DAY_SLOTS + 1)
+    expect(geo.slotEnd).toBe(DAY_SLOTS + 2)
+    const paths = buildTrendDayPaths(FIVE_DAYS, geo)
+    expect(paths[0].line).toBe('')
+    expect(paths[1].line.match(/M/g)?.length).toBe(1)
+    expect(paths[1].line.match(/L/g)?.length).toBe(1)
+  })
+
   it('成交量柱宽度至少 1px（五日时每格很窄）', () => {
     const narrow = buildTrendGeometry(FIVE_DAYS, 200, 400)!
     expect(narrow.barWidth).toBeGreaterThanOrEqual(1)

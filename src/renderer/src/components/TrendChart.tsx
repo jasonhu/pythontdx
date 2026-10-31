@@ -83,9 +83,15 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
   })
   const zoomLabel = (): string => {
     if (!view() || bars().length === 0) return '滚轮缩放 · 拖动平移 · 双击复位'
-    const first = bars()[0].point
-    const last = bars()[bars().length - 1].point
-    return `${minuteLabel(first.time)}–${minuteLabel(last.time)} · 拖动平移 · 双击复位`
+    const first = bars()[0]
+    const last = bars()[bars().length - 1]
+    const startLabel = isMultiDay()
+      ? `${formatMonthDay(days()[first.dayIndex]?.date ?? '')} ${minuteLabel(first.point.time)}`
+      : minuteLabel(first.point.time)
+    const endLabel = isMultiDay()
+      ? `${formatMonthDay(days()[last.dayIndex]?.date ?? '')} ${minuteLabel(last.point.time)}`
+      : minuteLabel(last.point.time)
+    return `${startLabel}–${endLabel} · 拖动平移 · 双击复位`
   }
   const levels = createMemo(() => {
     const geo = geometry()
@@ -174,7 +180,8 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     if (currentDrag) {
       const span = currentDrag.end - currentDrag.start
       const delta = Math.round(((-1 * (event.clientX - currentDrag.x)) / geo.plotW) * span)
-      const start = Math.max(0, Math.min(DAY_SLOTS - 1 - span, currentDrag.start + delta))
+      const maxSlot = Math.max(DAY_SLOTS - 1, days().length * DAY_SLOTS - 1)
+      const start = Math.max(0, Math.min(maxSlot - span, currentDrag.start + delta))
       setView({ start, end: start + span })
       return
     }
@@ -184,31 +191,28 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
   }
 
   const onWheel = (event: WheelEvent): void => {
-    if (isMultiDay()) return
     event.preventDefault()
     const geo = geometry()
     if (!geo) return
+    const maxSlot = Math.max(DAY_SLOTS - 1, days().length * DAY_SLOTS - 1)
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const anchor = slotFromX(event.clientX, rect.left, geo) ?? (geo.slotStart + geo.slotEnd) / 2
     const span = geo.slotEnd - geo.slotStart
     const nextSpan = Math.max(
       30,
-      Math.min(DAY_SLOTS - 1, Math.round(span * (event.deltaY < 0 ? 0.8 : 1.25)))
+      Math.min(maxSlot, Math.round(span * (event.deltaY < 0 ? 0.8 : 1.25)))
     )
-    if (nextSpan >= DAY_SLOTS - 1) {
+    if (nextSpan >= maxSlot) {
       setView(null)
       return
     }
     const ratio = span > 0 ? (anchor - geo.slotStart) / span : 0
-    const start = Math.max(
-      0,
-      Math.min(DAY_SLOTS - 1 - nextSpan, Math.round(anchor - ratio * nextSpan))
-    )
+    const start = Math.max(0, Math.min(maxSlot - nextSpan, Math.round(anchor - ratio * nextSpan)))
     setView({ start, end: start + nextSpan })
   }
 
   const onPointerDown = (event: PointerEvent): void => {
-    if (isMultiDay() || event.button !== 0) return
+    if (event.button !== 0) return
     const geo = geometry()
     if (!geo) return
     setDrag({ x: event.clientX, start: geo.slotStart, end: geo.slotEnd })
@@ -431,9 +435,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
         )}
       </Show>
 
-      <Show when={!isMultiDay()}>
-        <div class="chart-zoom-hint">{zoomLabel()}</div>
-      </Show>
+      <div class="chart-zoom-hint">{zoomLabel()}</div>
 
       {/* ---------- 浮层读数 ---------- */}
       <Show when={hovered()}>

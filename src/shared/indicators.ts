@@ -229,3 +229,17 @@ export function dmi(
   }
   return { plus, minus, adx }
 }
+
+/** OBV（能量潮）：按收盘涨跌累加/减去成交量。 */
+export function obv(bars: readonly KLineBar[]): number[] {
+  const result: number[] = []
+  let value = 0
+  for (let index = 0; index < bars.length; index += 1) {
+    if (index > 0) {
+      if (bars[index].close > bars[index - 1].close) value += bars[index].volume
+      else if (bars[index].close < bars[index - 1].close) value -= bars[index].volume
+    }
+    result.push(value)
+  }
+  return result
+}

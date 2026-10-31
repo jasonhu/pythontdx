@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KLineBar } from './types'
-import { boll, ema, kdj, macd, rsi, wr, cci, bias, dmi } from './indicators'
+import { boll, ema, kdj, macd, rsi, wr, cci, bias, dmi, obv } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
   return closes.map((close, index) => ({
@@ -102,5 +102,16 @@ describe('dmi', () => {
     expect(values.plus[14]).toBeTypeOf('number')
     expect(values.adx[39]).toBeGreaterThanOrEqual(0)
     expect(values.adx[39]).toBeLessThanOrEqual(100)
+  })
+})
+
+describe('obv', () => {
+  it('上涨加量、下跌减量', () => {
+    const bars = [
+      { date: '1', open: 10, high: 10, low: 10, close: 10, volume: 100 },
+      { date: '2', open: 10, high: 11, low: 10, close: 11, volume: 200 },
+      { date: '3', open: 11, high: 11, low: 9, close: 9, volume: 50 }
+    ]
+    expect(obv(bars)).toEqual([0, 200, 150])
   })
 })

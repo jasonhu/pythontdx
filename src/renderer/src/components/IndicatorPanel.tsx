@@ -1,17 +1,17 @@
 /**
- * 技术指标面板：MACD / KDJ / RSI / WR / CCI / BIAS / DMI / BOLL。
+ * 技术指标面板：MACD / KDJ / RSI / WR / CCI / BIAS / DMI / OBV / BOLL。
  *
  * 纯本地计算，不请求额外数据；图表只取最近 160 根日 K 显示。
  */
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { bias, boll, cci, dmi, kdj, macd, rsi, wr } from '@shared/indicators'
+import { bias, boll, cci, dmi, kdj, macd, obv, rsi, wr } from '@shared/indicators'
 import { api, errorMessage } from '../lib/ipc'
 import { appState, updateSettings } from '../stores/app'
 import { IconClose } from './Icons'
 
-type Tab = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi' | 'boll'
+type Tab = 'macd' | 'kdj' | 'rsi' | 'wr' | 'cci' | 'bias' | 'dmi' | 'obv' | 'boll'
 
 const W = 900
 const H = 300
@@ -266,6 +266,16 @@ export function IndicatorPanel(props: {
         ] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'obv') {
+      const line = slice(obv(all))
+      const min = Math.min(...line)
+      const max = Math.max(...line)
+      return {
+        lines: [{ label: 'OBV', color: COLORS.adx, path: linePath(line, min, max) }],
+        hist: [],
+        latest: [['OBV', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -322,6 +332,7 @@ export function IndicatorPanel(props: {
                 ['cci', 'CCI'],
                 ['bias', 'BIAS'],
                 ['dmi', 'DMI'],
+                ['obv', 'OBV'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }

@@ -5680,11 +5680,17 @@
 }
 
 .watch-full__name {
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--fs-sm);
   font-weight: 600;
   line-height: 1.25;
-  overflow-wrap: anywhere;
-  white-space: normal;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.watch-full__name--long {
+  font-size: 12px;
 }
 
 .watch-full__code,

@@ -34,6 +34,8 @@ export interface WatchRowProps {
 
 export function WatchRow(props: WatchRowProps): JSX.Element {
   const quote = (): Quote | undefined => quoteOf(props.item.code)
+  const displayName = (): string => quote()?.name || props.item.name
+  const longName = (): boolean => displayName().length > 4
   const tone = (): Tone => toneOf(quote()?.changePct)
   const flash = createValueFlash(() => quote()?.price)
   const active = (): boolean => appState.activeCode === props.item.code
@@ -83,7 +85,8 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
         'watch-row--active': active(),
         'watch-row--dragging': isDragging(),
         'watch-row--drop-before': dropSide() === 'before',
-        'watch-row--drop-after': dropSide() === 'after'
+        'watch-row--drop-after': dropSide() === 'after',
+        'watch-row--long-name': longName()
       }}
       draggable={true}
       onDragStart={onDragStart}
@@ -95,10 +98,10 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
         setDropSide(null)
       }}
       onClick={() => setActiveCode(props.item.code)}
-      title={`${props.item.name} ${props.item.code.toUpperCase()}（可拖拽排序）`}
+      title={`${displayName()} ${props.item.code.toUpperCase()}（可拖拽排序）`}
     >
       <div class="watch-row__main">
-        <div class="watch-row__name">{quote()?.name || props.item.name}</div>
+        <div class="watch-row__name">{displayName()}</div>
         <div class="watch-row__code num">{props.item.code.toUpperCase()}</div>
       </div>
 

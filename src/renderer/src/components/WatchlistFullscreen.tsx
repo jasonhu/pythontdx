@@ -179,7 +179,14 @@ export function WatchlistFullscreen(props: WatchlistFullscreenProps): JSX.Elemen
                   onClick={() => select(item.code)}
                 >
                   <div class="watch-full__card-head">
-                    <span class="watch-full__name">{item.name}</span>
+                    <span
+                      class="watch-full__name"
+                      classList={{
+                        'watch-full__name--long': (quote()?.name ?? item.name).length > 5
+                      }}
+                    >
+                      {quote()?.name ?? item.name}
+                    </span>
                     <span class="watch-full__code num">{item.code.toUpperCase()}</span>
                   </div>
                   <div class="watch-full__quote">

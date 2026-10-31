@@ -447,8 +447,18 @@
   font-weight: 500;
   color: var(--text-1);
   line-height: 1.25;
-  overflow-wrap: anywhere;
-  white-space: normal;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* 名称较长时让出迷你走势图的空间，保证不折行、不出现省略号 */
+.watch-row--long-name .sparkline {
+  display: none;
+}
+
+.watch-row--long-name .watch-row__name {
+  font-size: 12px;
 }
 
 .watch-row__code {

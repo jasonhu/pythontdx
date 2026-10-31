@@ -17,6 +17,47 @@ const [connection, setConnection] = createSignal<ConnectionStatus>('idle')
 const [lastUpdateAt, setLastUpdateAt] = createSignal(0)
 const [streamError, setStreamError] = createSignal<string | null>(null)
 
+/** 上次行情快照：让重启后的首屏先显示上次数据，网络回来再覆盖。 */
+const QUOTE_CACHE_KEY = 'stocklens.quote-cache-v1'
+let cacheSavedAt = 0
+
+function readQuoteCache(): Quote[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(QUOTE_CACHE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (item): item is Quote =>
+            item && typeof item.code === 'string' && typeof item.price === 'number'
+        )
+      : []
+  } catch {
+    return []
+  }
+}
+
+function saveQuoteCache(quotes: Quote[]): void {
+  if (typeof localStorage === 'undefined') return
+  const now = Date.now()
+  if (now - cacheSavedAt < 2000) return
+  cacheSavedAt = now
+  try {
+    localStorage.setItem(
+      QUOTE_CACHE_KEY,
+      JSON.stringify(quotes.slice(0, 200).map((quote) => ({ ...quote })))
+    )
+  } catch {
+    // 私密模式/配额不足时静默放弃；网络行情仍可用。
+  }
+}
+
+/** 启动时同步读取；不触发额外 IPC。 */
+export function loadCachedQuotes(): Quote[] {
+  return readQuoteCache()
+}
+
 export { quoteMap, connection, lastUpdateAt, streamError }
 
 /** 取某只股票的行情快照 */
@@ -36,6 +77,7 @@ export function applyQuotes(quotes: Quote[]): void {
       renameWatchItem(quote.code, quote.name)
     }
   }
+  saveQuoteCache(quotes)
 }
 
 /**

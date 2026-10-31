@@ -61,7 +61,13 @@ import {
   watchCodes,
   startAutoArchive
 } from './stores/app'
-import { applyQuotes, createQuoteStream, quoteOf, refreshQuotes } from './stores/quotes'
+import {
+  applyQuotes,
+  createQuoteStream,
+  loadCachedQuotes,
+  quoteOf,
+  refreshQuotes
+} from './stores/quotes'
 import { api } from './lib/ipc'
 import { createSparklineLoader } from './stores/sparklines'
 import { dismissLatestAlert, hydrateAlertEvents, latestAlert } from './stores/alerts'
@@ -94,7 +100,10 @@ export default function App(): JSX.Element {
   let stopResize: (() => void) | null = null
 
   onMount(() => {
-    void bootstrapAppState().then(() => hydrateAlertEvents())
+    void bootstrapAppState().then(() => {
+      applyQuotes(loadCachedQuotes())
+      hydrateAlertEvents()
+    })
     startScreenTracking()
     startAutoArchive()
     initWindowSync()

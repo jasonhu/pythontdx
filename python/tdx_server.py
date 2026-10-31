@@ -476,6 +476,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/f10_industry":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_industry(
+                            payload.get("code", ""), payload.get("section", "summary")
+                        )
+                    )
+                return
             if parsed.path == "/api/mac_boards":
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_boards(int(payload.get("boardType", 255))))

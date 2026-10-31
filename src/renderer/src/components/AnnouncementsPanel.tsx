@@ -43,6 +43,7 @@ type OnlineTab =
   | 'statement'
   | 'news'
   | 'trading'
+  | 'industry'
 
 export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element {
   const [tab, setTab] = createSignal<OnlineTab>('announcements')
@@ -101,6 +102,10 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
   const [newsLoading, setNewsLoading] = createSignal(true)
   const [newsError, setNewsError] = createSignal<string | null>(null)
   const [trading, setTrading] = createSignal<F10TradingTable | null>(null)
+  const [industry, setIndustry] = createSignal<F10TradingTable | null>(null)
+  const [industrySection, setIndustrySection] = createSignal('summary')
+  const [industryLoading, setIndustryLoading] = createSignal(true)
+  const [industryError, setIndustryError] = createSignal<string | null>(null)
   const [tradingSection, setTradingSection] = createSignal('margin')
   const [tradingLoading, setTradingLoading] = createSignal(true)
   const [tradingError, setTradingError] = createSignal<string | null>(null)
@@ -329,6 +334,18 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
     }
   }
 
+  const loadIndustry = async (section: string): Promise<void> => {
+    setIndustryLoading(true)
+    setIndustryError(null)
+    try {
+      setIndustry(await api.f10.industry(props.code, section))
+    } catch (cause) {
+      setIndustryError(errorMessage(cause))
+    } finally {
+      setIndustryLoading(false)
+    }
+  }
+
   const loadedTabs = new Set<OnlineTab>()
 
   const ensureTab = (next: OnlineTab): void => {
@@ -388,6 +405,9 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
         break
       case 'trading':
         void loadTrading('margin')
+        break
+      case 'industry':
+        void loadIndustry('summary')
         break
     }
   }
@@ -552,6 +572,16 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
             onClick={() => setTab('news')}
           >
             新闻
+          </button>
+          <button
+            class="online-tab online-industry-tab"
+            data-active={tab() === 'industry'}
+            onClick={() => {
+              setTab('industry')
+              void loadIndustry(industrySection())
+            }}
+          >
+            行业
           </button>
           <button
             class="online-tab online-trading-tab"
@@ -1364,6 +1394,70 @@ export function AnnouncementsPanel(props: AnnouncementsPanelProps): JSX.Element 
                           </div>
                         )}
                       </For>
+                    </div>
+                  </Show>
+                </Show>
+              </Show>
+            </Match>
+            <Match when={tab() === 'industry'}>
+              <div class="trading__sections">
+                <For
+                  each={
+                    [
+                      ['summary', '行业汇总'],
+                      ['news', '行业新闻'],
+                      ['reports', '行业研报']
+                    ] as const
+                  }
+                >
+                  {([key, label]) => (
+                    <button
+                      class={`trading-section trading-section--${key}`}
+                      data-active={industrySection() === key}
+                      onClick={() => {
+                        setIndustrySection(key)
+                        void loadIndustry(key)
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )}
+                </For>
+                <span class="trading__count">{industry()?.count ?? 0} 行</span>
+              </div>
+              <Show
+                when={!industryLoading()}
+                fallback={<div class="announcements__empty">加载行业数据…</div>}
+              >
+                <Show
+                  when={!industryError()}
+                  fallback={<div class="announcements__error">{industryError()}</div>}
+                >
+                  <Show
+                    when={(industry()?.count ?? 0) > 0}
+                    fallback={<div class="announcements__empty">暂无行业数据</div>}
+                  >
+                    <div class="finance-table-wrap">
+                      <table class="finance-table trading-table industry-table">
+                        <thead>
+                          <tr>
+                            <For each={industry()?.columns ?? []}>
+                              {(column) => <th>{column}</th>}
+                            </For>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <For each={industry()?.rows ?? []}>
+                            {(row) => (
+                              <tr>
+                                <For each={row}>
+                                  {(value) => <td class="num">{String(value)}</td>}
+                                </For>
+                              </tr>
+                            )}
+                          </For>
+                        </tbody>
+                      </table>
                     </div>
                   </Show>
                 </Show>

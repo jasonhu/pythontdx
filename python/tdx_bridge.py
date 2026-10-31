@@ -2862,6 +2862,12 @@ class Bridge:
         """7615 TQLEX 公司新闻列表。"""
         return fetch_news(code)
 
+    def f10_industry(self, code: str, section: str = "summary") -> dict:
+        """7615 TQLEX 行业汇总/新闻/研报。"""
+        from tdx_f10 import fetch_industry
+
+        return fetch_industry(code, section)
+
     def f10_change_plans(self, code: str) -> dict:
         from tdx_f10 import fetch_change_plans
 
@@ -3476,6 +3482,10 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_reports(payload.get("code", ""))
     if cmd == "f10_news":
         return bridge.f10_news(payload.get("code", ""))
+    if cmd == "f10_industry":
+        return bridge.f10_industry(
+            str(payload.get("code") or ""), str(payload.get("section") or "summary")
+        )
     if cmd == "f10_lhb_market":
         return bridge.f10_lhb_market()
     if cmd == "f10_change_plans":

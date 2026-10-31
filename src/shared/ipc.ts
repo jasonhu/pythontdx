@@ -96,6 +96,8 @@ export const IPC = {
   f10Reports: 'f10:reports',
   /** 7615 公司新闻（invoke） */
   f10News: 'f10:news',
+  /** 7615 行业分析（invoke） */
+  f10Industry: 'f10:industry',
   /** 7615 两融/大宗/龙虎榜/沪深股通（invoke） */
   f10Trading: 'f10:trading',
   /** 沪深龙虎榜（invoke） */
@@ -281,6 +283,7 @@ export interface StockLensApi {
     shareholders(code: string): Promise<F10ProfileTable>
     reports(code: string): Promise<F10ProfileTable>
     news(code: string): Promise<F10NewsItem[]>
+    industry(code: string, section: string): Promise<F10TradingTable>
     trading(code: string, section: string): Promise<F10TradingTable>
     lhbMarket(): Promise<F10TradingTable>
     market(section: string): Promise<F10TradingTable>

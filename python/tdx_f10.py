@@ -1076,3 +1076,50 @@ def fetch_announcements(code: str) -> list[dict]:
     if not isinstance(payload, dict):
         raise F10Error("7615 公告返回结构异常")
     return parse_announcements_payload(payload)
+
+
+INDUSTRY_ENTRY = "CWServ.tdxf10_gg_hyfx"
+INDUSTRY_SECTIONS = {
+    "summary": ("tot", ""),
+    "news": ("hyxw", ""),
+    "reports": ("hyyb", ""),
+}
+
+INDUSTRY_LABELS = {
+    "cnt": "家数",
+    "bkname": "行业",
+    "jzrq": "日期",
+    "issue": "日期",
+    "Title": "标题",
+    "rec_id": "记录ID",
+    "nflag": "标记",
+    "ybdz": "原文地址",
+}
+
+
+def fetch_industry(code: str, section: str = "summary") -> dict:
+    """7615 行业分析：行业汇总 / 行业新闻 / 行业研报。"""
+    if section not in INDUSTRY_SECTIONS:
+        raise F10Error(f"不支持的行业分区：{section}")
+    _market, symbol = _market_of(code)
+    raw_section, arg = INDUSTRY_SECTIONS[section]
+    payload = _post_tqlex(
+        INDUSTRY_ENTRY,
+        {"Params": [raw_section, symbol, arg]},
+    )
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 行业数据返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"section": section, "rawColumns": [], "columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    raw_columns = [str(name) for name in (table.get("ColName") or [])]
+    columns = [INDUSTRY_LABELS.get(name, name) for name in raw_columns]
+    rows = table.get("Content") or []
+    return {
+        "section": section,
+        "rawColumns": raw_columns,
+        "columns": columns,
+        "rows": rows,
+        "count": len(rows),
+    }

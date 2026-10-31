@@ -35,6 +35,7 @@ interface ExtraStats {
   profitYoy?: number
   revenueYoy?: number
   reportDate?: string
+  disclosureDate?: string
 }
 
 export function StatsGrid(props: StatsGridProps): JSX.Element {
@@ -93,6 +94,14 @@ export function StatsGrid(props: StatsGridProps): JSX.Element {
           next.profitYoy = field('净利润同比')
           next.revenueYoy = field('营收同比')
           next.reportDate = report
+          const textField = (label: string): string | undefined => {
+            const index = finance.columns.indexOf(label)
+            if (index < 0) return undefined
+            const value = String(row[index] ?? '').trim()
+            return value || undefined
+          }
+          next.disclosureDate =
+            textField('预约披露日期') ?? textField('预计披露日期') ?? textField('披露日期')
         }
       } catch {
         // 指标面板是辅助信息，单个接口失败不阻断行情主链路。
@@ -139,7 +148,12 @@ export function StatsGrid(props: StatsGridProps): JSX.Element {
       { label: 'PEG', value: fixed(extra().peg), hint: '7615 valuation' },
       { label: '总市值', value: compactCap(quote.totalCap), hint: '现价 × 总股本' },
       { label: '流通市值', value: compactCap(quote.floatCap), hint: '现价 × 流通股本' },
-      { label: '财报期', value: extra().reportDate || '—', hint: '7615 财务指标最新报告期' }
+      { label: '财报期', value: extra().reportDate || '—', hint: '7615 财务指标最新报告期' },
+      {
+        label: '预计披露',
+        value: extra().disclosureDate || '—',
+        hint: '预约披露日期；7615 未提供时留空，不做猜测'
+      }
     ]
   }
 

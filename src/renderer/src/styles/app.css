@@ -905,20 +905,26 @@
 }
 
 .panel--detail .stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 4px 14px;
+  width: 100%;
   max-height: none;
   overflow: visible;
   padding-right: 0;
 }
 
+.panel--detail .stats__item {
+  padding: 1px 0;
+}
+
 .panel--detail .stats__label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0;
 }
 
 .panel--detail .stats__value {
-  font-size: 11px;
+  font-size: 14px;
 }
 
 /* 指标面板按内容高度，放在右栏底部 */

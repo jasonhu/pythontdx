@@ -19,6 +19,7 @@ export function SearchBox(): JSX.Element {
   const [cursor, setCursor] = createSignal(0)
 
   const recent = (): SearchItem[] => appState.settings.recentSearches ?? []
+  const suggestions = (): SearchItem[] => (keyword().trim() ? items() : recent())
 
   /**
    * Solid 支持 `ref={变量}` 这种写法，但它依赖编译器的隐式赋值，
@@ -104,7 +105,7 @@ export function SearchBox(): JSX.Element {
       return
     }
 
-    const list = items()
+    const list = suggestions()
     if (list.length === 0) {
       if (event.key === 'Enter') commitRawCode()
       return
@@ -140,7 +141,10 @@ export function SearchBox(): JSX.Element {
           value={keyword()}
           onInput={(event) => setKeyword(event.currentTarget.value)}
           onKeyDown={onKeyDown}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setCursor(0)
+            setOpen(true)
+          }}
           onBlur={() => setTimeout(() => setOpen(false), 140)}
         />
         <Show when={loading()}>

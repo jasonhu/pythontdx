@@ -1,7 +1,7 @@
 """把 tdx_bridge.py 打成单文件可执行程序。
 
 默认且只使用 Nuitka（编译为机器码，onefile 不携带 Python 源码）：
-    python3 -m pip install nuitka patchelf
+    python3 -m pip install -r requirements.txt
     python3 python/build.py
 
 产物：
@@ -64,6 +64,16 @@ def build_nuitka() -> None:
         f"--output-dir={ROOT / 'dist'}",
         "--output-filename=tdx-bridge",
         "--assume-yes-for-downloads",
+        # 核心 Parquet IO 走 DuckDB；pyarrow/pandas 只用于开发期数据分析与旧统计导出，
+        # 不进入 sidecar，显式排除以控制编译时间和单文件体积。
+        "--nofollow-import-to=pyarrow",
+        "--nofollow-import-to=pandas",
+        "--nofollow-import-to=matplotlib",
+        "--nofollow-import-to=numba",
+        "--nofollow-import-to=scipy",
+        "--nofollow-import-to=pytest",
+        "--nofollow-import-to=IPython",
+        "--nofollow-import-to=tkinter",
         # 客户端解包的主站列表随 sidecar 一起分发，用户目录没有 connect.cfg 时仍可用。
         f"--include-data-files={ROOT / 'connect.cfg'}=connect.cfg",
         str(ROOT / "tdx_bridge.py"),

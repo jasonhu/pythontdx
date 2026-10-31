@@ -104,8 +104,8 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（255 个用例）
-npm run test:python         # 只跑 Python 协议/HTTP 测试（128 个用例）
+npm run test                # 只跑 TS 测试（257 个用例）
+npm run test:python         # 只跑 Python 协议/HTTP 测试（134 个用例）
 npm run audit:data          # 只读数据覆盖自检（13 项；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
@@ -120,7 +120,7 @@ npm run build:win:setup     # 只要 NSIS 安装包
 
 **Python 提示**：开发机需要 Python 3.10+（`python3` 或 `python` 在 PATH 上；
 也可用 `STOCKLENS_PYTHON` 指定）。打包后的 exe 自带桥接程序，用户不需要 Python。
-打包前先 `pip install nuitka patchelf`（Linux；Nuitka onefile 不携带 Python 源码）。
+打包前先 `python3 -m pip install -r requirements.txt`（含 pyarrow/duckdb/Nuitka/patchelf；Linux）。
 
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
@@ -170,7 +170,7 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（255 个 TS 测试 + 128 个 Python 测试），
+健康度 `npm run check` 全绿（257 个 TS 测试 + 134 个 Python 测试），
 2026-10-31 复核过构建、实机启动、包内资金流与公式多输出。
 
 已交付：实时行情/盘口/多周期图表、默认五均线、全屏自选、板块/MAC/F10 19 页签、预警且/或、

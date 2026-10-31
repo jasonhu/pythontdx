@@ -47,6 +47,16 @@ const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> =
 
 const BLOCK_KINDS: BlockKind[] = ['gn', 'fg', 'zs', 'general']
 
+/** 默认归档上一个工作日；周末打开时不会落到休市日。 */
+function previousTradingDate(): string {
+  const value = new Date()
+  value.setDate(value.getDate() - 1)
+  while (value.getDay() === 0 || value.getDay() === 6) value.setDate(value.getDate() - 1)
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(
+    value.getDate()
+  ).padStart(2, '0')}`
+}
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -89,7 +99,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [bulkCurrent, setBulkCurrent] = createSignal('')
   const [bulkFailed, setBulkFailed] = createSignal(0)
   const [bulkIncremental, setBulkIncremental] = createSignal(true)
-  const [bulkPeriod, setBulkPeriod] = createSignal<'day' | '1m'>('day')
+  const [bulkPeriod, setBulkPeriod] = createSignal<'day' | '1m' | 'ticks'>('day')
+  const [bulkTickDate, setBulkTickDate] = createSignal(previousTradingDate())
   const [bulkError, setBulkError] = createSignal<string | null>(null)
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
     kline: true,
@@ -314,21 +325,31 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setBulkCurrent('')
     setBulkTotal(0)
     try {
+      const targetDate = bulkTickDate().trim()
+      if (period === 'ticks' && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+        throw new Error('逐笔归档日期格式应为 YYYY-MM-DD')
+      }
       const codes = bulkScope() === 'watchlist' ? watchCodes() : await allAShareCodes()
       setBulkTotal(codes.length)
       for (const code of codes) {
         if (bulkCancel) break
         setBulkCurrent(code)
         try {
-          const result = await api.data.fullCacheKlines({
-            codes: [code],
-            period,
-            adjust: 'none',
-            skipExisting: bulkIncremental()
-          })
-          setBulkDone((value) => value + result.cached + result.skipped)
-          setBulkSkipped((value) => value + result.skipped)
-          setBulkFailed((value) => value + result.failed.length)
+          if (period === 'ticks') {
+            const result = await api.data.tickArchiveSave(code, targetDate)
+            setBulkDone((value) => value + 1)
+            if (result.skipped) setBulkSkipped((value) => value + 1)
+          } else {
+            const result = await api.data.fullCacheKlines({
+              codes: [code],
+              period,
+              adjust: 'none',
+              skipExisting: bulkIncremental()
+            })
+            setBulkDone((value) => value + result.cached + result.skipped)
+            setBulkSkipped((value) => value + result.skipped)
+            setBulkFailed((value) => value + result.failed.length)
+          }
         } catch {
           setBulkFailed((value) => value + 1)
         }
@@ -863,9 +884,10 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
 
           <section class="data__bulk">
             <div>
-              <div class="data__label">批量预热日 K</div>
+              <div class="data__label">批量下载本地数据</div>
               <div class="data__sub">
-                分批写入本地缓存；全 A 模式约 5,615 只，耗时较长，可随时取消。
+                日 K / 1 分钟 / 历史逐笔共用同一批处理与断点续跑；全 A 约 5,615
+                只，耗时较长，可随时取消。 历史逐笔按选中的交易日归档，查看历史逐笔时优先读本地。
               </div>
             </div>
             <div class="data__bulk-actions">
@@ -882,11 +904,24 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 class="data__bulk-scope"
                 value={bulkPeriod()}
                 disabled={bulkRunning()}
-                onChange={(event) => setBulkPeriod(event.currentTarget.value as 'day' | '1m')}
+                onChange={(event) =>
+                  setBulkPeriod(event.currentTarget.value as 'day' | '1m' | 'ticks')
+                }
               >
                 <option value="day">日 K</option>
                 <option value="1m">1 分钟</option>
+                <option value="ticks">历史逐笔</option>
               </select>
+              <Show when={bulkPeriod() === 'ticks'}>
+                <input
+                  class="data__bulk-scope"
+                  type="date"
+                  value={bulkTickDate()}
+                  disabled={bulkRunning()}
+                  aria-label="逐笔归档日期"
+                  onChange={(event) => setBulkTickDate(event.currentTarget.value)}
+                />
+              </Show>
               <label class="data__incremental">
                 <input
                   type="checkbox"
@@ -900,7 +935,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 when={bulkRunning()}
                 fallback={
                   <button class="btn data__bulk-run" onClick={() => void runBulkCache()}>
-                    开始预热
+                    开始下载
                   </button>
                 }
               >

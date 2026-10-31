@@ -8,7 +8,7 @@
 
 **当前状态**：桌面 + Web 前端可用；Linux AppImage/deb 已实测；
 v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTTP 只读）。
-`npm run check` 全绿：**255 个 TS 测试 + 128 个 Python 协议/服务测试（2 skipped）**。
+`npm run check` 全绿：**257 个 TS 测试 + 134 个 Python 协议/服务测试（1 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -77,9 +77,9 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 类型契约桌面 / Web / 后端共享，改错立刻编译报错
 - 组合分析（当日快照 + 本地持仓盈亏 + 持股回溯）、独立 K 线窗口、第二主窗口（状态广播/位置记忆）、当前窗口置顶、多股同列：当前分组 6/9 格切换，日 K / 当日分时迷你图，点击切换主图
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
-- 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选/全 A 分批日 K + 1 分钟 K + 指数 K + 板块文件缓存（可跳过已有缓存续跑；日 K/1m/指数自动探测全部历史，写 *_all_none.json） + 网络失败回退；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
+- 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选/全 A 分批日 K + 1 分钟 K + 指数 K + 板块文件缓存（可跳过已有缓存续跑；日 K/1m/指数自动探测全部历史，写 *_all_none.parquet） + 网络失败回退；数据缓存统一为 Parquet(ZSTD)，DuckDB 负责读写/查询；pandas 供数据挖掘，pyarrow 仅旧 stats 导出可选
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 前端（本地状态可写）（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 255 个 TS 单元测试 + 128 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 257 个 TS 单元测试 + 134 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
@@ -88,7 +88,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 
 **仍为部分 / 非目标**
 
-- 非 ⛔ 功能矩阵已收口（331 ✅ / 0 🟡 / 0 ⬜）；`0x0547` 休市未观察到增量，
+- 非 ⛔ 功能矩阵已收口（334 ✅ / 0 🟡 / 0 ⬜）；`0x0547` 休市未观察到增量，
   盘中游标/推送语义待 2026-11-02 复验；客户端由主进程 `PushHub` 统一调度并推送。
 - 6 项非目标/需授权：交易下单、登录账户、付费授权数据、港股/美股/期货/期权、
   7727/EX、官方账号体系。
@@ -146,7 +146,16 @@ npm run build:win     # 或 build:mac / build:linux
 | Node.js     | ≥ 20.19 | 推荐 22 LTS 或更高                    |
 | npm         | ≥ 10    | 随 Node 安装                          |
 | Python      | ≥ 3.10  | 开发/打包需要；运行桌面版 exe 不需要  |
-| Nuitka      | 4.x     | 仅打包需要：`pip install nuitka` + `patchelf` |
+| pyarrow     | ≥ 26    | 可选：旧 stats.db → Parquet 导出      |
+| duckdb      | ≥ 2.0   | 本地 Parquet 列式查询                 |
+| pandas      | ≥ 3.1   | 数据挖掘/特征工程（项目不强制 import）|
+| Nuitka      | 4.x     | 仅打包需要；`requirements.txt` 已含 `patchelf` |
+
+一次性安装 Python 依赖：
+
+```bash
+python3 -m pip install -r requirements.txt
+```
 
 > **平台范围**：当前只维护 Linux 运行与打包；Windows/macOS 打包不在范围内，命令仅保留参考。
 >
@@ -166,8 +175,8 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run dev:web`                                | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174） |
 | `npm run build:web`                              | 构建 Web 产物到 `out/web/`                             |
 | `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
-| `npm run test`                                   | Vitest（255 个 TS 用例）                               |
-| `npm run test:python`                            | Python 协议/HTTP 测试（128 个用例，真实 fixture）      |
+| `npm run test`                                   | Vitest（257 个 TS 用例）                               |
+| `npm run test:python`                            | Python 协议/HTTP 测试（134 个用例，真实 fixture）      |
 | `npm run audit:data`                             | 只读数据覆盖自检（13 项，覆盖清单见 docs/12）          |
 | `npm run build:python`                           | Nuitka 打行情桥接单文件（打包前必跑）                  |
 | `npm run shot`                                   | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收    |
@@ -180,7 +189,7 @@ npm run build:win     # 或 build:mac / build:linux
 ## 📦 打包
 
 ```bash
-pip install nuitka patchelf    # 只需一次（Linux）
+python3 -m pip install -r requirements.txt   # 只需一次（Linux，含 duckdb/pandas/nuitka）
 npm run build:win              # 安装包 + 单文件便携版
 npm run build:win:portable     # 只要单文件便携版
 npm run build:win:setup        # 只要 NSIS 安装包
@@ -229,7 +238,7 @@ npm run build:linux            # Linux AppImage / deb
 | v0.5 | K 线缩放/光标/档位记忆                                    | ✅ 已发布               |
 | v0.6 | 行情层切通达信 7709（Python sidecar）                     | ✅ 源码验证；打包待实测 |
 | v0.7 | 双前端 + Python HTTP/WS 服务 + 主机策略                   | ✅ 已落地（窗口能力桌面专属） |
-| v0.8 | 离线数据 + 数据湖（官方 zip、本地文件、Parquet/DuckDB）   | ✅ 已落地（Parquet/DuckDB 可选依赖） |
+| v0.8 | 离线数据 + 数据湖（官方 zip、本地文件、Parquet/DuckDB）   | ✅ 已落地（K 线/逐笔 Parquet + DuckDB；依赖见 `requirements.txt`） |
 | v0.9 | 逐笔/竞价、板块/排行/资金流、F10、预警、选股、复盘/多窗口 | ✅ 已落地 |
 | v1.0 | A 股协议全覆盖 + 双端稳定 + 数据可复现                    | ⬜ 目标（剩余 6 项非目标/授权边界） |
 

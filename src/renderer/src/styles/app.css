@@ -904,9 +904,20 @@
 }
 
 .panel--detail .stats {
-  max-height: 100%;
-  overflow-y: auto;
-  padding-right: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 6px;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.panel--detail .stats__label {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.panel--detail .stats__value {
+  font-size: 11px;
 }
 
 /* 指标面板按内容高度，放在右栏底部 */

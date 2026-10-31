@@ -20,6 +20,18 @@ StockLens 的所有重要变更都记录在这里。
   新增 4 个调度测试（立即首帧、重复、取消、失败、窗口隐藏暂停）。
   边界：上游 `0x0547` 休市未观察到增量，盘中游标/推送语义待 2026-11-02 复验；
   主进程内部按订阅频率拉取，不伪称服务端推送。
+- **逐笔「全部」**：不再只取 1,800 笔，按 1,800 循环分页并按绝对 index 去重合并；
+  实测 `sh688499` 2026-10-30 显示 3,527 笔；`mergeTickPage` 新增 2 个测试。
+- **指标面板单页**：右栏 3 列紧凑布局，23 项全部显示，去滚动条；
+  截图 `stats-all.png`，实测 scrollHeight=clientHeight=387。
+- **逐笔本地归档**：`lake/ticks/trade_date=YYYY-MM-DD/<code>.jsonl.gz + manifest`，
+  SHA256/行数校验、原子写入、已有有效归档不覆盖；历史逐笔查询优先读本地，
+  缺档才回网络；单只 600519/2026-10-30 实测 4,453 行。
+- **三类数据统一批量入口**：日 K / 1 分钟 K / 历史逐笔共用「批量下载本地数据」
+  的范围选择、增量跳过、进度与取消；逐笔按选中交易日归档。
+- **存储升级**：K 线与逐笔改为 Parquet(ZSTD)，读写统一走 DuckDB 2.0，
+  不再写 JSON/JSONL 数据；旧 JSON 缓存已按用户指令删除，重新从服务器下载；
+  pyarrow 仅保留给旧 stats 导出的可选路径，不进入 sidecar。
 - **全市场资金流排行**：新增 MAC `0x1218` 批量命令 `mac_money_flow_batch`
   （1~24 并发，单只失败跳过），排行榜新增「资金流」tab；先取全市场 MAC 报价，
   再分块补资金流并按主力净额排序，显示「净额 · 占成交额」。
@@ -86,15 +98,15 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- 完成判定：非 ⛔ 功能矩阵 **331 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔** 收口；
-  `npm run check` 退出码 0（255 TS + 128 Python），Linux 包哈希与 `docs/07` 一致。
+- 完成判定：非 ⛔ 功能矩阵 **334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔** 收口；
+  `npm run check` 退出码 0（257 TS + 134 Python），Linux 包哈希与 `docs/07` 一致。
 - `0x0547` 休市探针（2026-10-31，sh600519）：cursor 0 / 1 / 0xFFFFFFFF
   均返回同一 129 字节快照（价格 1392.05、记录内 update=153001）；
   只能说明休市无新数据时游标无差异，**不能判定盘中无增量/推送**。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
-- `npm run check` → **255 TS + 128 Python（2 skipped，24 个 TS 文件）**，全绿；
+- `npm run check` → **257 TS + 134 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `492cd1a9…` / deb 105 MB `07d80624…`；
+- Linux AppImage 147 MB `92f1a6c6…` / deb 123 MB `c0c1b326…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、
@@ -109,7 +121,7 @@ StockLens 的所有重要变更都记录在这里。
   `screenshots/indicator-sar.png`、
   `screenshots/trend-zoom.png`、`screenshots/trend-zoom-five.png`、
   `screenshots/ranking-amplitude.png`、`screenshots/ranking-market-cap.png`；
-- 矩阵（不含状态图例）：**331 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
+- 矩阵（不含状态图例）：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**。
 
 ---
 
@@ -147,7 +159,7 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check`：215 TS + 116 Python（2 skipped）；
+- `npm run check`：215 TS + 116 Python（1 skipped）；
 - `npm run audit:data`：13/13 PASS；
 - 包：AppImage 130 MB `32ed7d2d…e55dd5f` / deb 105 MB `5322ccc8…c5b0957`；
 - 截图：`chart-5ma.png`、`f11-fullscreen.png`、`watchlist-full-24.png`、

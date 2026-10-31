@@ -63,6 +63,7 @@ from tdx_mac import (
 )
 from local_import import import_local_file
 from kline_export import write_kline_export
+from parquet_store import ParquetStoreError, read_bars, write_bars
 from auction_archive import (
     AuctionArchiveError,
     list_auction_archives,
@@ -72,6 +73,14 @@ from auction_archive import (
     write_auction_archive,
 )
 from snapshot_archive import list_snapshot_archives, write_snapshot_archive
+from tick_archive import (
+    TickArchiveError,
+    list_tick_archives,
+    normalize_code as normalize_tick_code,
+    normalize_date as normalize_tick_date,
+    read_tick_archive,
+    write_tick_archive,
+)
 from tdx_f10 import (
     fetch_announcements,
     fetch_business,
@@ -2523,7 +2532,7 @@ def data_inventory() -> dict:
         files, size = _dir_stats(root / relative)
         sections[name] = {"files": files, "bytes": size, "path": str(root / relative)}
     cache_dir = root / "cache" / "klines"
-    cache_files = list(cache_dir.glob("*.json")) if cache_dir.exists() else []
+    cache_files = list(cache_dir.glob("*.parquet")) if cache_dir.exists() else []
     codes: set[str] = set()
     periods: set[str] = set()
     latest = 0
@@ -2549,30 +2558,19 @@ def data_inventory() -> dict:
 
 
 def _kline_cache_path(code: str, period: str, count: int, adjust: str) -> Path:
-    safe = f"{code.lower()}_{period}_{int(count)}_{adjust}.json"
+    safe = f"{code.lower()}_{period}_{int(count)}_{adjust}.parquet"
     return kline_cache_dir() / safe
 
 
 def _full_kline_cache_path(code: str, period: str, adjust: str) -> Path:
-    return kline_cache_dir() / f"{code.lower()}_{period}_all_{adjust}.json"
+    return kline_cache_dir() / f"{code.lower()}_{period}_all_{adjust}.parquet"
 
 
 def _write_kline_cache(
     code: str, period: str, count: int, adjust: str, bars: list[dict], source: str
 ) -> Path:
     target = _kline_cache_path(code, period, count, adjust)
-    payload = {
-        "code": code,
-        "period": period,
-        "count": int(count),
-        "adjust": adjust,
-        "source": source,
-        "fetchedAt": int(time.time() * 1000),
-        "bars": bars,
-    }
-    temporary = target.with_name(target.name + ".part")
-    temporary.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), "utf-8")
-    os.replace(temporary, target)
+    write_bars(target, code, bars)
     return target
 
 
@@ -2580,35 +2578,28 @@ def _write_full_kline_cache(
     code: str, period: str, adjust: str, bars: list[dict], pages: int, complete: bool
 ) -> Path:
     target = _full_kline_cache_path(code, period, adjust)
-    payload = {
-        "code": code,
-        "period": period,
-        "count": len(bars),
-        "adjust": adjust,
-        "source": "network",
-        "fetchedAt": int(time.time() * 1000),
-        "pages": pages,
-        "complete": complete,
-        "fullHistory": True,
-        "bars": bars,
-    }
-    temporary = target.with_name(target.name + ".part")
-    temporary.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), "utf-8")
-    os.replace(temporary, target)
+    write_bars(target, code, bars)
     return target
 
 
 def _read_kline_cache(code: str, period: str, count: int, adjust: str) -> dict | None:
     target = _kline_cache_path(code, period, count, adjust)
+    if not target.is_file():
+        return None
     try:
-        payload = json.loads(target.read_text("utf-8"))
-    except (OSError, json.JSONDecodeError):
+        result = read_bars(target)
+    except ParquetStoreError:
         return None
-    if not isinstance(payload, dict) or not isinstance(payload.get("bars"), list):
-        return None
-    payload["source"] = "cache"
-    payload["cachePath"] = str(target)
-    return payload
+    return {
+        "code": code,
+        "period": period,
+        "count": int(count),
+        "adjust": adjust,
+        "bars": result["bars"],
+        "source": "cache",
+        "cachePath": str(target),
+    }
+
 
 class Bridge:
     def __init__(self) -> None:
@@ -3144,7 +3135,20 @@ class Bridge:
         count: int = TRADE_PAGE,
         trading_date: str | None = None,
     ) -> list[dict]:
-        """成交明细：优先走 MAC 0x122F（带真实秒），失败回退 0x0fc5/0x0fc6。"""
+        """成交明细：历史日期优先读本地归档，其次 MAC 0x122F，最后 0x0fc5/0x0fc6。"""
+        if trading_date:
+            try:
+                archive = read_tick_archive(
+                    stocklens_data_dir() / "lake" / "ticks",
+                    code,
+                    trading_date,
+                )
+                return archive["ticks"][start : start + count]
+            except FileNotFoundError:
+                pass
+            except TickArchiveError as error:
+                # 归档损坏不应阻断网络兜底；下次归档时允许替换损坏副本。
+                print(f"[tdx] 逐笔归档损坏，回退网络：{error}", file=sys.stderr)
         try:
             rows: list[dict] = []
             offset = start
@@ -3186,6 +3190,115 @@ class Bridge:
         return parse_trades(
             body, market, symbol, start, self.index.by_code, trading_date
         )
+
+    def tick_archive_save(self, code: str, trading_date: str) -> dict:
+        """把一只股票某交易日的全部逐笔归档到 lake/ticks；已有有效归档不覆盖。"""
+        try:
+            normalized_code = normalize_tick_code(code)
+            target_date = normalize_tick_date(trading_date)
+        except TickArchiveError as error:
+            raise TdxError(str(error)) from error
+        root = stocklens_data_dir() / "lake" / "ticks"
+        try:
+            existing = read_tick_archive(root, normalized_code, target_date)
+            return {
+                "code": existing["code"],
+                "tradeDate": existing["tradeDate"],
+                "rows": existing["rows"],
+                "dir": existing["dir"],
+                "sha256": existing["sha256"],
+                "generatedAt": existing["generatedAt"],
+                "source": "archive",
+                "found": True,
+                "skipped": True,
+            }
+        except FileNotFoundError:
+            pass
+        except TickArchiveError:
+            # 损坏副本允许被完整重抓覆盖；正常归档在 write 里会再次校验。
+            pass
+
+        rows: list[dict] = []
+        seen: set[int] = set()
+        offset = 0
+        for _ in range(400):
+            page = self.trades(
+                normalized_code,
+                start=offset,
+                count=TRADE_PAGE,
+                trading_date=target_date,
+            )
+            if not page:
+                break
+            fresh = [item for item in page if int(item.get("index", -1)) not in seen]
+            if not fresh:
+                break
+            for item in fresh:
+                seen.add(int(item.get("index", -1)))
+            rows.extend(fresh)
+            offset += len(page)
+            if len(page) < TRADE_PAGE:
+                break
+        if not rows:
+            raise TdxError(f"{normalized_code} {target_date} 没有可归档的逐笔数据")
+        rows.sort(
+            key=lambda item: (
+                int(item.get("timeSeconds", int(item.get("timeMinutes", 0)) * 60)),
+                int(item.get("index", 0)),
+            )
+        )
+        return write_tick_archive(root, normalized_code, target_date, rows)
+
+    def tick_archive_read(
+        self, code: str, trading_date: str, start: int = 0, count: int = 1800
+    ) -> dict:
+        try:
+            archive = read_tick_archive(
+                stocklens_data_dir() / "lake" / "ticks", code, trading_date
+            )
+        except FileNotFoundError as error:
+            raise TdxError(str(error)) from error
+        except TickArchiveError as error:
+            raise TdxError(str(error)) from error
+        start = max(0, int(start))
+        count = max(1, min(1800, int(count)))
+        return {
+            **archive,
+            "ticks": archive["ticks"][start : start + count],
+        }
+
+    def tick_archive_list(self, limit: int = 20) -> list[dict]:
+        return list_tick_archives(stocklens_data_dir() / "lake" / "ticks", limit)
+
+    def tick_archive_batch(self, codes: list[str], trading_date: str) -> dict:
+        """批量归档；单只失败不阻断其他股票，返回 saved/failed。"""
+        try:
+            target_date = normalize_tick_date(trading_date)
+        except TickArchiveError as error:
+            raise TdxError(str(error)) from error
+        saved: list[dict] = []
+        failed: list[dict] = []
+        seen: set[str] = set()
+        for raw in codes:
+            try:
+                code = normalize_tick_code(raw)
+            except TickArchiveError as error:
+                failed.append({"code": str(raw), "error": str(error)})
+                continue
+            if code in seen:
+                continue
+            seen.add(code)
+            try:
+                saved.append(self.tick_archive_save(code, target_date))
+            except Exception as error:  # noqa: BLE001 - 单只失败继续
+                failed.append({"code": code, "error": str(error)})
+        return {
+            "tradeDate": target_date,
+            "saved": saved,
+            "failed": failed,
+            "savedCount": len(saved),
+            "failedCount": len(failed),
+        }
 
     def auctions(
         self,
@@ -3805,9 +3918,22 @@ class Bridge:
         kind = "index" if is_index_code(market, symbol) else "stock"
         if cache_only:
             cached = _read_kline_cache(code, period, safe_count, safe_adjust)
-            if cached is None:
-                raise TdxError("本地没有对应 K 线缓存")
-            return cached
+            if cached is not None:
+                return cached
+            full_path = _full_kline_cache_path(code, period, safe_adjust)
+            if full_path.is_file():
+                try:
+                    full = read_bars(full_path)
+                except ParquetStoreError as error:
+                    raise TdxError(f"本地全历史 K 线缓存损坏：{error}") from error
+                return {
+                    "code": code,
+                    "period": period,
+                    "bars": full["bars"][-safe_count:],
+                    "source": "cache",
+                    "cachePath": str(full_path),
+                }
+            raise TdxError("本地没有对应 K 线缓存")
         try:
             body = self.conn.request(
                 CMD_BARS,
@@ -3934,14 +4060,13 @@ class Bridge:
         by_code = self.index.by_code
         rows: list[dict] = []
         scanned = 0
-        for file in kline_cache_dir().glob("*_day_all_none.json"):
+        for file in kline_cache_dir().glob("*_day_all_none.parquet"):
             symbol_code = file.name.split("_", 1)[0]
             if not re.match(r"^(sh6|sz0|sz3|bj[489])", symbol_code):
                 continue
             try:
-                payload = json.loads(file.read_text("utf-8"))
-                bars = payload.get("bars") or []
-            except (OSError, ValueError):
+                bars = read_bars(file)["bars"]
+            except (OSError, ParquetStoreError):
                 continue
             scanned += 1
             position = next((i for i, bar in enumerate(bars) if bar.get("date") == date), -1)
@@ -4146,6 +4271,23 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
     if cmd == "auction_archive_batch":
         return bridge.auction_archive_batch(
             payload.get("codes") or [], payload.get("date") or None
+        )
+    if cmd == "tick_archive_save":
+        return bridge.tick_archive_save(
+            str(payload.get("code") or ""), str(payload.get("date") or "")
+        )
+    if cmd == "tick_archive_read":
+        return bridge.tick_archive_read(
+            str(payload.get("code") or ""),
+            str(payload.get("date") or ""),
+            int(payload.get("start", 0)),
+            int(payload.get("count", TRADE_PAGE)),
+        )
+    if cmd == "tick_archive_list":
+        return bridge.tick_archive_list(int(payload.get("limit", 20)))
+    if cmd == "tick_archive_batch":
+        return bridge.tick_archive_batch(
+            payload.get("codes") or [], str(payload.get("date") or "")
         )
     if cmd == "file_read":
         return bridge.file_read(

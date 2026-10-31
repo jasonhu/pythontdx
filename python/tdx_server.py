@@ -467,6 +467,30 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/tick_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.tick_archive_save(
+                            str(payload.get("code") or ""),
+                            str(payload.get("date") or ""),
+                        )
+                    )
+                return
+            if parsed.path == "/api/tick_archive_batch":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.tick_archive_batch(
+                            payload.get("codes") or [],
+                            str(payload.get("date") or ""),
+                        )
+                    )
+                return
+            if parsed.path == "/api/tick_archive_list":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.tick_archive_list(int(payload.get("limit", 20)))
+                    )
+                return
             if parsed.path == "/api/money_flow":
                 with self.server.lock:
                     self._ok(self.server.bridge.money_flow(payload.get("code", "")))

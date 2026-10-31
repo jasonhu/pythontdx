@@ -6,9 +6,6 @@
  *   · 缓存 K 线/分时这类低频数据；
  *   · 维护代码表 + 拼音搜索索引。
  */
-import { readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import type {
   AuctionArchiveBatchResult,
   AuctionArchiveItem,
@@ -29,6 +26,9 @@ import type {
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
+  TickArchiveBatchResult,
+  TickArchiveItem,
+  TickArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
   F10TradingTable,
@@ -231,6 +231,27 @@ export async function fetchAuctionArchiveBatch(
     { codes: normalizeCodes(codes), date: date || undefined },
     90_000
   )
+}
+
+/** 单只历史逐笔归档；整日数据可能多页，给足 5 分钟。 */
+export async function saveTickArchive(code: string, date: string): Promise<TickArchiveResult> {
+  return bridge.send<TickArchiveResult>('tick_archive_save', { code, date }, 300_000)
+}
+
+/** 批量逐笔归档；UI 已按只调用，保留批量给脚本/HTTP。 */
+export async function fetchTickArchiveBatch(
+  codes: string[],
+  date: string
+): Promise<TickArchiveBatchResult> {
+  return bridge.send<TickArchiveBatchResult>(
+    'tick_archive_batch',
+    { codes: normalizeCodes(codes), date },
+    600_000
+  )
+}
+
+export async function fetchTickArchiveList(limit = 20): Promise<TickArchiveItem[]> {
+  return bridge.send<TickArchiveItem[]>('tick_archive_list', { limit }, 20_000)
 }
 
 /** 0x02cf F10 段落目录。 */
@@ -505,34 +526,6 @@ export async function fetchFormulaBacktest(
 
 /* ------------------------------------------------------------------ K 线 */
 
-/** 直接读 Python 写入的 K 线缓存，避免启动时等待 sidecar。 */
-function readKlineCacheFile(
-  code: string,
-  period: KLinePeriod,
-  count: number,
-  adjust: KLineAdjust
-): KLineSeries {
-  const root =
-    process.env.STOCKLENS_DATA_DIR ?? join(homedir(), '.local', 'share', 'stocklens', 'data')
-  const directory = join(root, 'cache', 'klines')
-  const path = join(directory, `${code.toLowerCase()}_${period}_${count}_${adjust}.json`)
-  let parsed: KLineSeries & { source?: string }
-  let cachePath = path
-  try {
-    parsed = JSON.parse(readFileSync(path, 'utf8')) as KLineSeries & { source?: string }
-  } catch (error) {
-    // 全量下载写的是 *_all_none.json；首屏回退时取最后 count 根即可。
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    cachePath = join(directory, `${code.toLowerCase()}_${period}_all_none.json`)
-    const full = JSON.parse(readFileSync(cachePath, 'utf8')) as KLineSeries & {
-      source?: string
-    }
-    parsed = { ...full, bars: full.bars.slice(-count) }
-  }
-  if (!Array.isArray(parsed.bars)) throw new Error('K 线缓存损坏')
-  return { ...parsed, code, period, source: 'cache', cachePath }
-}
-
 export async function fetchKline(
   code: string,
   period: KLinePeriod,
@@ -546,7 +539,11 @@ export async function fetchKline(
 
   const safeCount = Math.min(800, Math.max(1, Math.trunc(count)))
   if (cacheOnly) {
-    return readKlineCacheFile(code, period, safeCount, adjust)
+    return bridge.send<KLineSeries>(
+      'kline',
+      { code, period, count: safeCount, adjust, cacheOnly: true },
+      QUOTES_TIMEOUT_MS
+    )
   }
   const key = `${code}:${period}:${safeCount}:${adjust}`
 

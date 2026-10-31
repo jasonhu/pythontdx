@@ -70,7 +70,7 @@ fixture 是 2026-10-29/30 实盘抓的真实响应，放在 `python/fixtures/*.h
 ## 打包
 
 ```bash
-pip install nuitka patchelf
+pip install -r requirements.txt
 python python/build.py
 # 产物：python/dist/tdx-bridge（Windows：tdx-bridge.exe）
 ```

@@ -79,6 +79,19 @@ def run_duckdb_query(sql: str, limit: int = 200) -> dict:
                 f"CREATE VIEW {table} AS SELECT * FROM read_parquet("
                 f"'{pattern}', hive_partitioning=true, union_by_name=true)"
             )
+        extra_views = {}
+        kline_dir = _data_dir() / "cache" / "klines"
+        tick_dir = _data_dir() / "lake" / "ticks"
+        if kline_dir.is_dir() and any(kline_dir.glob("*.parquet")):
+            extra_views["klines"] = kline_dir / "*.parquet"
+        if tick_dir.is_dir() and any(tick_dir.rglob("*.parquet")):
+            extra_views["ticks"] = tick_dir / "**" / "*.parquet"
+        for name, folder in extra_views.items():
+            pattern = str(folder).replace("'", "''")
+            connection.execute(
+                f"CREATE VIEW {name} AS SELECT * FROM read_parquet("
+                f"'{pattern}', hive_partitioning=true, union_by_name=true)"
+            )
         result = connection.execute(f"SELECT * FROM ({text}) LIMIT {safe_limit}")
         columns = [item[0] for item in (result.description or [])]
         rows = [[_serialize(value) for value in row] for row in result.fetchall()]

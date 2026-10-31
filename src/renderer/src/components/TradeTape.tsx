@@ -8,6 +8,7 @@ import { createEffect, createMemo, createSignal, For, onCleanup, Show, type JSX 
 import { Portal } from 'solid-js/web'
 import type { TradeTick } from '@shared/types'
 import { fixed, thousands } from '@shared/format'
+import { mergeTickPage } from '@shared/trades'
 import { api, errorMessage } from '../lib/ipc'
 import { subscribePush } from '../lib/push'
 
@@ -91,6 +92,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
   const [expanded, setExpanded] = createSignal(false)
   const [loadingMore, setLoadingMore] = createSignal(false)
   const [loadingAll, setLoadingAll] = createSignal(false)
+  const [allProgress, setAllProgress] = createSignal(0)
   const [hasMore, setHasMore] = createSignal(true)
   const [selected, setSelected] = createSignal(-1)
   const [large, setLarge] = createSignal(false)
@@ -227,16 +229,33 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
     liveDispose?.()
     liveDispose = undefined
     const current = ++requestId
+    const tradingDate = date() || undefined
     setLoadingAll(true)
+    setAllProgress(0)
     try {
-      const data = await api.trade.ticks({
-        code: props.code,
-        start: 0,
-        count: 1800,
-        date: date() || undefined
-      })
+      let all: TradeTick[] = []
+      let offset = 0
+      // 单页 1800 是 0x0fc5/0x0fc6 的上限；MAC 0x122F 单页 1000，
+      // Python 侧会按 1800 拆成多页。循环到短页/重复页为止。
+      for (let page = 0; page < 200; page += 1) {
+        const data = await api.trade.ticks({
+          code: props.code,
+          start: offset,
+          count: 1800,
+          date: tradingDate
+        })
+        if (current !== requestId) return
+        if (data.length === 0) break
+        const merged = mergeTickPage(all, data)
+        if (merged.added === 0) break
+        // 服务端分页从新到旧；每次把更旧的一页拼到前面，最终保持时间正序。
+        all = merged.ticks
+        offset += data.length
+        setAllProgress(all.length)
+        if (data.length < 1800) break
+      }
       if (current !== requestId) return
-      setTicks(data)
+      setTicks(all)
       setExpanded(true)
       setHasMore(false)
       setError(null)
@@ -334,7 +353,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
                   disabled={loadingAll() || loadingMore() || ticks().length === 0}
                   onClick={() => void loadAll()}
                 >
-                  {loadingAll() ? '加载中…' : '全部'}
+                  {loadingAll() ? `加载中 ${allProgress()}…` : '全部'}
                 </button>
                 <button
                   class="tape__today tape__more"
@@ -404,7 +423,7 @@ export function TradeTape(props: TradeTapeProps): JSX.Element {
                     disabled={loadingAll() || ticks().length === 0}
                     onClick={() => void loadAll()}
                   >
-                    {loadingAll() ? '加载中…' : '全部 1800 笔'}
+                    {loadingAll() ? `加载中 ${allProgress()}…` : '全部'}
                   </button>
                   <button class="btn" onClick={resetLatest}>
                     最新

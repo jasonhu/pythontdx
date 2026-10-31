@@ -1,0 +1,15 @@
+# StockLens Python 依赖
+#
+# 安装：
+#   python3 -m pip install -r requirements.txt
+#
+# 版本基线：Python 3.10+；当前开发机验证 3.14。
+# 核心 Parquet 读写只依赖 duckdb；pandas 供数据挖掘/特征工程直接使用。
+# 旧 stats.db -> Parquet 导出仍可选使用 pyarrow；它不进入 sidecar。
+duckdb>=2.0.0
+pandas>=3.1.0
+# pyarrow>=26.0.0  # 可选：仅 parquet_export.py / 旧数据导出需要
+
+# 打包单文件 sidecar（仅构建时需要；运行时用户不需要 Python）
+nuitka>=4.3.0
+patchelf>=0.17.2; sys_platform == "linux"

@@ -30,6 +30,9 @@ import type { PushHub } from './services/push'
 import {
   fetchAuctionArchiveBatch,
   fetchAuctionArchiveList,
+  fetchTickArchiveBatch,
+  fetchTickArchiveList,
+  saveTickArchive,
   fetchAuctionArchiveRead,
   fetchAuctionArchiveSave,
   fetchAuctions,
@@ -148,6 +151,16 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.auctionArchiveBatch, (_event, codes: string[], date?: string) =>
     fetchAuctionArchiveBatch(codes, date)
   )
+
+  ipcMain.handle(IPC.tickArchiveSave, (_event, code: string, date: string) =>
+    saveTickArchive(code, date)
+  )
+
+  ipcMain.handle(IPC.tickArchiveBatch, (_event, codes: string[], date: string) =>
+    fetchTickArchiveBatch(codes, date)
+  )
+
+  ipcMain.handle(IPC.tickArchiveList, (_event, limit?: number) => fetchTickArchiveList(limit))
 
   ipcMain.handle(IPC.f10Catalog, (_event, code: string) => fetchF10Catalog(code))
 

@@ -103,7 +103,10 @@ const api: StockLensApi = {
     inventory: () => ipcRenderer.invoke(IPC.dataInventory),
     limitReview: (date) => ipcRenderer.invoke(IPC.limitReview, date),
     archiveSnapshot: () => ipcRenderer.invoke(IPC.archiveSnapshot),
-    lakeArchives: (limit) => ipcRenderer.invoke(IPC.lakeArchives, limit)
+    lakeArchives: (limit) => ipcRenderer.invoke(IPC.lakeArchives, limit),
+    tickArchiveSave: (code, date) => ipcRenderer.invoke(IPC.tickArchiveSave, code, date),
+    tickArchiveBatch: (codes, date) => ipcRenderer.invoke(IPC.tickArchiveBatch, codes, date),
+    tickArchiveList: (limit) => ipcRenderer.invoke(IPC.tickArchiveList, limit)
   },
   block: {
     list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),

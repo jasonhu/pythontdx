@@ -37,6 +37,9 @@ import type {
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
+  TickArchiveBatchResult,
+  TickArchiveItem,
+  TickArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
@@ -102,6 +105,10 @@ export const IPC = {
   auctionArchiveRead: 'auction:archive-read',
   auctionArchiveList: 'auction:archive-list',
   auctionArchiveBatch: 'auction:archive-batch',
+  /** 本地逐笔归档：单只/批量/清单（invoke） */
+  tickArchiveSave: 'tick:archive-save',
+  tickArchiveBatch: 'tick:archive-batch',
+  tickArchiveList: 'tick:archive-list',
   /** F10 段落目录（invoke） */
   f10Catalog: 'f10:catalog',
   /** F10 段落正文（invoke） */
@@ -406,6 +413,9 @@ export interface StockLensApi {
     limitReview(date: string): Promise<LimitReviewResult>
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
+    tickArchiveSave(code: string, date: string): Promise<TickArchiveResult>
+    tickArchiveBatch(codes: string[], date: string): Promise<TickArchiveBatchResult>
+    tickArchiveList(limit?: number): Promise<TickArchiveItem[]>
   }
   block: {
     /** 0x06b9 下载并解析 block_*.dat */

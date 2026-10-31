@@ -352,6 +352,34 @@ export interface AuctionArchiveBatchResult {
   failedCount: number
 }
 
+export interface TickArchiveItem {
+  code: string
+  tradeDate: string
+  rows: number
+  bytes: number
+  sha256?: string
+  generatedAt?: string
+  dir: string
+}
+
+export interface TickArchiveResult {
+  code: string
+  tradeDate: string
+  rows: number
+  dir?: string
+  sha256?: string
+  generatedAt?: string
+  skipped?: boolean
+}
+
+export interface TickArchiveBatchResult {
+  tradeDate: string
+  saved: TickArchiveResult[]
+  failed: Array<{ code: string; error: string }>
+  savedCount: number
+  failedCount: number
+}
+
 /** 0x02cf F10 段落目录 */
 export interface F10Section {
   name: string

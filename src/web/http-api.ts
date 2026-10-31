@@ -28,6 +28,9 @@ import type {
   KLineExportResult,
   SnapshotArchiveItem,
   SnapshotArchiveResult,
+  TickArchiveBatchResult,
+  TickArchiveItem,
+  TickArchiveResult,
   LocalImportResult,
   LocalDayWriteResult,
   MacMoneyFlow,
@@ -458,7 +461,12 @@ export function createHttpApi(): StockLensApi {
       inventory: () => post<DataInventory>('/api/data_inventory', {}),
       limitReview: (date) => post<LimitReviewResult>('/api/limit_review', { date }),
       archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {}),
-      lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit })
+      lakeArchives: (limit) => post<SnapshotArchiveItem[]>('/api/lake_archives', { limit }),
+      tickArchiveSave: (code, date) =>
+        post<TickArchiveResult>('/api/tick_archive_save', { code, date }),
+      tickArchiveBatch: (codes, date) =>
+        post<TickArchiveBatchResult>('/api/tick_archive_batch', { codes, date }),
+      tickArchiveList: (limit) => post<TickArchiveItem[]>('/api/tick_archive_list', { limit })
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),

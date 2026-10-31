@@ -711,6 +711,8 @@ export interface AppSettings {
   screenPresets?: ScreenPreset[]
   /** 主图叠加公式；为空则关闭 */
   mainFormula?: string
+  /** 最近搜索（最多 8 条） */
+  recentSearches?: SearchItem[]
   /** 正在自动跟踪的预设 id；为空则不跟踪 */
   trackingPresetId?: string
   /** 可同时跟踪多个预设 */

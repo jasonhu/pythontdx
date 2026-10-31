@@ -5416,3 +5416,24 @@
   fill: var(--accent);
   opacity: 0.8;
 }
+
+.search-pop__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px 4px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.search-pop__clear {
+  border: 0;
+  color: var(--text-3);
+  background: transparent;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.search-pop__clear:hover {
+  color: var(--accent);
+}

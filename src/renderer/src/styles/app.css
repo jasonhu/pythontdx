@@ -462,7 +462,13 @@
   letter-spacing: 0.04em;
 }
 
-/* 迷你走势图：列表里只占 46px，不加任何坐标与网格 */
+/* 迷你走势图：固定 46px 槽位，数据未到也不让右侧价格列移动 */
+.watch-row__spark-slot {
+  width: 46px;
+  min-width: 46px;
+  height: 24px;
+}
+
 .watch-row .sparkline {
   width: 46px !important;
   min-width: 46px;

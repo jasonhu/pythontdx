@@ -8,7 +8,7 @@
 
 **当前状态**：桌面 + Web 前端可用；Linux AppImage/deb 已实测；
 v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTTP 只读）。
-`npm run check` 全绿：**209 个 TS 测试 + 112 个 Python 协议/服务测试（2 skipped）**。
+`npm run check` 全绿：**211 个 TS 测试 + 112 个 Python 协议/服务测试（2 skipped）**。
 
 <p align="center">
   <img src="docs/assets/stocklens-dark.png" alt="StockLens 深色主题界面" width="880">
@@ -78,7 +78,7 @@ v0.7 双前端 + Python 服务化已落地（Web 本地状态可写、行情 HTT
 - 自选导入/导出：状态栏 JSON 备份，导入追加分组、ID 冲突自动改名
 - 数据工具（含本地 .day/.lc1/.lc5/.5 读取/CSV/入库/写回）：标题栏「数据」弹窗，下载 `zhb.zip` 摘要，导出 JSONL.gz / CSV / SQLite / manifest，并对 stats.db 做只读 SQL 查询；全市场快照可手动归档，或开工作日 15:05–15:40 自动归档；自选/全 A 分批 K 线缓存（可跳过已有缓存续跑） + 网络失败回退；Parquet/DuckDB 为可选数据湖组件（已实测，默认不装）
 - 只读 HTTP API（`python/tdx_server.py`）+ Web 前端（本地状态可写）（`src/web`，复用同一套 SolidJS 渲染层）；SSE/WebSocket 行情流已接，`--web-dir out/web` 可单端口托管
-- 209 个 TS 单元测试 + 112 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
+- 211 个 TS 单元测试 + 112 个 Python 协议/服务测试（真实报文 fixture + 图表几何）
 - `npm run shot` 一键截图验收界面（可注入点击 / 聚焦 / 按键）
 - 数据 v1 → v2 结构迁移（扁平自选股 → 分组），用户无感知
 - 深 / 浅双主题，全部颜色收在一份设计令牌里
@@ -162,7 +162,7 @@ npm run build:win     # 或 build:mac / build:linux
 | `npm run dev:web`                                | Web 前端（本地状态可写）（需先起 HTTP API，默认 5174） |
 | `npm run build:web`                              | 构建 Web 产物到 `out/web/`                             |
 | `npm run check`                                  | 类型检查 + Lint + TS 测试 + Python 测试，一条命令      |
-| `npm run test`                                   | Vitest（209 个 TS 用例）                               |
+| `npm run test`                                   | Vitest（211 个 TS 用例）                               |
 | `npm run test:python`                            | Python 协议/HTTP 测试（112 个用例，真实 fixture）      |
 | `npm run build:python`                           | Nuitka 打行情桥接单文件（打包前必跑）                  |
 | `npm run shot`                                   | 构建后启动应用并截图到 `screenshots/`，用于肉眼验收    |

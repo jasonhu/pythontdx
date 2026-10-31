@@ -12,12 +12,16 @@ import { appState, appendAlertEvents, clearAlertEventHistory, markAlertsTriggere
 
 const [events, setEvents] = createSignal<AlertEvent[]>([])
 const [latest, setLatest] = createSignal<AlertEvent | null>(null)
+let previousQuotes = new Map<string, Quote>()
 
 export { events as alertEvents, latest as latestAlert }
 
 export function scanAlerts(quotes: readonly Quote[], now = Date.now()): void {
   if (appState.alerts.length === 0 || quotes.length === 0) return
-  const scan = evaluateAlerts(appState.alerts, quotes, now)
+  const scan = evaluateAlerts(appState.alerts, quotes, now, previousQuotes)
+  const nextPrevious = new Map(previousQuotes)
+  for (const quote of quotes) nextPrevious.set(quote.code, quote)
+  previousQuotes = nextPrevious
   if (scan.updated.length > 0) markAlertsTriggered(scan.updated)
   if (scan.events.length > 0) {
     setEvents((previous) => [...scan.events, ...previous].slice(0, 50))

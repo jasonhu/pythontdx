@@ -100,3 +100,24 @@ describe('evaluateAlerts', () => {
     expect(evaluateAlerts([volume], [quote('sh600519', 100, 1)], NOW).events).toHaveLength(0)
   })
 })
+
+describe('evaluateAlerts cross directions', () => {
+  const prev = new Map([['sh600519', quote('sh600519', 99, 1)]])
+  const next = [quote('sh600519', 101, 2)]
+
+  it('上穿阈值触发，首次无前值不触发', () => {
+    const cross = rule({ direction: 'crossAbove', value: 100 })
+    expect(evaluateAlerts([cross], next, NOW).events).toHaveLength(0)
+    const scan = evaluateAlerts([cross], next, NOW, prev)
+    expect(scan.events).toHaveLength(1)
+    expect(scan.events[0]?.message).toContain('上穿')
+  })
+
+  it('下穿阈值触发', () => {
+    const cross = rule({ direction: 'crossBelow', value: 100, code: 'sh600519' })
+    const previous = new Map([['sh600519', quote('sh600519', 101, 1)]])
+    const scan = evaluateAlerts([cross], [quote('sh600519', 99, 1)], NOW, previous)
+    expect(scan.events).toHaveLength(1)
+    expect(scan.events[0]?.message).toContain('下穿')
+  })
+})

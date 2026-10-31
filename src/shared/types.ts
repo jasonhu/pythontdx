@@ -777,7 +777,7 @@ export interface LayoutSlot {
 }
 
 export type AlertMetric = 'price' | 'changePct' | 'volumeRatio' | 'turnoverRate' | 'amplitude'
-export type AlertDirection = 'above' | 'below'
+export type AlertDirection = 'above' | 'below' | 'crossAbove' | 'crossBelow'
 
 export interface AlertCondition {
   metric: AlertMetric

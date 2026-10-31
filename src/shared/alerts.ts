@@ -47,8 +47,14 @@ export function ruleConditions(rule: AlertRule): AlertCondition[] {
   return [{ metric: rule.metric, direction: rule.direction, value: rule.value }]
 }
 
-function matches(condition: AlertCondition, value: number): boolean {
-  return condition.direction === 'above' ? value >= condition.value : value <= condition.value
+function matches(condition: AlertCondition, value: number, previous?: number): boolean {
+  if (condition.direction === 'above') return value >= condition.value
+  if (condition.direction === 'below') return value <= condition.value
+  if (previous === undefined || !Number.isFinite(previous)) return false
+  if (condition.direction === 'crossAbove') {
+    return previous < condition.value && value >= condition.value
+  }
+  return previous > condition.value && value <= condition.value
 }
 
 export interface AlertScan {
@@ -60,7 +66,8 @@ export interface AlertScan {
 export function evaluateAlerts(
   rules: readonly AlertRule[],
   quotes: readonly Quote[],
-  now: number
+  now: number,
+  previousQuotes?: ReadonlyMap<string, Quote>
 ): AlertScan {
   const date = localDate(now)
   const quoteMap = new Map(quotes.map((quote) => [quote.code, quote]))
@@ -75,16 +82,31 @@ export function evaluateAlerts(
     const conditions = ruleConditions(rule)
     const values = conditions.map((condition) => alertMetricValue(condition.metric, quote))
     if (values.some((value) => !Number.isFinite(value))) continue
+    const previous = previousQuotes?.get(rule.code)
+    const previousValues = previous
+      ? conditions.map((condition) => alertMetricValue(condition.metric, previous))
+      : []
     const matched =
       rule.conditionMode === 'or'
-        ? conditions.some((condition, index) => matches(condition, values[index]))
-        : conditions.every((condition, index) => matches(condition, values[index]))
+        ? conditions.some((condition, index) =>
+            matches(condition, values[index], previousValues[index])
+          )
+        : conditions.every((condition, index) =>
+            matches(condition, values[index], previousValues[index])
+          )
     if (!matched) continue
 
     const next = { ...rule, lastTriggeredDate: date }
     const description = conditions
       .map((condition, index) => {
-        const label = condition.direction === 'above' ? '≥' : '≤'
+        const label =
+          condition.direction === 'above'
+            ? '≥'
+            : condition.direction === 'below'
+              ? '≤'
+              : condition.direction === 'crossAbove'
+                ? '上穿'
+                : '下穿'
         return `${ALERT_METRIC_LABELS[condition.metric]} ${formatAlertValue(
           condition.metric,
           values[index]

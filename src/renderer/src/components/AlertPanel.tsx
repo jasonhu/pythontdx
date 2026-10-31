@@ -24,7 +24,14 @@ function describeConditions(rule: AlertRule): string {
       : [{ metric: rule.metric, direction: rule.direction, value: rule.value }]
   return conditions
     .map((condition) => {
-      const label = condition.direction === 'above' ? '≥' : '≤'
+      const label =
+        condition.direction === 'above'
+          ? '≥'
+          : condition.direction === 'below'
+            ? '≤'
+            : condition.direction === 'crossAbove'
+              ? '上穿'
+              : '下穿'
       return `${ALERT_METRIC_LABELS[condition.metric]} ${label} ${formatAlertValue(
         condition.metric,
         condition.value
@@ -162,6 +169,8 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
             >
               <option value="above">≥</option>
               <option value="below">≤</option>
+              <option value="crossAbove">上穿</option>
+              <option value="crossBelow">下穿</option>
             </select>
             <input
               class="alert__input"
@@ -216,6 +225,8 @@ export function AlertPanel(props: AlertPanelProps): JSX.Element {
                 >
                   <option value="above">≥</option>
                   <option value="below">≤</option>
+                  <option value="crossAbove">上穿</option>
+                  <option value="crossBelow">下穿</option>
                 </select>
                 <input
                   class="alert__input"

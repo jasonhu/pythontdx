@@ -21,6 +21,7 @@ import type { ChartDrawing, KLineSeries } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { boll } from '@shared/indicators'
 import { evaluateFormula } from '@shared/formula'
+import { ruleConditions } from '@shared/alerts'
 import {
   accumulateWheel,
   buildKLineGeometry,
@@ -298,6 +299,19 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
       if (item) marks.push({ x: geo.x(index), label: item.label, date: item.date.slice(0, 10) })
     })
     return marks
+  })
+
+  const alertPrices = createMemo(() => {
+    const result: Array<{ price: number; label: string }> = []
+    for (const rule of appState.alerts) {
+      if (!rule.enabled || rule.code !== props.series.code) continue
+      for (const condition of ruleConditions(rule)) {
+        if (condition.metric === 'price') {
+          result.push({ price: condition.value, label: rule.name })
+        }
+      }
+    }
+    return result
   })
 
   const dateTicks = createMemo(() => buildKLineTicks(bars()))
@@ -717,6 +731,28 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
                   </g>
                 )
               }}
+            </For>
+
+            {/* ---------- 预警目标价 ---------- */}
+            <For each={alertPrices()}>
+              {(alert) => (
+                <g class="chart-alert">
+                  <title>{`${alert.label} · 预警 ${fixed(alert.price)}`}</title>
+                  <line
+                    x1={geo().padding.left}
+                    x2={geo().width - geo().padding.right}
+                    y1={geo().yPrice(alert.price)}
+                    y2={geo().yPrice(alert.price)}
+                  />
+                  <text
+                    x={geo().width - geo().padding.right - 2}
+                    y={geo().yPrice(alert.price) - 3}
+                    text-anchor="end"
+                  >
+                    预警 {fixed(alert.price)}
+                  </text>
+                </g>
+              )}
             </For>
 
             {/* ---------- 成交量柱 ---------- */}

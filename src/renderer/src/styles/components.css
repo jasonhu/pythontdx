@@ -5437,3 +5437,16 @@
 .search-pop__clear:hover {
   color: var(--accent);
 }
+
+.chart-alert line {
+  stroke: var(--down);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+  opacity: 0.55;
+}
+
+.chart-alert text {
+  fill: var(--down);
+  font-size: 9px;
+  opacity: 0.8;
+}

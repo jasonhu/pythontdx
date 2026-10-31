@@ -36,6 +36,12 @@ StockLens 的所有重要变更都记录在这里。
   点击可将当前窗口取消最大化并居中移到目标显示器；Web 端回退为浏览器窗口。
   居中计算抽成纯函数并补 3 个边界用例（负坐标副屏/窗口大于工作区）。
 
+### 变更
+
+- **本地数据永久保存**：按用户 2026-10-31 指令，不提供清理/删除入口，不实现 prune；
+  已存在且校验通过的归档不覆盖（`skipped=true`），只允许替换损坏副本
+  （见 `PRINCIPLES.md` D6.1）。
+
 ### 修复
 
 - **集合竞价混入全天快照**：`0x056a` selector 默认值从 `3` 改为 `0`。
@@ -44,9 +50,9 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` → **231 TS + 124 Python（2 skipped，22 个 TS 文件）**，全绿；
+- `npm run check` → **231 TS + 125 Python（2 skipped，22 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 130 MB `a9bfd6ed…` / deb 105 MB `8ae5489a…`；
+- Linux AppImage 130 MB `f0bf9884…` / deb 105 MB `19e22c4b…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

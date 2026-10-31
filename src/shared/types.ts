@@ -309,6 +309,8 @@ export interface AuctionArchiveResult {
   rows: number
   source: 'archive'
   found: boolean
+  /** 已有校验通过的归档时不再覆盖 */
+  skipped?: boolean
   dir?: string
   sha256?: string
   generatedAt?: string

@@ -95,7 +95,11 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
     setArchiveNote(null)
     try {
       const result = await api.auction.archiveSave(props.code, date() || undefined)
-      setArchiveNote(`已归档 ${result.tradeDate} · ${result.rows} 点`)
+      setArchiveNote(
+        result.skipped
+          ? `已有归档 ${result.tradeDate} · ${result.rows} 点，未覆盖`
+          : `已归档 ${result.tradeDate} · ${result.rows} 点`
+      )
       if (date() && result.tradeDate === date()) {
         setRows(result.points)
         setSource('archive')

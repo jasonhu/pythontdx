@@ -47,10 +47,23 @@ class TestAuctionArchive(unittest.TestCase):
             self.assertEqual(len(items), 1)
             self.assertEqual(items[0]["code"], "sh600519")
 
-    def test_overwrite_is_latest(self) -> None:
+    def test_valid_archive_is_never_overwritten(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_auction_archive(root, "sh600519", "2026-10-30", points(3))
+            second = write_auction_archive(root, "sh600519", "2026-10-30", points(2))
+            self.assertTrue(second["skipped"])
+            loaded = read_auction_archive(root, "sh600519", "2026-10-30")
+            self.assertEqual(loaded["rows"], 3)
+
+    def test_corrupt_archive_may_be_replaced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_auction_archive(root, "sh600519", "2026-10-30", points(3))
+            manifest_path = root / "trade_date=2026-10-30" / "sh600519.manifest.json"
+            manifest = json.loads(manifest_path.read_text("utf-8"))
+            manifest["sha256"] = "0" * 64
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             write_auction_archive(root, "sh600519", "2026-10-30", points(2))
             loaded = read_auction_archive(root, "sh600519", "2026-10-30")
             self.assertEqual(loaded["rows"], 2)

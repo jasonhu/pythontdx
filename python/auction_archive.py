@@ -67,7 +67,7 @@ def write_auction_archive(
     points: list[dict],
     generated_at: str | None = None,
 ) -> dict:
-    """原子写入一只股票的竞价点；同日期重复写入会覆盖为最新一版。"""
+    """原子写入一只股票的竞价点；正常归档永久保留，只有损坏才允许覆盖。"""
     normalized_code = normalize_code(code)
     normalized_date = normalize_date(trade_date)
     if not points:
@@ -76,12 +76,29 @@ def write_auction_archive(
         if not isinstance(point, dict) or "time" not in point or "price" not in point:
             raise AuctionArchiveError("竞价点缺少 time/price 字段")
     target_dir = Path(root) / f"trade_date={normalized_date}"
+    data_path = target_dir / f"{normalized_code}.jsonl.gz"
+    manifest_path = target_dir / f"{normalized_code}.manifest.json"
+    if data_path.is_file() and manifest_path.is_file():
+        try:
+            existing = read_auction_archive(root, normalized_code, normalized_date)
+            return {
+                "code": existing["code"],
+                "tradeDate": existing["tradeDate"],
+                "rows": existing["rows"],
+                "dir": existing["dir"],
+                "sha256": existing["sha256"],
+                "generatedAt": existing["generatedAt"],
+                "source": "archive",
+                "found": True,
+                "skipped": True,
+            }
+        except AuctionArchiveError:
+            # 只有已存在的归档损坏时才允许覆盖；正常数据永久保留。
+            pass
     target_dir.mkdir(parents=True, exist_ok=True)
     payload = _canonical_jsonl(points)
     digest = _sha256(payload)
     stamp = generated_at or datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
-    data_path = target_dir / f"{normalized_code}.jsonl.gz"
-    manifest_path = target_dir / f"{normalized_code}.manifest.json"
     data_tmp = target_dir / f".{normalized_code}.jsonl.gz.part"
     manifest_tmp = target_dir / f".{normalized_code}.manifest.json.part"
 

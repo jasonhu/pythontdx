@@ -1291,3 +1291,51 @@
 .app--focus .layout-resizer {
   display: none;
 }
+
+/* 宽图表 / 最小窗口：名称、价格与操作按钮自动换行，避免名称逐字竖排 */
+.quote-header__top {
+  flex-wrap: wrap;
+}
+
+.quote-header__identity {
+  flex: 1 1 auto;
+  min-width: 190px;
+}
+
+.quote-header__name {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.quote-header__name > span:first-child {
+  white-space: nowrap;
+}
+
+.quote-header__code {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quote-header__price-block {
+  flex: none;
+}
+
+@media (max-width: 1280px) {
+  .quote-header {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .quote-header__name {
+    font-size: var(--fs-lg);
+  }
+
+  .quote-header__price {
+    font-size: var(--fs-2xl);
+  }
+
+  .quote-header__delta {
+    font-size: var(--fs-sm);
+  }
+}

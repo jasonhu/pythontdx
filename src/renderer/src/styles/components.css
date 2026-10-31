@@ -5486,3 +5486,69 @@
   font-style: normal;
   font-size: var(--fs-2xs);
 }
+
+.unusual__dist {
+  padding: 6px 16px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.unusual__dist-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.unusual__dist-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 64px;
+}
+
+.unusual__dist-bucket {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.unusual__dist-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--up);
+  opacity: 0.55;
+}
+
+.unusual__dist-bucket--down .unusual__dist-bar {
+  background: var(--down);
+}
+
+.unusual__dist-bucket--flat .unusual__dist-bar {
+  background: var(--text-3);
+}
+
+.unusual__dist-bucket em {
+  position: absolute;
+  top: 0;
+  color: var(--text-2);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.unusual__dist-bucket small {
+  position: absolute;
+  bottom: -12px;
+  color: var(--text-3);
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+.unusual__dist-bucket:not(:nth-child(2n + 1)) small {
+  opacity: 0.75;
+}

@@ -93,6 +93,36 @@ export function UnusualPanel(props: {
 
   const count = (): number => (mode() === 'unusual' ? items().length : limitRows().length)
 
+  const distribution = createMemo(() => {
+    const buckets = [
+      { label: '≤-10', min: -Infinity, max: -10, tone: 'down' },
+      { label: '-10~-7', min: -10, max: -7, tone: 'down' },
+      { label: '-7~-5', min: -7, max: -5, tone: 'down' },
+      { label: '-5~-3', min: -5, max: -3, tone: 'down' },
+      { label: '-3~-1', min: -3, max: -1, tone: 'down' },
+      { label: '-1~0', min: -1, max: 0, tone: 'down' },
+      { label: '0', min: 0, max: 0, tone: 'flat' },
+      { label: '0~1', min: 0, max: 1, tone: 'up' },
+      { label: '1~3', min: 1, max: 3, tone: 'up' },
+      { label: '3~5', min: 3, max: 5, tone: 'up' },
+      { label: '5~7', min: 5, max: 7, tone: 'up' },
+      { label: '7~10', min: 7, max: 10, tone: 'up' },
+      { label: '≥10', min: 10, max: Infinity, tone: 'up' }
+    ]
+    const counts = buckets.map(
+      (bucket) =>
+        quotes().filter((quote) => {
+          const pct = quote.changePct
+          if (bucket.min === 0 && bucket.max === 0) return pct === 0
+          if (bucket.min === -Infinity) return pct < bucket.max
+          if (bucket.max === Infinity) return pct >= bucket.min
+          return pct >= bucket.min && pct < bucket.max
+        }).length
+    )
+    const max = Math.max(...counts, 1)
+    return buckets.map((bucket, index) => ({ ...bucket, count: counts[index], max }))
+  })
+
   return (
     <div class="unusual-backdrop" onClick={() => props.onClose()}>
       <section
@@ -148,6 +178,34 @@ export function UnusualPanel(props: {
             )}
           </For>
         </div>
+
+        <Show when={mode() !== 'unusual' && quotes().length > 0}>
+          <div class="unusual__dist">
+            <div class="unusual__dist-head">
+              <span>全市场涨跌分布 · {quotes().length} 只</span>
+              <span class="num">
+                涨停 {upRows().length} / 跌停 {downRows().length}
+              </span>
+            </div>
+            <div class="unusual__dist-bars">
+              <For each={distribution()}>
+                {(bucket) => (
+                  <div
+                    class={`unusual__dist-bucket unusual__dist-bucket--${bucket.tone}`}
+                    title={`${bucket.label}：${bucket.count} 只`}
+                  >
+                    <em>{bucket.count}</em>
+                    <span
+                      class="unusual__dist-bar"
+                      style={{ height: `${Math.max(2, (bucket.count / bucket.max) * 100)}%` }}
+                    />
+                    <small>{bucket.label}</small>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
 
         <Show when={mode() === 'unusual' ? error() : limitError()}>
           {(message) => <div class="unusual__error">{message()}</div>}

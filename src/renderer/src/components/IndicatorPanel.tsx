@@ -21,6 +21,7 @@ import {
   roc,
   rsi,
   trix as trixIndicator,
+  sar,
   vr,
   wr
 } from '@shared/indicators'
@@ -44,6 +45,7 @@ type Tab =
   | 'bbi'
   | 'dma'
   | 'trix'
+  | 'sar'
   | 'boll'
 
 const W = 900
@@ -69,6 +71,7 @@ const COLORS = {
   ama: '#f0b429',
   trix: '#22d3ee',
   trixSignal: '#c084fc',
+  sar: '#22d3ee',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -128,10 +131,17 @@ export function IndicatorPanel(props: {
   const [dmaSignal, setDmaSignal] = createSignal('10')
   const [trixPeriod, setTrixPeriod] = createSignal('12')
   const [trixSignal, setTrixSignal] = createSignal('9')
+  const [sarStep, setSarStep] = createSignal('0.02')
+  const [sarMax, setSarMax] = createSignal('0.2')
 
   const num = (value: () => string, fallback: number): number => {
     const parsed = Number(value())
     return Number.isFinite(parsed) && parsed > 0 ? Math.min(200, Math.floor(parsed)) : fallback
+  }
+
+  const decimal = (value: () => string, fallback: number): number => {
+    const parsed = Number(value())
+    return Number.isFinite(parsed) && parsed > 0 && parsed <= 1 ? parsed : fallback
   }
 
   let paramsHydrated = false
@@ -164,6 +174,8 @@ export function IndicatorPanel(props: {
     setDmaSignal(String(saved.dmaSignal ?? 10))
     setTrixPeriod(String(saved.trixPeriod ?? 12))
     setTrixSignal(String(saved.trixSignal ?? 9))
+    setSarStep(String(saved.sarStep ?? 0.02))
+    setSarMax(String(saved.sarMax ?? 0.2))
   })
 
   const persistParams = (): void => {
@@ -193,7 +205,9 @@ export function IndicatorPanel(props: {
         dmaLong: num(dmaLong, 50),
         dmaSignal: num(dmaSignal, 10),
         trixPeriod: num(trixPeriod, 12),
-        trixSignal: num(trixSignal, 9)
+        trixSignal: num(trixSignal, 9),
+        sarStep: decimal(sarStep, 0.02),
+        sarMax: decimal(sarMax, 0.2)
       }
     })
   }
@@ -455,6 +469,17 @@ export function IndicatorPanel(props: {
         ] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'sar') {
+      const line = slice(sar(all, decimal(sarStep, 0.02), decimal(sarMax, 0.2)))
+      const finite = line.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [{ label: 'SAR', color: COLORS.sar, path: linePath(line, min, max) }],
+        hist: [],
+        latest: [['SAR', line.at(-1)]] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -519,6 +544,7 @@ export function IndicatorPanel(props: {
                 ['bbi', 'BBI'],
                 ['dma', 'DMA'],
                 ['trix', 'TRIX'],
+                ['sar', 'SAR'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }
@@ -877,6 +903,36 @@ export function IndicatorPanel(props: {
               />
             </label>
           </Show>
+          <Show when={tab() === 'sar'}>
+            <label>
+              <span>步长</span>
+              <input
+                type="number"
+                min="0.001"
+                max="1"
+                step="0.001"
+                value={sarStep()}
+                onInput={(e) => {
+                  setSarStep(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+            <label>
+              <span>上限</span>
+              <input
+                type="number"
+                min="0.001"
+                max="1"
+                step="0.001"
+                value={sarMax()}
+                onInput={(e) => {
+                  setSarMax(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
         </div>
 
         <div class="indicator__body">
@@ -940,7 +996,8 @@ export function IndicatorPanel(props: {
             {num(bollPeriod, 20)},{num(bollK, 2)}) · ROC{num(rocPeriod, 12)} · PSY
             {num(psyPeriod, 12)} · VR{num(vrPeriod, 26)} · CR{num(crPeriod, 26)} · DMA(
             {num(dmaShort, 10)},{num(dmaLong, 50)},{num(dmaSignal, 10)}) · TRIX(
-            {num(trixPeriod, 12)},{num(trixSignal, 9)})
+            {num(trixPeriod, 12)},{num(trixSignal, 9)}) · SAR(
+            {decimal(sarStep, 0.02)},{decimal(sarMax, 0.2)})
           </span>
           <span>不构成交易建议</span>
         </footer>

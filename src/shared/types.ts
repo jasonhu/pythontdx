@@ -792,6 +792,8 @@ export interface IndicatorParams {
   dmaSignal?: number
   trixPeriod?: number
   trixSignal?: number
+  sarStep?: number
+  sarMax?: number
 }
 
 export interface PortfolioPosition {
@@ -855,6 +857,7 @@ export interface AppSettings {
     | 'bbi'
     | 'dma'
     | 'trix'
+    | 'sar'
   /** 价格坐标是否对数 */
   logScale?: boolean
   /** K 线画线（按 code/period 保存） */

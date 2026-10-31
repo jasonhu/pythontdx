@@ -409,3 +409,51 @@ export function trix(
   }
   return { trix: trixValues, signal: signalValues }
 }
+
+/**
+ * SAR（抛物线转向）：按步长/最大值推进停损点，价格穿越时反转。
+ * 上升段 SAR 不高于前两根最低价，下降段不低于前两根最高价。
+ */
+export function sar(bars: readonly KLineBar[], step = 0.02, max = 0.2): number[] {
+  if (bars.length === 0) return []
+  const safeStep = Math.min(1, Math.max(0.001, step))
+  const safeMax = Math.min(1, Math.max(safeStep, max))
+  let rising = bars.length < 2 ? true : bars[1].close >= bars[0].close
+  let acceleration = safeStep
+  let extreme = rising ? bars[0].high : bars[0].low
+  let value = rising ? bars[0].low : bars[0].high
+  const result: number[] = [value]
+
+  for (let index = 1; index < bars.length; index += 1) {
+    value += acceleration * (extreme - value)
+    const previousLow = bars[index - 1].low
+    const beforeLow = bars[Math.max(0, index - 2)].low
+    const previousHigh = bars[index - 1].high
+    const beforeHigh = bars[Math.max(0, index - 2)].high
+    if (rising) {
+      value = Math.min(value, previousLow, beforeLow)
+      if (bars[index].low < value) {
+        rising = false
+        value = extreme
+        extreme = bars[index].low
+        acceleration = safeStep
+      } else {
+        if (bars[index].high > extreme) extreme = bars[index].high
+        acceleration = Math.min(safeMax, acceleration + safeStep)
+      }
+    } else {
+      value = Math.max(value, previousHigh, beforeHigh)
+      if (bars[index].high > value) {
+        rising = true
+        value = extreme
+        extreme = bars[index].high
+        acceleration = safeStep
+      } else {
+        if (bars[index].low < extreme) extreme = bars[index].low
+        acceleration = Math.min(safeMax, acceleration + safeStep)
+      }
+    }
+    result.push(value)
+  }
+  return result
+}

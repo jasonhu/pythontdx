@@ -20,6 +20,7 @@ import {
   roc,
   rsi,
   trix as trixIndicator,
+  sar,
   vr,
   wr
 } from '@shared/indicators'
@@ -40,6 +41,7 @@ export type SubIndicator =
   | 'bbi'
   | 'dma'
   | 'trix'
+  | 'sar'
 
 const W = 900
 const H = 120
@@ -66,6 +68,7 @@ const COLORS = {
   ama: '#f0b429',
   trix: '#22d3ee',
   trixSignal: '#c084fc',
+  sar: '#22d3ee',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -351,6 +354,17 @@ export function IndicatorSubchart(props: {
         ],
         hist: [],
         latest: `TRIX ${fixed(line.at(-1) ?? 0)} · MATRIX ${fixed(signalLine.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'sar') {
+      const values = slice(sar(all, props.params?.sarStep ?? 0.02, props.params?.sarMax ?? 0.2))
+      const finite = values.filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [{ label: 'SAR', color: COLORS.sar, d: path(values, min, max) }],
+        hist: [],
+        latest: `SAR ${fixed(values.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all, props.params?.rsiPeriod ?? 14))

@@ -17,7 +17,8 @@ import {
   psy,
   vr,
   cr,
-  trix
+  trix,
+  sar
 } from './indicators'
 
 function bars(closes: number[]): KLineBar[] {
@@ -208,5 +209,16 @@ describe('roc / psy / vr / cr', () => {
     expect(flat.signal[3]).toBe(0)
     const rising = trix(bars(Array.from({ length: 30 }, (_, index) => index + 1)), 3, 3)
     expect(rising.trix.at(-1)).toBeGreaterThan(0)
+  })
+
+  it('SAR 上涨段在价格下方、下跌段在上方，长度与 bars 一致', () => {
+    const up = sar(bars(Array.from({ length: 40 }, (_, index) => 10 + index)))
+    const down = sar(bars(Array.from({ length: 40 }, (_, index) => 50 - index)))
+    expect(up).toHaveLength(40)
+    expect(down).toHaveLength(40)
+    expect(up.at(-1)!).toBeLessThan(49)
+    expect(down.at(-1)!).toBeGreaterThan(12)
+    expect(up.every(Number.isFinite)).toBe(true)
+    expect(down.every(Number.isFinite)).toBe(true)
   })
 })

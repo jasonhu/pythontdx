@@ -787,6 +787,9 @@ export interface IndicatorParams {
   psyPeriod?: number
   vrPeriod?: number
   crPeriod?: number
+  dmaShort?: number
+  dmaLong?: number
+  dmaSignal?: number
 }
 
 export interface PortfolioPosition {
@@ -848,6 +851,7 @@ export interface AppSettings {
     | 'vr'
     | 'cr'
     | 'bbi'
+    | 'dma'
   /** 价格坐标是否对数 */
   logScale?: boolean
   /** K 线画线（按 code/period 保存） */

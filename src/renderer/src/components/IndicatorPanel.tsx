@@ -13,6 +13,7 @@ import {
   cci,
   cr,
   dmi,
+  dma as dmaIndicator,
   kdj,
   macd,
   obv,
@@ -40,6 +41,7 @@ type Tab =
   | 'vr'
   | 'cr'
   | 'bbi'
+  | 'dma'
   | 'boll'
 
 const W = 900
@@ -61,6 +63,8 @@ const COLORS = {
   vr: '#c084fc',
   cr: '#f0b429',
   bbi: '#22d3ee',
+  dma: '#5b8cff',
+  ama: '#f0b429',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -115,6 +119,9 @@ export function IndicatorPanel(props: {
   const [psyPeriod, setPsyPeriod] = createSignal('12')
   const [vrPeriod, setVrPeriod] = createSignal('26')
   const [crPeriod, setCrPeriod] = createSignal('26')
+  const [dmaShort, setDmaShort] = createSignal('10')
+  const [dmaLong, setDmaLong] = createSignal('50')
+  const [dmaSignal, setDmaSignal] = createSignal('10')
 
   const num = (value: () => string, fallback: number): number => {
     const parsed = Number(value())
@@ -146,6 +153,9 @@ export function IndicatorPanel(props: {
     setPsyPeriod(String(saved.psyPeriod ?? 12))
     setVrPeriod(String(saved.vrPeriod ?? 26))
     setCrPeriod(String(saved.crPeriod ?? 26))
+    setDmaShort(String(saved.dmaShort ?? 10))
+    setDmaLong(String(saved.dmaLong ?? 50))
+    setDmaSignal(String(saved.dmaSignal ?? 10))
   })
 
   const persistParams = (): void => {
@@ -170,7 +180,10 @@ export function IndicatorPanel(props: {
         rocPeriod: num(rocPeriod, 12),
         psyPeriod: num(psyPeriod, 12),
         vrPeriod: num(vrPeriod, 26),
-        crPeriod: num(crPeriod, 26)
+        crPeriod: num(crPeriod, 26),
+        dmaShort: num(dmaShort, 10),
+        dmaLong: num(dmaLong, 50),
+        dmaSignal: num(dmaSignal, 10)
       }
     })
   }
@@ -393,6 +406,25 @@ export function IndicatorPanel(props: {
         latest: [['BBI', line.at(-1)]] as Array<[string, number | undefined]>
       }
     }
+    if (tab() === 'dma') {
+      const values = dmaIndicator(all, num(dmaShort, 10), num(dmaLong, 50), num(dmaSignal, 10))
+      const dif = slice(values.dma)
+      const ama = slice(values.ama)
+      const finite = [...dif, ...ama].filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [
+          { label: 'DMA', color: COLORS.dma, path: linePath(dif, min, max) },
+          { label: 'AMA', color: COLORS.ama, path: linePath(ama, min, max) }
+        ],
+        hist: [],
+        latest: [
+          ['DMA', dif.at(-1)],
+          ['AMA', ama.at(-1)]
+        ] as Array<[string, number | undefined]>
+      }
+    }
     const values = boll(all, num(bollPeriod, 20), num(bollK, 2))
     const upper = slice(values.upper)
     const middle = slice(values.middle)
@@ -455,6 +487,7 @@ export function IndicatorPanel(props: {
                 ['vr', 'VR'],
                 ['cr', 'CR'],
                 ['bbi', 'BBI'],
+                ['dma', 'DMA'],
                 ['boll', 'BOLL']
               ] as Array<[Tab, string]>
             }
@@ -744,6 +777,47 @@ export function IndicatorPanel(props: {
               />
             </label>
           </Show>
+          <Show when={tab() === 'dma'}>
+            <label>
+              <span>短</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={dmaShort()}
+                onInput={(e) => {
+                  setDmaShort(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+            <label>
+              <span>长</span>
+              <input
+                type="number"
+                min="2"
+                max="200"
+                value={dmaLong()}
+                onInput={(e) => {
+                  setDmaLong(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+            <label>
+              <span>M</span>
+              <input
+                type="number"
+                min="2"
+                max="120"
+                value={dmaSignal()}
+                onInput={(e) => {
+                  setDmaSignal(e.currentTarget.value)
+                  persistParams()
+                }}
+              />
+            </label>
+          </Show>
         </div>
 
         <div class="indicator__body">
@@ -805,7 +879,8 @@ export function IndicatorPanel(props: {
             MACD({num(macdFast, 12)},{num(macdSlow, 26)},{num(macdSignal, 9)}) · KDJ(
             {num(kdjPeriod, 9)},{num(kdjM1, 3)},{num(kdjM2, 3)}) · RSI{num(rsiPeriod, 14)} · BOLL(
             {num(bollPeriod, 20)},{num(bollK, 2)}) · ROC{num(rocPeriod, 12)} · PSY
-            {num(psyPeriod, 12)} · VR{num(vrPeriod, 26)} · CR{num(crPeriod, 26)}
+            {num(psyPeriod, 12)} · VR{num(vrPeriod, 26)} · CR{num(crPeriod, 26)} · DMA(
+            {num(dmaShort, 10)},{num(dmaLong, 50)},{num(dmaSignal, 10)})
           </span>
           <span>不构成交易建议</span>
         </footer>

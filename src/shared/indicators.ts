@@ -325,3 +325,51 @@ export function bbi(bars: readonly KLineBar[]): number[] {
       : Number.NaN
   })
 }
+
+/**
+ * DMA（平行线差）：DMA = MA(short) - MA(long)，AMA = MA(DMA, signal)。
+ * 两条均线都可用之前返回 NaN；AMA 需要连续 signal 个有效 DMA。
+ */
+export function dma(
+  bars: readonly KLineBar[],
+  short = 10,
+  long = 50,
+  signal = 10
+): { dma: number[]; ama: number[] } {
+  const closes = bars.map((bar) => bar.close)
+  const safeShort = Math.max(1, Math.min(200, Math.floor(short)))
+  const safeLong = Math.max(1, Math.min(200, Math.floor(long)))
+  const safeSignal = Math.max(1, Math.min(200, Math.floor(signal)))
+  const average = (period: number): number[] => {
+    const result: number[] = []
+    let sum = 0
+    for (let index = 0; index < closes.length; index += 1) {
+      sum += closes[index]
+      if (index >= period) sum -= closes[index - period]
+      result.push(index + 1 >= period ? sum / period : Number.NaN)
+    }
+    return result
+  }
+  const shortAverage = average(safeShort)
+  const longAverage = average(safeLong)
+  const dmaValues = closes.map((_, index) => {
+    const fast = shortAverage[index]
+    const slow = longAverage[index]
+    return Number.isFinite(fast) && Number.isFinite(slow) ? fast - slow : Number.NaN
+  })
+
+  const ama: number[] = []
+  const window: number[] = []
+  for (const value of dmaValues) {
+    if (Number.isFinite(value)) {
+      window.push(value)
+      if (window.length > safeSignal) window.shift()
+    }
+    ama.push(
+      window.length === safeSignal
+        ? window.reduce((total, item) => total + item, 0) / safeSignal
+        : Number.NaN
+    )
+  }
+  return { dma: dmaValues, ama }
+}

@@ -6,7 +6,22 @@
 import { createMemo, For, Show, type JSX } from 'solid-js'
 import type { IndicatorParams, KLineBar } from '@shared/types'
 import { fixed } from '@shared/format'
-import { bbi, bias, cci, cr, dmi, kdj, macd, obv, psy, roc, rsi, vr, wr } from '@shared/indicators'
+import {
+  bbi,
+  bias,
+  cci,
+  cr,
+  dmi,
+  dma as dmaIndicator,
+  kdj,
+  macd,
+  obv,
+  psy,
+  roc,
+  rsi,
+  vr,
+  wr
+} from '@shared/indicators'
 
 export type SubIndicator =
   | 'macd'
@@ -22,6 +37,7 @@ export type SubIndicator =
   | 'vr'
   | 'cr'
   | 'bbi'
+  | 'dma'
 
 const W = 900
 const H = 120
@@ -44,6 +60,8 @@ const COLORS = {
   vr: '#c084fc',
   cr: '#f0b429',
   bbi: '#22d3ee',
+  dma: '#5b8cff',
+  ama: '#f0b429',
   bias6: '#5b8cff',
   bias12: '#f0b429',
   bias24: '#c084fc',
@@ -291,6 +309,27 @@ export function IndicatorSubchart(props: {
         lines: [{ label: 'BBI', color: COLORS.bbi, d: path(values, min, max) }],
         hist: [],
         latest: `BBI ${fixed(values.at(-1) ?? 0)}`
+      }
+    }
+    if (props.kind === 'dma') {
+      const result = dmaIndicator(
+        all,
+        props.params?.dmaShort ?? 10,
+        props.params?.dmaLong ?? 50,
+        props.params?.dmaSignal ?? 10
+      )
+      const dif = slice(result.dma)
+      const ama = slice(result.ama)
+      const finite = [...dif, ...ama].filter(Number.isFinite)
+      const min = finite.length > 0 ? Math.min(...finite) : 0
+      const max = finite.length > 0 ? Math.max(...finite) : 1
+      return {
+        lines: [
+          { label: 'DMA', color: COLORS.dma, d: path(dif, min, max) },
+          { label: 'AMA', color: COLORS.ama, d: path(ama, min, max) }
+        ],
+        hist: [],
+        latest: `DMA ${fixed(dif.at(-1) ?? 0)} · AMA ${fixed(ama.at(-1) ?? 0)}`
       }
     }
     const values = slice(rsi(all, props.params?.rsiPeriod ?? 14))

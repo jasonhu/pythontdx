@@ -3,6 +3,7 @@ import type { KLineBar } from './types'
 import {
   bbi,
   boll,
+  dma,
   ema,
   kdj,
   macd,
@@ -186,5 +187,15 @@ describe('roc / psy / vr / cr', () => {
     expect(values[22]).toBeNaN()
     expect(values[23]).toBeCloseTo(18.875, 6)
     expect(values[29]).toBeCloseTo(24.875, 6)
+  })
+
+  it('DMA 为短长均线差，AMA 再取 signal 日均值', () => {
+    const values = dma(bars(Array.from({ length: 60 }, (_, index) => index + 1)), 3, 6, 3)
+    expect(values.dma[4]).toBeNaN()
+    expect(values.dma[5]).toBeCloseTo(1.5, 6)
+    expect(values.dma[59]).toBeCloseTo(1.5, 6)
+    expect(values.ama[6]).toBeNaN()
+    expect(values.ama[7]).toBeCloseTo(1.5, 6)
+    expect(values.ama[59]).toBeCloseTo(1.5, 6)
   })
 })

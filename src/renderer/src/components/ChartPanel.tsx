@@ -646,7 +646,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             首屏加载时给骨架屏；已经有数据时再刷新（data() 仍是旧值）就继续显示图表，
             避免每次定时刷新都闪一下白。
           */}
-          <Show when={!data.loading || data()} fallback={<ChartSkeleton />}>
+          <Show when={!data.loading || data() || cachedSeries()} fallback={<ChartSkeleton />}>
             <Show
               when={!isEmpty()}
               fallback={<div class="chart-empty">暂无行情数据（可能停牌或尚未开盘）</div>}

@@ -6,6 +6,9 @@
  *   · 缓存 K 线/分时这类低频数据；
  *   · 维护代码表 + 拼音搜索索引。
  */
+import { readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type {
   AuctionPoint,
   BlockKind,
@@ -418,17 +421,41 @@ export async function fetchFormulaBacktest(
 
 /* ------------------------------------------------------------------ K 线 */
 
+/** 直接读 Python 写入的 K 线缓存，避免启动时等待 sidecar。 */
+function readKlineCacheFile(
+  code: string,
+  period: KLinePeriod,
+  count: number,
+  adjust: KLineAdjust
+): KLineSeries {
+  const root =
+    process.env.STOCKLENS_DATA_DIR ?? join(homedir(), '.local', 'share', 'stocklens', 'data')
+  const path = join(
+    root,
+    'cache',
+    'klines',
+    `${code.toLowerCase()}_${period}_${count}_${adjust}.json`
+  )
+  const parsed = JSON.parse(readFileSync(path, 'utf8')) as KLineSeries & { source?: string }
+  if (!Array.isArray(parsed.bars)) throw new Error('K 线缓存损坏')
+  return { ...parsed, code, period, source: 'cache', cachePath: path }
+}
+
 export async function fetchKline(
   code: string,
   period: KLinePeriod,
   count = 200,
   adjust: KLineAdjust = 'qfq',
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  cacheOnly = false
 ): Promise<KLineSeries> {
   assertSupported(code)
   if (signal?.aborted) throw new TdxError('请求已取消')
 
   const safeCount = Math.min(800, Math.max(1, Math.trunc(count)))
+  if (cacheOnly) {
+    return readKlineCacheFile(code, period, safeCount, adjust)
+  }
   const key = `${code}:${period}:${safeCount}:${adjust}`
 
   return klineCache.resolve(key, () =>

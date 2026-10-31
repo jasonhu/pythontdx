@@ -12,7 +12,7 @@ import { normalizeMaPeriods } from '@shared/ma'
 const INTERVALS = [1000, 3000, 5000, 10_000] as const
 
 const LAYOUTS = [
-  { id: 'default', label: '默认', sidebar: 264, rail: 318 },
+  { id: 'default', label: '默认', sidebar: 300, rail: 320 },
   { id: 'chart', label: '宽图表', sidebar: 224, rail: 280 },
   { id: 'rail', label: '宽盘口', sidebar: 280, rail: 380 }
 ] as const
@@ -49,7 +49,7 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
 
   const saveLayout = (): void => {
     const slot: LayoutSlot = {
-      sidebar: appState.settings.sidebarWidth ?? 264,
+      sidebar: appState.settings.sidebarWidth ?? 300,
       rail: appState.settings.railWidth ?? 318,
       savedAt: Date.now()
     }

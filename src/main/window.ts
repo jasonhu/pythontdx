@@ -10,8 +10,8 @@ import { setupCapture } from './capture'
 import { attachDiagnostics } from './diagnostics'
 import type { WindowBounds } from './services/store'
 
-const DEFAULT_WIDTH = 1280
-const DEFAULT_HEIGHT = 820
+const DEFAULT_WIDTH = 1440
+const DEFAULT_HEIGHT = 900
 const MIN_WIDTH = 1024
 const MIN_HEIGHT = 660
 

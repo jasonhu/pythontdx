@@ -377,9 +377,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
-  padding: var(--sp-2) 8px;
+  padding: 6px 6px;
   margin-bottom: 2px;
   border-radius: var(--r-md);
   border: 1px solid transparent;
@@ -452,11 +452,6 @@
   white-space: nowrap;
 }
 
-/* 名称较长时让出迷你走势图的空间，保证不折行、不出现省略号 */
-.watch-row--long-name .sparkline {
-  display: none;
-}
-
 .watch-row--long-name .watch-row__name {
   font-size: 12px;
 }
@@ -470,7 +465,6 @@
 /* 迷你走势图：列表里只占 46px，不加任何坐标与网格 */
 .sparkline {
   flex: none;
-  width: 40px !important;
   opacity: 0.9;
   transition: opacity var(--dur-2) var(--ease);
 }
@@ -487,7 +481,7 @@
 
 .watch-row__nums {
   text-align: right;
-  min-width: 64px;
+  min-width: 58px;
 }
 
 .watch-row__price {

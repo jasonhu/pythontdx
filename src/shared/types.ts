@@ -843,8 +843,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maPeriods: [5, 10, 20, 60, 120],
   subIndicator: 'none',
   showBoll: false,
-  sidebarWidth: 264,
-  railWidth: 318
+  sidebarWidth: 300,
+  railWidth: 320
 }
 
 /** 首次启动时的示例自选股，让界面一打开就是「满的」 */

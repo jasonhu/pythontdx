@@ -5826,3 +5826,48 @@
 .data__inventory-grid .data__metric strong {
   font-size: var(--fs-xs);
 }
+
+.data__bulk {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.data__bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data__bulk-scope {
+  height: 26px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  background: var(--bg-base);
+  font-size: var(--fs-xs);
+}
+
+.data__bulk-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--r-full);
+  background: var(--border);
+}
+
+.data__bulk-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 200ms var(--ease);
+}
+
+.data__bulk-meta {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}

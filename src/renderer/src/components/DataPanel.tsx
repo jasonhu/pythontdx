@@ -64,6 +64,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [inventory, setInventory] = createSignal<DataInventory | null>(null)
   const [inventoryLoading, setInventoryLoading] = createSignal(true)
   const [inventoryError, setInventoryError] = createSignal<string | null>(null)
+  const [bulkRunning, setBulkRunning] = createSignal(false)
+  const [bulkScope, setBulkScope] = createSignal<'watchlist' | 'all'>('watchlist')
+  const [bulkDone, setBulkDone] = createSignal(0)
+  const [bulkTotal, setBulkTotal] = createSignal(0)
+  const [bulkFailed, setBulkFailed] = createSignal(0)
+  const [bulkError, setBulkError] = createSignal<string | null>(null)
+  let bulkCancel = false
   const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
   const [snapshotExporting, setSnapshotExporting] = createSignal(false)
   const [snapshotResult, setSnapshotResult] = createSignal<number | null>(null)
@@ -183,6 +190,52 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setKlineExportError(errorMessage(cause))
     } finally {
       setKlineExporting(false)
+    }
+  }
+
+  const allAShareCodes = async (): Promise<string[]> => {
+    const catalog = await api.quote.catalog()
+    return catalog
+      .filter(
+        (item) =>
+          item.kind === 'GP-A' &&
+          ((item.market === 'SH' && /^(600|601|603|605|688|689)/.test(item.symbol)) ||
+            (item.market === 'SZ' && /^(000|001|002|003|300|301|302)/.test(item.symbol)) ||
+            (item.market === 'BJ' && /^[489]/.test(item.symbol)))
+      )
+      .map((item) => item.code)
+  }
+
+  const runBulkCache = async (): Promise<void> => {
+    if (bulkRunning()) return
+    bulkCancel = false
+    setBulkRunning(true)
+    setBulkError(null)
+    setBulkDone(0)
+    setBulkFailed(0)
+    setBulkTotal(0)
+    try {
+      const codes = bulkScope() === 'watchlist' ? watchCodes() : await allAShareCodes()
+      setBulkTotal(codes.length)
+      for (let start = 0; start < codes.length && !bulkCancel; start += 10) {
+        const chunk = codes.slice(start, start + 10)
+        try {
+          const result = await api.data.cacheKlines({
+            codes: chunk,
+            period: 'day',
+            count: 800,
+            adjust: 'qfq'
+          })
+          setBulkDone((value) => value + result.cached)
+          setBulkFailed((value) => value + result.failed.length)
+        } catch {
+          setBulkFailed((value) => value + chunk.length)
+        }
+      }
+    } catch (cause) {
+      setBulkError(errorMessage(cause))
+    } finally {
+      setBulkRunning(false)
     }
   }
 
@@ -446,6 +499,59 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   </div>
                 </>
               )}
+            </Show>
+          </section>
+
+          <section class="data__bulk">
+            <div>
+              <div class="data__label">批量预热日 K</div>
+              <div class="data__sub">
+                分批写入本地缓存；全 A 模式约 5,615 只，耗时较长，可随时取消。
+              </div>
+            </div>
+            <div class="data__bulk-actions">
+              <select
+                class="data__bulk-scope"
+                value={bulkScope()}
+                disabled={bulkRunning()}
+                onChange={(event) => setBulkScope(event.currentTarget.value as 'watchlist' | 'all')}
+              >
+                <option value="watchlist">仅自选</option>
+                <option value="all">全 A 股</option>
+              </select>
+              <Show
+                when={bulkRunning()}
+                fallback={
+                  <button class="btn data__bulk-run" onClick={() => void runBulkCache()}>
+                    开始预热
+                  </button>
+                }
+              >
+                <button
+                  class="btn data__bulk-cancel"
+                  onClick={() => {
+                    bulkCancel = true
+                  }}
+                >
+                  停止
+                </button>
+              </Show>
+            </div>
+            <Show when={bulkTotal() > 0}>
+              <div class="data__bulk-progress">
+                <span
+                  style={{
+                    width: `${Math.min(100, ((bulkDone() + bulkFailed()) / bulkTotal()) * 100)}%`
+                  }}
+                />
+              </div>
+              <div class="data__bulk-meta">
+                {bulkDone()} / {bulkTotal()} 成功 · 失败 {bulkFailed()}
+                {bulkRunning() ? ' · 进行中' : ' · 已结束'}
+              </div>
+            </Show>
+            <Show when={bulkError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
           </section>
 

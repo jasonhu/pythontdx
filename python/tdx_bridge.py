@@ -2633,6 +2633,23 @@ class Bridge:
 
     def archive_snapshot(self) -> dict:
         """把全市场 A 股快照归档到数据湖 lake/quotes/trade_date=/。"""
+        now = datetime.now().astimezone()
+        trade_date = now.strftime("%Y-%m-%d")
+        target = stocklens_data_dir() / "lake" / "quotes" / f"trade_date={trade_date}"
+        manifest_path = target / "manifest.json"
+        if manifest_path.is_file():
+            try:
+                manifest = json.loads(manifest_path.read_text("utf-8"))
+                return {
+                    "dir": str(target.resolve()),
+                    "rows": int(manifest.get("rows") or 0),
+                    "sha256": str(manifest.get("sha256") or ""),
+                    "generatedAt": str(manifest.get("generatedAt") or ""),
+                    "tradeDate": str(manifest.get("tradeDate") or trade_date),
+                    "skipped": True,
+                }
+            except (OSError, ValueError):
+                pass
         codes = []
         for item in self.code_list():
             symbol = str(item.get("symbol") or "")
@@ -2651,10 +2668,8 @@ class Bridge:
         quotes: list[dict] = []
         for start in range(0, len(codes), 400):
             quotes.extend(fetch_mac_quotes(codes[start : start + 400]))
-        now = datetime.now().astimezone()
-        trade_date = now.strftime("%Y-%m-%d")
         result = write_snapshot_archive(
-            stocklens_data_dir() / "lake" / "quotes" / f"trade_date={trade_date}",
+            target,
             quotes,
             trade_date,
             now.isoformat(timespec="seconds"),

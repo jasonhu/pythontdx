@@ -30,10 +30,11 @@ interface DataPanelProps {
   onClose: () => void
 }
 
-type DownloadKey = 'kline' | 'snapshot' | 'stats' | 'archive'
+type DownloadKey = 'kline' | 'kline1m' | 'snapshot' | 'stats' | 'archive'
 
 const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> = [
-  { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，分批写入 cache/klines' },
+  { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，800 根/只' },
+  { key: 'kline1m', label: '1 分钟 K 缓存', hint: '自选/全 A，800 根/只' },
   { key: 'snapshot', label: '全市场快照', hint: 'MAC 报价导出 CSV' },
   { key: 'stats', label: 'TDX 统计', hint: 'zhb.zip + 规范化 tdxstat' },
   { key: 'archive', label: '数据湖归档', hint: '全市场快照按 trade_date 归档' }
@@ -80,9 +81,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [bulkSkipped, setBulkSkipped] = createSignal(0)
   const [bulkFailed, setBulkFailed] = createSignal(0)
   const [bulkIncremental, setBulkIncremental] = createSignal(true)
+  const [bulkPeriod, setBulkPeriod] = createSignal<'day' | '1m'>('day')
   const [bulkError, setBulkError] = createSignal<string | null>(null)
   const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
     kline: true,
+    kline1m: true,
     snapshot: true,
     stats: true,
     archive: true
@@ -228,7 +231,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       .map((item) => item.code)
   }
 
-  const runBulkCache = async (): Promise<void> => {
+  const runBulkCache = async (period = bulkPeriod()): Promise<void> => {
     if (bulkRunning()) return
     bulkCancel = false
     setBulkRunning(true)
@@ -245,7 +248,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         try {
           const result = await api.data.cacheKlines({
             codes: chunk,
-            period: 'day',
+            period,
             count: 800,
             adjust: 'qfq',
             skipExisting: bulkIncremental()
@@ -269,7 +272,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   }
 
   const selectAllDownloads = (value: boolean): void => {
-    setDownloadSelection({ kline: value, snapshot: value, stats: value, archive: value })
+    setDownloadSelection({
+      kline: value,
+      kline1m: value,
+      snapshot: value,
+      stats: value,
+      archive: value
+    })
   }
 
   const runDownloads = async (): Promise<void> => {
@@ -291,7 +300,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       for (const key of keys) {
         const task = DOWNLOAD_TASKS.find((item) => item.key === key)
         setDownloadMessage(`正在下载：${task?.label ?? key}`)
-        if (key === 'kline') await runBulkCache()
+        if (key === 'kline') await runBulkCache('day')
+        else if (key === 'kline1m') await runBulkCache('1m')
         else if (key === 'snapshot') await runSnapshotExport()
         else if (key === 'stats') await runExport()
         else await runArchive()
@@ -565,8 +575,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 disabled={downloadRunning() || !downloadSelection().kline}
                 onChange={(event) => setBulkScope(event.currentTarget.value as 'watchlist' | 'all')}
               >
-                <option value="watchlist">日 K：仅自选</option>
-                <option value="all">日 K：全 A 股</option>
+                <option value="watchlist">K 线：仅自选</option>
+                <option value="all">K 线：全 A 股</option>
               </select>
               <label class="data__incremental">
                 <input
@@ -680,6 +690,15 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               >
                 <option value="watchlist">仅自选</option>
                 <option value="all">全 A 股</option>
+              </select>
+              <select
+                class="data__bulk-scope"
+                value={bulkPeriod()}
+                disabled={bulkRunning()}
+                onChange={(event) => setBulkPeriod(event.currentTarget.value as 'day' | '1m')}
+              >
+                <option value="day">日 K</option>
+                <option value="1m">1 分钟</option>
               </select>
               <label class="data__incremental">
                 <input
@@ -879,6 +898,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   <span>分区 / 行数</span>
                   <code>
                     {data().tradeDate} / {data().rows}
+                    {data().skipped ? ' · 已存在，已跳过' : ''}
                   </code>
                 </div>
                 <div class="data__path">

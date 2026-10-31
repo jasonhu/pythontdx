@@ -335,6 +335,8 @@ export interface SnapshotArchiveResult {
   sha256: string
   generatedAt: string
   tradeDate: string
+  /** 当日分区已存在时跳过重复写入 */
+  skipped?: boolean
 }
 
 export interface KLineExportResult {

@@ -79,11 +79,18 @@ function plainGroups(groups: readonly WatchGroup[]): WatchGroup[] {
 export async function bootstrapAppState(): Promise<void> {
   const [persisted, info] = await Promise.all([api.state.get(), api.app.info()])
 
+  const mergedSettings = { ...DEFAULT_SETTINGS, ...persisted.settings }
+  // 旧版默认 264 侧栏在 1440 窗口会挤压名称/迷你图，迁移到 300。
+  if (mergedSettings.sidebarWidth === 264 && mergedSettings.railWidth === 318) {
+    mergedSettings.sidebarWidth = 300
+    mergedSettings.railWidth = 320
+  }
+
   setState({
     version: persisted.version,
     groups: persisted.groups.length > 0 ? persisted.groups : [],
     activeGroupId: persisted.activeGroupId,
-    settings: { ...DEFAULT_SETTINGS, ...persisted.settings },
+    settings: mergedSettings,
     activeCode: persisted.activeCode ?? persisted.groups[0]?.items[0]?.code ?? null,
     alerts: Array.isArray(persisted.alerts) ? persisted.alerts : [],
     formulas: Array.isArray(persisted.formulas) ? persisted.formulas : [],

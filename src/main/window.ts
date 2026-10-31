@@ -47,11 +47,14 @@ export interface CreateWindowOptions {
 export function createMainWindow(options: CreateWindowOptions = {}): BrowserWindow {
   const icon = resolveWindowIcon()
 
+  // 旧默认 1280×820 升级到 1440×900；用户自定义尺寸保持原样。
+  const legacyDefault =
+    options.bounds?.width === 1280 && options.bounds?.height === 820 ? options.bounds : undefined
   const window = new BrowserWindow({
-    width: options.bounds?.width ?? DEFAULT_WIDTH,
-    height: options.bounds?.height ?? DEFAULT_HEIGHT,
-    x: options.bounds?.x,
-    y: options.bounds?.y,
+    width: legacyDefault ? DEFAULT_WIDTH : (options.bounds?.width ?? DEFAULT_WIDTH),
+    height: legacyDefault ? DEFAULT_HEIGHT : (options.bounds?.height ?? DEFAULT_HEIGHT),
+    x: legacyDefault?.x ?? options.bounds?.x,
+    y: legacyDefault?.y ?? options.bounds?.y,
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
     show: false,

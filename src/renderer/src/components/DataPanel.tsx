@@ -85,6 +85,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [bulkDone, setBulkDone] = createSignal(0)
   const [bulkTotal, setBulkTotal] = createSignal(0)
   const [bulkSkipped, setBulkSkipped] = createSignal(0)
+  const [bulkCurrent, setBulkCurrent] = createSignal('')
   const [bulkFailed, setBulkFailed] = createSignal(0)
   const [bulkIncremental, setBulkIncremental] = createSignal(true)
   const [bulkFullHistory, setBulkFullHistory] = createSignal(true)
@@ -269,6 +270,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setBulkDone(0)
     setBulkSkipped(0)
     setBulkFailed(0)
+    setBulkCurrent('')
     setBulkTotal(0)
     try {
       const codes = bulkScope() === 'watchlist' ? watchCodes() : await allAShareCodes()
@@ -277,6 +279,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       const chunkSize = full ? 1 : 10
       for (let start = 0; start < codes.length && !bulkCancel; start += chunkSize) {
         const chunk = codes.slice(start, start + chunkSize)
+        setBulkCurrent(chunk[0] ?? '')
         try {
           const result = full
             ? await api.data.fullCacheKlines({
@@ -302,6 +305,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     } catch (cause) {
       setBulkError(errorMessage(cause))
     } finally {
+      setBulkCurrent('')
       setBulkRunning(false)
     }
   }
@@ -314,6 +318,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setBulkDone(0)
     setBulkSkipped(0)
     setBulkFailed(0)
+    setBulkCurrent('')
     setBulkTotal(0)
     try {
       const catalog = await api.quote.catalog()
@@ -321,6 +326,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setBulkTotal(codes.length)
       for (const code of codes) {
         if (bulkCancel) break
+        setBulkCurrent(code)
         try {
           const result = await api.data.fullCacheKlines({
             codes: [code],
@@ -338,6 +344,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     } catch (cause) {
       setBulkError(errorMessage(cause))
     } finally {
+      setBulkCurrent('')
       setBulkRunning(false)
     }
   }
@@ -695,6 +702,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
               <div class="data__bulk-meta">
                 {downloadDone()} / {downloadTotal()} 项 · {downloadMessage()}
+                {bulkCurrent() ? ` · ${bulkCurrent().toUpperCase()}` : ''}
               </div>
             </Show>
             <Show when={downloadError()}>
@@ -900,6 +908,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
               <div class="data__bulk-meta">
                 {bulkDone()} / {bulkTotal()} 完成 · 跳过 {bulkSkipped()} · 失败 {bulkFailed()}
+                {bulkCurrent() ? ` · 当前 ${bulkCurrent().toUpperCase()}` : ''}
                 {bulkRunning() ? ' · 进行中' : ' · 已结束'}
               </div>
             </Show>

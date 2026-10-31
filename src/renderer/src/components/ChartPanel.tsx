@@ -121,6 +121,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [drawMode, setDrawMode] = createSignal<DrawingMode>('none')
   const [drawingText, setDrawingText] = createSignal('标注')
   const [clearDrawingsKey, setClearDrawingsKey] = createSignal(0)
+  const [undoDrawingsKey, setUndoDrawingsKey] = createSignal(0)
+  const [redoDrawingsKey, setRedoDrawingsKey] = createSignal(0)
   const [pinned, setPinned] = createSignal(false)
   const [dividends, setDividends] = createSignal<Array<{ date: string; label: string }>>([])
 
@@ -583,6 +585,20 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                   </div>
                   <div class="chart-draw-menu__foot">
                     <button
+                      class="chip chart-draw-undo"
+                      title="撤销画线操作（Ctrl+Z）"
+                      onClick={() => setUndoDrawingsKey((value) => value + 1)}
+                    >
+                      撤销
+                    </button>
+                    <button
+                      class="chip chart-draw-redo"
+                      title="重做画线操作（Ctrl+Y / Ctrl+Shift+Z）"
+                      onClick={() => setRedoDrawingsKey((value) => value + 1)}
+                    >
+                      重做
+                    </button>
+                    <button
                       class="chip chart-draw-clear"
                       title="清除所有画线"
                       onClick={() => setClearDrawingsKey((value) => value + 1)}
@@ -861,6 +877,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                     overlayFormula={appState.settings.mainFormula}
                     dividends={dividends()}
                     clearDrawingsKey={clearDrawingsKey()}
+                    undoDrawingsKey={undoDrawingsKey()}
+                    redoDrawingsKey={redoDrawingsKey()}
                   />
                 )}
               </Show>

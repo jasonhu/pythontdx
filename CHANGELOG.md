@@ -25,7 +25,7 @@ StockLens 的所有重要变更都记录在这里。
 - **F10 快捷键**：全局 `F10` 打开/关闭 F10 公司资料，快捷键帮助同步；截图 `f10-shortcut.png`。
 - **主图默认简洁**：均线默认显示但可一键关闭，BOLL/画线默认关闭；画线工具收进下拉菜单。
 - **刻度密度**：K 线右侧价格刻度从约 7 档提高到 12 档；分时百分比刻度按 0.5% 步长，约 13 档。
-- **画线交互**：拖动线体整体平移；Ctrl+C/V 复制粘贴；吸附开/高/低/收（菜单可关）。
+- **画线交互**：拖动线体整体平移；Ctrl+C/V 复制粘贴；Ctrl+Z/Y 撤销重做（菜单也有按钮）；吸附开/高/低/收（菜单可关）。
 - **画线默认隐藏**：新增「画线」开关，默认关闭；已保存的斐波/通道/测量等画线不再默认叠加。
   BOLL 保持独立开关（默认关闭）；画线工具收进「画线」下拉菜单，主工具栏只保留一个入口；画线支持点击选中、Delete/右键删除单条。
   研报正文与快捷键重映射按用户确认不做，归入 ⛔/非目标。
@@ -113,7 +113,7 @@ StockLens 的所有重要变更都记录在这里。
   已写回 `docs/03` / `docs/08` / `PLAN.md`，待 2026-11-02 交易时段复验。
 - `npm run check` → **258 TS + 134 Python（1 skipped，25 个 TS 文件）**，全绿；
 - `npm run build` / `npm run build:web` 通过；
-- Linux AppImage 147 MB `4f128dbe…` / deb 123 MB `576ccbaa…`；
+- Linux AppImage 147 MB `b019154c…` / deb 123 MB `91a4d98b…`；
   包内 sidecar 实测 `auction_archive_read` 66 点、`auction_archive_batch` 2/2；
 - 截图：`screenshots/ranking-flow.png`、`screenshots/formula-multi-output.png`、
   `screenshots/auction-archive-save.png`、`screenshots/auction-archive-read.png`、

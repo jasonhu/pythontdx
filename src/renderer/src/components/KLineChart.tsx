@@ -113,6 +113,9 @@ export interface KLineChartProps {
   snapDrawings?: boolean
   /** 改变时清空画线 */
   clearDrawingsKey?: number
+  /** 外部触发撤销/重做 */
+  undoDrawingsKey?: number
+  redoDrawingsKey?: number
 }
 
 /** 默认档位：显示全部 K 线 */
@@ -147,6 +150,9 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
   const [rangeEnd, setRangeEnd] = createSignal<number | null>(null)
   const [drawings, setDrawings] = createSignal<KLineDrawing[]>([])
   const [selectedId, setSelectedId] = createSignal<number | null>(null)
+  const [undoStack, setUndoStack] = createSignal<KLineDrawing[][]>([])
+  const [redoStack, setRedoStack] = createSignal<KLineDrawing[][]>([])
+  let dragSnapshot: KLineDrawing[] | null = null
   const [dragId, setDragId] = createSignal<number | null>(null)
   const [dragPart, setDragPart] = createSignal<'start' | 'end' | 'offset' | 'move'>('end')
   const [dragOrigin, setDragOrigin] = createSignal<{
@@ -200,6 +206,59 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     updateSettings({ chartDrawings: [...others, ...saved].slice(-200) })
   }
 
+  const cloneDrawings = (items: KLineDrawing[]): KLineDrawing[] =>
+    items.map((drawing) => ({ ...drawing }))
+
+  const pushUndo = (snapshot: KLineDrawing[] = drawings()): void => {
+    setUndoStack((stack) => [...stack, cloneDrawings(snapshot)].slice(-50))
+    setRedoStack([])
+  }
+
+  const commitDrawings = (next: KLineDrawing[]): void => {
+    pushUndo()
+    setDrawings(next)
+    persistDrawings(next)
+  }
+
+  const undoDrawings = (): void => {
+    const stack = undoStack()
+    if (stack.length === 0) return
+    const previous = stack[stack.length - 1]
+    setUndoStack(stack.slice(0, -1))
+    setRedoStack((redo) => [...redo, cloneDrawings(drawings())].slice(-50))
+    setSelectedId(null)
+    setDrawings(previous)
+    persistDrawings(previous)
+  }
+
+  const redoDrawings = (): void => {
+    const stack = redoStack()
+    if (stack.length === 0) return
+    const next = stack[stack.length - 1]
+    setRedoStack(stack.slice(0, -1))
+    setUndoStack((undo) => [...undo, cloneDrawings(drawings())].slice(-50))
+    setSelectedId(null)
+    setDrawings(next)
+    persistDrawings(next)
+  }
+
+  let lastUndoKey = 0
+  let lastRedoKey = 0
+  createEffect(() => {
+    const key = props.undoDrawingsKey ?? 0
+    if (key > lastUndoKey) {
+      lastUndoKey = key
+      undoDrawings()
+    }
+  })
+  createEffect(() => {
+    const key = props.redoDrawingsKey ?? 0
+    if (key > lastRedoKey) {
+      lastRedoKey = key
+      redoDrawings()
+    }
+  })
+
   createEffect(
     on(
       () => `${props.series.code}:${props.series.period}`,
@@ -208,6 +267,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         setRangeStart(null)
         setRangeEnd(null)
         setDrawings(savedDrawings().map((drawing) => ({ ...drawing, id: ++drawingId })))
+        setUndoStack([])
+        setRedoStack([])
         setPendingPoint(null)
         setPendingSecond(null)
         props.onRangeStats?.(null)
@@ -219,10 +280,10 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     on(
       () => props.clearDrawingsKey,
       () => {
-        setDrawings([])
+        if (drawings().length > 0) commitDrawings([])
+        setSelectedId(null)
         setPendingPoint(null)
         setPendingSecond(null)
-        persistDrawings([])
       },
       { defer: true }
     )
@@ -573,8 +634,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     const next = drawings().map((drawing) =>
       drawing.id === edit.id ? { ...drawing, text: edit.value } : drawing
     )
-    setDrawings(next)
-    persistDrawings(next)
+    commitDrawings(next)
     setEditing(null)
   }
 
@@ -608,6 +668,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (!geo) return
     const hit = hitDrawing(event, geo)
     if (hit) {
+      dragSnapshot = cloneDrawings(drawings())
       const origin = localPoint(event, geo)
       if (origin) setDragOrigin({ ...origin, drawing: { ...hit.drawing } })
       setSelectedId(hit.drawing.id)
@@ -631,8 +692,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         drawingId += 1
         const next = [...drawings(), { id: drawingId, type: 'horizontal' as const, price }]
         setSelectedId(drawingId)
-        setDrawings(next)
-        persistDrawings(next)
+        commitDrawings(next)
         return
       }
       if (props.drawMode === 'vertical') {
@@ -642,8 +702,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           { id: drawingId, type: 'vertical' as const, startIndex: index }
         ]
         setSelectedId(drawingId)
-        setDrawings(next)
-        persistDrawings(next)
+        commitDrawings(next)
         return
       }
       if (props.drawMode === 'text') {
@@ -659,8 +718,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           }
         ]
         setSelectedId(drawingId)
-        setDrawings(next)
-        persistDrawings(next)
+        commitDrawings(next)
         return
       }
       if (props.drawMode === 'channel') {
@@ -689,8 +747,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
           }
         ]
         setSelectedId(drawingId)
-        setDrawings(next)
-        persistDrawings(next)
+        commitDrawings(next)
         setPendingPoint(null)
         setPendingSecond(null)
         return
@@ -721,8 +778,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         }
       ]
       setSelectedId(drawingId)
-      setDrawings(next)
-      persistDrawings(next)
+      commitDrawings(next)
       setPendingPoint(null)
       return
     }
@@ -804,6 +860,11 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (dragId() === null) return
     setDragId(null)
     setDragOrigin(null)
+    const snapshot = dragSnapshot
+    dragSnapshot = null
+    if (snapshot && JSON.stringify(snapshot) !== JSON.stringify(drawings())) {
+      pushUndo(snapshot)
+    }
     persistDrawings(drawings())
   }
 
@@ -815,8 +876,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     event.preventDefault()
     const next = drawings().filter((drawing) => drawing.id !== hit.drawing.id)
     setSelectedId(null)
-    setDrawings(next)
-    persistDrawings(next)
+    commitDrawings(next)
   }
 
   /**
@@ -924,6 +984,17 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
     if (document.activeElement !== host) host?.focus({ preventScroll: true })
 
     const command = event.ctrlKey || event.metaKey
+    if (command && event.key.toLowerCase() === 'z') {
+      event.preventDefault()
+      if (event.shiftKey) redoDrawings()
+      else undoDrawings()
+      return
+    }
+    if (command && event.key.toLowerCase() === 'y') {
+      event.preventDefault()
+      redoDrawings()
+      return
+    }
     if (command && event.key.toLowerCase() === 'c') {
       const selected = selectedDrawing()
       if (selected) {
@@ -947,8 +1018,7 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         }
       ]
       setSelectedId(drawingId)
-      setDrawings(next)
-      persistDrawings(next)
+      commitDrawings(next)
       return
     }
 
@@ -974,9 +1044,8 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
         if (id === null) return
         event.preventDefault()
         const next = drawings().filter((drawing) => drawing.id !== id)
-        setDrawings(next)
         setSelectedId(null)
-        persistDrawings(next)
+        commitDrawings(next)
         return
       }
       case 'Escape':

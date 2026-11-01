@@ -46,7 +46,7 @@ StockLens 的所有重要变更都记录在这里。
   `docs/02` 增加模块职责表。
 - `fetchQuotes`：单次 refresh 5s 超时、超时杀 sidecar 重启；7709 无数据时退到 MAC 报价。
 - 审计修复：断线表首列日期守卫、组内排序保持其它分组、面板窄窗口防裁切。
-- `npm run check` exit 0：294 个 TS 测试（291 passed + 1 skipped）+ 158 Python（1 skipped）；
+- `npm run check` exit 0：294 个 TS 测试（293 passed + 1 skipped）+ 158 Python（1 skipped）；
   `npm run build:web` 通过。
 
 ### 产物（2026-11-01 实机）

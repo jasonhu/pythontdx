@@ -15,12 +15,12 @@
 
 | 项目     | 值                                                                                                                                                                           |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 版本     | `0.14.1`（release candidate；功能矩阵 334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔，数据边界另见 docs/12）                                                                                     |
-| 最近提交 | 本轮：0.14.1——修右栏逐笔首屏 10 秒延迟（推送 100ms 复查 + trades 插队 + 周末读本地归档，安装版 10,050ms → 2,793ms）；Windows setup/绿色/zip/便携版重出；0x0547 盘中语义待 2026-11-02 复验 |
-| 健康度   | `npm run check` 全绿（299 TS：298 passed + 1 skipped，30 个测试文件；162 Python：1 skipped）；`audit:data` 39/39（修 `scripts/data_audit.py` 的 UTF-8 解码）；2026-11-01 Windows 0.14.1 + Linux 0.14.0 打包通过 |
+| 版本     | `0.14.2`（release candidate；功能矩阵 334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔，数据边界另见 docs/12）                                                                                     |
+| 最近提交 | 本轮：0.14.2——首屏本地优先（K 线缓存先于网络、sidecar 预热、行情延迟 250ms、推送首帧不受可见性影响；安装版 K 线 3,256ms → 354ms、逐笔 2,793ms → 210ms）；Windows 四件套重出；0x0547 盘中语义待复验 |
+| 健康度   | `npm run check` 全绿（299 TS：298 passed + 1 skipped，30 个测试文件；162 Python：1 skipped）；`audit:data` 39/39（修 `scripts/data_audit.py` 的 UTF-8 解码）；2026-11-02 Windows 0.14.2 + Linux 0.14.0 打包通过 |
 | 目标     | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`）                                                                                               |
 | 数据源   | 通达信 7709 + MAC + 7615 + 文件下载/本地文件；7727/EX 不做                                                                                                                   |
-| 分发     | Windows 0.14.1 setup/绿色/zip/便携版已实测（`4cb57f75…` / `a5c60bd7…` / `1c8e24f1…`，第三十二节）；Linux 0.14.0 AppImage/deb 已实测（`cfdb83d7…` / `da30dcf5…`，第三十节）；macOS 未验收 |
+| 分发     | Windows 0.14.2 setup/绿色/zip/便携版已实测（`c2c8c5c2…` / `e0df0f12…` / `957de83c…`，第三十三节）；Linux 0.14.0 AppImage/deb 已实测（`cfdb83d7…` / `da30dcf5…`，第三十节）；macOS 未验收 |
 | 平台验证 | 代码跨 Windows/Linux/macOS；Linux 与 Windows x64 已实机打包验收，macOS 待实机验收                                                                                            |
 
 **已交付能力**（详见 `README.md` 与 `docs/09`）：

@@ -197,34 +197,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const [cachedSeries, setCachedSeries] = createSignal<KLineSeries | null>(null)
   let cacheSequence = 0
 
-  // 首屏先读本地 K 线缓存；网络返回后由 data resource 覆盖。
-  createEffect(() => {
-    const currentCode = code()
-    const currentTab = tab()
-    const currentAdjust = adjust()
-    const sequence = ++cacheSequence
-    setCachedSeries(null)
-    if (currentTab === 'minute' || currentTab === 'five') return
-    void api.trend
-      .kline({
-        code: currentCode,
-        period: currentTab,
-        count: KLINE_COUNT,
-        adjust: currentAdjust,
-        cacheOnly: true
-      })
-      .then((series) => {
-        if (sequence === cacheSequence) setCachedSeries(series)
-      })
-      .catch(() => undefined)
-  })
-
   const [data, { refetch }] = createResource<
     ChartData,
     { code: string; tab: Tab; adjust: KLineAdjust }
   >(
     () => ({ code: code(), tab: tab(), adjust: adjust() }),
     async (source) => {
+      const sequence = ++cacheSequence
+      setCachedSeries(null)
       if (source.tab === 'five') {
         const multi = await api.trend.fiveDay(source.code)
         return { kind: 'trend', days: multi.days }
@@ -233,14 +213,37 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         const trend = await api.trend.minute(source.code)
         return { kind: 'trend', days: [trend] }
       }
-      return {
-        kind: 'kline',
-        series: await api.trend.kline({
+      /*
+       * K 线首屏：先读本地缓存，再把网络请求排在它后面。
+       *
+       * 以前 cacheOnly 是单独 effect，createResource 的网络请求先发，本地读
+       * 反而排在网络请求后面（启动时实测 3.1 秒）。放进 fetcher 后顺序固定，
+       * 缓存一到就 setCachedSeries，图表不用等网络。
+       */
+      const cached = await api.trend
+        .kline({
           code: source.code,
           period: source.tab,
           count: KLINE_COUNT,
-          adjust: source.adjust
+          adjust: source.adjust,
+          cacheOnly: true
         })
+        .catch(() => null)
+      if (cached && sequence === cacheSequence) setCachedSeries(cached)
+      try {
+        return {
+          kind: 'kline',
+          series: await api.trend.kline({
+            code: source.code,
+            period: source.tab,
+            count: KLINE_COUNT,
+            adjust: source.adjust
+          })
+        }
+      } catch (error) {
+        // 离线时缓存就是唯一数据源；不要把已经画出来的图替换成错误页。
+        if (cached) return { kind: 'kline', series: cached }
+        throw error
       }
     }
   )

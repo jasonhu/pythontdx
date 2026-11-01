@@ -57,7 +57,7 @@ describe('PushHub', () => {
     vi.useRealTimers()
   })
 
-  it('窗口不可见时暂停拉取', async () => {
+  it('窗口不可见时仍取首帧，之后暂停拉取', async () => {
     vi.useFakeTimers()
     const fetcher = vi.fn(async () => [])
     const hub = new PushHub(
@@ -67,14 +67,18 @@ describe('PushHub', () => {
     )
     const id = hub.subscribe(minuteTask, 1000)
     await vi.advanceTimersByTimeAsync(0)
-    expect(fetcher).not.toHaveBeenCalled()
+    // 启动期 isVisible() 还是 false，但首帧必须出，否则首屏空等
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fetcher).toHaveBeenCalledTimes(1)
     hub.unsubscribe(id)
     vi.useRealTimers()
   })
 
-  it('窗口从不可见变可见后按正常间隔补拉，不等 10 秒', async () => {
+  it('窗口从不可见变可见后按正常间隔续拉', async () => {
     vi.useFakeTimers()
-    let visible = false
+    let visible = true
     const fetcher = vi.fn(async () => [])
     const hub = new PushHub(
       () => undefined,
@@ -83,11 +87,15 @@ describe('PushHub', () => {
     )
     const id = hub.subscribe(minuteTask, 1000)
     await vi.advanceTimersByTimeAsync(0)
-    expect(fetcher).not.toHaveBeenCalled()
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    visible = false
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(fetcher).toHaveBeenCalledTimes(1)
 
     visible = true
     await vi.advanceTimersByTimeAsync(1000)
-    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(fetcher).toHaveBeenCalledTimes(2)
     hub.unsubscribe(id)
     vi.useRealTimers()
   })

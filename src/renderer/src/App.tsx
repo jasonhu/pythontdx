@@ -99,9 +99,14 @@ export default function App(): JSX.Element {
     'tape'
   )
   const [widths, setWidths] = createSignal<{ sidebar: number; rail: number } | null>(null)
+  const [liveStarted, setLiveStarted] = createSignal(false)
   let stopResize: (() => void) | null = null
 
   onMount(() => {
+    // 行情推送晚 250ms 起步：把桥接队列先让给图表缓存和逐笔归档，
+    // 首屏先出图/出逐笔，行情头继续用 localStorage 快照顶着。
+    const liveTimer = setTimeout(() => setLiveStarted(true), 250)
+    onCleanup(() => clearTimeout(liveTimer))
     void bootstrapAppState().then(() => {
       applyQuotes(loadCachedQuotes())
       hydrateAlertEvents()
@@ -162,7 +167,7 @@ export default function App(): JSX.Element {
 
   // 行情推送：自选股 + 当前选中股（排行榜点进来的股票不在自选里，也要能刷新）
   const quoteCodes = (): string[] => {
-    if (!appReady()) return []
+    if (!appReady() || !liveStarted()) return []
     const active = activeQuoteCode()
     return active ? [...new Set([...watchCodes(), active])] : watchCodes()
   }

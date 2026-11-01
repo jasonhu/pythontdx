@@ -6,14 +6,15 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：0.14.1（release candidate）** · **许可证：GPL-3.0-or-later** ·
+**版本：0.14.2（release candidate）** · **许可证：GPL-3.0-or-later** ·
 `npm run check`：299 个 TS 测试 + 162 个 Python 测试（各 1 skipped）·
 `npm run audit:data`：39/39。
 
 > 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
 > macOS 也还没有实机打包验收。这两项完成后再发 1.0。
-> Windows x64 0.14.1 与 Linux 0.14.0 均已实机打包并启动验收，包含备份/恢复进度条与
-> GPL 文本（见 `docs/07` 第三十至三十二节）。
+> Windows x64 0.14.2 与 Linux 0.14.0 均已实机打包并启动验收，包含备份/恢复进度条与
+> GPL 文本（见 `docs/07` 第三十至三十三节）；0.14.2 在本地缓存齐全时 K 线首图
+> 约 0.35 秒、逐笔首行约 0.2 秒。
 
 ---
 
@@ -178,9 +179,9 @@ npm run build:linux   # AppImage + deb
 npm run build:mac     # macOS（需在 macOS 上构建）
 ```
 
-产物在 `release/<version>/`。Windows x64 0.14.1 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含逐笔首屏修复），Linux 0.14.0 AppImage/deb 也已实机验收；macOS 需在对应系统本机验收。
+产物在 `release/<version>/`。Windows x64 0.14.2 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含首屏本地优先），Linux 0.14.0 AppImage/deb 也已实机验收；macOS 需在对应系统本机验收。
 
-> 0.14.1 的 Windows 包与 0.14.0 的 Linux 包均包含备份/恢复进度条和项目 GPL 文本；0.13.2 的 Windows 三件套生成于该修正之前，已由 0.14.x 取代。
+> 0.14.2 的 Windows 包与 0.14.0 的 Linux 包均包含备份/恢复进度条和项目 GPL 文本；0.13.2 的 Windows 三件套生成于该修正之前，已由 0.14.x 取代。
 
 ---
 

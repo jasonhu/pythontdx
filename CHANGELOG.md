@@ -10,6 +10,44 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [0.14.2] - 2026-11-02
+
+### 变更
+
+- **88 首屏本地优先**：有全量本地缓存时，打开软件先出图、先出逐笔，网络刷新随后进行。
+  - K 线 `cacheOnly` 从独立 effect 移进 `createResource` 的 fetcher，**先读缓存、
+    再发网络**；以前网络请求先发，本地读反而排在它后面。网络失败时直接用缓存
+    渲染，不再把已经画出来的图替换成错误页。
+  - 行情推送延迟 250ms 起步：把 sidecar 队列先让给图表缓存和逐笔归档；行情头
+    继续用 `localStorage` 快照顶着，不再和首屏抢队列。
+  - 主进程在创建窗口前 `warmTdxBridge()`，Python sidecar 启动与窗口加载并行，
+    首屏缓存请求不再等进程冷启动。
+  - `PushHub` 首帧不再受 `isVisible()` 影响：启动期窗口还没 show 时也取一次，
+    之后窗口不可见才暂停拉取；逐笔首屏不会再被可见性判断挡住。
+
+### 验证
+
+- 开发构建首屏（从页面加载计时）：
+  - 逐笔 **104ms**（0.14.1 为 2,793ms）；
+  - 日 K 图 **370ms**（0.14.1 安装版为 3,256ms）；
+  - 行情头用缓存快照即时显示，网络行情约 3 秒后接上；
+- Windows 0.14.2 安装版：日 K **354ms**、逐笔 **210ms**（`v0.14.2`）；
+  绿色包日 K **388ms**；便携版/zip 均启动 `v0.14.2`；
+- `npm run check`：**299 TS（298 passed + 1 skipped）+ 162 Python（1 skipped）**。
+
+### Windows 产物（`release/0.14.2/`）
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `stocklens-0.14.2-setup.exe` | 133,616,877 B | `c2c8c5c2100c17c09941ebac19f0c80cf455e34e53aa42f237ea2fe45d328a49` |
+| `stocklens-0.14.2-portable.exe` | 133,363,219 B | `e0df0f1249fcb7da522127e3215dbb6dca32beb22e5105a5db1811ed509b68c1` |
+| `StockLens-0.14.2-win-x64/` | 410,618,986 B / 76 文件 | — |
+| `StockLens-0.14.2-win-x64.zip` | 175,226,043 B | `957de83cb94c8d471b83c6b8cf45ec77948ccc1b4b3d997804670a0252d6a61a` |
+| `win-x64/resources/app.asar` | 3,603,848 B | `34b952032e4b8a44e32b9fbe9e01065d28a443a0ad252d87d912c797dd4c0433` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` | 21,522,944 B | `cd79fbc93731f2d2d9fa9517fc7af95a352b0209fb9f02f30e4f3a635b53ace3` |
+
+`app.asar` 仍含 35,149 字节 GPL 文本与 `data:backup-progress`。
+
 ## [0.14.1] - 2026-11-01
 
 ### 修复

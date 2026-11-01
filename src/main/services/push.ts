@@ -26,8 +26,8 @@ interface Subscription {
   timer: NodeJS.Timeout | null
   inFlight: boolean
   stopped: boolean
-  /** 因窗口不可见被跳过的次数；首次只等 100ms，避免被启动期 isVisible() 拖住 */
-  skipped: number
+  /** 是否已经取过首帧；启动期 isVisible() 可能还是 false，首帧不能被它挡住 */
+  fetched: boolean
 }
 
 /** 只负责调度；具体拉取由调用方注入，便于单测不碰网络/Electron。 */
@@ -52,7 +52,7 @@ export class PushHub {
       timer: null,
       inFlight: false,
       stopped: false,
-      skipped: 0
+      fetched: false
     }
     this.subscriptions.set(id, subscription)
     // 首帧立即推，面板不用再各自 load 一次
@@ -92,18 +92,13 @@ export class PushHub {
 
   private async tick(subscription: Subscription): Promise<void> {
     if (subscription.stopped || subscription.inFlight) return
-    if (!this.canFetch()) {
-      // 窗口刚创建时 isVisible() 可能还是 false。第一次只等 100ms 复查，
-      // 否则按 10 秒重试会让首屏逐笔硬等 10 秒（实测）；之后按正常节拍，
-      // 隐藏窗口里只是检查可见性，不会真的拉行情。
-      this.schedule(
-        subscription,
-        subscription.skipped === 0 ? 100 : subscription.intervalMs
-      )
-      subscription.skipped += 1
+    if (!this.canFetch() && subscription.fetched) {
+      // 已经出过首帧、窗口又不可见：暂停拉取，只保留轻量定时器。
+      this.schedule(subscription)
       return
     }
     subscription.inFlight = true
+    subscription.fetched = true
     try {
       const data = await this.fetchTask(subscription.task)
       if (subscription.stopped) return

@@ -14,7 +14,7 @@ import { registerIpcHandlers } from './ipc'
 import { QuotePoller } from './services/poller'
 import { PushHub } from './services/push'
 import { fetchPushTask } from './services/push-fetch'
-import { closeTdx } from './services/tdx'
+import { closeTdx, warmTdxBridge } from './services/tdx'
 import { AppStore } from './services/store'
 import { createMainWindow } from './window'
 import { destroyTray, setupTray } from './tray'
@@ -219,6 +219,9 @@ function onReady(): void {
     pushHub,
     getWindow: () => mainWindow
   })
+
+  // 先拉起 Python，窗口加载与 sidecar 启动并行；首屏缓存请求不用再等进程冷启动。
+  warmTdxBridge()
 
   mainWindow = createMainWindow({
     bounds: currentStore.bounds,

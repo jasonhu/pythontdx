@@ -626,10 +626,12 @@ export async function fetchKline(
 
   const safeCount = Math.min(800, Math.max(1, Math.trunc(count)))
   if (cacheOnly) {
+    // 首屏本地缓存：插到队首，别排在行情/迷你图后面。
     return bridge.send<KLineSeries>(
       'kline',
       { code, period, count: safeCount, adjust, cacheOnly: true },
-      QUOTES_TIMEOUT_MS
+      QUOTES_TIMEOUT_MS,
+      true
     )
   }
   const key = `${code}:${period}:${safeCount}:${adjust}`
@@ -698,4 +700,14 @@ export function invalidateTrendCache(): void {
 /** 应用退出时释放 Python 子进程 */
 export function closeTdx(): void {
   bridge.close()
+}
+
+/**
+ * 提前拉起 Python sidecar。
+ *
+ * 窗口/渲染层加载和 Python 进程启动可以并行；如果在第一次数据请求时才启动，
+ * 首屏缓存读取要额外等一次进程拉起（打包版是 Nuitka 单文件，冷启动更明显）。
+ */
+export function warmTdxBridge(): void {
+  void bridge.send('ping', {}, 5_000).catch(() => undefined)
 }

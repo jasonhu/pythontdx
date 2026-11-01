@@ -104,8 +104,8 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（296 个用例）
-npm run test:python         # 只跑 Python 协议/HTTP 测试（158 个用例）
+npm run test                # 只跑 TS 测试（299 个用例）
+npm run test:python         # 只跑 Python 协议/HTTP 测试（162 个用例）
 npm run audit:data          # 数据覆盖自检（39 项，会触发自动归档；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
@@ -125,7 +125,7 @@ npm run build:win:setup     # 只要 NSIS 安装包
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
-> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01 实机打包验收（0.9.0 ~ 0.14.0 见 `docs/07` 第十一至二十八、三十一节），macOS 需在对应机器实机验收。
+> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01 实机打包验收（0.9.0 ~ 0.14.1 见 `docs/07` 第十一至二十八、三十一、三十二节），macOS 需在对应机器实机验收。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
@@ -170,10 +170,10 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（296 个 TS 测试 + 158 个 Python 测试），
+健康度 `npm run check` 全绿（299 个 TS 测试 + 162 个 Python 测试），
 2026-10-31 复核过构建、实机启动、包内资金流与公式多输出；
-2026-11-01 复核过 Windows x64 安装包 / 绿色包 / zip / 便携版（0.9.0 ~ 0.14.0 见
-`docs/07` 第十一至二十八、三十一节）；
+2026-11-01 复核过 Windows x64 安装包 / 绿色包 / zip / 便携版（0.9.0 ~ 0.14.1 见
+`docs/07` 第十一至二十八、三十一、三十二节）；
 2026-11-01 新增左栏「自选股 / 板块 / 自定义」三视图、板块选择大窗口、
 离线数据单文件备份/恢复、数据集归档（板块/财务含三大报表/龙虎榜），并修复指数除权
 （截图与实测见 `CHANGELOG`）。

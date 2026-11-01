@@ -71,4 +71,24 @@ describe('PushHub', () => {
     hub.unsubscribe(id)
     vi.useRealTimers()
   })
+
+  it('窗口从不可见变可见后按正常间隔补拉，不等 10 秒', async () => {
+    vi.useFakeTimers()
+    let visible = false
+    const fetcher = vi.fn(async () => [])
+    const hub = new PushHub(
+      () => undefined,
+      fetcher,
+      () => visible
+    )
+    const id = hub.subscribe(minuteTask, 1000)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetcher).not.toHaveBeenCalled()
+
+    visible = true
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    hub.unsubscribe(id)
+    vi.useRealTimers()
+  })
 })

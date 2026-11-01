@@ -10,6 +10,46 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [0.14.1] - 2026-11-01
+
+### 修复
+
+- **87 逐笔「明细」首屏 10 秒延迟**（用户实测：已导入全量离线数据，默认股
+  利元亨的右栏逐笔仍要等约 10 秒）。根因有三层，逐层修掉：
+  - `PushHub` 在窗口不可见时按 **10 秒**重试；启动瞬间 `mainWindow.isVisible()`
+    还是 `false`，逐笔订阅被跳过整整 10 秒。改为首次只等 **100ms** 复查，
+    之后按正常节拍；隐藏窗口仍不拉行情。
+  - `TdxBridge` 的请求队列是纯 FIFO，逐笔排在**历史 K 线/自选迷你图**后面，
+    即使本地归档 10ms 能读完也要等前一个网络请求。队列新增 `priority`：
+    `trades` 插到队首（不抢占已在途请求），仍保持一问一答。
+  - `trades` 只有带 `date` 时才读 `lake/ticks`；默认「实时」永远走 MAC/7709。
+    现在周末、或收盘后且归档就是当天时，无日期请求直接读**最近归档日**，
+    不再重复拉上一交易日；盘中/午休仍走实时，避免把昨天当今天。
+
+### 验证
+
+- 开发构建实测首屏逐笔：**10,050ms → 2,543ms**（同一台机器、同一份 3.6GB
+  归档；剩余约 2.5 秒是排在前面的首根 K 线请求，不是磁盘）；
+- 新增测试：Python `latest_tick_archive`、收盘判定、无日期走归档；
+  TS `PushHub` 首次 100ms 复查、`TdxBridge` priority 插队；
+- `npm run check` exit 0：**299 TS（298 passed + 1 skipped，30 文件）+
+  162 Python（1 skipped）**。
+
+### Windows 产物（`release/0.14.1/`）
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `stocklens-0.14.1-setup.exe` | 133,616,783 B | `4cb57f756a50afe4caf70fd01b27206394f42d115b577eaae6b6c8cd3b07225d` |
+| `stocklens-0.14.1-portable.exe` | 133,363,138 B | `a5c60bd7f609ca895ba6b28ef7f81d2d2be5dde78408d6ee06fed5e31d24ca30` |
+| `StockLens-0.14.1-win-x64/` | 410,618,773 B / 76 文件 | — |
+| `StockLens-0.14.1-win-x64.zip` | 175,226,221 B | `1c8e24f1e99debb1b4ca6572824a9c9c5ce9767bf088e161923cf49cb3b0f1fc` |
+| `win-x64/resources/app.asar` | 3,603,635 B | `bd809f67dbc6f2b929f413ecc7b0151f0ed82381e317d6b98d403b8ec71f976e` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` | 21,522,944 B | `2bc8973583956da653a45edbbb26a83d457938bb26530bc17f86c15d8aea5d24` |
+
+实测：安装版启动 `v0.14.1`，首屏逐笔 **2,793ms**（同机 0.14.0 为 10,050ms），
+静默卸载干净；绿色包 **2,508ms**；便携版/zip 均启动 `v0.14.1`；
+`app.asar` 仍含 35,149 字节 GPL 文本与 `data:backup-progress` 通道。
+
 ## [0.14.0] - 2026-11-01
 
 ### 新增

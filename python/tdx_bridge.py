@@ -84,6 +84,7 @@ from kline_manifest import write_kline_manifest
 from server_catalog import list_server_catalogs, write_server_catalog
 from tick_archive import (
     TickArchiveError,
+    latest_tick_archive,
     list_tick_archives,
     normalize_code as normalize_tick_code,
     normalize_date as normalize_tick_date,
@@ -3102,6 +3103,19 @@ def _read_kline_cache(code: str, period: str, count: int, adjust: str) -> dict |
     }
 
 
+def prefer_tick_archive(now: datetime, trade_date: str) -> bool:
+    """实时明细是否应该直接读本地归档。
+
+    只覆盖「实时接口拿不到更新的数据」的时段：周末，或当天收盘后且归档就是今天。
+    盘中（含午休）仍走实时，避免把上一交易日的逐笔当成今天的。
+    """
+    if now.weekday() >= 5:
+        return True
+    return trade_date == now.strftime("%Y-%m-%d") and (
+        now.hour * 60 + now.minute >= 15 * 60 + 5
+    )
+
+
 class Bridge:
     def __init__(self) -> None:
         self.preferred_host = _preferred_host()
@@ -3655,6 +3669,18 @@ class Bridge:
             except TickArchiveError as error:
                 # 归档损坏不应阻断网络兜底；下次归档时允许替换损坏副本。
                 print(f"[tdx] 逐笔归档损坏，回退网络：{error}", file=sys.stderr)
+        else:
+            # 周末/收盘后实时接口只能重复返回上一交易日；直接读归档，首屏不用等网络。
+            try:
+                latest = latest_tick_archive(
+                    stocklens_data_dir() / "lake" / "ticks", code
+                )
+                if prefer_tick_archive(datetime.now(), latest["tradeDate"]):
+                    return latest["ticks"][start : start + count]
+            except FileNotFoundError:
+                pass
+            except TickArchiveError as error:
+                print(f"[tdx] 逐笔归档损坏，回退实时：{error}", file=sys.stderr)
         try:
             rows: list[dict] = []
             offset = start

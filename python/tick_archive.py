@@ -163,6 +163,37 @@ def read_tick_archive(root: Path, code: str, trade_date: str) -> dict:
     }
 
 
+def latest_tick_archive(root: Path, code: str) -> dict:
+    """读该股票最近一个交易日的逐笔归档；没有可用归档时抛 FileNotFoundError。
+
+    周末/收盘后打开「明细」时，实时接口只能重复拉上一交易日的数据；直接读本地
+    归档可以把首屏从秒级网络等待降到毫秒级。损坏的最新副本会跳过并尝试更早日期。
+    """
+    normalized_code = normalize_code(code)
+    directory = Path(root)
+    if not directory.is_dir():
+        raise FileNotFoundError(f"{normalized_code} 没有本地逐笔归档")
+    candidates: list[str] = []
+    for target_dir in directory.glob("trade_date=*"):
+        if not target_dir.is_dir():
+            continue
+        raw_date = target_dir.name.split("=", 1)[1]
+        try:
+            trade_date = normalize_date(raw_date)
+        except TickArchiveError:
+            continue
+        if (target_dir / f"{normalized_code}.parquet").is_file() and (
+            target_dir / f"{normalized_code}.manifest.json"
+        ).is_file():
+            candidates.append(trade_date)
+    for trade_date in sorted(candidates, reverse=True):
+        try:
+            return read_tick_archive(directory, normalized_code, trade_date)
+        except TickArchiveError:
+            continue
+    raise FileNotFoundError(f"{normalized_code} 没有可用的本地逐笔归档")
+
+
 def list_tick_archives(root: Path, limit: int = 50) -> list[dict]:
     """列出已归档的股票/日期，按日期和代码倒序。"""
     directory = Path(root)

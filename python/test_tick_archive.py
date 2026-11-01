@@ -4,12 +4,14 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
 import tdx_bridge
 from tick_archive import (
     TickArchiveError,
+    latest_tick_archive,
     list_tick_archives,
     read_tick_archive,
     write_tick_archive,
@@ -95,6 +97,55 @@ class TestTickArchive(unittest.TestCase):
                 page = bridge.trades(
                     "sh600519", start=1, count=2, trading_date="2026-10-30"
                 )
+        self.assertEqual([item["index"] for item in page], [1, 2])
+
+    def test_latest_tick_archive_prefers_newest_date(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_tick_archive(root, "sh600519", "2026-10-29", ticks(3))
+            write_tick_archive(root, "sh600519", "2026-10-30", ticks(5))
+            latest = latest_tick_archive(root, "sh600519")
+            self.assertEqual(latest["tradeDate"], "2026-10-30")
+            self.assertEqual(latest["rows"], 5)
+
+    def test_latest_tick_archive_missing_raises(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(FileNotFoundError):
+                latest_tick_archive(Path(directory), "sh600519")
+
+    def test_prefer_tick_archive_only_when_market_closed(self) -> None:
+        # 周六：全天读归档
+        self.assertTrue(
+            tdx_bridge.prefer_tick_archive(datetime(2026, 10, 31, 10, 0), "2026-10-30")
+        )
+        # 周五收盘后，且归档就是当天：读归档
+        self.assertTrue(
+            tdx_bridge.prefer_tick_archive(datetime(2026, 10, 30, 15, 5), "2026-10-30")
+        )
+        # 周五盘中/午休：仍走实时
+        self.assertFalse(
+            tdx_bridge.prefer_tick_archive(datetime(2026, 10, 30, 14, 0), "2026-10-30")
+        )
+        # 收盘后但归档不是当天（当天数据未落地）：仍走实时
+        self.assertFalse(
+            tdx_bridge.prefer_tick_archive(datetime(2026, 10, 30, 15, 10), "2026-10-29")
+        )
+
+    def test_trades_reads_latest_archive_when_market_closed(self) -> None:
+        bridge = object.__new__(tdx_bridge.Bridge)
+        bridge.conn = None
+        bridge.index = None
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(
+                tdx_bridge, "stocklens_data_dir", return_value=Path(directory)
+            ):
+                write_tick_archive(
+                    Path(directory) / "lake" / "ticks", "sh600519", "2026-10-30", ticks(5)
+                )
+                with mock.patch.object(
+                    tdx_bridge, "prefer_tick_archive", return_value=True
+                ):
+                    page = bridge.trades("sh600519", start=1, count=2)
         self.assertEqual([item["index"] for item in page], [1, 2])
 
     def test_save_fetches_all_pages_and_skips_existing(self) -> None:

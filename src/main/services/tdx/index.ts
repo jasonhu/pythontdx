@@ -184,7 +184,8 @@ export async function fetchCategoryQuotes(request: CategoryRequest): Promise<Cat
 
 /** 0x0fc5 / 0x0fc6 成交明细；date 省略走当日。 */
 export async function fetchTrades(request: TradesRequest): Promise<TradeTick[]> {
-  return bridge.send<TradeTick[]>('trades', { ...request }, QUOTES_TIMEOUT_MS)
+  // 逐笔面板 1 秒一刷，且首屏直接决定观感；插到队首，别排在自选迷你图/历史 K 后面。
+  return bridge.send<TradeTick[]>('trades', { ...request }, QUOTES_TIMEOUT_MS, true)
 }
 
 /** 0x0ffc 资金流：最近 5 个交易日。 */

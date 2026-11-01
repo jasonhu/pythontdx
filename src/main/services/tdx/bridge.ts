@@ -79,8 +79,13 @@ export class TdxBridge {
   private nextId = 1
   private starting: Promise<void> | null = null
   private closed = false
-  /** 串行队列：协议是一问一答，桥接进程也按行处理 */
-  private tail: Promise<void> = Promise.resolve()
+  /**
+   * 串行队列：协议是一问一答，桥接进程也按行处理。
+   * 队列元素是「执行一次请求」的闭包；priority 请求插到队首，
+   * 用于右下角逐笔这类必须尽快上屏的交互请求，避免排在自选迷你图后面。
+   */
+  private queue: Array<() => Promise<void>> = []
+  private pumping = false
 
   /** 订阅 sidecar 的结构化进度（当前用于离线备份/恢复）；返回取消订阅函数 */
   onProgress(listener: (progress: DataBackupProgress) => void): () => void {
@@ -94,14 +99,32 @@ export class TdxBridge {
   send<T>(
     cmd: string,
     payload: Record<string, unknown> = {},
-    timeoutMs = DEFAULT_TIMEOUT
+    timeoutMs = DEFAULT_TIMEOUT,
+    priority = false
   ): Promise<T> {
-    const task = this.tail.then(() => this.sendNow<T>(cmd, payload, timeoutMs))
-    this.tail = task.then(
-      () => undefined,
-      () => undefined
-    )
-    return task
+    return new Promise<T>((resolve, reject) => {
+      const run = async (): Promise<void> => {
+        try {
+          resolve(await this.sendNow<T>(cmd, payload, timeoutMs))
+        } catch (error) {
+          reject(error)
+        }
+      }
+      if (priority) this.queue.unshift(run)
+      else this.queue.push(run)
+      this.pump()
+    })
+  }
+
+  private pump(): void {
+    if (this.pumping) return
+    const run = this.queue.shift()
+    if (!run) return
+    this.pumping = true
+    void run().finally(() => {
+      this.pumping = false
+      this.pump()
+    })
   }
 
   close(): void {

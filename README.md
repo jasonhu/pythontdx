@@ -7,7 +7,7 @@
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
 **版本：0.14.2（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：307 个 TS 测试 + 163 个 Python 测试（1 skipped）·
+`npm run check`：310 个 TS 测试 + 163 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
 > 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验。

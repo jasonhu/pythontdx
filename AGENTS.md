@@ -104,7 +104,7 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（307 个用例）
+npm run test                # 只跑 TS 测试（310 个用例）
 npm run test:python         # 只跑 Python 协议/HTTP 测试（163 个用例）
 npm run audit:data          # 数据覆盖自检（39 项，会触发自动归档；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
@@ -172,12 +172,13 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（307 个 TS 测试 + 163 个 Python 测试），
+健康度 `npm run check` 全绿（310 个 TS 测试 + 163 个 Python 测试），
 2026-10-31 复核过构建、实机启动、包内资金流与公式多输出；
 2026-11-01/02 复核过 Windows x64 安装包 / 绿色包 / zip / 便携版（0.9.0 ~ 0.14.2 见
 `docs/07` 第十一至二十八、三十一至三十三节）；
 2026-11-02 实机打包并验收 macOS arm64 dmg（0.14.2，ad-hoc 签名），同时修掉
 thin Mach-O 误判、arm64 目标错配与 7615 系统代理超时（见 `docs/07` 第三十四节）；
+并修首屏分时图被「涨跌家数」全市场扫描阻塞（14.97s → 4.2s，未发布，见 docs/06 #41）；
 2026-11-01 新增左栏「自选股 / 板块 / 自定义」三视图、板块选择大窗口、
 离线数据单文件备份/恢复、数据集归档（板块/财务含三大报表/龙虎榜），并修复指数除权
 （截图与实测见 `CHANGELOG`）。

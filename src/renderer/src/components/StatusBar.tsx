@@ -1,10 +1,11 @@
 /**
  * 底部状态栏：连接状态、数据新鲜度、刷新频率、交易时段。
  */
-import { createSignal, For, Show, type JSX } from 'solid-js'
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import type { MarketBreadth } from '@shared/types'
 import { SESSION_LABEL, marketSession } from '@shared/market'
 import { relativeFrom, timeOfDay } from '@shared/format'
+import { scheduleBreadth } from '../lib/breadth'
 import { createInterval } from '../lib/dom'
 import { api } from '../lib/ipc'
 import {
@@ -60,11 +61,12 @@ export function StatusBar(props: {
       // 涨跌家数是辅助信息，失败静默，不打断状态栏
     }
   }
-  createInterval(
-    () => void loadBreadth(),
-    () => 30_000
-  )
-  void loadBreadth()
+  // 全市场扫描很慢（macOS 冷启动实测独占 sidecar 7.5 秒），
+  // 等首帧行情/图表就绪后再后台加载，别把分时图堵在队列后面。
+  createEffect(() => {
+    const status = connection()
+    onCleanup(scheduleBreadth(status, () => void loadBreadth()))
+  })
 
   const exportGroups = (): void => {
     try {

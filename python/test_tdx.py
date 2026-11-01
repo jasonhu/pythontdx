@@ -358,7 +358,7 @@ class TestTdxStats(unittest.TestCase):
 
 
 class TestDataBackup(unittest.TestCase):
-    """离线数据备份/恢复：单文件 zip、恢复只补缺失、不覆盖已有文件。"""
+    """离线数据备份/恢复：单文件 zip、恢复全量覆盖同名文件。"""
 
     def test_backup_inspect_restore(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -381,18 +381,19 @@ class TestDataBackup(unittest.TestCase):
                 self.assertEqual(inspected["fileCount"], 2)
                 self.assertEqual(inspected["format"], tdx.BACKUP_FORMAT)
 
-                # 删掉一份、改一份：恢复要把缺的补回来，已存在的保持原样
+                # 删掉一份、改一份：恢复补回缺失，并把已存在的同名文件覆盖掉
                 (data / "lake" / "sh600519.manifest.json").unlink()
                 existing = data / "cache" / "klines" / "sh600519_day_all_qfq.parquet"
                 existing.write_bytes(b"newer")
                 result = tdx.backup_restore(str(archive))
                 self.assertEqual(result["restored"], 1)
-                self.assertEqual(result["skipped"], 1)
+                self.assertEqual(result["overwritten"], 1)
+                self.assertEqual(result["skipped"], 0)
                 self.assertEqual(
                     (data / "lake" / "sh600519.manifest.json").read_text(encoding="utf-8"),
                     "{}",
                 )
-                self.assertEqual(existing.read_bytes(), b"newer")
+                self.assertEqual(existing.read_bytes(), b"parquet")
 
                 # 同名备份不覆盖
                 with self.assertRaises(tdx.TdxError):

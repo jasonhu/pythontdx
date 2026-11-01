@@ -2774,14 +2774,16 @@ def backup_inspect(path: str) -> dict:
 
 
 def backup_restore(path: str) -> dict:
-    """把备份解回数据目录。
+    """把备份解回数据目录：同名文件全量覆盖，不再因本地已存在而跳过。
 
-    规则 12：已存在的文件一律跳过，不覆盖 —— 备份通常来自更早的机器，
-    本机后来下载的数据可能更新。恢复只负责「补齐缺的那部分」。
+    2026-11-01 用户明确要求「恢复采用全量覆盖，不管本地现有数据」，
+    这是对规则 12「已存在不覆盖」的例外。备份里没有的本地文件仍保留，
+    不会删除本机多出来的数据。
     """
     source = _backup_target(path, must_exist=True)
     root = _backup_root()
     restored = 0
+    overwritten = 0
     skipped = 0
     restored_bytes = 0
     try:
@@ -2802,9 +2804,7 @@ def backup_restore(path: str) -> dict:
             ):
                 raise TdxError(f"备份文件包含非法路径：{info.filename}")
             destination = root.joinpath(*relative.parts)
-            if destination.exists():
-                skipped += 1
-                continue
+            existed = destination.exists()
             destination.parent.mkdir(parents=True, exist_ok=True)
             temporary = destination.with_name(destination.name + ".part")
             try:
@@ -2814,16 +2814,20 @@ def backup_restore(path: str) -> dict:
                         if not chunk:
                             break
                         dst.write(chunk)
-                os.replace(temporary, destination)
+                _replace_atomic(temporary, destination)
             except Exception:
                 temporary.unlink(missing_ok=True)
                 raise
-            restored += 1
+            if existed:
+                overwritten += 1
+            else:
+                restored += 1
             restored_bytes += info.file_size
 
     return {
         "path": str(source),
         "restored": restored,
+        "overwritten": overwritten,
         "skipped": skipped,
         "bytes": restored_bytes,
         "dataRoot": str(root),

@@ -1287,7 +1287,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             </Show>
 
             <div class="data__backup-restore">
-              <div class="data__sub">恢复只补齐本机缺的文件；已存在的文件一律跳过，不覆盖。</div>
+              <div class="data__sub">
+                恢复采用全量覆盖：备份里的同名文件直接覆盖本地；备份里没有的本地文件保留。
+              </div>
               <div class="data__backup-row">
                 <input
                   class="data__backup-path data__backup-input"
@@ -1330,8 +1332,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               <Show when={restoreResult()}>
                 {(result) => (
                   <div class="data__kline-manifest">
-                    恢复完成：补回 {result().restored} 个文件（{formatBytes(result().bytes)}）；
-                    跳过已存在 {result().skipped} 个。
+                    恢复完成：新补 {result().restored} 个 · 覆盖 {result().overwritten} 个（
+                    {formatBytes(result().bytes)}）· 跳过 {result().skipped} 个。
                   </div>
                 )}
               </Show>

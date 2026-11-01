@@ -815,11 +815,13 @@ export interface DataBackupInspectResult {
 
 export interface DataBackupRestoreResult {
   path: string
-  /** 本次补回的缺失文件数 */
+  /** 本次新补回的文件数 */
   restored: number
-  /** 本机已存在、按规则跳过（不覆盖）的文件数 */
+  /** 同名覆盖的文件数 */
+  overwritten: number
+  /** 跳过的文件数（manifest 等） */
   skipped: number
-  /** 补回的字节数 */
+  /** 写入的字节数 */
   bytes: number
   dataRoot: string
 }

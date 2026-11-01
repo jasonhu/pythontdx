@@ -60,6 +60,7 @@ import {
   backupOfflineData,
   inspectOfflineBackup,
   restoreOfflineData,
+  onBackupProgress,
   archiveDatasets,
   fetchChartPatterns,
   limitReview,
@@ -276,6 +277,15 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.dataBackupInspect, (_event, path: string) => inspectOfflineBackup(path))
 
   ipcMain.handle(IPC.dataBackupRestore, (_event, path: string) => restoreOfflineData(path))
+
+  const stopBackupProgress = onBackupProgress((progress) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(IPC.dataBackupProgress, progress)
+      }
+    }
+  })
+  app.once('will-quit', stopBackupProgress)
 
   ipcMain.handle(IPC.dataArchiveDatasets, (_event, codes: string[]) => archiveDatasets(codes))
 

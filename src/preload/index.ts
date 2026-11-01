@@ -106,6 +106,7 @@ const api: StockLensApi = {
     backupCreate: (path) => ipcRenderer.invoke(IPC.dataBackupCreate, path),
     backupInspect: (path) => ipcRenderer.invoke(IPC.dataBackupInspect, path),
     backupRestore: (path) => ipcRenderer.invoke(IPC.dataBackupRestore, path),
+    onBackupProgress: (listener) => subscribe(IPC.dataBackupProgress, listener),
     archiveDatasets: (codes) => ipcRenderer.invoke(IPC.dataArchiveDatasets, codes),
     chooseBackupPath: (defaultName) => ipcRenderer.invoke(IPC.dataChooseBackupPath, defaultName),
     chooseRestorePath: () => ipcRenderer.invoke(IPC.dataChooseRestorePath),

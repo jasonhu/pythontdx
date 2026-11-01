@@ -6293,6 +6293,51 @@
   opacity: 0.55;
 }
 
+/* 备份/恢复真实字节进度；scan 阶段用不确定态，避免假装百分比。 */
+.data__backup-progress {
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.data__backup-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--panel-hover);
+}
+
+.data__backup-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2, var(--accent)));
+  transition: width 180ms ease-out;
+}
+
+.data__backup-bar--indeterminate span {
+  width: 30% !important;
+  animation: data-backup-indeterminate 1.1s ease-in-out infinite;
+}
+
+.data__backup-progress-meta {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes data-backup-indeterminate {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(360%);
+  }
+}
+
 .data__download {
   display: flex;
   flex-direction: column;

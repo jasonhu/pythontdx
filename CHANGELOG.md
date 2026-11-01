@@ -10,6 +10,31 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [未发布] - 备份/恢复进度条（2026-11-01）
+
+### 新增
+
+- **86 离线数据备份/恢复进度条**：
+  - Python sidecar 在扫描、写入、计算 SHA256、恢复阶段上报**真实字节数和文件数**
+    （节流约 6 行/秒，避免逐 MB 刷屏）；`TdxBridge` 拦截结构化 stderr，
+    经 IPC 推给数据工具；
+  - 备份显示 `扫描 → 写入 → SHA256 → 完成`，恢复显示 `写入 → 完成`；
+    未完成且尚无字节时用不确定进度动画，不伪造百分比；
+  - 进度行显示已完成/总字节、文件数、百分比和当前文件；
+  - 备份路径从只读文本改为可输入，仍保留「选择路径」对话框。
+
+### 验证
+
+- `npm run check` exit 0：**296 TS（296 passed，29 文件）+ 158 Python（1 skipped）**；
+- `npm run build:web` 通过；
+- 1.6 GB / 86 文件临时数据实测：备份进行到 **59%（939 MB，50/86 文件）**、
+  恢复进行到 **78%（1253 MB，64/84 文件）**，截图 `screenshots/backup-progress.png`
+  与 `screenshots/restore-progress.png`；
+- 临时 Linux `--dir` 包（Nuitka sidecar）实测备份 **89%（SHA256 阶段，1423/1600 MB）**，
+  证明 `stderr → TdxBridge → IPC → 进度条` 在打包链路可用
+  （`screenshots/backup-progress-packaged.png`）；
+- 备份/恢复的 Python 用例断言首尾进度事件、全部阶段和完成字节数。
+
 ## [0.13.2] - 2026-11-01
 
 ### 多股同列细化

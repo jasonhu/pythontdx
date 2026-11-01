@@ -475,6 +475,7 @@ export function createHttpApi(): StockLensApi {
       backupRestore: async () => {
         throw new Error('浏览器版不支持离线数据备份，请在桌面端操作')
       },
+      onBackupProgress: () => () => undefined,
       archiveDatasets: async () => {
         throw new Error('浏览器版不支持离线数据归档，请在桌面端操作')
       },

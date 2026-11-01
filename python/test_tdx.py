@@ -372,10 +372,19 @@ class TestDataBackup(unittest.TestCase):
             os.environ["STOCKLENS_DATA_DIR"] = str(data)
             try:
                 archive = Path(directory) / "backup.zip"
-                created = tdx.backup_create(str(archive))
+                backup_events: list[dict] = []
+                created = tdx.backup_create(str(archive), backup_events.append)
                 self.assertEqual(created["fileCount"], 2)
                 self.assertGreater(created["archiveBytes"], 0)
                 self.assertEqual(len(created["sha256"]), 64)
+                self.assertEqual(backup_events[0]["phase"], "scan")
+                self.assertEqual(backup_events[-1]["phase"], "done")
+                self.assertEqual(backup_events[-1]["operation"], "backup")
+                self.assertEqual(backup_events[-1]["doneBytes"], created["totalBytes"])
+                self.assertEqual(
+                    {event["phase"] for event in backup_events},
+                    {"scan", "write", "hash", "done"},
+                )
 
                 inspected = tdx.backup_inspect(str(archive))
                 self.assertEqual(inspected["fileCount"], 2)
@@ -385,7 +394,8 @@ class TestDataBackup(unittest.TestCase):
                 (data / "lake" / "sh600519.manifest.json").unlink()
                 existing = data / "cache" / "klines" / "sh600519_day_all_qfq.parquet"
                 existing.write_bytes(b"newer")
-                result = tdx.backup_restore(str(archive))
+                restore_events: list[dict] = []
+                result = tdx.backup_restore(str(archive), restore_events.append)
                 self.assertEqual(result["restored"], 1)
                 self.assertEqual(result["overwritten"], 1)
                 self.assertEqual(result["skipped"], 0)
@@ -394,6 +404,11 @@ class TestDataBackup(unittest.TestCase):
                     "{}",
                 )
                 self.assertEqual(existing.read_bytes(), b"parquet")
+                self.assertEqual(restore_events[0]["phase"], "write")
+                self.assertEqual(restore_events[-1]["phase"], "done")
+                self.assertEqual(restore_events[-1]["operation"], "restore")
+                self.assertEqual(restore_events[-1]["doneFiles"], 2)
+                self.assertEqual(restore_events[-1]["doneBytes"], result["bytes"])
 
                 # 同名备份不覆盖
                 with self.assertRaises(tdx.TdxError):

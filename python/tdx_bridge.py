@@ -46,6 +46,7 @@ import traceback
 import zipfile
 import zlib
 from collections import Counter
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -2651,6 +2652,58 @@ def data_inventory() -> dict:
 BACKUP_FORMAT = 1
 BACKUP_MANIFEST = "_stocklens_backup.json"
 BACKUP_CHUNK = 1024 * 1024
+PROGRESS_PREFIX = "__STOCKLENS_PROGRESS__ "
+
+
+class _BackupProgressReporter:
+    """把备份/恢复的真实字节进度通过 stderr 推给 Electron 主进程。
+
+    为什么要节流：逐 1MB 发一行会让 5GB 数据产生 5000 行 stderr，既刷屏又浪费 IPC。
+    这里保证首尾事件一定发出，中间最多约 6 行/秒；前端仍按真实字节数画进度条。
+    """
+
+    def __init__(self, operation: str, callback: Callable[[dict], None] | None) -> None:
+        self.operation = operation
+        self.callback = callback
+        self.last_at = 0.0
+
+    def report(
+        self,
+        phase: str,
+        *,
+        done_bytes: int = 0,
+        total_bytes: int = 0,
+        done_files: int = 0,
+        total_files: int = 0,
+        current: str = "",
+        force: bool = False,
+    ) -> None:
+        if self.callback is None:
+            return
+        now = time.monotonic()
+        if not force and now - self.last_at < 0.15:
+            return
+        self.last_at = now
+        self.callback(
+            {
+                "operation": self.operation,
+                "phase": phase,
+                "doneBytes": done_bytes,
+                "totalBytes": total_bytes,
+                "doneFiles": done_files,
+                "totalFiles": total_files,
+                "current": current,
+            }
+        )
+
+
+def _bridge_progress(event: dict) -> None:
+    """sidecar 的结构化进度行；TdxBridge 会拦截它，不再当普通日志打印。"""
+    print(
+        PROGRESS_PREFIX + json.dumps(event, ensure_ascii=False, separators=(",", ":")),
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 def _backup_root() -> Path:
@@ -2683,21 +2736,32 @@ def _backup_files(root: Path) -> list[Path]:
     return files
 
 
-def _sha256_of(path: Path) -> str:
+def _sha256_of(
+    path: Path, progress: Callable[[int, int], None] | None = None
+) -> str:
+    total = path.stat().st_size
+    done = 0
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(BACKUP_CHUNK), b""):
             digest.update(chunk)
+            done += len(chunk)
+            if progress is not None:
+                progress(done, total)
     return digest.hexdigest()
 
 
-def backup_create(path: str) -> dict:
+def backup_create(
+    path: str, progress: Callable[[dict], None] | None = None
+) -> dict:
     """把整个离线数据目录打成单个 zip。
 
     行情数据本身已经是 Parquet/ZSTD 或 gzip，deflate 再压一遍几乎没有收益，
     所以用 STORED 只做「单文件封装」，几 GB 的目录也不会卡在压缩上。
     已存在的同名文件直接报错，不覆盖 —— 备份是用户自己指定的可移动介质，
     写坏了没有第二次机会。
+
+    progress 按真实写入/哈希字节回报；前端据此画进度条，不靠计时假推进。
     """
     root = _backup_root()
     target = _backup_target(path, must_exist=False)
@@ -2705,15 +2769,50 @@ def backup_create(path: str) -> dict:
         raise TdxError(f"文件已存在，请换一个名字：{target}")
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + ".part")
+    report = _BackupProgressReporter("backup", progress)
+    report.report("scan", force=True)
 
     files = _backup_files(root)
-    total = 0
+    total = sum(file.stat().st_size for file in files)
     started = int(time.time() * 1000)
+    report.report(
+        "write",
+        total_bytes=total,
+        total_files=len(files),
+        force=True,
+    )
+    written = 0
     try:
         with zipfile.ZipFile(temporary, "w", zipfile.ZIP_STORED, allowZip64=True) as archive:
-            for file in files:
-                archive.write(file, file.relative_to(root).as_posix())
-                total += file.stat().st_size
+            for index, file in enumerate(files, start=1):
+                relative = file.relative_to(root).as_posix()
+                copied = 0
+                with file.open("rb") as src, archive.open(
+                    relative, "w", force_zip64=True
+                ) as dst:
+                    while True:
+                        chunk = src.read(BACKUP_CHUNK)
+                        if not chunk:
+                            break
+                        dst.write(chunk)
+                        copied += len(chunk)
+                        report.report(
+                            "write",
+                            done_bytes=written + copied,
+                            total_bytes=total,
+                            done_files=index - 1,
+                            total_files=len(files),
+                            current=relative,
+                        )
+                written += copied
+                report.report(
+                    "write",
+                    done_bytes=written,
+                    total_bytes=total,
+                    done_files=index,
+                    total_files=len(files),
+                    current=relative,
+                )
             archive.writestr(
                 BACKUP_MANIFEST,
                 json.dumps(
@@ -2733,12 +2832,40 @@ def backup_create(path: str) -> dict:
         temporary.unlink(missing_ok=True)
         raise
 
+    archive_bytes = target.stat().st_size
+    report.report(
+        "hash",
+        total_bytes=archive_bytes,
+        done_files=len(files),
+        total_files=len(files),
+        current=target.name,
+        force=True,
+    )
+    digest = _sha256_of(
+        target,
+        lambda done, total_bytes: report.report(
+            "hash",
+            done_bytes=done,
+            total_bytes=total_bytes,
+            done_files=len(files),
+            total_files=len(files),
+            current=target.name,
+        ),
+    )
+    report.report(
+        "done",
+        done_bytes=total,
+        total_bytes=total,
+        done_files=len(files),
+        total_files=len(files),
+        force=True,
+    )
     return {
         "path": str(target),
         "fileCount": len(files),
         "totalBytes": total,
-        "archiveBytes": target.stat().st_size,
-        "sha256": _sha256_of(target),
+        "archiveBytes": archive_bytes,
+        "sha256": digest,
         "createdAt": started,
         "dataRoot": str(root),
     }
@@ -2773,12 +2900,14 @@ def backup_inspect(path: str) -> dict:
     }
 
 
-def backup_restore(path: str) -> dict:
+def backup_restore(
+    path: str, progress: Callable[[dict], None] | None = None
+) -> dict:
     """把备份解回数据目录：同名文件全量覆盖，不再因本地已存在而跳过。
 
     2026-11-01 用户明确要求「恢复采用全量覆盖，不管本地现有数据」，
     这是对规则 12「已存在不覆盖」的例外。备份里没有的本地文件仍保留，
-    不会删除本机多出来的数据。
+    不会删除本机多出来的数据。progress 按已写入字节回报真实进度。
     """
     source = _backup_target(path, must_exist=True)
     root = _backup_root()
@@ -2791,10 +2920,22 @@ def backup_restore(path: str) -> dict:
     except zipfile.BadZipFile as error:
         raise TdxError("不是合法的 ZIP 备份文件") from error
 
+    report = _BackupProgressReporter("restore", progress)
     with archive:
-        for info in archive.infolist():
-            if info.is_dir() or info.filename == BACKUP_MANIFEST:
-                continue
+        entries = [
+            info
+            for info in archive.infolist()
+            if not info.is_dir() and info.filename != BACKUP_MANIFEST
+        ]
+        total_bytes = sum(info.file_size for info in entries)
+        report.report(
+            "write",
+            total_bytes=total_bytes,
+            total_files=len(entries),
+            force=True,
+        )
+        done_bytes = 0
+        for index, info in enumerate(entries, start=1):
             relative = Path(info.filename.replace("\\", "/"))
             if (
                 relative.is_absolute()
@@ -2807,6 +2948,7 @@ def backup_restore(path: str) -> dict:
             existed = destination.exists()
             destination.parent.mkdir(parents=True, exist_ok=True)
             temporary = destination.with_name(destination.name + ".part")
+            copied = 0
             try:
                 with archive.open(info) as src, temporary.open("wb") as dst:
                     while True:
@@ -2814,6 +2956,15 @@ def backup_restore(path: str) -> dict:
                         if not chunk:
                             break
                         dst.write(chunk)
+                        copied += len(chunk)
+                        report.report(
+                            "write",
+                            done_bytes=done_bytes + copied,
+                            total_bytes=total_bytes,
+                            done_files=index - 1,
+                            total_files=len(entries),
+                            current=relative.as_posix(),
+                        )
                 _replace_atomic(temporary, destination)
             except Exception:
                 temporary.unlink(missing_ok=True)
@@ -2822,7 +2973,24 @@ def backup_restore(path: str) -> dict:
                 overwritten += 1
             else:
                 restored += 1
-            restored_bytes += info.file_size
+            restored_bytes += copied
+            done_bytes += copied
+            report.report(
+                "write",
+                done_bytes=done_bytes,
+                total_bytes=total_bytes,
+                done_files=index,
+                total_files=len(entries),
+                current=relative.as_posix(),
+            )
+        report.report(
+            "done",
+            done_bytes=done_bytes,
+            total_bytes=total_bytes,
+            done_files=len(entries),
+            total_files=len(entries),
+            force=True,
+        )
 
     return {
         "path": str(source),
@@ -5246,11 +5414,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
     if cmd == "data_inventory":
         return data_inventory()
     if cmd == "backup_create":
-        return backup_create(str(payload.get("path") or ""))
+        return backup_create(str(payload.get("path") or ""), progress=_bridge_progress)
     if cmd == "backup_inspect":
         return backup_inspect(str(payload.get("path") or ""))
     if cmd == "backup_restore":
-        return backup_restore(str(payload.get("path") or ""))
+        return backup_restore(str(payload.get("path") or ""), progress=_bridge_progress)
     if cmd == "cache_klines":
         return bridge.cache_klines(
             list(payload.get("codes") or []),

@@ -21,6 +21,7 @@ import type {
   LocalDayResult,
   DataBackupCreateResult,
   DataBackupInspectResult,
+  DataBackupProgress,
   DataBackupRestoreResult,
   DatasetArchiveResult,
   DataCoverageResult,
@@ -501,6 +502,13 @@ export async function dataCoverage(): Promise<DataCoverageResult> {
  */
 export async function backupOfflineData(path: string): Promise<DataBackupCreateResult> {
   return bridge.send<DataBackupCreateResult>('backup_create', { path }, 2 * 60 * 60_000)
+}
+
+/** 订阅备份/恢复的真实进度；主进程把它转发成 IPC 事件。 */
+export function onBackupProgress(
+  listener: (progress: DataBackupProgress) => void
+): () => void {
+  return bridge.onProgress(listener)
 }
 
 export async function inspectOfflineBackup(path: string): Promise<DataBackupInspectResult> {

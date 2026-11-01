@@ -34,6 +34,7 @@ import type {
   LocalDayResult,
   DataBackupCreateResult,
   DataBackupInspectResult,
+  DataBackupProgress,
   DataBackupRestoreResult,
   DatasetArchiveResult,
   DataCoverageResult,
@@ -189,6 +190,8 @@ export const IPC = {
   dataBackupInspect: 'data:backup-inspect',
   /** 从备份恢复离线数据（invoke） */
   dataBackupRestore: 'data:backup-restore',
+  /** 备份/恢复真实进度（主进程推送） */
+  dataBackupProgress: 'data:backup-progress',
   /** 板块/财务/龙虎榜落盘到数据湖（invoke） */
   dataArchiveDatasets: 'data:archive-datasets',
   /** 保存对话框：选备份文件路径（invoke） */
@@ -446,6 +449,8 @@ export interface StockLensApi {
     backupInspect(path: string): Promise<DataBackupInspectResult>
     /** 从备份恢复；只补缺失文件，已存在的跳过 */
     backupRestore(path: string): Promise<DataBackupRestoreResult>
+    /** 订阅备份/恢复的真实字节进度；返回取消订阅函数 */
+    onBackupProgress(listener: (progress: DataBackupProgress) => void): () => void
     /** 板块/财务/龙虎榜全量落盘到数据湖（同一天不覆盖已有文件） */
     archiveDatasets(codes: string[]): Promise<DatasetArchiveResult>
     /** 保存对话框；取消返回 null */

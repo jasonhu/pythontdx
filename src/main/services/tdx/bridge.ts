@@ -17,6 +17,33 @@ import { existsSync } from 'node:fs'
 import { createInterface, type Interface } from 'node:readline'
 import { join } from 'node:path'
 import { app } from 'electron'
+import type { DataBackupProgress } from '@shared/types'
+
+const PROGRESS_PREFIX = '__STOCKLENS_PROGRESS__ '
+
+function parseProgressLine(line: string): DataBackupProgress | null {
+  if (!line.startsWith(PROGRESS_PREFIX)) return null
+  try {
+    const raw = JSON.parse(line.slice(PROGRESS_PREFIX.length)) as Partial<DataBackupProgress>
+    if (
+      (raw.operation === 'backup' || raw.operation === 'restore') &&
+      (raw.phase === 'scan' ||
+        raw.phase === 'write' ||
+        raw.phase === 'hash' ||
+        raw.phase === 'done') &&
+      typeof raw.doneBytes === 'number' &&
+      typeof raw.totalBytes === 'number' &&
+      typeof raw.doneFiles === 'number' &&
+      typeof raw.totalFiles === 'number' &&
+      typeof raw.current === 'string'
+    ) {
+      return raw as DataBackupProgress
+    }
+  } catch {
+    // 普通 stderr 或损坏的进度行，继续走日志分支
+  }
+  return null
+}
 
 export class TdxError extends Error {
   constructor(message: string) {
@@ -48,11 +75,20 @@ export class TdxBridge {
   private stdout: Interface | null = null
   private stderr: Interface | null = null
   private pending = new Map<number, Pending>()
+  private progressListeners = new Set<(progress: DataBackupProgress) => void>()
   private nextId = 1
   private starting: Promise<void> | null = null
   private closed = false
   /** 串行队列：协议是一问一答，桥接进程也按行处理 */
   private tail: Promise<void> = Promise.resolve()
+
+  /** 订阅 sidecar 的结构化进度（当前用于离线备份/恢复）；返回取消订阅函数 */
+  onProgress(listener: (progress: DataBackupProgress) => void): () => void {
+    this.progressListeners.add(listener)
+    return () => {
+      this.progressListeners.delete(listener)
+    }
+  }
 
   /** 通用请求；同一时刻只发一条，避免 stdout 行交错 */
   send<T>(
@@ -154,6 +190,11 @@ export class TdxBridge {
 
     this.stderr = createInterface({ input: child.stderr })
     this.stderr.on('line', (line) => {
+      const progress = parseProgressLine(line)
+      if (progress) {
+        for (const listener of this.progressListeners) listener(progress)
+        return
+      }
       console.warn(`[tdx-bridge] ${line}`)
     })
 

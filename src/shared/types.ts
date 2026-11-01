@@ -826,6 +826,20 @@ export interface DataBackupRestoreResult {
   dataRoot: string
 }
 
+/** 备份/恢复过程中的真实进度；由 Python sidecar 的 stderr 进度行转换而来。 */
+export interface DataBackupProgress {
+  operation: 'backup' | 'restore'
+  phase: 'scan' | 'write' | 'hash' | 'done'
+  /** 已处理的原始字节数；hash 阶段是压缩包已哈希字节数 */
+  doneBytes: number
+  /** 总原始字节数；hash 阶段是压缩包字节数，scan 阶段可能为 0 */
+  totalBytes: number
+  doneFiles: number
+  totalFiles: number
+  /** 当前文件（相对数据目录），可能为空 */
+  current: string
+}
+
 /* ------------------------------------------- 板块/财务/龙虎榜离线归档 */
 
 export interface DatasetArchiveFile {

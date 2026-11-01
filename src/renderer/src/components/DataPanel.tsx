@@ -3,7 +3,7 @@
  *
  * 只做只读数据管理，不碰交易；导出路径由 Python 后端决定并在界面上明确展示。
  */
-import { createSignal, For, onMount, Show, type JSX } from 'solid-js'
+import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type {
   StatsCsvExport,
   StatsParquetExport,
@@ -16,6 +16,7 @@ import type {
   LocalDayWriteResult,
   DataBackupCreateResult,
   DataBackupInspectResult,
+  DataBackupProgress,
   DataBackupRestoreResult,
   DataCoverageResult,
   DataIntegrityResult,
@@ -81,6 +82,77 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${bytes} B`
+}
+
+/** 备份/恢复共用的真实字节进度条；扫描阶段没有 total，用不确定态表示仍在工作。 */
+function BackupProgressBar(props: {
+  operation: 'backup' | 'restore'
+  progress: DataBackupProgress | null
+  busy: boolean
+}): JSX.Element {
+  const percent = (): number => {
+    const progress = props.progress
+    if (!progress) return 0
+    if (progress.phase === 'done') return 100
+    if (progress.totalBytes <= 0) return 0
+    return Math.max(0, Math.min(100, (progress.doneBytes / progress.totalBytes) * 100))
+  }
+
+  const indeterminate = (): boolean => {
+    if (!props.busy) return false
+    const progress = props.progress
+    return (
+      !progress ||
+      progress.phase === 'scan' ||
+      (progress.phase !== 'done' && (progress.totalBytes <= 0 || progress.doneBytes <= 0))
+    )
+  }
+
+  const phaseLabel = (): string => {
+    const progress = props.progress
+    if (!progress) return '准备中'
+    if (progress.phase === 'scan') return '正在扫描数据目录'
+    if (progress.phase === 'hash') return '正在计算 SHA256'
+    if (progress.phase === 'done') return '完成'
+    return props.operation === 'backup' ? '正在写入备份' : '正在恢复数据'
+  }
+
+  const meta = (): string => {
+    const progress = props.progress
+    if (!progress || progress.phase === 'scan') {
+      return `${props.operation === 'backup' ? '备份' : '恢复'} · ${phaseLabel()}…`
+    }
+    const bytes =
+      progress.totalBytes > 0
+        ? `${formatBytes(progress.doneBytes)} / ${formatBytes(progress.totalBytes)}`
+        : formatBytes(progress.doneBytes)
+    const parts = [
+      `${props.operation === 'backup' ? '备份' : '恢复'} · ${phaseLabel()}`,
+      bytes,
+      `${progress.doneFiles} / ${progress.totalFiles} 文件`,
+      `${Math.round(percent())}%`
+    ]
+    if (progress.current && progress.phase !== 'done') parts.push(progress.current)
+    return parts.join(' · ')
+  }
+
+  return (
+    <div class="data__backup-progress">
+      <div
+        class="data__backup-bar"
+        classList={{ 'data__backup-bar--indeterminate': indeterminate() }}
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={Math.round(percent())}
+      >
+        <span style={{ width: indeterminate() ? '30%' : `${percent().toFixed(1)}%` }} />
+      </div>
+      <div class="data__backup-progress-meta" title={props.progress?.current ?? ''}>
+        {meta()}
+      </div>
+    </div>
+  )
 }
 
 export function DataPanel(props: DataPanelProps): JSX.Element {
@@ -178,12 +250,14 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [backupBusy, setBackupBusy] = createSignal(false)
   const [backupResult, setBackupResult] = createSignal<DataBackupCreateResult | null>(null)
   const [backupError, setBackupError] = createSignal<string | null>(null)
+  const [backupProgress, setBackupProgress] = createSignal<DataBackupProgress | null>(null)
   const [restorePath, setRestorePath] = createSignal('')
   const [restoreBusy, setRestoreBusy] = createSignal(false)
   const [inspectBusy, setInspectBusy] = createSignal(false)
   const [backupInfo, setBackupInfo] = createSignal<DataBackupInspectResult | null>(null)
   const [restoreResult, setRestoreResult] = createSignal<DataBackupRestoreResult | null>(null)
   const [restoreError, setRestoreError] = createSignal<string | null>(null)
+  const [restoreProgress, setRestoreProgress] = createSignal<DataBackupProgress | null>(null)
   const [bulkRunning, setBulkRunning] = createSignal(false)
   const [bulkScope, setBulkScope] = createSignal<'watchlist' | 'all'>('watchlist')
   const [bulkDone, setBulkDone] = createSignal(0)
@@ -272,7 +346,10 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setBackupError(null)
     try {
       const picked = await api.data.chooseBackupPath(defaultBackupName())
-      if (picked) setBackupPath(picked)
+      if (picked) {
+        setBackupPath(picked)
+        setBackupProgress(null)
+      }
     } catch (cause) {
       setBackupError(errorMessage(cause))
     }
@@ -281,6 +358,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const runBackup = async (): Promise<void> => {
     setBackupError(null)
     setBackupResult(null)
+    setBackupProgress(null)
     let target = backupPath().trim()
     if (!target) {
       try {
@@ -302,6 +380,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       void loadInventory()
     } catch (cause) {
       setBackupError(errorMessage(cause))
+      setBackupProgress(null)
     } finally {
       setBackupBusy(false)
     }
@@ -315,6 +394,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         setRestorePath(picked)
         setBackupInfo(null)
         setRestoreResult(null)
+        setRestoreProgress(null)
       }
     } catch (cause) {
       setRestoreError(errorMessage(cause))
@@ -348,11 +428,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setRestoreBusy(true)
     setRestoreError(null)
     setRestoreResult(null)
+    setRestoreProgress(null)
     try {
       setRestoreResult(await api.data.backupRestore(path))
       void loadInventory()
     } catch (cause) {
       setRestoreError(errorMessage(cause))
+      setRestoreProgress(null)
     } finally {
       setRestoreBusy(false)
     }
@@ -906,6 +988,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   }
 
   onMount(() => {
+    const stopProgress = api.data.onBackupProgress((progress) => {
+      if (progress.operation === 'backup') setBackupProgress(progress)
+      else setRestoreProgress(progress)
+    })
+    onCleanup(stopProgress)
     void loadInventory()
     void loadAuctionArchives()
   })
@@ -1266,13 +1353,27 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             </div>
 
             <div class="data__backup-row">
-              <code class="data__backup-path">
-                {backupPath() || '（未选择，点「备份到…」会弹出保存对话框）'}
-              </code>
+              <input
+                class="data__backup-path data__backup-input"
+                placeholder="备份 zip 保存路径（也可点「选择路径」）"
+                value={backupPath()}
+                disabled={backupBusy()}
+                onInput={(event) => {
+                  setBackupPath(event.currentTarget.value)
+                  setBackupProgress(null)
+                }}
+              />
               <button class="btn" disabled={backupBusy()} onClick={() => void pickBackupPath()}>
                 选择路径
               </button>
             </div>
+            <Show when={backupBusy() || backupProgress()}>
+              <BackupProgressBar
+                operation="backup"
+                progress={backupProgress()}
+                busy={backupBusy()}
+              />
+            </Show>
             <Show when={backupError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
@@ -1295,7 +1396,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   class="data__backup-path data__backup-input"
                   placeholder="备份 zip 路径"
                   value={restorePath()}
-                  onInput={(event) => setRestorePath(event.currentTarget.value)}
+                  disabled={restoreBusy()}
+                  onInput={(event) => {
+                    setRestorePath(event.currentTarget.value)
+                    setRestoreProgress(null)
+                  }}
                 />
                 <button class="btn" disabled={restoreBusy()} onClick={() => void pickRestorePath()}>
                   选择备份
@@ -1315,6 +1420,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   {restoreBusy() ? '恢复中…' : '恢复'}
                 </button>
               </div>
+              <Show when={restoreBusy() || restoreProgress()}>
+                <BackupProgressBar
+                  operation="restore"
+                  progress={restoreProgress()}
+                  busy={restoreBusy()}
+                />
+              </Show>
               <Show when={restoreError()}>
                 {(message) => <div class="data__query-error">{message()}</div>}
               </Show>

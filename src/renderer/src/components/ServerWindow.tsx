@@ -8,7 +8,7 @@ import type { ServerSpeedResult } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
-export function ServerWindow(): JSX.Element {
+export function ServerWindow(props: { onClose?: () => void } = {}): JSX.Element {
   const [result, setResult] = createSignal<ServerSpeedResult | null>(null)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -74,7 +74,7 @@ export function ServerWindow(): JSX.Element {
         <button
           class="btn btn--icon btn--bare server-page__close"
           title="关闭"
-          onClick={() => window.close()}
+          onClick={() => (props.onClose ? props.onClose() : window.close())}
         >
           <IconClose size={16} />
         </button>

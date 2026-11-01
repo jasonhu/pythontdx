@@ -41,6 +41,7 @@ import { TitleBar } from './components/TitleBar'
 import { TradeTape } from './components/TradeTape'
 import { PriceDistribution } from './components/PriceDistribution'
 import { SettingsPanel } from './components/SettingsPanel'
+import { ServerWindow } from './components/ServerWindow'
 import { PortfolioPanel } from './components/PortfolioPanel'
 import { MarketListPanel } from './components/MarketListPanel'
 import { UnusualPanel } from './components/UnusualPanel'
@@ -82,6 +83,7 @@ export default function App(): JSX.Element {
   const [formulaOpen, setFormulaOpen] = createSignal(false)
   const [indicatorOpen, setIndicatorOpen] = createSignal(false)
   const [settingsOpen, setSettingsOpen] = createSignal(false)
+  const [serversOpen, setServersOpen] = createSignal(false)
   const [shortcutsOpen, setShortcutsOpen] = createSignal(false)
   const [portfolioOpen, setPortfolioOpen] = createSignal(false)
   const [marketOpen, setMarketOpen] = createSignal(false)
@@ -231,7 +233,7 @@ export default function App(): JSX.Element {
         onOpenBoards={() => setBoardsOpen(true)}
         onOpenAlerts={() => setAlertsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
-        onOpenServers={() => void api.window.openServers()}
+        onOpenServers={() => setServersOpen(true)}
         sidebarHidden={appState.settings.sidebarHidden === true}
         onToggleSidebar={() =>
           updateSettings({ sidebarHidden: !(appState.settings.sidebarHidden === true) })
@@ -513,6 +515,19 @@ export default function App(): JSX.Element {
 
       <Show when={shortcutsOpen()}>
         <ShortcutsPanel onClose={() => setShortcutsOpen(false)} />
+      </Show>
+
+      <Show when={serversOpen()}>
+        <div
+          class="server-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setServersOpen(false)
+          }}
+        >
+          <section class="server-shell" aria-label="行情服务器">
+            <ServerWindow onClose={() => setServersOpen(false)} />
+          </section>
+        </div>
       </Show>
 
       <Show when={settingsOpen()}>

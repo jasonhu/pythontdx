@@ -1684,3 +1684,29 @@ select optgroup {
   background-color: var(--panel-solid);
   color: var(--text-1);
 }
+
+/* 63：行情服务器改成主窗口内的弹层，不再另开系统窗口套一层标题栏 */
+.server-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(6px);
+}
+
+.server-shell {
+  width: min(980px, 94vw);
+  height: min(760px, 90vh);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--panel-solid);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 55%);
+}
+
+.server-shell .server-page {
+  border-radius: var(--r-lg);
+}

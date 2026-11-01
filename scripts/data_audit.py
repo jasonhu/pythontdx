@@ -147,7 +147,9 @@ def main() -> int:
         catalog = call("server_catalog", {})
         add("服务器文件清单", catalog.get("entries", []), 10)
         add("服务器文件差分", call("server_catalog_list", {"limit": 5}), 1)
-        integrity = call("data_integrity", {})
+        # 全量数据下 integrity 要逐个校验 10k+ manifest/SHA256，30 秒不够；
+        # 这里只影响自检脚本，不改变审计项数量。
+        integrity = call("data_integrity", {}, timeout=300)
         check(
             "归档校验",
             isinstance(integrity, dict)
@@ -155,7 +157,7 @@ def main() -> int:
             and integrity.get("checked", 0) > 0,
             str(integrity.get("failed") if isinstance(integrity, dict) else ""),
         )
-        coverage = call("data_coverage", {})
+        coverage = call("data_coverage", {}, timeout=120)
         required = {"klines", "ticks", "auction", "money_flow", "f10_pit", "server_files", "quotes"}
         present = {
             item.get("name")

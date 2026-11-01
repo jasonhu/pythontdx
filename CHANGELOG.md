@@ -42,6 +42,33 @@ StockLens 的所有重要变更都记录在这里。
 - 0.14.4 散装 app 与 dmg 由 `npm run build:mac:all` 生成，做本地启动/签名/GPL 验证；
   本轮不发布 GitHub Release。
 
+### Windows 0.14.4 回归（2026-11-02）
+
+在 Windows 10 22H2 x64 上按 README 快速编译手册重跑 `npm run check` +
+`npm run build:win`，并逐个启动安装版/绿色包/便携版/zip：
+
+- `npm run check` exit 0：**315 TS（32 文件）+ 164 Python（1 skipped）**；
+- 全量数据下 `data_integrity` 超过默认 30 秒：自检脚本把该项超时放宽到 300 秒
+  （`data_coverage` 120 秒），审计仍 **39/39**；
+- 安装版 `v0.14.4`：日 K 首图 **344ms**、逐笔首行 **209ms**；
+- 绿色包：日 K **335ms**、逐笔 **184ms**；便携版/zip 均启动 `v0.14.4`；
+- 静默卸载干净；`app.asar` 含 35,149 字节 GPL 文本与 `data:backup-progress`。
+
+产物（`release/0.14.4/`）：
+
+| 产物                                          |                    大小 | SHA256                                                             |
+| --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
+| `stocklens-0.14.4-setup.exe`                  |           133,624,455 B | `9bb47abab8143c6d1fae8da5e0d5eab245cfd38c332a3115e16885318bf6f9a8` |
+| `stocklens-0.14.4-portable.exe`               |           133,370,798 B | `028cc5efe0a257894879dfa1cc7667966bbfe02e523dfeba8760d899f0263fc6` |
+| `StockLens-0.14.4-win-x64/`                   | 410,627,561 B / 76 文件 | —                                                                  |
+| `StockLens-0.14.4-win-x64.zip`                |           175,229,697 B | `bd63e6615e991241ce5f65f95f76c1403bcb6c1edeb12cbc089e1f830c32fb13` |
+| `win-x64/resources/app.asar`                  |             3,609,351 B | `d582c404eb5331e6b04d4259e87e3029cd238446484132bb8e28b9d7162efb5c` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,526,016 B | `a2ca7f446f24205308cfbaaa9fa354c29fb47d4d9d0dae8e5dfa96ccce734f34` |
+
+绿色 zip 按 README 的手工步骤生成（`win-unpacked` 复制为
+`StockLens-0.14.4-win-x64` 后 7-Zip 压缩）；`build:win` 本身只产出 setup /
+portable / `win-unpacked`，不会自动生成绿色目录或 zip。
+
 ## [0.14.3] - 2026-11-02
 
 ### 修复

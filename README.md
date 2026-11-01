@@ -11,21 +11,21 @@
 `npm run audit:data`：39/39。
 
 > 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验。
-> Windows x64 0.14.2、Linux 0.14.0 与 macOS arm64 0.14.2 均已实机打包并启动验收
-> （见 `docs/07` 第三十至三十七节）；macOS 只支持 Apple Silicon，不维护 Intel 版。
-> **0.14.4 当前在 macOS 上完成散装 app + dmg 验证；Windows/Linux 0.14.4 尚未重打。**
-> 0.14.2 在本地缓存齐全时 K 线首图约 0.35 秒、逐笔首行约 0.2 秒（Windows 实测）。
+> Windows x64 0.14.4 与 macOS arm64 0.14.4 已完成本机打包验证（macOS 仅散装 app + dmg，
+> 不发布 Release）；Linux 0.14.0 已发布验收。Windows/Linux 0.14.4 的对外发布另行决定。
+> macOS 只支持 Apple Silicon，不维护 Intel 版。
+> 0.14.4 Windows 安装版 K 线首图约 0.34 秒、逐笔首行约 0.21 秒（本机实测）。
 
 ## 跨平台与验证环境
 
 StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，构建和测试在对应
 系统上原生进行，**不做交叉编译**。
 
-| 平台    | 编译 / 测试环境     | 架构                  | 主要产物                              |
-| ------- | ------------------- | --------------------- | ------------------------------------- |
-| Windows | **Windows 10 22H2** | x64                   | NSIS 安装包、单文件便携版、绿色包/zip |
-| macOS   | **macOS 27.2**      | Apple Silicon / arm64 | 散装 `.app`、dmg                      |
-| Linux   | **Ubuntu 26.04.1**  | x64                   | AppImage、deb                         |
+| 平台    | 编译 / 测试环境     | 架构                  | 主要产物                                                       |
+| ------- | ------------------- | --------------------- | -------------------------------------------------------------- |
+| Windows | **Windows 10 22H2** | x64                   | NSIS 安装包、单文件便携版、win-unpacked（绿色 zip 需手工打包） |
+| macOS   | **macOS 27.2**      | Apple Silicon / arm64 | 散装 `.app`、dmg                                               |
+| Linux   | **Ubuntu 26.04.1**  | x64                   | AppImage、deb                                                  |
 
 - macOS 只支持 Apple Silicon（M 系列），不维护 Intel/x64 版本；
 - Windows / Linux 构建机需要 Python 3.10+ 与 Nuitka；macOS 需要 Xcode Command Line Tools；
@@ -201,6 +201,10 @@ Windows 上 `python3` 换成 `py -3`，`npm` 换成 `npm.cmd`（PowerShell 执�
 打包脚本会自动先跑 `npm run build:python`，把 Python sidecar 编成单个可执行文件；
 不需要用户机器安装 Python。
 
+首次构建会下载 Electron 运行时与 NSIS 工具链；仓库 `.npmrc` 已配国内镜像，
+网络环境不同时检查 `electron_mirror` 与 `electron_builder_binaries_mirror` 两个键
+（详见 `docs/07` 2.3）。
+
 提交/发版前先跑质量门禁：
 
 ```bash
@@ -211,7 +215,7 @@ npm run audit:data   # 39 项数据覆盖/完整性审计
 ### 1. Windows 10 22H2（x64）
 
 前置：Visual Studio 2022 Build Tools（Desktop development with C++，Nuitka 需要 MSVC）、
-Python 3.10+、Node.js 20+。
+64 位 Python 3.10+、Node.js 20+。
 
 ```powershell
 npm.cmd install
@@ -223,8 +227,25 @@ npm.cmd run build:win:setup      # 只出安装包
 npm.cmd run build:win:portable   # 只出便携版
 ```
 
-产物在 `release/<version>/`：`stocklens-<version>-setup.exe`、
-`stocklens-<version>-portable.exe`、绿色目录/zip。
+`build:win` 在 `release/<version>/` 留下：
+
+- `stocklens-<version>-setup.exe`：NSIS 安装包；
+- `stocklens-<version>-portable.exe`：单文件便携版；
+- `win-unpacked/`：Electron 解包目录，**绿色版原料**。`build:win` 不会自动改名，
+  也不会自动压 zip；要交付散装绿色包/zip，复制后压缩：
+
+```powershell
+$v = node -p "require('./package.json').version"
+$out = "release\$v"
+Copy-Item "$out\win-unpacked" "$out\StockLens-$v-win-x64" -Recurse
+Compress-Archive -Path "$out\StockLens-$v-win-x64" `
+  -DestinationPath "$out\StockLens-$v-win-x64.zip"
+# 或：& 'C:\Program Files\7-Zip\7z.exe' a -tzip -mx=9 `
+#       "$out\StockLens-$v-win-x64.zip" "$out\StockLens-$v-win-x64"
+```
+
+> Windows 包未做代码签名（`NotSigned`），SmartScreen 会提示「未知发布者」；
+> 内部使用可忽略，公开分发见 `docs/07` 第六节。
 
 ### 2. macOS 27.2（Apple Silicon / arm64）
 
@@ -279,24 +300,25 @@ npm run check
 npm run build:linux   # AppImage + deb
 ```
 
-产物在 `release/<version>/`：`stocklens-<version>-x86_64.AppImage`、
-`stocklens-<version>-amd64.deb`。AppImage 需要 `chmod +x` 后运行；
+产物在 `release/<version>/`：`StockLens-<version>.AppImage`、
+`stocklens_<version>_amd64.deb`。AppImage 需要 `chmod +x` 后运行；
 deb 可 `sudo dpkg -i` 或 `dpkg-deb -x` 解包直接运行。
 
 ### 4. 产物速查
 
-| 平台        | 命令                    | 产物                                  |
-| ----------- | ----------------------- | ------------------------------------- |
-| Windows x64 | `npm run build:win`     | setup.exe / portable.exe / 绿色包 zip |
-| macOS arm64 | `npm run build:mac:all` | `.app` + dmg                          |
-| Linux x64   | `npm run build:linux`   | AppImage + deb                        |
+| 平台        | 命令                    | 产物                                                             |
+| ----------- | ----------------------- | ---------------------------------------------------------------- |
+| Windows x64 | `npm run build:win`     | setup.exe / portable.exe / win-unpacked（绿色原料）              |
+| macOS arm64 | `npm run build:mac:all` | `.app` + dmg                                                     |
+| Linux x64   | `npm run build:linux`   | `StockLens-<version>.AppImage` + `stocklens_<version>_amd64.deb` |
 
 三平台都**在本机原生构建，不做交叉编译**。每次版本更新后建议至少跑一次
 `npm run build:mac:all`（macOS）或对应的 `build:win` / `build:linux`，并实际启动产物验证。
 
-> **0.14.4 本地验证**：`release/0.14.4/mac-arm64/StockLens.app` 与
-> `release/0.14.4/stocklens-0.14.4-arm64.dmg` 已构建、签名和 GPL 校验通过；
-> dmg 只做本地验证，不发布 GitHub Release。
+> **0.14.4 本地验证**：Windows setup / portable / 绿色包 / zip 已打包并逐个启动
+> （安装版 K 线 344ms、逐笔 209ms；绿色包 335ms / 184ms）；
+> `release/0.14.4/mac-arm64/StockLens.app` 与 `release/0.14.4/stocklens-0.14.4-arm64.dmg`
+> 也已构建、签名和 GPL 校验通过；dmg 只做本地验证，不发布 GitHub Release。
 
 ---
 

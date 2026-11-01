@@ -2304,6 +2304,17 @@
   font-size: var(--fs-2xs);
 }
 
+/* 走势图列固定宽度，数字列不会被它挤得忽宽忽窄 */
+.block__spark-head,
+.block__spark-cell {
+  width: 56px;
+}
+
+.block__spark-cell .sparkline {
+  display: block;
+  margin-left: auto;
+}
+
 .block__empty {
   padding: 18px;
   color: var(--text-3);

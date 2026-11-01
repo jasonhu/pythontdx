@@ -12,8 +12,13 @@
  * 自定义板块不在这里：它只有一层，由左栏「自定义」页签里的下拉框直接选择。
  */
 import { createEffect, createMemo, createSignal, For, onMount, Show, type JSX } from 'solid-js'
-import type { BlockGroup, BlockKind, IndustryList } from '@shared/types'
-import { api, errorMessage } from '../lib/ipc'
+import type { BlockKind } from '@shared/types'
+import {
+  BOARD_CATEGORIES,
+  loadBoardCategory,
+  type BoardCategory
+} from '../lib/board-categories'
+import { errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
 export interface SectorSelection {
@@ -28,18 +33,7 @@ export interface SectorSelection {
   groupId?: string
 }
 
-type CategoryKey = 'industry' | 'rs1' | 'rs2' | BlockKind
-
-const CATEGORIES: Array<{ key: CategoryKey; label: string }> = [
-  // 一级/二级行业来自 TDXRSHY（通达信研发行业），名字与 MAC 0x1231 的分类一致
-  { key: 'rs1', label: '一级行业' },
-  { key: 'rs2', label: '二级行业' },
-  { key: 'industry', label: '通达信行业' },
-  { key: 'gn', label: '概念' },
-  { key: 'fg', label: '风格' },
-  { key: 'zs', label: '指数板块' },
-  { key: 'general', label: '一般' }
-]
+type CategoryKey = BoardCategory
 
 type PickerBoard = {
   id: string
@@ -63,32 +57,6 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
-  /** 行业接口一次给两份分类（TDX 行业 + TDXRSHY），缓存下来给一级/二级复用 */
-  const [industryData, setIndustryData] = createSignal<IndustryList | null>(null)
-  const [macNames, setMacNames] = createSignal<Record<number, string[]>>({})
-
-  /**
-   * 一级/二级行业：MAC 0x1231 的 0/1 类给出这一层的板块名单，
-   * 成分股来自 tdxhy.cfg 的 rsCode 分组（TDXRSHY），按名字对齐。
-   */
-  const loadResearch = async (boardType: 0 | 1): Promise<BlockGroup[]> => {
-    let data = industryData()
-    if (!data) {
-      data = (await api.block.industries()) as IndustryList
-      setIndustryData(data)
-    }
-    const cachedNames = macNames()[boardType]
-    let names: string[]
-    if (cachedNames) {
-      names = cachedNames
-    } else {
-      const boards = await api.mac.boards(boardType)
-      names = boards.map((board) => board.name)
-      setMacNames((prev) => ({ ...prev, [boardType]: names }))
-    }
-    const allowed = new Set(names)
-    return (data.rsBlocks ?? []).filter((board) => allowed.has(board.name))
-  }
 
   const load = async (key: CategoryKey): Promise<void> => {
     if (lists()[key]) return
@@ -96,16 +64,7 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
     setLoading(true)
     setError(null)
     try {
-      let blocks: BlockGroup[]
-      if (key === 'industry') {
-        blocks = ((await api.block.industries()) as IndustryList).blocks
-      } else if (key === 'rs1') {
-        blocks = await loadResearch(0)
-      } else if (key === 'rs2') {
-        blocks = await loadResearch(1)
-      } else {
-        blocks = (await api.block.list(key)).blocks
-      }
+      const blocks = await loadBoardCategory(key)
       if (current !== requestId) return
       setLists((prev) => ({ ...prev, [key]: blocks }))
     } catch (cause) {
@@ -169,7 +128,7 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
             分类方式有多种（行业/概念/风格/一般/客户端自定义…），平铺一行放不下，也不能并列。 */}
         <div class="sector-picker__layout">
           <nav class="sector-picker__rail" role="tablist" aria-orientation="vertical">
-            <For each={CATEGORIES}>
+            <For each={BOARD_CATEGORIES}>
               {(item) => (
                 <button
                   class={`sector-picker__tab sector-picker__tab--${item.key}`}

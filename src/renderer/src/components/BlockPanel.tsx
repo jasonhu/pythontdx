@@ -4,8 +4,13 @@
  * 左栏是板块名，右栏是成分股；成分股行情用批量快照补齐，点击行切到主行情。
  */
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
-import type { BlockGroup, BlockKind, BlockList, IndustryList, Quote } from '@shared/types'
+import type { BlockGroup, Quote } from '@shared/types'
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
+import {
+  BOARD_CATEGORIES,
+  loadBoardCategory,
+  type BoardCategory
+} from '../lib/board-categories'
 import { api, errorMessage } from '../lib/ipc'
 import { openStockMenu } from '../stores/stockMenu'
 import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
@@ -17,22 +22,14 @@ interface BlockPanelProps {
   onSelect: (quote: Quote) => void
 }
 
-type BlockTabKind = BlockKind | 'industry'
-
-const TABS: Array<{ kind: BlockTabKind; label: string }> = [
-  { kind: 'industry', label: '行业' },
-  { kind: 'gn', label: '概念' },
-  { kind: 'fg', label: '风格' },
-  { kind: 'zs', label: '指数' },
-  { kind: 'general', label: '一般' }
-]
+type BlockTabKind = BoardCategory
 
 const QUOTE_LIMIT = 400
 const QUOTE_CHUNK = 80
 
 export function BlockPanel(props: BlockPanelProps): JSX.Element {
   const [kind, setKind] = createSignal<BlockTabKind>('industry')
-  const [list, setList] = createSignal<BlockList | IndustryList | null>(null)
+  const [blocks, setBlocks] = createSignal<BlockGroup[]>([])
   const [selected, setSelected] = createSignal<BlockGroup | null>(null)
   const [quotes, setQuotes] = createSignal<Quote[]>([])
   const [indexQuote, setIndexQuote] = createSignal<Quote | null>(null)
@@ -45,18 +42,23 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
 
   const filtered = createMemo(() => {
     const query = filter().trim().toLowerCase()
-    const blocks = list()?.blocks ?? []
-    if (!query) return blocks
-    return blocks.filter((block) => block.name.toLowerCase().includes(query))
+    const all = blocks()
+    if (!query) return all
+    return all.filter((block) => block.name.toLowerCase().includes(query))
   })
 
   const quoteMap = createMemo(() => new Map(quotes().map((quote) => [quote.code, quote])))
-  // 成分股迷你走势图：全部代码排队加载（加载器限 3 并发，大板块也不会一次打出几百个请求）
-  createSparklineLoader(() => selected()?.codes ?? [])
+  /**
+   * 走势图必须等成分股报价先拉完：sidecar 是单连接，
+   * 一上来就排几百个分时请求会把快照请求压到后面（界面长时间全是「—」）。
+   */
+  const [sparkReady, setSparkReady] = createSignal(false)
+  createSparklineLoader(() => (sparkReady() ? (selected()?.codes ?? []) : []))
 
   const selectBlock = async (block: BlockGroup): Promise<void> => {
     setSelected(block)
     setQuotes([])
+    setSparkReady(false)
     setIndexQuote(null)
     const current = ++quoteId
     setLoadingQuotes(true)
@@ -74,6 +76,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
         if (current !== quoteId) return
       }
       setQuotes(result)
+      setSparkReady(true)
     } catch (cause) {
       if (current === quoteId) setError(errorMessage(cause))
     } finally {
@@ -89,11 +92,10 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
     setQuotes([])
     setIndexQuote(null)
     try {
-      const data =
-        nextKind === 'industry' ? await api.block.industries() : await api.block.list(nextKind)
+      const data = await loadBoardCategory(nextKind)
       if (current !== requestId) return
-      setList(data)
-      const first = data.blocks[0]
+      setBlocks(data)
+      const first = data[0]
       if (first) void selectBlock(first)
     } catch (cause) {
       if (current !== requestId) return
@@ -130,21 +132,21 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
         </header>
 
         <div class="block__tabs" role="tablist" aria-label="板块类型">
-          <For each={TABS}>
+          <For each={BOARD_CATEGORIES}>
             {(tab) => (
               <button
                 class="block__tab"
-                classList={{ 'block__tab--active': kind() === tab.kind }}
+                classList={{ 'block__tab--active': kind() === tab.key }}
                 role="tab"
-                aria-selected={kind() === tab.kind}
-                onClick={() => setKind(tab.kind)}
+                aria-selected={kind() === tab.key}
+                onClick={() => setKind(tab.key)}
               >
                 {tab.label}
               </button>
             )}
           </For>
           <span class="block__count">
-            <Show when={loading()} fallback={`${list()?.blockCount ?? 0} 个板块`}>
+            <Show when={loading()} fallback={`${blocks().length} 个板块 · ${quotes().length} 只行情`}>
               下载解析中…
             </Show>
           </span>
@@ -239,7 +241,10 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                           <th class="num">现价</th>
                           <th class="num">涨幅</th>
                           <th class="num">成交额</th>
-                          <th class="num">走势</th>
+                          <th class="num">换手</th>
+                          <th class="num">量比</th>
+                          <th class="num">涨速</th>
+                          <th class="num block__spark-head">走势</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -281,6 +286,21 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                                   {quote() ? compactAmount(quote()!.amount) : '—'}
                                 </td>
                                 <td class="num">
+                                  {quote()?.turnoverRate !== undefined
+                                    ? `${quote()!.turnoverRate!.toFixed(2)}%`
+                                    : '—'}
+                                </td>
+                                <td class="num">
+                                  {quote()?.volumeRatio !== undefined
+                                    ? quote()!.volumeRatio!.toFixed(2)
+                                    : '—'}
+                                </td>
+                                <td class="num">
+                                  {quote()?.riseSpeed !== undefined
+                                    ? `${quote()!.riseSpeed!.toFixed(2)}%`
+                                    : '—'}
+                                </td>
+                                <td class="num block__spark-cell">
                                   <Show
                                     when={sparklineOf(code)}
                                     fallback={<span class="block__spark-empty">—</span>}
@@ -290,7 +310,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                                         values={data().values}
                                         baseline={data().prevClose}
                                         width={46}
-                                        height={18}
+                                        height={20}
                                       />
                                     )}
                                   </Show>
@@ -310,7 +330,9 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
 
         <footer class="block__foot">
           <span>
-            {list()?.file ?? 'block_gn.dat'} · {thousands(list()?.codeCount ?? 0)} 个代码
+            {BOARD_CATEGORIES.find((item) => item.key === kind())?.label ?? '板块'} ·{' '}
+            {blocks().length} 个板块 · {thousands(blocks().reduce((sum, b) => sum + b.codes.length, 0))}{' '}
+            个代码
           </span>
           <span>点击成分股查看行情；行情最多 400 只；板块指数/K线暂未接</span>
         </footer>

@@ -1363,6 +1363,19 @@
   background: var(--panel-hover);
 }
 
+.f10-table tbody tr.f10-table__row--link {
+  cursor: pointer;
+}
+
+.f10-table tbody tr.f10-table__row--link:hover td:first-child {
+  color: var(--accent);
+}
+
+.f10-table__link-mark {
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+}
+
 .f10__error {
   margin-bottom: 10px;
   padding: 8px 10px;

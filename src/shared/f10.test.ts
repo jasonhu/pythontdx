@@ -132,6 +132,53 @@ describe('parseF10', () => {
     expect(table.rows[0]).toEqual(['项目', '营业收入(万元)', '营业利润(万元)'])
   })
 
+  it('公告摘要表按行挂上附件链接，重复明细收起来', () => {
+    const source = [
+      '【1.公告列表】',
+      '┌──────────┬──────┐',
+      '│日期      │标题  │',
+      '├──────────┼──────┤',
+      '│2026-10-30│公告A │',
+      '│2026-10-30│公告B │',
+      '└──────────┴──────┘',
+      '公告A。公告详情请查看附件',
+      'http://example.com/a.pdf',
+      '公告B。公告详情请查看附件',
+      'http://example.com/b.pdf'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出公告表')
+    expect(table.links).toEqual([undefined, 'http://example.com/a.pdf', 'http://example.com/b.pdf'])
+    expect(blocks.some((block) => block.kind === 'link')).toBe(false)
+    expect(blocks.some((block) => block.kind === 'text' && block.text.includes('公告A'))).toBe(false)
+  })
+
+  it('明细比摘要表多时删掉摘要，只保留完整明细', () => {
+    const source = [
+      '【1.公告列表】',
+      '┌──────┬──────┐',
+      '│日期  │标题  │',
+      '│a     │公告A │',
+      '└──────┴──────┘',
+      '2026-10-30 公告A。公告详情请查看附件',
+      'http://example.com/a.pdf',
+      '2026-10-29 公告B。公告详情请查看附件',
+      'http://example.com/b.pdf',
+      '2026-10-28 公告C。公告详情请查看附件',
+      'http://example.com/c.pdf'
+    ].join('\n')
+    const blocks = parseF10(source)
+    expect(blocks.some((block) => block.kind === 'table')).toBe(false)
+    expect(blocks.filter((block) => block.kind === 'link')).toHaveLength(3)
+    const text = blocks
+      .filter((block) => block.kind === 'text')
+      .map((block) => block.text)
+      .join('\n')
+    expect(text).toContain('公告B')
+    expect(text).not.toContain('公告详情请查看附件')
+  })
+
   it('公告/报道的 URL 单独成 link 块', () => {
     const url = 'https://static.sse.com.cn/disclosure/listedinfo/announcement/c/new/2026-10-31/688499_20261031_KGYB.pdf'
     const blocks = parseF10(`利元亨（688499）：关于授予限制性股票的公告。公告详情请查看附件\n${url}\n2026-10-30 17:34  下一条`)

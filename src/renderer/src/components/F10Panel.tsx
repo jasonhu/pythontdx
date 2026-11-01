@@ -131,24 +131,38 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
                       </Show>
                       <tbody>
                         <For each={block.headerless ? block.rows : block.rows.slice(1)}>
-                          {(row) => (
-                            <tr>
-                              <For each={row}>
-                                {(cell, index) => (
-                                  <td
-                                    classList={{ num: block.numeric[index()] }}
-                                    colspan={
-                                      row.length === 1
-                                        ? Math.max(1, block.rows[0]?.length ?? 1)
-                                        : undefined
-                                    }
-                                  >
-                                    {cell}
-                                  </td>
-                                )}
-                              </For>
-                            </tr>
-                          )}
+                          {(row, rowIndex) => {
+                            const link = () =>
+                              block.links?.[(block.headerless ? 0 : 1) + rowIndex()]
+                            return (
+                              <tr
+                                classList={{ 'f10-table__row--link': Boolean(link()) }}
+                                title={link() ? '在浏览器中打开' : undefined}
+                                onClick={() => {
+                                  const url = link()
+                                  if (url) void api.app.openExternal(url)
+                                }}
+                              >
+                                <For each={row}>
+                                  {(cell, index) => (
+                                    <td
+                                      classList={{ num: block.numeric[index()] }}
+                                      colspan={
+                                        row.length === 1
+                                          ? Math.max(1, block.rows[0]?.length ?? 1)
+                                          : undefined
+                                      }
+                                    >
+                                      {cell}
+                                      <Show when={index() === 0 && link()}>
+                                        <span class="f10-table__link-mark"> ↗</span>
+                                      </Show>
+                                    </td>
+                                  )}
+                                </For>
+                              </tr>
+                            )
+                          }}
                         </For>
                       </tbody>
                     </table>

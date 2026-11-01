@@ -10,7 +10,14 @@ export type F10Block =
   | { kind: 'text'; text: string; mono?: boolean }
   | { kind: 'heading'; text: string }
   | { kind: 'link'; url: string }
-  | { kind: 'table'; rows: string[][]; numeric: boolean[]; headerless?: boolean }
+  | {
+      kind: 'table'
+      rows: string[][]
+      numeric: boolean[]
+      headerless?: boolean
+      /** 与 rows 对齐的外部链接（公告/报道明细） */
+      links?: Array<string | undefined>
+    }
   | { kind: 'kv'; pairs: Array<{ label: string; value: string }> }
 
 /** F10 原表的竖线：ULC 框线 │ / 全角 ｜ / ASCII | 三种都出现过。 */
@@ -471,5 +478,69 @@ export function parseF10(source: string): F10Block[] {
     const rest = blockLines.slice(1).join('\n').trim()
     if (rest) mergedBlocks.push({ kind: 'text', text: rest })
   }
+  attachTableLinks(mergedBlocks)
+  compactLinkDetails(mergedBlocks)
   return mergedBlocks
+}
+
+/**
+ * 公告/报道正文里，主站会先给一张摘要表，再逐条重复「标题 + 附件 URL」。
+ * 按顺序把 URL 挂到摘要表的每一行，并删掉重复明细，表格行本身即可点击。
+ */
+function attachTableLinks(blocks: F10Block[]): void {
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const table = blocks[index]
+    if (table?.kind !== 'table') continue
+    const tail = blocks.slice(index + 1)
+    if (tail.some((block) => block.kind === 'heading' || block.kind === 'table' || block.kind === 'kv')) {
+      continue
+    }
+    const links = tail.filter((block) => block.kind === 'link').map((block) => block.url)
+    const dataRows = table.headerless ? table.rows.length : table.rows.length - 1
+    if (links.length === 0) continue
+    if (links.length === dataRows) {
+      const offset = table.headerless ? 0 : 1
+      table.links = table.rows.map((_, row) =>
+        row >= offset ? links[row - offset] : undefined
+      )
+      blocks.splice(index + 1, tail.length)
+      return
+    }
+    // 明细比摘要更多（公告常有多页）：摘要表只是前 10 条，保留更全的明细
+    if (links.length > dataRows) {
+      blocks.splice(index, 1)
+      return
+    }
+    continue
+  }
+}
+
+/** 明细里的「…公告详情请查看附件」与标题重复，去掉这一行，只留标题 + 链接 */
+function compactLinkDetails(blocks: F10Block[]): void {
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    if (blocks[index]?.kind !== 'link') continue
+    const previous = blocks[index - 1]
+    if (previous?.kind !== 'text') continue
+    const lines = previous.text
+      .split('\n')
+      .map((line) => line.replace(/。?公告详情请查看附件.*$/, '').trim())
+      .filter(Boolean)
+      // 明细第二行常常只是标题的重复（「利元亨（688499）：…」），只保留带日期的首行
+      .filter((line, lineIndex) => lineIndex === 0 || !/^.{1,12}（\d{6}）：/.test(line))
+    if (lines.length === 0) {
+      blocks.splice(index - 1, 1)
+      continue
+    }
+    previous.text = lines.join('\n')
+    // 标题被拆成「日期+标题」和「标题」两块时，保留带日期的那块
+    const before = blocks[index - 2]
+    if (
+      before?.kind === 'text' &&
+      previous.text.length < 160 &&
+      !/^\d{4}-/.test(previous.text) &&
+      before.text.includes(previous.text)
+    ) {
+      blocks.splice(index - 1, 1)
+    }
+  }
 }

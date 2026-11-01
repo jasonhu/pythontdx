@@ -8,9 +8,10 @@
  * 纯展示，不引入第二套数据源。
  */
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
-import type { KLineBar, KLinePeriod, MinuteTrend } from '@shared/types'
-import { fixed, signedPct } from '@shared/format'
+import type { KLineBar, KLinePeriod, MinuteTrend, Quote } from '@shared/types'
+import { compactVolume, fixed, signedPct } from '@shared/format'
 import { appState, moveWatchItem } from '../stores/app'
+import { quoteOf } from '../stores/quotes'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -39,6 +40,17 @@ const DEFAULT_ZOOM = 5
 const FETCH_COUNT = 320
 /** A 股一天 240 个分钟点：分时横轴固定全天，不随已有数据缩短 */
 const DAY_POINTS = 240
+const PERIOD_LABEL: Record<Period, string> = {
+  minute: '分时',
+  day: '日线',
+  week: '周线',
+  month: '月线',
+  '60m': '60分钟',
+  '30m': '30分钟',
+  '15m': '15分钟',
+  '5m': '5分钟',
+  '1m': '1分钟'
+}
 
 interface Card {
   code: string
@@ -46,6 +58,7 @@ interface Card {
   market: string
   bars: KLineBar[]
   minute?: MinuteTrend
+  quote?: Quote
   error?: string
 }
 
@@ -128,18 +141,37 @@ function MiniKline(props: MiniKlineProps): JSX.Element {
       period,
       d: movingAveragePath(bars, start, end, period, yOf, xOf)
     })).filter((item) => item.d.length > 0)
-    return { start, end, visible, min, max, volMax, step, body, yOf, xOf, candles, maPaths }
+    const axisTicks = Array.from({ length: 5 }, (_, index) => ({
+      value: max - ((max - min) * index) / 4,
+      top: ((PAD + (index / 4) * (PRICE_H - PAD * 2)) / H) * 100
+    }))
+    return {
+      start,
+      end,
+      visible,
+      min,
+      max,
+      volMax,
+      step,
+      body,
+      yOf,
+      xOf,
+      candles,
+      maPaths,
+      axisTicks
+    }
   }
 
   return (
     <Show when={view()} fallback={<div class="multi-card__state">暂无 K 线</div>}>
       {(data) => (
-        <svg
-          class="multi-card__kline"
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
+        <div class="multi-card__plot">
+          <svg
+            class="multi-card__kline"
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
           <For each={[0.25, 0.5, 0.75]}>
             {(ratio) => (
               <line
@@ -196,7 +228,17 @@ function MiniKline(props: MiniKlineProps): JSX.Element {
               />
             )}
           </For>
-        </svg>
+          </svg>
+          <div class="multi-card__axis">
+            <For each={data().axisTicks}>
+              {(tick) => (
+                <span class="num" style={{ top: `${tick.top.toFixed(2)}%` }}>
+                  {fixed(tick.value)}
+                </span>
+              )}
+            </For>
+          </div>
+        </div>
       )}
     </Show>
   )
@@ -220,16 +262,18 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
       ...point,
       avg: avgSeries[index] ?? point.price
     }))
-    let min = props.trend.prevClose > 0 ? props.trend.prevClose : Infinity
-    let max = props.trend.prevClose > 0 ? props.trend.prevClose : -Infinity
+    const base = props.trend.prevClose > 0 ? props.trend.prevClose : visible[0].price
+    let diff = 0
     let volMax = 0
     for (const point of visible) {
-      min = Math.min(min, point.price, point.avg)
-      max = Math.max(max, point.price, point.avg)
+      diff = Math.max(diff, Math.abs(point.price - base), Math.abs(point.avg - base))
       if (point.volume > volMax) volMax = point.volume
     }
-    if (!Number.isFinite(min) || !Number.isFinite(max)) return null
-    const span = max - min || Math.max(1, max * 0.01)
+    // 分时以昨收为中心对称展开，0.00% 始终在中间，和官方一致
+    diff = Math.max(diff, base * 0.004, 0.01)
+    const min = base - diff
+    const max = base + diff
+    const span = max - min
     // 横轴固定 240 个交易分钟，未走完的部分留白；数据到了线才往前延伸
     const step = (W - PAD * 2) / DAY_POINTS
     const yOf = (price: number): number => PAD + (1 - (price - min) / span) * (PRICE_H - PAD * 2)
@@ -240,6 +284,14 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
     const avgPath = visible
       .map((point, index) => `${index === 0 ? 'M' : 'L'}${xOf(index).toFixed(1)} ${yOf(point.avg).toFixed(1)}`)
       .join(' ')
+    const axisTicks = Array.from({ length: 5 }, (_, index) => {
+      const value = max - (span * index) / 4
+      return {
+        value,
+        pct: base > 0 ? ((value - base) / base) * 100 : 0,
+        top: ((PAD + (index / 4) * (PRICE_H - PAD * 2)) / H) * 100
+      }
+    })
     return {
       visible,
       pricePath,
@@ -248,6 +300,7 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
       step,
       yOf,
       xOf,
+      axisTicks,
       baseline: props.trend.prevClose > 0 ? yOf(props.trend.prevClose) : null
     }
   }
@@ -255,12 +308,13 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
   return (
     <Show when={view()} fallback={<div class="multi-card__state">暂无分时</div>}>
       {(data) => (
-        <svg
-          class="multi-card__kline"
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
+        <div class="multi-card__plot">
+          <svg
+            class="multi-card__kline"
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
           <For each={[0.25, 0.5, 0.75]}>
             {(ratio) => (
               <line
@@ -301,7 +355,24 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
               />
             )}
           </For>
-        </svg>
+          </svg>
+          <div class="multi-card__axis multi-card__axis--minute">
+            <For each={data().axisTicks}>
+              {(tick) => (
+                <span
+                  class="num"
+                  style={{ top: `${tick.top.toFixed(2)}%` }}
+                  classList={{
+                    'tone-up': tick.pct > 0.005,
+                    'tone-down': tick.pct < -0.005
+                  }}
+                >
+                  {signedPct(tick.pct)}
+                </span>
+              )}
+            </For>
+          </div>
+        </div>
       )}
     </Show>
   )
@@ -373,7 +444,16 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
       })
     )
     if (current !== requestId) return
-    setCards(loaded)
+    // 7709 快照没有量比；补一次 MAC 批量报价，顶部数据行才完整
+    try {
+      const quotes = await api.quote.macQuotes(loaded.map((card) => card.code))
+      const byCode = new Map(quotes.map((quote) => [quote.code, quote]))
+      for (const card of loaded) card.quote = byCode.get(card.code)
+    } catch {
+      // 行情补字段失败不影响 K 线/分时主体
+    }
+    if (current !== requestId) return
+    setCards([...loaded])
     setLoading(false)
   }
 
@@ -490,7 +570,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         </header>
 
         <div class="multi__body">
-          <Show when={!loading()} fallback={<div class="multi__empty">加载 9 只 K 线…</div>}>
+          <Show when={!loading()} fallback={<div class="multi__empty">加载 9 只行情…</div>}>
             <Show when={!error()} fallback={<div class="multi__error">{error()}</div>}>
               <Show
                 when={cards().length > 0}
@@ -499,6 +579,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                 <div class="multi__grid">
                   <For each={cards()}>
                     {(card, index) => {
+                      const quote = () => card.quote ?? quoteOf(card.code)
                       const minutePoints = () => card.minute?.points ?? []
                       const lastPrice = () =>
                         period() === 'minute'
@@ -521,6 +602,33 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                         period() === 'minute'
                           ? (card.minute?.date ?? '')
                           : (card.bars[card.bars.length - 1]?.date ?? '')
+                      const price = () => quote()?.price ?? lastPrice()
+                      const change = () => quote()?.changePct ?? changePct()
+                      const delta = () => {
+                        const current = quote()
+                        if (!current || current.prevClose <= 0) return '—'
+                        const value = current.price - current.prevClose
+                        return `${value >= 0 ? '▲' : '▼'}${Math.abs(value).toFixed(2)}`
+                      }
+                      const lastVolume = () =>
+                        period() === 'minute'
+                          ? (minutePoints()[minutePoints().length - 1]?.volume ?? 0)
+                          : (card.bars[card.bars.length - 1]?.volume ?? 0)
+                      const turnover = () =>
+                        quote()?.turnoverRate === undefined
+                          ? '—'
+                          : `${quote()!.turnoverRate!.toFixed(2)}%`
+                      const ratio = () =>
+                        quote()?.volumeRatio === undefined
+                          ? '—'
+                          : quote()!.volumeRatio!.toFixed(2)
+                      const average = () =>
+                        period() === 'minute'
+                          ? fixed(
+                              minutePoints()[minutePoints().length - 1]?.avg ??
+                                quote()?.avgPrice
+                            )
+                          : '—'
                       return (
                         <button
                           class="multi-card"
@@ -565,9 +673,37 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                             props.onClose()
                           }}
                         >
-                          <div class="multi-card__head">
+                          <div class="multi-card__head" title={lastDate()}>
                             <span class="multi-card__name">{card.name}</span>
+                            <span class="multi-card__period">{PERIOD_LABEL[period()]}</span>
                             <span class="multi-card__code num">{card.code.toUpperCase()}</span>
+                          </div>
+                          <div class="multi-card__quote">
+                            <span class="multi-card__price num">{fixed(price())}</span>
+                            <span
+                              class="num"
+                              classList={{
+                                'tone-up': change() > 0,
+                                'tone-down': change() < 0
+                              }}
+                            >
+                              {signedPct(change())}
+                            </span>
+                            <span
+                              class="num"
+                              classList={{
+                                'tone-up': change() > 0,
+                                'tone-down': change() < 0
+                              }}
+                            >
+                              {delta()}
+                            </span>
+                            <span>现量 {compactVolume(lastVolume())}</span>
+                            <span>换手 {turnover()}</span>
+                            <span>量比 {ratio()}</span>
+                            <Show when={period() === 'minute'}>
+                              <span>均价 {average()}</span>
+                            </Show>
                           </div>
                           <div class="multi-card__chart">
                             <Show
@@ -589,19 +725,6 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                                 <MiniMinute trend={card.minute!} />
                               </Show>
                             </Show>
-                          </div>
-                          <div class="multi-card__foot">
-                            <span class="multi-card__price num">{fixed(lastPrice())}</span>
-                            <span
-                              class="num"
-                              classList={{
-                                'tone-up': changePct() > 0,
-                                'tone-down': changePct() < 0
-                              }}
-                            >
-                              {signedPct(changePct())}
-                            </span>
-                            <span class="multi-card__date">{lastDate()}</span>
                           </div>
                         </button>
                       )

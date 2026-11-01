@@ -74,6 +74,9 @@ import type { SecurityInfo } from './types'
 
 const bridge = new TdxBridge()
 
+/** 单次行情刷新上限：超过就重启 sidecar，避免一条卡住的请求堵住整个界面 */
+const REFRESH_TIMEOUT_MS = 5_000
+
 const minuteCache = new TtlCache<MinuteTrend>(10_000)
 const fiveDayCache = new TtlCache<MultiDayTrend>(60_000)
 const klineCache = new TtlCache<KLineSeries>(60_000)
@@ -136,7 +139,25 @@ export async function fetchQuotes(codes: string[], signal?: AbortSignal): Promis
   if (unique.length === 0) return []
   if (signal?.aborted) throw new TdxError('请求已取消')
 
-  const quotes = await bridge.send<Quote[]>('refresh', { codes: unique }, QUOTES_TIMEOUT_MS)
+  let quotes: Quote[] = []
+  try {
+    quotes = await bridge.send<Quote[]>('refresh', { codes: unique }, REFRESH_TIMEOUT_MS)
+  } catch (error) {
+    if (signal?.aborted) throw error
+    // 保持空数组，下面走 MAC 兜底
+  }
+  if (quotes.length === 0) {
+    // 7709 刷新暂时不可用时先退到 MAC 报价（仍是通达信通道），界面不至于全空
+    try {
+      quotes = await bridge.send<Quote[]>('mac_quotes', { codes: unique }, 15_000)
+    } catch {
+      quotes = []
+    }
+  }
+  if (quotes.length === 0 && !signal?.aborted) {
+    // MAC 也空时再给 7709 一次重启后的机会
+    quotes = await bridge.send<Quote[]>('refresh', { codes: unique }, REFRESH_TIMEOUT_MS)
+  }
 
   const byCode = new Map(quotes.map((quote) => [quote.code, quote]))
   return unique

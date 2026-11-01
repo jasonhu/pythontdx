@@ -53,7 +53,9 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
    * 一上来就排几百个分时请求会把快照请求压到后面（界面长时间全是「—」）。
    */
   const [sparkReady, setSparkReady] = createSignal(false)
-  createSparklineLoader(() => (sparkReady() ? (selected()?.codes ?? []) : []))
+  createSparklineLoader(() =>
+    sparkReady() ? (selected()?.codes ?? []).slice(0, 30) : []
+  )
 
   const selectBlock = async (block: BlockGroup): Promise<void> => {
     setSelected(block)

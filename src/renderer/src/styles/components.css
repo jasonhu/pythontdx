@@ -4704,6 +4704,16 @@
   text-align: right;
 }
 
+.market__spark-head,
+.market__spark-cell {
+  width: 56px;
+}
+
+.market__spark-cell .sparkline {
+  display: block;
+  margin-left: auto;
+}
+
 .market__table th {
   color: var(--text-3);
   font-weight: 500;

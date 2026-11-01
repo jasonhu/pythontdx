@@ -12,7 +12,9 @@ import { api, errorMessage } from '../lib/ipc'
 import { openStockMenu } from '../stores/stockMenu'
 import { downloadText } from '../lib/download'
 import { toCsv } from '@shared/csv'
+import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
 import { IconClose } from './Icons'
+import { Sparkline } from './Sparkline'
 
 type TabKey = 'all' | 'index' | 'fund' | 'reit' | 'bond' | 'kcb' | 'cyb' | 'bj' | 'b'
 
@@ -233,6 +235,8 @@ export function MarketListPanel(props: {
   })
 
   const quoteMap = createMemo(() => new Map(quotes().map((quote) => [quote.code, quote])))
+  // 当前页 100 只，排队加载分时（限并发），翻页自动换一批
+  createSparklineLoader(() => pageItems().slice(0, 30).map((item) => item.code))
 
   return (
     <div class="market-backdrop" onClick={() => props.onClose()}>
@@ -330,6 +334,7 @@ export function MarketListPanel(props: {
                 <th class="num">换手</th>
                 <th class="num">量比</th>
                 <th class="num">涨速</th>
+                <th class="num market__spark-head">走势</th>
               </tr>
             </thead>
             <tbody>
@@ -381,6 +386,21 @@ export function MarketListPanel(props: {
                         {quote()?.riseSpeed !== undefined
                           ? `${quote()!.riseSpeed!.toFixed(2)}%`
                           : '—'}
+                      </td>
+                      <td class="num market__spark-cell">
+                        <Show
+                          when={sparklineOf(item.code)}
+                          fallback={<span class="market__spark-empty">—</span>}
+                        >
+                          {(data) => (
+                            <Sparkline
+                              values={data().values}
+                              baseline={data().prevClose}
+                              width={46}
+                              height={20}
+                            />
+                          )}
+                        </Show>
                       </td>
                     </tr>
                   )

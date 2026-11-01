@@ -240,8 +240,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                     <table class="block__table">
                       <colgroup>
                         <col style="width: 68px" />
-                        <col style="width: 100px" />
-                        <col style="width: 38px" />
+                        <col style="width: 130px" />
                         <col style="width: 66px" />
                         <col style="width: 68px" />
                         <col style="width: 78px" />
@@ -271,7 +270,6 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                         <tr>
                           <th>代码</th>
                           <th>名称</th>
-                          <th>市场</th>
                           <th class="num">现价</th>
                           <th class="num">涨幅</th>
                           <th class="num">成交额</th>
@@ -303,7 +301,6 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                               >
                                 <td class="block__code-cell">{code.toUpperCase()}</td>
                                 <td>{quote()?.name ?? block().names[code] ?? code}</td>
-                                <td class="block__market">{quote()?.market ?? '—'}</td>
                                 <td class="num">{quote() ? fixed(quote()!.price) : '—'}</td>
                                 <td
                                   class="num"

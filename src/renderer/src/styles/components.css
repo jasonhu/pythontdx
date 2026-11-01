@@ -7461,17 +7461,7 @@
   text-overflow: ellipsis;
 }
 
-.market__table td:nth-child(3),
-.market__table td:nth-child(4),
-.block__table td:nth-child(3),
-.ranking__table td:nth-child(4),
-.market__table th:nth-child(3),
-.market__table th:nth-child(4),
-.block__table th:nth-child(3),
-.ranking__table th:nth-child(4) {
-  color: var(--text-3);
-  text-align: center;
-}
+
 
 .ranking__table td:nth-child(3) {
   color: var(--text-1);
@@ -7689,8 +7679,8 @@
 
 /* 52：F10 不再铺满整屏，固定阅读宽度，减少左右空白 */
 .f10 {
-  width: min(1240px, 92vw);
-  max-width: min(1240px, 92vw);
+  width: min(960px, 92vw);
+  max-width: min(960px, 92vw);
   height: min(860px, 88vh);
   max-height: min(860px, 88vh);
 }

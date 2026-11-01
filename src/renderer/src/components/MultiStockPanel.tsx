@@ -206,7 +206,19 @@ function MiniMinute(props: { trend: MinuteTrend; count: number }): JSX.Element {
     const points = props.trend.points
     if (points.length === 0) return null
     const count = Math.max(4, Math.min(props.count, points.length))
-    const visible = points.slice(points.length - count)
+    const start = points.length - count
+    // 主站的 avg 字段是差分编码，不同股票/市场口径不一致；这里用「累计成交额/累计量」重算 VWAP
+    const avgSeries: number[] = []
+    let cumulativeVolume = 0
+    let cumulativeAmount = 0
+    for (const point of points) {
+      cumulativeVolume += point.volume
+      cumulativeAmount += point.price * point.volume
+      avgSeries.push(cumulativeVolume > 0 ? cumulativeAmount / cumulativeVolume : point.price)
+    }
+    const visible = points
+      .slice(start)
+      .map((point, index) => ({ ...point, avg: avgSeries[start + index] ?? point.price }))
     let min = props.trend.prevClose > 0 ? props.trend.prevClose : Infinity
     let max = props.trend.prevClose > 0 ? props.trend.prevClose : -Infinity
     let volMax = 0
@@ -294,7 +306,7 @@ function MiniMinute(props: { trend: MinuteTrend; count: number }): JSX.Element {
 }
 
 export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
-  const [period, setPeriod] = createSignal<Period>('day')
+  const [period, setPeriod] = createSignal<Period>('minute')
   const [zoom, setZoom] = createSignal(DEFAULT_ZOOM)
   const [page, setPage] = createSignal(0)
   const [sourceId, setSourceId] = createSignal(appState.activeGroupId)

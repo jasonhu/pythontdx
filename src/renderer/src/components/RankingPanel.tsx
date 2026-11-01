@@ -432,7 +432,6 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
               <col style="width: 36px" />
               <col style="width: 70px" />
               <col style="width: 90px" />
-              <col style="width: 44px" />
               <col style="width: 72px" />
               <col style="width: 74px" />
               <col style="width: 84px" />
@@ -452,7 +451,6 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                 <th class="ranking__rank">#</th>
                 <th>代码</th>
                 <th>名称</th>
-                <th>市场</th>
                 <th class="ranking__num">现价</th>
                 <th class="ranking__num">涨幅</th>
                 <th class="ranking__num">成交额</th>
@@ -479,7 +477,6 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                     <td class="ranking__rank num">{index() + 1}</td>
                     <td class="ranking__code">{quote.code.toUpperCase()}</td>
                     <td class="ranking__name">{quote.name}</td>
-                    <td class="ranking__market">{quote.market ?? '—'}</td>
                     <td class="ranking__num num">{fixed(quote.price)}</td>
                     <td
                       class="ranking__num num"

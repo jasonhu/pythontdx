@@ -145,8 +145,9 @@ export function parseF10(source: string): F10Block[] {
         previous[0] = `${previous[0] ?? ''}${cleaned[0]}`
         return
       }
-      if (cleaned.length === 1) {
-        // 名称折行（如「苏州朝希…/业投资合伙企业/…」），只剩一个片段
+      if (cleaned.length === 1 && previous.length > 1) {
+        // 多列表里的名称折行（如「苏州朝希…/业投资合伙企业/…」），接回上一行；
+        // 单列表（一列框线包一段公告）必须保留换行，不能把整段并成一行
         previous[0] = `${previous[0] ?? ''}${cleaned[0]}`
         return
       }
@@ -171,6 +172,12 @@ export function parseF10(source: string): F10Block[] {
     const trimmed = line.trim()
     const hasEdge = CELL_EDGE.test(line)
     const border = trimmed.length > 0 && BORDER_ONLY.test(trimmed)
+
+    // 只有 ┴、没有 ┼ 的框线是表尾/列跨度结束：先收表，后面的单列段落才不会被并进上一行
+    if (border && line.includes('┴') && !line.includes('┼')) {
+      flushTable()
+      continue
+    }
 
     // 空格对齐表：表头 + ─── 分隔线（股东研究下半段、高管、机构、资金流、经营/行业分析）
     if (SPACE_SEPARATOR.test((lines[index + 1] ?? '').trim())) {

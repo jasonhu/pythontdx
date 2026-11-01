@@ -225,6 +225,26 @@ http://example.com/news2`
     expect(kv.pairs[3]).toEqual({ label: '证券代码', value: '688499' })
   })
 
+  it('跨列框线结束主表后，单列段落不会被并进上一行', () => {
+    const source = `┌──┬──┬──┐
+│A │B │C │
+│D │E │F │
+├──┴──┴──┤
+│●第一条│
+│●第二条│
+└───────┘`
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出主表')
+    expect(table.rows).toHaveLength(2)
+    const text = blocks
+      .filter((block) => block.kind === 'text')
+      .map((block) => block.text)
+      .join('\n')
+    expect(text).toContain('●第一条\n●第二条')
+    expect(text).not.toContain('A●')
+  })
+
   it('「★本栏包括」折行里的【5.xxx】不是章节标题', () => {
     const source = [
       '公司概况☆ ◇688499 利元亨',

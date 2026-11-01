@@ -343,9 +343,7 @@ export function MarketListPanel(props: {
           <table class="market__table">
             <colgroup>
               <col style="width: 78px" />
-              <col style="width: 130px" />
-              <col style="width: 46px" />
-              <col style="width: 54px" />
+              <col style="width: 200px" />
               <col style="width: 74px" />
               <col style="width: 76px" />
               <col style="width: 86px" />
@@ -355,14 +353,12 @@ export function MarketListPanel(props: {
               <For each={EXTRA_COLUMNS}>
                 {(column) => <col style={{ width: `${column.width}px` }} />}
               </For>
-              <col style="width: 50px" />
+              <col style="width: 56px" />
             </colgroup>
             <thead>
               <tr>
                 <th>代码</th>
                 <th>名称</th>
-                <th>市场</th>
-                <th>类型</th>
                 <th class="num">现价</th>
                 <th class="num">涨跌幅</th>
                 <th class="num">成交额</th>
@@ -395,8 +391,6 @@ export function MarketListPanel(props: {
                     >
                       <td>{item.code.toUpperCase()}</td>
                       <td>{quote()?.name || item.name}</td>
-                      <td>{item.market}</td>
-                      <td class="market__kind">{item.kind}</td>
                       <td class="num">{quote() ? fixed(quote()!.price) : '—'}</td>
                       <td
                         class="num"

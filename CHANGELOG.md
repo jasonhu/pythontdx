@@ -95,7 +95,7 @@ StockLens 的所有重要变更都记录在这里。
   路径转换成 `S:/`，安装包因此走图形向导、要人点。改用
   `MSYS2_ARG_CONV_EXCL='*' setup.exe /S '/D=...'`（或 PowerShell
   `Start-Process -ArgumentList '/S'`）后实测 4.1 秒无窗口完成；卸载同理。
-  产品代码未改动，验收方法已写进 `docs/07` 第十一节，避免下次再误判。
+  产品代码未改动，验收方法已写进 `docs/07` 第十一节 / 第十二节，避免下次再误判。
 
 ### 工程
 

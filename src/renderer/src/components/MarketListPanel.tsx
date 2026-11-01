@@ -343,7 +343,7 @@ export function MarketListPanel(props: {
           <table class="market__table">
             <colgroup>
               <col style="width: 78px" />
-              <col style="width: 200px" />
+              <col style="width: 110px" />
               <col style="width: 74px" />
               <col style="width: 76px" />
               <col style="width: 86px" />

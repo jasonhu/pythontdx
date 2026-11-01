@@ -37,6 +37,8 @@ const PERIODS: Array<{ key: Period; label: string }> = [
 const ZOOM_LEVELS = [20, 26, 32, 40, 50, 60, 80, 100, 120, 160, 200, 260]
 const DEFAULT_ZOOM = 5
 const FETCH_COUNT = 320
+/** A 股一天 240 个分钟点：分时横轴固定全天，不随已有数据缩短 */
+const DAY_POINTS = 240
 
 interface Card {
   code: string
@@ -201,12 +203,10 @@ function MiniKline(props: MiniKlineProps): JSX.Element {
 }
 
 /** 单格分时：价格线 + 均价线 + 量 + 昨收基准，右对齐到最新 */
-function MiniMinute(props: { trend: MinuteTrend; count: number }): JSX.Element {
+function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
   const view = () => {
-    const points = props.trend.points
+    const points = props.trend.points.slice(0, DAY_POINTS)
     if (points.length === 0) return null
-    const count = Math.max(4, Math.min(props.count, points.length))
-    const start = points.length - count
     // 主站的 avg 字段是差分编码，不同股票/市场口径不一致；这里用「累计成交额/累计量」重算 VWAP
     const avgSeries: number[] = []
     let cumulativeVolume = 0
@@ -216,9 +216,10 @@ function MiniMinute(props: { trend: MinuteTrend; count: number }): JSX.Element {
       cumulativeAmount += point.price * point.volume
       avgSeries.push(cumulativeVolume > 0 ? cumulativeAmount / cumulativeVolume : point.price)
     }
-    const visible = points
-      .slice(start)
-      .map((point, index) => ({ ...point, avg: avgSeries[start + index] ?? point.price }))
+    const visible = points.map((point, index) => ({
+      ...point,
+      avg: avgSeries[index] ?? point.price
+    }))
     let min = props.trend.prevClose > 0 ? props.trend.prevClose : Infinity
     let max = props.trend.prevClose > 0 ? props.trend.prevClose : -Infinity
     let volMax = 0
@@ -229,7 +230,8 @@ function MiniMinute(props: { trend: MinuteTrend; count: number }): JSX.Element {
     }
     if (!Number.isFinite(min) || !Number.isFinite(max)) return null
     const span = max - min || Math.max(1, max * 0.01)
-    const step = (W - PAD * 2) / visible.length
+    // 横轴固定 240 个交易分钟，未走完的部分留白；数据到了线才往前延伸
+    const step = (W - PAD * 2) / DAY_POINTS
     const yOf = (price: number): number => PAD + (1 - (price - min) / span) * (PRICE_H - PAD * 2)
     const xOf = (index: number): number => PAD + (index + 0.5) * step
     const pricePath = visible
@@ -394,6 +396,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         })
         return
       }
+      if (period() === 'minute') return
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
       event.preventDefault()
       setZoom((value) => {
@@ -418,7 +421,8 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         <header class="multi__head">
           <div class="multi__titles">
             <div class="multi__eyebrow">
-              九宫格 · {count()} 根 · {sourceGroup()?.name ?? '自选'}
+              九宫格 · {period() === 'minute' ? '分时全天' : `${count()} 根`} ·{' '}
+              {sourceGroup()?.name ?? '自选'}
             </div>
             <h2 class="multi__title">多股同列</h2>
           </div>
@@ -541,10 +545,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                                 when={period() === 'minute'}
                                 fallback={<MiniKline bars={card.bars} count={count()} />}
                               >
-                                <MiniMinute
-                                  trend={card.minute!}
-                                  count={Math.min(count(), minutePoints().length)}
-                                />
+                                <MiniMinute trend={card.minute!} />
                               </Show>
                             </Show>
                           </div>
@@ -572,7 +573,11 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         </div>
 
         <footer class="multi__foot">
-          <span>点击卡片切换主图 · ↑ 放大 / ↓ 缩小，9 张同步</span>
+          <span>
+            {period() === 'minute'
+              ? '点击卡片切换主图 · 分时固定全天，不支持缩放'
+              : '点击卡片切换主图 · ↑ 放大 / ↓ 缩小，9 张同步'}
+          </span>
           <span>周期：{PERIODS.find((item) => item.key === period())?.label}</span>
         </footer>
       </section>

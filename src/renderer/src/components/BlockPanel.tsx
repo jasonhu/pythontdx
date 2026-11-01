@@ -240,7 +240,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                     <table class="block__table">
                       <colgroup>
                         <col style="width: 68px" />
-                        <col style="width: 130px" />
+                        <col style="width: 100px" />
                         <col style="width: 66px" />
                         <col style="width: 68px" />
                         <col style="width: 78px" />

@@ -46,6 +46,37 @@ StockLens 的所有重要变更都记录在这里。
 | `linux-unpacked/resources/app.asar` | 3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,461,264 B | `2f5386ea8ba06834c66d087f659777c9c06fdd7c00d6d41d29b0159d9f90da5a` |
 
+### Windows 产物（2026-11-01 重出）
+
+Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL 文本；
+0.13.2 的 Windows 三件套生成于 LICENSE 修正之前，不包含这两项。
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `stocklens-0.14.0-setup.exe` | 133,618,790 B | `d9038bc0149b5bf8c6fe4419715bec908ce3ecfd26b9bb2f9c7c746ff656abd1` |
+| `stocklens-0.14.0-portable.exe` | 133,365,164 B | `35806a2723ec4fce03b596748daa85e146b9690f56aeb748203d897675d539c5` |
+| `StockLens-0.14.0-win-x64/` | 410,613,669 B / 76 文件 | — |
+| `StockLens-0.14.0-win-x64.zip` | 175,224,319 B | `e76171a6f1a83f06269cd63c4921a761f03ad56fbbb0233fe833f0a3eca241db` |
+| `win-x64/resources/app.asar` | 3,600,067 B | `4e1ceb7c6675a46360e076d08384f2add542dd370e9a821ee1b567892e7ab3d1` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` | 21,521,408 B | `e394848216ed9a4f91548b6b0eb8d98150a8a9cda9cd6d5a192cdedabe01f439` |
+
+实测：
+
+- 静默安装 → 启动 `v0.14.0` → 静默卸载干净；
+- `app.asar` 含 35,149 字节 GPL 文本（`3972dc97…`）与 `data:backup-progress` 通道；
+- 1.0 GB / 29,446 文件：备份进度 **20%**（195.88/958.91 MB，6,271/29,446 文件），
+  恢复进度 **16%**（156.70/958.91 MB，4,734/29,446 文件）；
+- 绿色包、便携版、zip 解压后均启动 `v0.14.0`；便携版内嵌 asar 与绿色包同哈希；
+- Windows 质量门禁：296 TS（295 passed + 1 skipped，`.sh` wrapper 用例在 Windows 跳过）
+  + 158 Python；`audit:data` 39/39；`build:web` 为 `0.14.0-web`。
+
+顺带修复（Windows 回归发现，不随包分发）：
+
+- `scripts/data_audit.py` 按 Windows 默认 `cp936` 解码 sidecar 的 UTF-8 stdout，
+  遇到中文即 `UnicodeDecodeError`，读线程挂掉后只报
+  `'NoneType' object has no attribute 'strip'`；改为显式 `encoding="utf-8"` 后
+  审计恢复为 39/39，失败原因也不再被吞掉。
+
 ## [0.13.2] - 2026-11-01
 
 ### 多股同列细化

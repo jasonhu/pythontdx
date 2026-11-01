@@ -33,6 +33,11 @@ def call(cmd: str, payload: dict, timeout: int = 30) -> object:
         [sys.executable, str(BRIDGE)],
         input=request,
         text=True,
+        # tdx_bridge 启动时把 stdout 固定成 UTF-8（见 main 里的 reconfigure），
+        # 这里必须按 UTF-8 解码；否则 Windows 的 cp936 遇到中文会抛
+        # UnicodeDecodeError，读线程挂掉后 stdout 变成 None，真正的失败原因被吞掉。
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
         cwd=ROOT,

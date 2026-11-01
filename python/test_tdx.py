@@ -467,6 +467,27 @@ class TestIndustry(unittest.TestCase):
         self.assertFalse(tdx.is_index_code(1, "600519"))
 
 
+class TestClientBlocks(unittest.TestCase):
+    """通达信客户端本地自定义板块：blocknew.cfg 定长记录 + *.blk 成分。"""
+
+    def test_parse_blocknew_cfg(self):
+        def record(name: str, file: str) -> bytes:
+            return name.encode("gbk").ljust(50, b"\x00") + file.encode("ascii").ljust(70, b"\x00")
+
+        data = record("持仓股票", "CCGP") + record("0太空光伏", "0TKGF") + b"\x00" * 120
+        rows = tdx.parse_blocknew_cfg(data)
+        self.assertEqual(rows, [{"name": "持仓股票", "file": "CCGP"}, {"name": "0太空光伏", "file": "0TKGF"}])
+
+    def test_parse_client_block(self):
+        text = "0000636\r\n1605376\r\n1880588\r\n\r\n000285\r\n"
+        self.assertEqual(tdx.parse_client_block(text), ["000636", "605376", "880588", "000285"])
+
+    def test_client_roots_priority(self):
+        roots = tdx.client_roots("X:/custom_tdx")
+        self.assertEqual(str(roots[0]), "X:\\custom_tdx")
+        self.assertTrue(any(str(item).endswith("tdx") for item in roots))
+
+
 class TestScreenIndustry(unittest.TestCase):
     def test_filter_codes(self):
         quotes = [{"code": "sh600519"}, {"code": "sz000001"}]

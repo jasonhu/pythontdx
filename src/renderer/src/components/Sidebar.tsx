@@ -15,10 +15,9 @@ import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'sol
 import type { Quote, WatchGroup } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
 import {
-  activeGroup,
-  activeItems,
   appState,
   createGroup,
+  defaultGroup,
   draggingCode,
   moveGroup,
   moveWatchItem,
@@ -26,7 +25,8 @@ import {
   renameGroup,
   setActiveCode,
   setActiveGroup,
-  setDraggingCode
+  setDraggingCode,
+  watchItems
 } from '../stores/app'
 import { applyQuotes, quoteOf } from '../stores/quotes'
 import { openStockMenu } from '../stores/stockMenu'
@@ -158,9 +158,11 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   const openCustomView = (): void => {
     setView('custom')
     if (!customSector()) {
-      const group = activeGroup()
+      // 自选不是自定义板块：默认选第一个真正的自定义分组
+      const group = appState.groups.find((item) => item.id !== defaultGroup()?.id)
       if (group) {
         setCustomSector(groupSelection(group))
+        setActiveGroup(group.id)
         return
       }
       openPicker(true)
@@ -209,6 +211,10 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     return group ? groupSelection(group) : selection
   })
   const customRows = createMemo(() => rankRows(customBoard()))
+  /** 「自定义板块」= 除自选之外的所有分组；自选那一组不再以分组形式出现 */
+  const customGroups = createMemo(() =>
+    appState.groups.filter((group) => group.id !== defaultGroup()?.id)
+  )
 
   const startRename = (group: WatchGroup): void => {
     setDraft(group.name)
@@ -233,13 +239,15 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     moveWatchItem(code, groupId, target?.items.length ?? 0)
   }
 
-  /** 拖到列表空白处 → 追加到当前分组末尾 */
+  /** 拖到列表空白处 → 追加到自选股末尾（自选只有一层） */
   const dropStockOnList = (event: DragEvent): void => {
     event.preventDefault()
     const code = draggingCode() ?? event.dataTransfer?.getData('text/plain')
     setDraggingCode(null)
     if (!code) return
-    moveWatchItem(code, appState.activeGroupId, activeItems().length)
+    const groupId = defaultGroup()?.id
+    if (!groupId) return
+    moveWatchItem(code, groupId, watchItems().length)
   }
 
   /** 分组排序：按鼠标在标签内的水平位置决定插到前面还是后面 */
@@ -350,12 +358,14 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         </button>
         <button
           class="btn btn--icon btn--bare"
-          title="新建分组"
+          title="新建自定义板块"
           onClick={() => {
             createGroup()
-            // 新建后直接进入改名状态，省一次点击
+            // 新建后直接切到自定义板块视图并选中它
             const created = appState.groups[appState.groups.length - 1]
-            if (created) startRename(created)
+            if (!created) return
+            setView('custom')
+            setCustomSector(groupSelection(created))
           }}
         >
           <IconPlus size={13} />
@@ -367,7 +377,12 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           class="sidebar__mode"
           role="tab"
           data-active={view() === 'watch'}
-          onClick={() => setView('watch')}
+          onClick={() => {
+            setView('watch')
+            // 切回自选时把「当前分组」也复位，其它面板（多股同列/组合/全屏）才不会停在上一个自定义板块
+            const group = defaultGroup()
+            if (group) setActiveGroup(group.id)
+          }}
         >
           自选股
         </button>
@@ -390,103 +405,28 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       </div>
 
       <Show when={view() === 'watch'}>
-        <div class="group-tabs">
-          <For each={appState.groups}>
-            {(group) => (
-              <div
-                class="group-chip"
-                classList={{
-                  'group-chip--drop': stockDropGroupId() === group.id,
-                  'group-chip--dragging': draggingGroup() === group.id,
-                  'group-chip--drop-before':
-                    groupDrop()?.id === group.id && groupDrop()?.side === 'before',
-                  'group-chip--drop-after':
-                    groupDrop()?.id === group.id && groupDrop()?.side === 'after'
-                }}
-                data-active={group.id === appState.activeGroupId}
-                draggable={editingId() !== group.id}
-                onClick={() => setActiveGroup(group.id)}
-                onDblClick={() => startRename(group)}
-                onDragStart={(event) => {
-                  if (editingId() === group.id) {
-                    event.preventDefault()
-                    return
-                  }
-                  setDraggingGroup(group.id)
-                  event.dataTransfer?.setData('text/plain', group.id)
-                  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-                }}
-                onDragEnd={() => {
-                  setDraggingGroup(null)
-                  setGroupDrop(null)
-                  setStockDropGroupId(null)
-                }}
-                onDragOver={(event) => onGroupDragOver(event, group.id)}
-                onDragLeave={() => {
-                  setStockDropGroupId((current) => (current === group.id ? null : current))
-                  setGroupDrop((current) => (current?.id === group.id ? null : current))
-                }}
-                onDrop={(event) => onGroupDrop(event, group.id)}
-                title={`${group.name} · ${group.items.length} 只（双击改名，拖拽可调整顺序或接收股票）`}
-              >
-                <Show
-                  when={editingId() === group.id}
-                  fallback={
-                    <>
-                      <span class="group-chip__name">{group.name}</span>
-                      <span class="group-chip__count num">{group.items.length}</span>
-                      <Show when={appState.groups.length > 1}>
-                        <span
-                          class="group-chip__close"
-                          role="button"
-                          aria-label="删除分组"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            removeGroup(group.id)
-                          }}
-                        >
-                          <IconClose size={9} />
-                        </span>
-                      </Show>
-                    </>
-                  }
-                >
-                  <input
-                    class="group-chip__input"
-                    value={draft()}
-                    autofocus
-                    onInput={(event) => setDraft(event.currentTarget.value)}
-                    onBlur={commitRename}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') commitRename()
-                      if (event.key === 'Escape') setEditingId(null)
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                  />
-                </Show>
-              </div>
-            )}
-          </For>
-        </div>
-
         <div
           class="sidebar__list"
           onDragOver={(event) => draggingCode() && event.preventDefault()}
           onDrop={dropStockOnList}
         >
           <Show
-            when={activeItems().length > 0}
+            when={watchItems().length > 0}
             fallback={
               <div class="group-empty">
-                这个分组还是空的
+                自选股还是空的
                 <br />
-                搜索添加，或把其它分组的股票拖进来
+                搜索添加，或右键其它列表「加入自选股」
               </div>
             }
           >
-            <For each={activeItems()}>
+            <For each={watchItems()}>
               {(item, index) => (
-                <WatchRow item={item} index={index()} groupId={appState.activeGroupId} />
+                <WatchRow
+                  item={item}
+                  index={index()}
+                  groupId={defaultGroup()?.id ?? appState.activeGroupId}
+                />
               )}
             </For>
           </Show>
@@ -546,6 +486,88 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           >
             <IconGrid size={13} />
           </button>
+        </div>
+        <div class="group-tabs group-tabs--custom">
+          <For each={customGroups()}>
+            {(group) => (
+              <div
+                class="group-chip"
+                classList={{
+                  'group-chip--drop': stockDropGroupId() === group.id,
+                  'group-chip--dragging': draggingGroup() === group.id,
+                  'group-chip--drop-before':
+                    groupDrop()?.id === group.id && groupDrop()?.side === 'before',
+                  'group-chip--drop-after':
+                    groupDrop()?.id === group.id && groupDrop()?.side === 'after'
+                }}
+                data-active={customSector()?.groupId === group.id}
+                draggable={editingId() !== group.id}
+                onClick={() => {
+                  setCustomSector(groupSelection(group))
+                  setActiveGroup(group.id)
+                }}
+                onDblClick={() => startRename(group)}
+                onDragStart={(event) => {
+                  if (editingId() === group.id) {
+                    event.preventDefault()
+                    return
+                  }
+                  setDraggingGroup(group.id)
+                  event.dataTransfer?.setData('text/plain', group.id)
+                  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+                }}
+                onDragEnd={() => {
+                  setDraggingGroup(null)
+                  setGroupDrop(null)
+                  setStockDropGroupId(null)
+                }}
+                onDragOver={(event) => onGroupDragOver(event, group.id)}
+                onDragLeave={() => {
+                  setStockDropGroupId((current) => (current === group.id ? null : current))
+                  setGroupDrop((current) => (current?.id === group.id ? null : current))
+                }}
+                onDrop={(event) => onGroupDrop(event, group.id)}
+                title={`${group.name} · ${group.items.length} 只（双击改名，拖拽可调整顺序或接收股票）`}
+              >
+                <Show
+                  when={editingId() === group.id}
+                  fallback={
+                    <>
+                      <span class="group-chip__name">{group.name}</span>
+                      <span class="group-chip__count num">{group.items.length}</span>
+                      <span
+                        class="group-chip__close"
+                        role="button"
+                        aria-label="删除自定义板块"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          removeGroup(group.id)
+                        }}
+                      >
+                        <IconClose size={9} />
+                      </span>
+                    </>
+                  }
+                >
+                  <input
+                    class="group-chip__input"
+                    value={draft()}
+                    autofocus
+                    onInput={(event) => setDraft(event.currentTarget.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitRename()
+                      if (event.key === 'Escape') setEditingId(null)
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                </Show>
+              </div>
+            )}
+          </For>
+          <Show when={customGroups().length === 0}>
+            <span class="group-tabs__hint">还没有自定义板块，点右上「+」新建</span>
+          </Show>
         </div>
         <div class="sidebar__list sector-list">
           <Show

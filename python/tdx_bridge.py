@@ -2157,6 +2157,57 @@ def parse_sector_indices(text: str) -> list[dict]:
     return rows
 
 
+# ------------------------------------------------ 通达信客户端自定义板块
+
+BLOCKNEW_RECORD = 120
+BLOCKNEW_NAME = 50
+
+
+def parse_blocknew_cfg(data: bytes) -> list[dict]:
+    """解析客户端 `T0002/blocknew/blocknew.cfg`。
+
+    定长记录：前 50 字节板块名（GBK，\\0 填充）+ 后 70 字节 `.blk` 文件名。
+    实测 `D:\\tdx` 的 29 个自定义板块全部按这个格式解析。
+    """
+    records: list[dict] = []
+    for start in range(0, len(data) - BLOCKNEW_RECORD + 1, BLOCKNEW_RECORD):
+        name = data[start : start + BLOCKNEW_NAME].split(b"\x00")[0].decode("gbk", "ignore").strip()
+        file = (
+            data[start + BLOCKNEW_NAME : start + BLOCKNEW_RECORD]
+            .split(b"\x00")[0]
+            .decode("gbk", "ignore")
+            .strip()
+        )
+        if name and file:
+            records.append({"name": name, "file": file})
+    return records
+
+
+def parse_client_block(text: str) -> list[str]:
+    """解析 `*.blk`：每行是 7 位「市场位 + 6 位代码」（0 深 / 1 沪），返回 6 位代码。"""
+    codes: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if len(line) == 7 and line[0] in "012" and line[1:].isdigit():
+            codes.append(line[1:])
+        elif len(line) == 6 and line.isdigit():
+            codes.append(line)
+    return codes
+
+
+def client_roots(explicit: str = "") -> list[Path]:
+    """候选客户端目录：显式参数 > STOCKLENS_TDX_DIR > 常见安装位置。"""
+    roots: list[Path] = []
+    if explicit.strip():
+        roots.append(Path(explicit.strip().strip('"')))
+    env = os.environ.get("STOCKLENS_TDX_DIR")
+    if env:
+        roots.append(Path(env))
+    for base in ("D:/tdx", "C:/tdx", "D:/new_tdx", "C:/new_tdx", "E:/tdx"):
+        roots.append(Path(base))
+    return roots
+
+
 SCREEN_FIELDS = (
     "price",
     "changePct",
@@ -4071,6 +4122,84 @@ class Bridge:
         self.block_cache[kind] = (time.time() + 600, result)
         return result
 
+    def client_blocks(self, directory: str = "") -> dict:
+        """读通达信客户端本地自定义板块：`T0002/blocknew/blocknew.cfg` + `*.blk`。"""
+        root: Path | None = None
+        for candidate in client_roots(directory):
+            if (candidate / "T0002" / "blocknew" / "blocknew.cfg").is_file():
+                root = candidate
+                break
+        if root is None:
+            raise TdxError(
+                "找不到通达信客户端的 T0002/blocknew/blocknew.cfg；"
+                "请把客户端目录放到 D:/tdx，或设置 STOCKLENS_TDX_DIR"
+            )
+        base = root / "T0002" / "blocknew"
+        cfg_file = base / "blocknew.cfg"
+        records = parse_blocknew_cfg(cfg_file.read_bytes())
+
+        by_symbol: dict[str, list[dict]] = {}
+        try:
+            self.index.ensure(self.conn)
+            for item in self.index.all:
+                by_symbol.setdefault(item["symbol"], []).append(item)
+        except Exception:  # noqa: BLE001 - 离线时用前缀兜底，不影响读本地板块
+            by_symbol = {}
+
+        def resolve(symbol: str) -> tuple[str, str]:
+            candidates = by_symbol.get(symbol, [])
+            chosen = next(
+                (item for item in candidates if item.get("kind") in ("GP-A", "ZS")),
+                candidates[0] if candidates else None,
+            )
+            if chosen:
+                return chosen["code"], chosen.get("name") or symbol
+            if symbol.startswith("880"):
+                return f"sh{symbol}", symbol
+            if symbol.startswith("6"):
+                return f"sh{symbol}", symbol
+            if symbol.startswith(("0", "3")):
+                return f"sz{symbol}", symbol
+            if symbol.startswith(("4", "8", "9")):
+                return f"bj{symbol}", symbol
+            return "", symbol
+
+        boards: list[dict] = []
+        missing: list[str] = []
+        for record in records:
+            block_file = base / f"{record['file']}.blk"
+            if not block_file.is_file():
+                missing.append(record["file"])
+                continue
+            codes: list[str] = []
+            names: dict[str, str] = {}
+            for symbol in parse_client_block(block_file.read_text("ascii", "ignore")):
+                code, name = resolve(symbol)
+                if not code or code in names:
+                    continue
+                codes.append(code)
+                names[code] = name
+            boards.append(
+                {
+                    "id": f"client-{record['file']}",
+                    "name": record["name"],
+                    "kind": "custom",
+                    "count": len(codes),
+                    "codes": codes,
+                    "names": names,
+                    "indexCode": "",
+                }
+            )
+
+        return {
+            "dir": str(root),
+            "file": str(cfg_file),
+            "blockCount": len(boards),
+            "codeCount": sum(len(board["codes"]) for board in boards),
+            "missing": missing,
+            "boards": boards,
+        }
+
     def industries(self) -> dict:
         """用 tdxhy.cfg + incon.dat 生成通达信行业分类与成分股。"""
         if self.industry_cache and self.industry_cache[0] > time.time():
@@ -4093,10 +4222,14 @@ class Bridge:
             raise TdxError("zhb.zip 不是合法 ZIP") from error
 
         names = dict(parse_incon_sections(incon).get("TDXNHY", []))
+        rs_names = dict(parse_incon_sections(incon).get("TDXRSHY", []))
         sector_by_tdx = {
             row["tdxCode"]: row["code"]
             for row in parse_sector_indices(tdxzs)
             if row["tdxCode"]
+        }
+        sector_by_name = {
+            row["name"]: row["code"] for row in parse_sector_indices(tdxzs) if row["name"]
         }
         self.index.ensure(self.conn)
         by_symbol: dict[str, list[dict]] = {}
@@ -4104,6 +4237,7 @@ class Bridge:
             by_symbol.setdefault(item["symbol"], []).append(item)
 
         groups: dict[str, dict] = {}
+        resolved_rows: list[tuple[dict, str, str]] = []
         for row in parse_tdxhy(cfg_bytes.decode("gbk", "replace")):
             symbol = row["symbol"]
             candidates = by_symbol.get(symbol, [])
@@ -4135,8 +4269,40 @@ class Bridge:
                 group["codes"].append(code)
                 group["names"][code] = name
                 group["count"] = len(group["codes"])
+            resolved_rows.append((row, code, name))
+
+        # TDXRSHY（通达信研发行业）是树：X10 → X1001 → X100101。
+        # 个股只挂在叶子行业上，所以一级/二级行业要把子孙行业的成分并上来；
+        # MAC 0x1231 的「一级行业」= TDXRSHY 第二层、「二级行业」= 第三层。
+        rs_groups: dict[str, dict] = {}
+        for row, code, name in resolved_rows:
+            rs_code = row.get("rsCode") or ""
+            if not rs_code:
+                continue
+            for length in range(len(rs_code), 2, -1):
+                prefix = rs_code[:length]
+                if prefix not in rs_names:
+                    continue
+                rs_group = rs_groups.get(prefix)
+                if rs_group is None:
+                    rs_name = rs_names[prefix]
+                    rs_group = {
+                        "id": f"rs-{prefix}",
+                        "name": rs_name,
+                        "kind": "industry",
+                        "count": 0,
+                        "codes": [],
+                        "names": {},
+                        "indexCode": sector_by_name.get(rs_name, ""),
+                    }
+                    rs_groups[prefix] = rs_group
+                if code not in rs_group["names"]:
+                    rs_group["codes"].append(code)
+                    rs_group["names"][code] = name
+                    rs_group["count"] = len(rs_group["codes"])
 
         blocks = list(groups.values())
+        rs_blocks = list(rs_groups.values())
         result = {
             "kind": "industry",
             "label": "行业",
@@ -4150,6 +4316,10 @@ class Bridge:
             "blockCount": len(blocks),
             "codeCount": sum(len(group["codes"]) for group in blocks),
             "blocks": blocks,
+            "rsLabel": "通达信研发行业",
+            "rsBlockCount": len(rs_blocks),
+            "rsCodeCount": sum(len(group["codes"]) for group in rs_blocks),
+            "rsBlocks": rs_blocks,
         }
         self.industry_cache = (time.time() + 600, result)
         return result
@@ -4686,6 +4856,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.blocks(str(payload.get("kind") or "gn"))
     if cmd == "industries":
         return bridge.industries()
+    if cmd == "client_blocks":
+        return bridge.client_blocks(str(payload.get("dir") or ""))
     if cmd == "screen":
         return bridge.screen(payload.get("filters") or {})
     if cmd == "local_day_read":

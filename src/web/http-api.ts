@@ -486,7 +486,11 @@ export function createHttpApi(): StockLensApi {
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),
-      industries: () => post<IndustryList>('/api/industries', {})
+      industries: () => post<IndustryList>('/api/industries', {}),
+      // 客户端自定义板块要读本机 D:\tdx 目录，浏览器端没有这个能力
+      client: async () => {
+        throw new Error('浏览器版读不到本机通达信客户端的自定义板块，请在桌面端查看')
+      }
     },
     screen: {
       run: (request: ScreenRequest) => post<ScreenResult>('/api/screen', request),

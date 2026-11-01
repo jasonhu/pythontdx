@@ -13,6 +13,7 @@ import type {
   AuctionPoint,
   BlockKind,
   BlockList,
+  ClientBlockResult,
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
@@ -424,6 +425,11 @@ export async function fetchBlocks(kind: BlockKind): Promise<BlockList> {
 /** tdxhy.cfg + incon.dat 通达信行业分类。 */
 export async function fetchIndustries(): Promise<IndustryList> {
   return bridge.send<IndustryList>('industries', {}, BLOCK_TIMEOUT_MS)
+}
+
+/** 通达信客户端本地自定义板块（blocknew.cfg + *.blk）。 */
+export async function fetchClientBlocks(dir = ''): Promise<ClientBlockResult> {
+  return bridge.send<ClientBlockResult>('client_blocks', { dir }, 30_000)
 }
 
 /** 全市场条件选股；后端按 60 秒缓存全市场分类行情。 */

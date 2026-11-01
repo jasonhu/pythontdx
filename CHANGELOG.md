@@ -28,11 +28,26 @@ StockLens 的所有重要变更都记录在这里。
   备份/恢复在 Python sidecar 里做，超时给到 2 小时，适合直接写 NAS。
 - **板块行情补二级行业**：MAC 0x1231 的 `boardType=1`（345 个细分行业）之前没接，
   BoardsPanel 现在有「一级行业 / 二级行业」两个页签。
+- **一级/二级行业成分股（TDXRSHY）**：`tdxhy.cfg` 的 `rsCode` 字段一直没用，
+  而 MAC 一级/二级行业名与 `incon.dat` 的 `TDXRSHY` 实测 128/128、345/345 完全对得上。
+  `industries()` 现在同时返回 TDX 行业 111 与研发行业 349；板块选择器新增
+  「一级行业 128 / 二级行业 345」，成分股来自 rsCode 分组，也能做涨跌幅排行。
+- **通达信客户端自定义板块**：读本机 `T0002/blocknew/blocknew.cfg`（120 字节定长记录）
+  与 `*.blk`（7 位市场位+代码），本机 `D:\tdx` 实测 29 个板块 / 383 个成分股 / 0 缺失；
+  目录可用 `STOCKLENS_TDX_DIR` 覆盖，默认探测 `D:/tdx`、`C:/tdx`、`D:/new_tdx` 等。
+  板块选择器新增「客户端自定义」页签；Web 端明确提示读不到本机目录。
 - **个股列表右键菜单**：全市场、板块成分、板块排行、A 股排行榜、条件选股结果、
   沪深异动的股票行右键弹出菜单，可直接加入「自选股」或某个**具名的自定义板块**
   （列出分组名与数量）。分组互斥，已在别的分组时移动到所选板块，已在目标分组只切换选中。
   菜单做成全局单例（`stores/stockMenu.ts` + `components/StockMenu.tsx`），
   截图 `screenshots/stock-context-menu.png`。
+- **自选股单层 + 板块两级菜单**（2026-11-01 用户指令）：自选股不再有分组标签，
+  只剩一份平铺列表；「电池」这类用户板块归到「自定义板块」，分组标签只在
+  「自定义」页签出现，且不再包含自选那一组。板块选择器改成两级：左栏选
+  **分类方式**（一级行业/二级行业/通达信行业/概念/风格/指数板块/一般/客户端自定义/
+  应用内分组），右栏才是具体板块——分类方式多，平铺一行放不下也不能并列。
+  截图 `screenshots/watch-flat.png`、`screenshots/sector-picker-2level.png`、
+  `screenshots/custom-chips.png`。
 
 ### 修复
 
@@ -53,24 +68,26 @@ StockLens 的所有重要变更都记录在这里。
 - Windows x64 用 `electron-builder --win nsis dir` 出一套产物：NSIS 安装包 +
   散装绿色目录 + 绿色包 zip，全部落在 `release/0.9.0/`，实测记录见 `docs/07` 第十一节。
 - `npm run check` 在 Windows 上 exit 0：**267 个 TS 测试** +
-  **151 个 Python 测试**（各 1 skipped）。
+  **154 个 Python 测试**（各 1 skipped）。
 - 新增测试：`isIndexCode` 4 个（含 `sh000001` / `sz000001` 同号不同市场）、
-  离线备份/恢复 2 个（补缺失 + 路径穿越）、指数无分红 1 个、before-pack 2 个。
+  离线备份/恢复 2 个（补缺失 + 路径穿越）、指数无分红 1 个、
+  客户端自定义板块解析 3 个（blocknew.cfg 定长记录 / .blk 市场位 / 目录优先级）、
+  before-pack 2 个。
 
 ### 验证（2026-11-01，Windows 10 x64 实机）
 
 | 产物                               | 大小                      | SHA256                                                             |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,201,189 B） | `478ab67b3d5bef3a49bee4e7943742d241adc85521630a69b4512760842a45ba` |
-| `StockLens-0.9.0-win-x64/`（散装） | 409.1 MB（409,070,870 B） | —                                                                  |
-| `StockLens-0.9.0-win-x64.zip`      | 175.1 MB（175,064,791 B） | `4d2bc034c2ae5dfff1ba5c5d55546edec04e32b4950a0e27b435cb249adc1b54` |
+| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,220,152 B） | `dab9fbafffb17b6d0bc2141fb54013f7256e30668cbbb51fbafb4dee75667f6a` |
+| `StockLens-0.9.0-win-x64/`（散装） | 409.1 MB（409,090,299 B） | —                                                                  |
+| `StockLens-0.9.0-win-x64.zip`      | 175.1 MB（175,080,945 B） | `762f9563a93676a5c5c930d33395f97f9fb2e8b4057a2382400fd0aaad7d0b98` |
 
 - 安装包：`/S /D=<临时目录>` 静默安装 exit 0 → 桌面 + 开始菜单快捷方式、HKCU 卸载项齐全 →
   安装版启动并取到实时行情（`screenshots/installed-new.png`）→ 静默卸载后
   安装目录、两个快捷方式、注册表项全部清除；
 - 绿色包：整目录拷到 `.tmp/green test 绿色`（含空格与中文）直接运行，
   实时行情、分时图、五档盘口、明细正常（`screenshots/green-win-data.png`）；
-- zip：解压出 76 个文件（409,070,870 B）后运行同样正常（`screenshots/zip-win.png`）；
+- zip：解压出 76 个文件（409,090,299 B）后运行同样正常（`screenshots/zip-win.png`）；
 - 新界面：板块选择大窗口（`screenshots/sector-picker.png`）、板块内涨跌幅排行
   （`screenshots/sector-ranking.png`）、自定义板块排行（`screenshots/custom-ranking.png`）、
   数据工具备份区（`screenshots/data-backup.png`）、二级行业页签（`screenshots/boards-l2.png`）、

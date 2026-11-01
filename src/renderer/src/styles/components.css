@@ -6870,30 +6870,47 @@
   color: var(--text-1);
 }
 
-.sector-picker__tools {
+.sector-picker__layout {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 0 18px 10px;
-  border-bottom: 1px solid var(--border);
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--border);
 }
 
-.sector-picker__tabs {
+/* 第一级：分类方式（行业/概念/风格/一般/客户端自定义…）不能平铺成一行 */
+.sector-picker__rail {
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  flex-wrap: wrap;
+  flex: none;
+  width: 156px;
+  padding: 10px 8px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+}
+
+.sector-picker__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .sector-picker__tab {
-  height: 26px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-full);
-  background: var(--panel);
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
   color: var(--text-3);
   font-size: var(--fs-xs);
+  text-align: left;
   cursor: pointer;
+}
+
+.sector-picker__tab:hover {
+  background: var(--panel);
+  color: var(--text-2);
 }
 
 .sector-picker__tab[data-active='true'] {
@@ -6903,8 +6920,8 @@
 }
 
 .sector-picker__search {
-  flex: 1;
-  min-width: 180px;
+  flex: none;
+  margin: 10px 18px 0;
   height: 28px;
   padding: 0 10px;
   border: 1px solid var(--border);

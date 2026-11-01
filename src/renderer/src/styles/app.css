@@ -292,6 +292,17 @@
   padding: 0 var(--sp-3) var(--sp-2);
 }
 
+/* 自定义板块视图里的板块标签（自选股已经没有分组标签） */
+.group-tabs--custom {
+  padding-top: 2px;
+}
+
+.group-tabs__hint {
+  align-self: center;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
 .group-chip {
   position: relative;
   display: inline-flex;

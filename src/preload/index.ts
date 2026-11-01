@@ -118,7 +118,8 @@ const api: StockLensApi = {
   },
   block: {
     list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),
-    industries: () => ipcRenderer.invoke(IPC.blockIndustries)
+    industries: () => ipcRenderer.invoke(IPC.blockIndustries),
+    client: (dir) => ipcRenderer.invoke(IPC.blockClient, dir)
   },
   screen: {
     run: (request) => ipcRenderer.invoke(IPC.screenRun, request),

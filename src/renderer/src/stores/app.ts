@@ -49,6 +49,17 @@ export const activeGroup = (): WatchGroup | undefined =>
 
 export const activeItems = (): WatchItem[] => activeGroup()?.items ?? []
 
+/**
+ * 自选股唯一的那一级：名字叫「自选」的分组，没有就用第一组。
+ *
+ * 产品约定（2026-11-01 用户指令）：自选股只有一层，不再有分组；
+ * 其余分组都属于「自定义板块」，由左栏「自定义」页签管理。
+ */
+export const defaultGroup = (): WatchGroup | undefined =>
+  state.groups.find((group) => group.name === '自选') ?? state.groups[0]
+
+export const watchItems = (): WatchItem[] => defaultGroup()?.items ?? []
+
 /** 全部分组的代码合集（行情订阅用，去重） */
 export const watchCodes = (): string[] => [
   ...new Set(state.groups.flatMap((group) => group.items.map((item) => item.code)))
@@ -264,7 +275,9 @@ export function addWatchItem(
   item: Pick<WatchItem, 'code' | 'name' | 'market'>,
   groupId?: string
 ): void {
-  const targetId = groupId ?? state.activeGroupId
+  // 不指定分组时进「自选股」，而不是当前浏览的自定义板块：
+  // 搜索/右键「加入自选」的语义是固定的那一份自选，不该跟着页面状态漂移。
+  const targetId = groupId ?? defaultGroup()?.id ?? state.activeGroupId
 
   // 已经在任何一个分组里了：不重复添加，直接切过去
   const existingGroup = state.groups.find((group) =>

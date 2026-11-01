@@ -16,6 +16,7 @@ import type {
   AuctionPoint,
   BlockKind,
   BlockList,
+  ClientBlockResult,
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
@@ -214,6 +215,8 @@ export const IPC = {
   blockList: 'block:list',
   /** 行业分类/成分（invoke） */
   blockIndustries: 'block:industries',
+  /** 通达信客户端本地自定义板块（invoke） */
+  blockClient: 'block:client',
   /** 全市场条件选股（invoke） */
   screenRun: 'screen:run',
   /** 公式选股（invoke） */
@@ -452,6 +455,8 @@ export interface StockLensApi {
     list(kind: BlockKind): Promise<BlockList>
     /** tdxhy.cfg + incon.dat 行业分类 */
     industries(): Promise<IndustryList>
+    /** 读本机通达信客户端 T0002/blocknew 的自定义板块；dir 省略时自动探测 */
+    client(dir?: string): Promise<ClientBlockResult>
   }
   screen: {
     /** 全市场扫描；结果最多 200 条 */

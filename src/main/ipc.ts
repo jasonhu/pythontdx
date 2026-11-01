@@ -89,6 +89,7 @@ import {
   fetchF10Market,
   fetchFiveDayTrend,
   fetchIndustries,
+  fetchClientBlocks,
   fetchKline,
   fetchMinuteTrend,
   fetchMacMoneyFlow,
@@ -330,6 +331,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.blockList, (_event, kind: BlockKind) => fetchBlocks(kind))
 
   ipcMain.handle(IPC.blockIndustries, () => fetchIndustries())
+
+  ipcMain.handle(IPC.blockClient, (_event, dir?: string) => fetchClientBlocks(dir))
 
   ipcMain.handle(IPC.screenRun, (_event, request: ScreenRequest) => fetchScreen(request))
 

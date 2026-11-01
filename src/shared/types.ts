@@ -581,7 +581,7 @@ export type BlockKind = 'gn' | 'fg' | 'zs' | 'general'
 export interface BlockGroup {
   id: string
   name: string
-  kind: BlockKind | 'industry'
+  kind: BlockKind | 'industry' | 'custom'
   /** 文件里记录的股票数（含未解析的代码） */
   count: number
   /** 对应的 880xxx 板块指数（tdxzs.cfg），没有则为空 */
@@ -590,6 +590,17 @@ export interface BlockGroup {
   codes: string[]
   /** 代码 → 名称，来自 0x044d 代码表 */
   names: Record<string, string>
+}
+
+/** 通达信客户端本地自定义板块（`T0002/blocknew`） */
+export interface ClientBlockResult {
+  dir: string
+  file: string
+  blockCount: number
+  codeCount: number
+  /** 配置里引用了但 .blk 缺失的板块名 */
+  missing: string[]
+  boards: BlockGroup[]
 }
 
 export interface BlockList {
@@ -619,6 +630,15 @@ export interface IndustryList {
   blockCount: number
   codeCount: number
   blocks: BlockGroup[]
+  /**
+   * 通达信研发行业（TDXRSHY）：tdxhy.cfg 的 rsCode 分组。
+   * MAC 0x1231 的一级/二级行业用的就是这套分类（名字 128/128、345/345 对得上），
+   * 过去只用 tdxCode，这一份一直没接。
+   */
+  rsLabel?: string
+  rsBlockCount?: number
+  rsCodeCount?: number
+  rsBlocks?: BlockGroup[]
 }
 
 /* --------------------------------------------------------------- 分时图 */

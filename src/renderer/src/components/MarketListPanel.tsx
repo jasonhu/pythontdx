@@ -12,7 +12,11 @@ import { api, errorMessage } from '../lib/ipc'
 import { openStockMenu } from '../stores/stockMenu'
 import { downloadText } from '../lib/download'
 import { toCsv } from '@shared/csv'
-import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
+import {
+  createSparklineLoader,
+  requestVisibleSparklines,
+  sparklineOf
+} from '../stores/sparklines'
 import { IconClose } from './Icons'
 import { Sparkline } from './Sparkline'
 import { EXTRA_COLUMNS, ExtraColumnCells, ExtraColumnHeaders } from './StockExtraColumns'
@@ -247,7 +251,7 @@ export function MarketListPanel(props: {
 
   const quoteMap = createMemo(() => new Map(quotes().map((quote) => [quote.code, quote])))
   // 当前页 100 只，排队加载分时（限并发），翻页自动换一批
-  createSparklineLoader(() => visibleItems().slice(0, 60).map((item) => item.code))
+  createSparklineLoader(() => visibleItems().map((item) => item.code))
 
   return (
     <div class="market-backdrop" onClick={() => props.onClose()}>
@@ -335,6 +339,7 @@ export function MarketListPanel(props: {
           class="market__table-wrap"
           onScroll={(event) => {
             const el = event.currentTarget
+            requestVisibleSparklines(el)
             if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return
             if (loading() || visibleItems().length >= filtered().length) return
             setLimit((value) => value + PAGE_SIZE)
@@ -375,6 +380,7 @@ export function MarketListPanel(props: {
                   const quote = () => quoteMap().get(item.code)
                   return (
                     <tr
+                      data-code={item.code}
                       onClick={() => {
                         const current = quote()
                         if (current) {

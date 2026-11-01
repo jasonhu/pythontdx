@@ -45,56 +45,73 @@ export function sparklineOf(code: string): SparklineData | undefined {
   return sparklines[code]
 }
 
+const queue: string[] = []
+let running = 0
+
+const pump = (): void => {
+  while (running < CONCURRENCY && queue.length > 0) {
+    const code = queue.shift()
+    if (!code) break
+
+    running++
+    void api.trend
+      .minute(code)
+      .then((trend) => {
+        const prices = trend.points.map((point) => point.price)
+        if (prices.length > 1) {
+          setSparklines(code, {
+            values: downsample(prices, MAX_POINTS),
+            prevClose: trend.prevClose
+          })
+        }
+      })
+      // 单只失败就跳过，不能因为一只票把整列走势图拖垮
+      .catch(() => undefined)
+      .finally(() => {
+        running--
+        pump()
+      })
+  }
+}
+
+/**
+ * 只补缺失的走势图。表格滚动时按可见行调用，避免一次把几百只全排进队列。
+ */
+export function requestSparkline(code: string): void {
+  if (!code || sparklines[code] || queue.includes(code)) return
+  queue.push(code)
+  pump()
+}
+
+function enqueue(list: string[], force = false): void {
+  for (const code of list) {
+    if (!force && sparklines[code]) continue
+    if (!queue.includes(code)) queue.push(code)
+  }
+  pump()
+}
+
 export function createSparklineLoader(codes: Accessor<string[]>): void {
-  let stopped = false
-  const queue: string[] = []
-  let running = 0
-
-  const pump = (): void => {
-    while (running < CONCURRENCY && queue.length > 0) {
-      const code = queue.shift()
-      if (!code) break
-
-      running++
-      void api.trend
-        .minute(code)
-        .then((trend) => {
-          const prices = trend.points.map((point) => point.price)
-          if (!stopped && prices.length > 1) {
-            setSparklines(code, {
-              values: downsample(prices, MAX_POINTS),
-              prevClose: trend.prevClose
-            })
-          }
-        })
-        // 单只失败就跳过，不能因为一只票把整列走势图拖垮
-        .catch(() => undefined)
-        .finally(() => {
-          running--
-          pump()
-        })
-    }
-  }
-
-  const enqueue = (list: string[]): void => {
-    for (const code of list) {
-      if (!queue.includes(code)) queue.push(code)
-    }
-    pump()
-  }
-
-  // 自选股变化时补齐缺失的走势图
+  // 先补当前列表的前 20 只；其余由表格滚动按可见行 requestSparkline
   createEffect(() => {
-    enqueue(codes())
+    enqueue(codes().slice(0, 20))
   })
 
   const timer = setInterval(() => {
     // 非交易时段分时数据不会变，没必要重拉
-    if (isTradingNow()) enqueue(codes())
+    if (isTradingNow()) enqueue(codes(), true)
   }, REFRESH_MS)
 
-  onCleanup(() => {
-    stopped = true
-    clearInterval(timer)
-  })
+  onCleanup(() => clearInterval(timer))
+}
+
+/** 表格滚动时调用：只给当前视口内的行补走势图 */
+export function requestVisibleSparklines(container: HTMLElement): void {
+  const box = container.getBoundingClientRect()
+  for (const row of container.querySelectorAll<HTMLElement>('tbody tr[data-code]')) {
+    const rect = row.getBoundingClientRect()
+    if (rect.bottom < box.top || rect.top > box.bottom) continue
+    const code = row.dataset.code
+    if (code) requestSparkline(code)
+  }
 }

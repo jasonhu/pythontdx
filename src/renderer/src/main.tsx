@@ -20,6 +20,8 @@ if (!container) {
 
 const params = new URLSearchParams(window.location.search)
 const detached = params.get('detached')
+// 独立窗口（行情服务器/分时图）不套主窗口的最小尺寸，避免被撑出横向滚动条
+document.documentElement.dataset.window = detached ?? 'main'
 const detachedCode = detached === 'chart' ? params.get('code') : null
 
 render(

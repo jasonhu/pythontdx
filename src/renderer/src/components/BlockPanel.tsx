@@ -13,7 +13,11 @@ import {
 } from '../lib/board-categories'
 import { api, errorMessage } from '../lib/ipc'
 import { openStockMenu } from '../stores/stockMenu'
-import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
+import {
+  createSparklineLoader,
+  requestVisibleSparklines,
+  sparklineOf
+} from '../stores/sparklines'
 import { IconClose } from './Icons'
 import { Sparkline } from './Sparkline'
 import { EXTRA_COLUMNS, ExtraColumnCells, ExtraColumnHeaders } from './StockExtraColumns'
@@ -55,7 +59,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
    */
   const [sparkReady, setSparkReady] = createSignal(false)
   createSparklineLoader(() =>
-    sparkReady() ? (selected()?.codes ?? []).slice(0, 30) : []
+    sparkReady() ? (selected()?.codes ?? []) : []
   )
 
   const selectBlock = async (block: BlockGroup): Promise<void> => {
@@ -236,7 +240,10 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                   <Show when={loadingQuotes()}>
                     <div class="block__loading">拉取成分股行情…</div>
                   </Show>
-                  <div class="block__table-wrap">
+                  <div
+                    class="block__table-wrap"
+                    onScroll={(event) => requestVisibleSparklines(event.currentTarget)}
+                  >
                     <table class="block__table">
                       <colgroup>
                         <col style="width: 68px" />
@@ -286,6 +293,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                             const quote = () => quoteMap().get(code)
                             return (
                               <tr
+                                data-code={code}
                                 class="block__row"
                                 classList={{ 'block__row--noquote': !quote() }}
                                 onClick={() => {

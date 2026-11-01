@@ -16,7 +16,11 @@ import {
   mergeMoneyFlowRanking
 } from '@shared/ranking'
 import { api, errorMessage } from '../lib/ipc'
-import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
+import {
+  createSparklineLoader,
+  requestVisibleSparklines,
+  sparklineOf
+} from '../stores/sparklines'
 import { openStockMenu } from '../stores/stockMenu'
 import { subscribePush } from '../lib/push'
 import { IconClose } from './Icons'
@@ -101,7 +105,7 @@ const SORTS: SortTab[] = [
 export function RankingPanel(props: RankingPanelProps): JSX.Element {
   const [sort, setSort] = createSignal(SORTS[0])
   const [rows, setRows] = createSignal<CategoryQuote[]>([])
-  createSparklineLoader(() => rows().slice(0, 80).map((quote) => quote.code))
+  createSparklineLoader(() => rows().map((quote) => quote.code))
   /**
    * 0x054b 不返回量比；用一次 MAC 批量报价补齐缺字段（只补空值，不覆盖原数据）。
    * 同一批代码只补一次，避免 setRows 触发循环。
@@ -424,6 +428,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
           onScroll={(event) => {
             const el = event.currentTarget
             if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return
+            requestVisibleSparklines(el)
             if (hasMore() && !loadingMore() && !fullMode()) void loadMore()
           }}
         >

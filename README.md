@@ -180,6 +180,10 @@ npm run build:mac     # macOS dmg（仅 Apple Silicon / arm64）
 
 产物在 `release/<version>/`。Windows x64 0.14.2 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含首屏本地优先），Linux 0.14.0 AppImage/deb、macOS 0.14.2 arm64 dmg 也已实机验收。
 
+> **macOS 打包/编译已通过**：在 Apple Silicon（macOS 27.2）上 `npm run build:mac`
+> 产出 arm64 dmg，`codesign --verify --deep --strict` 通过、从只读 dmg 启动并出实时行情；
+> 详细记录见 `docs/07` 第三十四节。
+
 > **macOS 安装（ad-hoc 签名、未公证）**：从浏览器下载后首次打开会被 Gatekeeper
 > 拦截——点「完成」，到 系统设置 → 隐私与安全性 → 仍要打开；或在核对 SHA256 后执行
 > `xattr -dr com.apple.quarantine /Applications/StockLens.app`。

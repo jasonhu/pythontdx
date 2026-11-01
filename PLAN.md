@@ -20,7 +20,7 @@
 | 健康度   | `npm run check` 全绿（307 TS，30 个测试文件；163 Python，1 skipped）；`audit:data` 39/39；2026-11-01/02 Windows 0.14.2、2026-11-02 macOS 0.14.2、Linux 0.14.0 打包均通过 |
 | 目标     | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`）                                                                                               |
 | 数据源   | 通达信 7709 + MAC + 7615 + 文件下载/本地文件；7727/EX 不做                                                                                                                   |
-| 分发     | Windows 0.14.2 setup/绿色/zip/便携版已实测（`c2c8c5c2…` / `e0df0f12…` / `957de83c…`，第三十三节）；Linux 0.14.0 AppImage/deb 已实测（`cfdb83d7…` / `da30dcf5…`，第三十节）；macOS 0.14.2 arm64 dmg 已实测并 ad-hoc 签名（第三十四节） |
+| 分发     | Windows 0.14.2 setup/绿色/zip/便携版已实测（`c2c8c5c2…` / `e0df0f12…` / `957de83c…`，第三十三节）；Linux 0.14.0 AppImage/deb 已实测（`cfdb83d7…` / `da30dcf5…`，第三十节）；macOS 0.14.2 arm64 dmg 已实测并 ad-hoc 签名（`c307ddad…`，第三十四节） |
 | 平台验证 | 代码跨 Windows/Linux/macOS；Linux、Windows x64、macOS arm64 已实机打包验收；macOS 仅支持 Apple Silicon（2026-11-02 决定不支持 Intel）                             |
 
 **已交付能力**（详见 `README.md` 与 `docs/09`）：

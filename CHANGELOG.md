@@ -33,7 +33,8 @@ StockLens 的所有重要变更都记录在这里。
   - 行情头用缓存快照即时显示，网络行情约 3 秒后接上；
 - Windows 0.14.2 安装版：日 K **354ms**、逐笔 **210ms**（`v0.14.2`）；
   绿色包日 K **388ms**；便携版/zip 均启动 `v0.14.2`；
-- `npm run check`：**299 TS（298 passed + 1 skipped）+ 162 Python（1 skipped）**。
+- Windows 0.14.2 构建时 `npm run check`：**299 TS（298 passed + 1 skipped）+
+  162 Python（1 skipped）**；合入 macOS 专属修复后全仓库为 307 TS + 163 Python。
 
 ### Windows 产物（`release/0.14.2/`）
 
@@ -47,6 +48,33 @@ StockLens 的所有重要变更都记录在这里。
 | `win-x64/resources/tdx-bridge/tdx-bridge.exe` | 21,522,944 B | `cd79fbc93731f2d2d9fa9517fc7af95a352b0209fb9f02f30e4f3a635b53ace3` |
 
 `app.asar` 仍含 35,149 字节 GPL 文本与 `data:backup-progress`。
+
+### macOS 产物（`release/0.14.2/`，2026-11-02 首次实机）
+
+在 Apple Silicon（macOS 27.2）上拉到 0.14.2 后重新编译、打包并验收 arm64 dmg；
+包内同时包含 macOS 专属修复：
+
+- **7615 直连**：`python/tdx_f10.py` 忽略系统代理，避免公告/估值/财务/新闻 12 秒超时；
+- **thin Mach-O 判定**：`before-pack.cjs` 按小端解析单架构 Mach-O，并校验目标架构；
+- **arm64-only**：`electron-builder.yml` 固定 `arch: [arm64]`，x64 / universal 目标直接拒绝；
+- **ad-hoc 签名**：`identity: '-'` 做整包签名，下载后是「无法验证开发者」而不是「已损坏」；
+  `codesign --verify --deep --strict` 通过，`spctl -a` 仍拒绝（ad-hoc 不受信任）。
+
+验证：`npm run check` **307 TS（30 文件）+ 163 Python（1 skipped）**；
+`audit:data` **39/39**；`build:web` 为 `0.14.2-web`；从挂载的只读 dmg 启动，
+12 秒内状态栏「实时」、4 个宽基指数有真实价格、版本 `v0.14.2`；
+`app.asar` 含 35,149 字节 GPL 文本与 `data:backup-progress`；dmg `hdiutil verify` 通过。
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `stocklens-0.14.2-arm64.dmg` | 150,207,843 B | `c307ddad0868278aaeb0c3b1bbfd9e4ae3932cf9e7506f52f071e2698717a8cd` |
+| `mac-arm64/StockLens.app` | 312 MB / 269 文件 | — |
+| `mac-arm64/.../Resources/app.asar` | 3,601,698 B | `3e5d003bc74cc27fddf82285db51a0632155120a6d14a8001673bdea273a8751` |
+| `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` | 22,809,456 B | `3246bca1879607efc3244577c138e0eb3753f58cdb7133c7a2bf3bb6ce6868e6` |
+
+边界：macOS 仅支持 Apple Silicon；ad-hoc 未公证，浏览器下载后需按 Release 说明
+放行（`docs/07` 第三十五节）；macOS 包包含 Windows 0.14.2 没有的 7615 修复，
+下次统一发版时应升版本后三平台重打。
 
 ## [0.14.1] - 2026-11-01
 
@@ -155,7 +183,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
   `'NoneType' object has no attribute 'strip'`；改为显式 `encoding="utf-8"` 后
   审计恢复为 39/39，失败原因也不再被吞掉。
 
-### 修复（macOS 首次实机打包发现）
+### 修复（0.14.0 macOS 首次实机发现，已并入 0.14.2）
 
 - **7615 不再被系统代理接管**：macOS 的 urllib 会读取系统代理，代理不转发 7615
   时公告/估值/财务/新闻全部 12 秒超时（本机配置了局域网 HTTP 代理；同一地址
@@ -178,7 +206,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
   `spctl -a` 仍拒绝，ad-hoc 不等于可信；彻底消除警告仍需 Developer ID + 公证。
   GitHub Release 的安装说明见 `docs/07` 第三十三节。
 
-### macOS 产物（2026-11-02 首次实机）
+### macOS 产物（0.14.0 首次实机，历史；最终以 0.14.2 为准）
 
 在 Apple Silicon（macOS 27.2）上构建 arm64 dmg；**ad-hoc 签名、未公证**，
 本地可直接运行，浏览器下载后需按 Release 说明放行。版本仍为 0.14.0，

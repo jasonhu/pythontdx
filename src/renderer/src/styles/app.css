@@ -256,14 +256,7 @@
   border-color: var(--accent);
 }
 
-.sidebar-toggle {
-  gap: 4px;
-}
-
-.sidebar-toggle::after {
-  content: '侧栏';
-  font-size: var(--fs-2xs);
-}
+/* 侧栏开关与「行情/异动」同字号；标题由按钮文本提供，不再用 ::after 补 11px 小字 */
 
 .sidebar__head {
   display: flex;
@@ -430,10 +423,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px minmax(58px, auto) 20px;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 12px;
-  margin-bottom: 2px;
+  padding: 5px 10px;
+  margin-bottom: 1px;
   border-radius: var(--r-md);
   border: 1px solid transparent;
   text-align: left;
@@ -499,7 +492,7 @@
   font-size: var(--fs-sm);
   font-weight: 500;
   color: var(--text-1);
-  line-height: 1.25;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
@@ -513,20 +506,21 @@
   font-size: var(--fs-2xs);
   color: var(--text-3);
   letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 
 /* 迷你走势图：固定 46px 槽位，数据未到也不让右侧价格列移动 */
 .watch-row__spark-slot {
   width: 46px;
   min-width: 46px;
-  height: 24px;
+  height: 22px;
 }
 
 .watch-row .sparkline {
   width: 46px !important;
   min-width: 46px;
   max-width: 46px;
-  height: 24px;
+  height: 22px;
   opacity: 0.95;
   transition: opacity var(--dur-2) var(--ease);
 }
@@ -547,12 +541,14 @@
 .watch-row__price {
   font-size: var(--fs-sm);
   font-weight: 600;
+  line-height: 1.2;
   border-radius: var(--r-xs);
   padding: 0 3px;
 }
 
 .watch-row__chg {
   font-size: var(--fs-2xs);
+  line-height: 1.2;
 }
 
 .watch-row__price--up {

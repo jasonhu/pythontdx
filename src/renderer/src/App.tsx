@@ -238,7 +238,6 @@ export default function App(): JSX.Element {
         onOpenBoards={() => setBoardsOpen(true)}
         onOpenAlerts={() => setAlertsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
-        onOpenSecondary={() => void api.window.openSecondary()}
         onOpenServers={() => void api.window.openServers()}
         sidebarHidden={appState.settings.sidebarHidden === true}
         onToggleSidebar={() =>

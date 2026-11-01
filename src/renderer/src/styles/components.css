@@ -1212,30 +1212,46 @@
 .f10__content {
   min-width: 0;
   overflow: auto;
-  padding: 16px 24px 20px;
+  padding: 18px 26px 26px;
 }
 
 .f10__text {
-  margin: 0;
+  margin: 0 0 12px;
   color: var(--text-2);
-  /* F10 原文用全角空格排表；比例字体 + 自动换行会把列排散。 */
-  font-family:
-    'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'Cascadia Mono', 'DejaVu Sans Mono', monospace;
-  font-size: 12px;
-  line-height: 1.65;
-  white-space: pre;
-  word-break: normal;
+  /* 取表后的正文用界面字体，长段落更好读；缩进与空行仍由 pre-wrap 保留 */
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.f10__text:last-child {
+  margin-bottom: 0;
+}
+
+.f10__heading {
+  margin: 18px 0 8px;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.f10__heading:first-child {
+  margin-top: 0;
 }
 
 .f10-table-wrap {
   max-width: 100%;
-  margin: 6px 0 12px;
+  margin: 4px 0 16px;
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
 }
 
 .f10-table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
@@ -1243,25 +1259,43 @@
 
 .f10-table th,
 .f10-table td {
-  padding: 5px 8px;
-  border: 1px solid var(--border);
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.f10-table th {
+  color: var(--text-3);
+  background: var(--panel);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.f10-table td {
+  color: var(--text-1);
+  overflow-wrap: anywhere;
+}
+
+.f10-table th.num,
+.f10-table td.num {
   text-align: right;
   white-space: nowrap;
 }
 
 .f10-table th:first-child,
 .f10-table td:first-child {
-  text-align: left;
-}
-
-.f10-table th {
-  color: var(--text-2);
-  background: var(--panel-hover);
-  font-weight: 600;
-}
-
-.f10-table td {
+  min-width: 120px;
   color: var(--text-1);
+  font-weight: 500;
+}
+
+.f10-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.f10-table tbody tr:hover td {
+  background: var(--panel-hover);
 }
 
 .f10__error {
@@ -6782,10 +6816,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px minmax(58px, auto) 20px;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 12px;
-  margin-bottom: 2px;
+  padding: 5px 10px;
+  margin-bottom: 1px;
   border: 1px solid transparent;
   border-radius: var(--r-md);
   background: transparent;
@@ -6819,7 +6853,7 @@
   color: var(--text-1);
   font-size: var(--fs-sm);
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -6828,14 +6862,14 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
   letter-spacing: 0.04em;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .sector-row__nums {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 1px;
+  gap: 0;
   min-width: 58px;
   text-align: right;
 }
@@ -6844,11 +6878,13 @@
   color: var(--text-1);
   font-size: var(--fs-sm);
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .sector-row__chg {
   min-width: 0;
   font-size: var(--fs-2xs);
+  line-height: 1.2;
   text-align: right;
 }
 
@@ -7213,13 +7249,13 @@
   align-items: center;
   justify-content: flex-end;
   width: 46px;
-  height: 24px;
+  height: 22px;
 }
 
 .sector-row__spark .sparkline {
   width: 46px !important;
   min-width: 46px;
-  height: 24px;
+  height: 22px;
   opacity: 0.95;
   transition: opacity var(--dur-2) var(--ease);
 }

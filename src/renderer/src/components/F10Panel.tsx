@@ -5,53 +5,9 @@
  */
 import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { F10Section } from '@shared/types'
+import { parseF10 } from '@shared/f10'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
-
-type F10Block = { kind: 'text'; text: string } | { kind: 'table'; rows: string[][] }
-
-/** 把 F10 原文里的 `| a | b |` 固定表转成真实表格；其余保留等宽文本。 */
-function buildBlocks(source: string): F10Block[] {
-  const lines = source.replace(/\r\n/g, '\n').split('\n')
-  const blocks: F10Block[] = []
-  let textLines: string[] = []
-  let tableLines: string[] = []
-  const flushText = (): void => {
-    if (textLines.length > 0) {
-      blocks.push({ kind: 'text', text: textLines.join('\n') })
-      textLines = []
-    }
-  }
-  const flushTable = (): void => {
-    if (tableLines.length === 0) return
-    const rows = tableLines
-      .map((line) =>
-        line
-          .trim()
-          .replace(/^[|｜]/, '')
-          .replace(/[|｜]$/, '')
-          .split(/[|｜]/)
-          .map((cell) => cell.trim())
-      )
-      .filter((row) => row.some((cell) => /[\u4e00-\u9fffA-Za-z0-9]/.test(cell)))
-      .filter((row) => !row.every((cell) => /^:?-{2,}:?$/.test(cell)))
-    if (rows.length > 0) blocks.push({ kind: 'table', rows })
-    tableLines = []
-  }
-  for (const line of lines) {
-    const tableLine = /[|｜]/.test(line) || /^[┌├└┐┤┘─┬┴┼\s]+$/.test(line.trim())
-    if (tableLine && line.trim().length > 0) {
-      flushText()
-      tableLines.push(line)
-    } else {
-      flushTable()
-      textLines.push(line)
-    }
-  }
-  flushText()
-  flushTable()
-  return blocks
-}
 
 interface F10PanelProps {
   code: string
@@ -66,7 +22,7 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   const cache = new Map<string, string>()
-  const blocks = createMemo(() => buildBlocks(text()))
+  const blocks = createMemo(() => parseF10(text()))
   let requestId = 0
 
   const openSection = async (section: F10Section): Promise<void> => {
@@ -164,7 +120,11 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
                     <table class="f10-table">
                       <thead>
                         <tr>
-                          <For each={block.rows[0]}>{(cell) => <th>{cell}</th>}</For>
+                          <For each={block.rows[0]}>
+                            {(cell, index) => (
+                              <th classList={{ num: block.numeric[index()] }}>{cell}</th>
+                            )}
+                          </For>
                         </tr>
                       </thead>
                       <tbody>
@@ -172,8 +132,9 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
                           {(row) => (
                             <tr>
                               <For each={row}>
-                                {(cell) => (
+                                {(cell, index) => (
                                   <td
+                                    classList={{ num: block.numeric[index()] }}
                                     colspan={
                                       row.length === 1
                                         ? Math.max(1, block.rows[0]?.length ?? 1)
@@ -190,6 +151,8 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
                       </tbody>
                     </table>
                   </div>
+                ) : block.kind === 'heading' ? (
+                  <h3 class="f10__heading">{block.text}</h3>
                 ) : (
                   <pre class="f10__text">{block.text}</pre>
                 )

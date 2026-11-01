@@ -13,7 +13,6 @@ import { appInfo, toggleTheme, appState } from '../stores/app'
 import {
   IconBell,
   IconClose,
-  IconColumns,
   IconMaximize,
   IconMinimize,
   IconMoon,
@@ -30,7 +29,6 @@ interface TitleBarProps {
   onOpenBoards: () => void
   onOpenAlerts: () => void
   onOpenSettings: () => void
-  onOpenSecondary: () => void
   onOpenServers: () => void
   sidebarHidden: boolean
   onToggleSidebar: () => void
@@ -51,13 +49,13 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
 
       <div class="titlebar__actions">
         <button
-          class="btn btn--icon btn--bare sidebar-toggle"
+          class="btn btn--bare sidebar-toggle"
           title={props.sidebarHidden ? '显示左侧自选栏' : '隐藏左侧自选栏'}
           aria-label={props.sidebarHidden ? '显示左侧自选栏' : '隐藏左侧自选栏'}
           aria-pressed={props.sidebarHidden}
           onClick={() => props.onToggleSidebar()}
         >
-          <IconColumns size={15} />
+          侧栏
         </button>
         <button
           class="btn btn--bare market-open"
@@ -97,13 +95,6 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
         </button>
         <button class="btn btn--bare data-open" title="数据工具" onClick={() => props.onOpenData()}>
           数据
-        </button>
-        <button
-          class="btn btn--bare window-secondary"
-          title="打开第二个主窗口"
-          onClick={() => props.onOpenSecondary()}
-        >
-          新窗
         </button>
         <button
           class="btn btn--icon btn--bare settings-open"

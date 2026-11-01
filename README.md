@@ -12,8 +12,24 @@
 
 > 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验。
 > Windows x64 0.14.2、Linux 0.14.0 与 macOS arm64 0.14.2 均已实机打包并启动验收
-> （见 `docs/07` 第三十至三十四节）；macOS 只支持 Apple Silicon，不维护 Intel 版。
+> （见 `docs/07` 第三十至三十七节）；macOS 只支持 Apple Silicon，不维护 Intel 版。
+> **0.14.4 当前在 macOS 上完成散装 app + dmg 验证；Windows/Linux 0.14.4 尚未重打。**
 > 0.14.2 在本地缓存齐全时 K 线首图约 0.35 秒、逐笔首行约 0.2 秒（Windows 实测）。
+
+## 跨平台与验证环境
+
+StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，构建和测试在对应
+系统上原生进行，**不做交叉编译**。
+
+| 平台    | 编译 / 测试环境     | 架构                  | 主要产物                              |
+| ------- | ------------------- | --------------------- | ------------------------------------- |
+| Windows | **Windows 10 22H2** | x64                   | NSIS 安装包、单文件便携版、绿色包/zip |
+| macOS   | **macOS 27.2**      | Apple Silicon / arm64 | 散装 `.app`、dmg                      |
+| Linux   | **Ubuntu 26.04.1**  | x64                   | AppImage、deb                         |
+
+- macOS 只支持 Apple Silicon（M 系列），不维护 Intel/x64 版本；
+- Windows / Linux 构建机需要 Python 3.10+ 与 Nuitka；macOS 需要 Xcode Command Line Tools；
+- 发布产物在 `release/<version>/`；本机验证记录见 `docs/07`。
 
 ---
 
@@ -133,13 +149,14 @@
 
 ### 环境
 
-| 依赖                     | 版本       | 用途                                           |
-| ------------------------ | ---------- | ---------------------------------------------- |
-| Node.js                  | ≥ 20.19    | 前端与 Electron                                |
-| Python                   | ≥ 3.10     | 开发/Python 后端；打包后的桌面版不需要用户安装 |
-| duckdb                   | ≥ 2        | Parquet 读写与查询                             |
-| pyarrow / pandas / numpy | 最新稳定版 | 数据挖掘/ML，sidecar 不打包                    |
-| Nuitka                   | 4.x        | 构建 Python sidecar                            |
+| 依赖                     | 版本                                          | 用途                                           |
+| ------------------------ | --------------------------------------------- | ---------------------------------------------- |
+| Node.js                  | ≥ 20.19（实测 24.22.2）                       | 前端与 Electron                                |
+| Python                   | ≥ 3.10（实测 3.14.10）                        | 开发/Python 后端；打包后的桌面版不需要用户安装 |
+| duckdb                   | ≥ 2                                           | Parquet 读写与查询                             |
+| pyarrow / pandas / numpy | 最新稳定版                                    | 数据挖掘/ML，sidecar 不打包                    |
+| Nuitka                   | 4.x（实测 4.3.4）                             | 构建 Python sidecar                            |
+| OS / 工具链              | Windows 10 22H2 / macOS 27.2 / Ubuntu 26.04.1 | 原生编译，不做交叉编译                         |
 
 ```bash
 npm install
@@ -166,38 +183,120 @@ npm run build:web
 python3 python/tdx_server.py --web-dir out/web --port 8765
 ```
 
-### 检查与打包
+## 快速编译手册
+
+### 0. 通用准备
+
+三平台都需要 **Node.js ≥ 20.19（实测 24.22.2）**、**Python ≥ 3.10（实测 3.14.10）**
+和 **Nuitka 4.x（实测 4.3.4）**。先拉代码并安装依赖：
 
 ```bash
-npm run check         # 类型 + Lint + 304 TS + 159 Python
-npm run audit:data    # 39 项数据覆盖/完整性审计
-npm run shot          # 构建并截图，输出到 screenshots/
-
-npm run build:win     # Windows 安装包 + 便携版（需在 Windows 上构建）
-npm run build:linux   # AppImage + deb
-npm run build:mac     # macOS dmg（仅 Apple Silicon / arm64）
+git clone https://github.com/riverzhou/pythontdx.git
+cd pythontdx
+npm install
+python3 -m pip install -r requirements.txt
 ```
 
-产物在 `release/<version>/`。Windows x64 0.14.2 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含首屏本地优先），Linux 0.14.0 AppImage/deb、macOS 0.14.2 arm64 dmg 也已实机验收。
+Windows 上 `python3` 换成 `py -3`，`npm` 换成 `npm.cmd`（PowerShell 执行策略限制时）。
+打包脚本会自动先跑 `npm run build:python`，把 Python sidecar 编成单个可执行文件；
+不需要用户机器安装 Python。
 
-> **0.14.4 本地验证**：`npm run build:mac:all` 会同时生成散装 `.app` 和 dmg；分时首屏先画
-> localStorage 快照（约 0.4s），macOS sidecar 固定路径避免重复 Gatekeeper 扫描后启动约 0.28s。dmg 只做本地验证，
-> 不发布 GitHub Release。
+提交/发版前先跑质量门禁：
 
-> **macOS 打包/编译已通过**：在 Apple Silicon（macOS 27.2）上 `npm run build:mac`
-> 产出 arm64 dmg，`codesign --verify --deep --strict` 通过、从只读 dmg 启动并出实时行情；
-> 详细记录见 `docs/07` 第三十四节。
+```bash
+npm run check        # 类型 + Lint + 315 TS + 164 Python
+npm run audit:data   # 39 项数据覆盖/完整性审计
+```
+
+### 1. Windows 10 22H2（x64）
+
+前置：Visual Studio 2022 Build Tools（Desktop development with C++，Nuitka 需要 MSVC）、
+Python 3.10+、Node.js 20+。
+
+```powershell
+npm.cmd install
+py -3 -m pip install -r requirements.txt
+npm.cmd run check
+
+npm.cmd run build:win            # NSIS 安装包 + 单文件便携版
+npm.cmd run build:win:setup      # 只出安装包
+npm.cmd run build:win:portable   # 只出便携版
+```
+
+产物在 `release/<version>/`：`stocklens-<version>-setup.exe`、
+`stocklens-<version>-portable.exe`、绿色目录/zip。
+
+### 2. macOS 27.2（Apple Silicon / arm64）
+
+前置：Xcode Command Line Tools（`xcode-select --install`）、Node.js/Python 均为 arm64。
+**只支持 Apple Silicon，不构建 Intel/x64 版本。**
+
+```bash
+npm install
+python3 -m pip install -r requirements.txt
+npm run check
+
+npm run build:mac:app   # 只出散装 .app，最快验证
+npm run build:mac:all   # 散装 .app + dmg
+npm run build:mac       # 只出 dmg
+```
+
+产物：
+
+```text
+release/<version>/mac-arm64/StockLens.app
+release/<version>/stocklens-<version>-arm64.dmg
+```
+
+macOS 首次启动会触发 Gatekeeper 对 sidecar 的安全扫描，**首屏约 10 秒**；之后同一
+解包路径复用扫描结果，**约 0.36 秒**。本机 0.14.4 实测：
+
+| 场景                                      |          到分时图 |
+| ----------------------------------------- | ----------------: |
+| 真首次（全新 userData + 清 sidecar 缓存） |      **10,333ms** |
+| 第二次                                    |         **365ms** |
+| 第三次 / 第四次                           | **364ms / 389ms** |
+
+首次慢是 macOS 安全机制，不是 CPU/解包问题；详见 `docs/06` 第 42 条。首次之后
+图表直接命中 localStorage 分时快照，并标「离线缓存」，网络回来覆盖。
 
 > **macOS 安装（ad-hoc 签名、未公证）**：从浏览器下载后首次打开会被 Gatekeeper
 > 拦截——点「完成」，到 系统设置 → 隐私与安全性 → 仍要打开；或在核对 SHA256 后执行
 > `xattr -dr com.apple.quarantine /Applications/StockLens.app`。
-> ad-hoc 不是可信任签名（`spctl -a` 仍拒绝），但整包签名是完整的
-> （`codesign --verify --deep --strict` 通过）；完整说明见 `docs/07` 第三十五节。
+> ad-hoc 不是可信任签名（`spctl -a` 仍拒绝），但整包签名完整
+> （`codesign --verify --deep --strict` 通过）；详见 `docs/07` 第三十五节。
 
-> 0.14.2 的 Windows 包与 0.14.0 的 Linux 包均包含备份/恢复进度条和项目 GPL 文本；
-> macOS 0.14.2 包同样含 GPL，并额外包含 7615 直连修复（`python/tdx_f10.py`）与
-> ad-hoc 签名，因此与 Windows 0.14.2 不是完全同一份运行代码——下次统一发版时应
-> 升版本后三平台重打。
+### 3. Ubuntu 26.04.1（x64）
+
+前置：`build-essential`、`python3-dev`、`patchelf`；AppImage 运行还需要 FUSE
+（deb 不需要）。
+
+```bash
+sudo apt install build-essential python3-dev patchelf
+python3 -m pip install -r requirements.txt
+npm run check
+
+npm run build:linux   # AppImage + deb
+```
+
+产物在 `release/<version>/`：`stocklens-<version>-x86_64.AppImage`、
+`stocklens-<version>-amd64.deb`。AppImage 需要 `chmod +x` 后运行；
+deb 可 `sudo dpkg -i` 或 `dpkg-deb -x` 解包直接运行。
+
+### 4. 产物速查
+
+| 平台        | 命令                    | 产物                                  |
+| ----------- | ----------------------- | ------------------------------------- |
+| Windows x64 | `npm run build:win`     | setup.exe / portable.exe / 绿色包 zip |
+| macOS arm64 | `npm run build:mac:all` | `.app` + dmg                          |
+| Linux x64   | `npm run build:linux`   | AppImage + deb                        |
+
+三平台都**在本机原生构建，不做交叉编译**。每次版本更新后建议至少跑一次
+`npm run build:mac:all`（macOS）或对应的 `build:win` / `build:linux`，并实际启动产物验证。
+
+> **0.14.4 本地验证**：`release/0.14.4/mac-arm64/StockLens.app` 与
+> `release/0.14.4/stocklens-0.14.4-arm64.dmg` 已构建、签名和 GPL 校验通过；
+> dmg 只做本地验证，不发布 GitHub Release。
 
 ---
 

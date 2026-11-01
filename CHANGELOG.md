@@ -32,6 +32,8 @@ StockLens 的所有重要变更都记录在这里。
 ### 验证
 
 - `npm run check` exit 0：**315 TS（32 文件）+ 164 Python（1 skipped）**；
+- 0.14.4 打包 app，全新 userData + 清 sidecar 缓存：真首次 **10,333ms**；
+  同配置第二次 **365ms**、第三/四次 **364 / 389ms**；
 - 分时快照首屏：**404ms**（副作用是显示「离线缓存」，网络回来后消失）；
 - sidecar 启动：standalone 首次 7.75s → 二次 0.09s；onefile 固定缓存路径后
   二次 0.28~0.45s；`syspolicyd` 日志确认是 Gatekeeper 首次扫描；
@@ -91,14 +93,14 @@ StockLens 的所有重要变更都记录在这里。
 
 ### Windows 产物（`release/0.14.2/`）
 
-| 产物 | 大小 | SHA256 |
-| --- | ---: | --- |
-| `stocklens-0.14.2-setup.exe` | 133,616,877 B | `c2c8c5c2100c17c09941ebac19f0c80cf455e34e53aa42f237ea2fe45d328a49` |
-| `stocklens-0.14.2-portable.exe` | 133,363,219 B | `e0df0f1249fcb7da522127e3215dbb6dca32beb22e5105a5db1811ed509b68c1` |
-| `StockLens-0.14.2-win-x64/` | 410,618,986 B / 76 文件 | — |
-| `StockLens-0.14.2-win-x64.zip` | 175,226,043 B | `957de83cb94c8d471b83c6b8cf45ec77948ccc1b4b3d997804670a0252d6a61a` |
-| `win-x64/resources/app.asar` | 3,603,848 B | `34b952032e4b8a44e32b9fbe9e01065d28a443a0ad252d87d912c797dd4c0433` |
-| `win-x64/resources/tdx-bridge/tdx-bridge.exe` | 21,522,944 B | `cd79fbc93731f2d2d9fa9517fc7af95a352b0209fb9f02f30e4f3a635b53ace3` |
+| 产物                                          |                    大小 | SHA256                                                             |
+| --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
+| `stocklens-0.14.2-setup.exe`                  |           133,616,877 B | `c2c8c5c2100c17c09941ebac19f0c80cf455e34e53aa42f237ea2fe45d328a49` |
+| `stocklens-0.14.2-portable.exe`               |           133,363,219 B | `e0df0f1249fcb7da522127e3215dbb6dca32beb22e5105a5db1811ed509b68c1` |
+| `StockLens-0.14.2-win-x64/`                   | 410,618,986 B / 76 文件 | —                                                                  |
+| `StockLens-0.14.2-win-x64.zip`                |           175,226,043 B | `957de83cb94c8d471b83c6b8cf45ec77948ccc1b4b3d997804670a0252d6a61a` |
+| `win-x64/resources/app.asar`                  |             3,603,848 B | `34b952032e4b8a44e32b9fbe9e01065d28a443a0ad252d87d912c797dd4c0433` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,522,944 B | `cd79fbc93731f2d2d9fa9517fc7af95a352b0209fb9f02f30e4f3a635b53ace3` |
 
 `app.asar` 仍含 35,149 字节 GPL 文本与 `data:backup-progress`。
 
@@ -118,12 +120,12 @@ StockLens 的所有重要变更都记录在这里。
 12 秒内状态栏「实时」、4 个宽基指数有真实价格、版本 `v0.14.2`；
 `app.asar` 含 35,149 字节 GPL 文本与 `data:backup-progress`；dmg `hdiutil verify` 通过。
 
-| 产物 | 大小 | SHA256 |
-| --- | ---: | --- |
-| `stocklens-0.14.2-arm64.dmg` | 150,207,843 B | `c307ddad0868278aaeb0c3b1bbfd9e4ae3932cf9e7506f52f071e2698717a8cd` |
-| `mac-arm64/StockLens.app` | 312 MB / 269 文件 | — |
-| `mac-arm64/.../Resources/app.asar` | 3,601,698 B | `3e5d003bc74cc27fddf82285db51a0632155120a6d14a8001673bdea273a8751` |
-| `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` | 22,809,456 B | `3246bca1879607efc3244577c138e0eb3753f58cdb7133c7a2bf3bb6ce6868e6` |
+| 产物                                            |              大小 | SHA256                                                             |
+| ----------------------------------------------- | ----------------: | ------------------------------------------------------------------ |
+| `stocklens-0.14.2-arm64.dmg`                    |     150,207,843 B | `c307ddad0868278aaeb0c3b1bbfd9e4ae3932cf9e7506f52f071e2698717a8cd` |
+| `mac-arm64/StockLens.app`                       | 312 MB / 269 文件 | —                                                                  |
+| `mac-arm64/.../Resources/app.asar`              |       3,601,698 B | `3e5d003bc74cc27fddf82285db51a0632155120a6d14a8001673bdea273a8751` |
+| `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` |      22,809,456 B | `3246bca1879607efc3244577c138e0eb3753f58cdb7133c7a2bf3bb6ce6868e6` |
 
 边界：macOS 仅支持 Apple Silicon；ad-hoc 未公证，浏览器下载后需按 Release 说明
 放行（`docs/07` 第三十五节）；macOS 包包含 Windows 0.14.2 没有的 7615 修复，
@@ -156,14 +158,14 @@ StockLens 的所有重要变更都记录在这里。
 
 ### Windows 产物（`release/0.14.1/`）
 
-| 产物 | 大小 | SHA256 |
-| --- | ---: | --- |
-| `stocklens-0.14.1-setup.exe` | 133,616,783 B | `4cb57f756a50afe4caf70fd01b27206394f42d115b577eaae6b6c8cd3b07225d` |
-| `stocklens-0.14.1-portable.exe` | 133,363,138 B | `a5c60bd7f609ca895ba6b28ef7f81d2d2be5dde78408d6ee06fed5e31d24ca30` |
-| `StockLens-0.14.1-win-x64/` | 410,618,773 B / 76 文件 | — |
-| `StockLens-0.14.1-win-x64.zip` | 175,226,221 B | `1c8e24f1e99debb1b4ca6572824a9c9c5ce9767bf088e161923cf49cb3b0f1fc` |
-| `win-x64/resources/app.asar` | 3,603,635 B | `bd809f67dbc6f2b929f413ecc7b0151f0ed82381e317d6b98d403b8ec71f976e` |
-| `win-x64/resources/tdx-bridge/tdx-bridge.exe` | 21,522,944 B | `2bc8973583956da653a45edbbb26a83d457938bb26530bc17f86c15d8aea5d24` |
+| 产物                                          |                    大小 | SHA256                                                             |
+| --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
+| `stocklens-0.14.1-setup.exe`                  |           133,616,783 B | `4cb57f756a50afe4caf70fd01b27206394f42d115b577eaae6b6c8cd3b07225d` |
+| `stocklens-0.14.1-portable.exe`               |           133,363,138 B | `a5c60bd7f609ca895ba6b28ef7f81d2d2be5dde78408d6ee06fed5e31d24ca30` |
+| `StockLens-0.14.1-win-x64/`                   | 410,618,773 B / 76 文件 | —                                                                  |
+| `StockLens-0.14.1-win-x64.zip`                |           175,226,221 B | `1c8e24f1e99debb1b4ca6572824a9c9c5ce9767bf088e161923cf49cb3b0f1fc` |
+| `win-x64/resources/app.asar`                  |             3,603,635 B | `bd809f67dbc6f2b929f413ecc7b0151f0ed82381e317d6b98d403b8ec71f976e` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,522,944 B | `2bc8973583956da653a45edbbb26a83d457938bb26530bc17f86c15d8aea5d24` |
 
 实测：安装版启动 `v0.14.1`，首屏逐笔 **2,793ms**（同机 0.14.0 为 10,050ms），
 静默卸载干净；绿色包 **2,508ms**；便携版/zip 均启动 `v0.14.1`；
@@ -198,26 +200,26 @@ StockLens 的所有重要变更都记录在这里。
 
 ### Linux 产物（2026-11-01 重出）
 
-| 产物 | 大小 | SHA256 |
-| --- | ---: | --- |
-| `StockLens-0.14.0.AppImage` | 154,527,950 B | `cfdb83d72cf80b06d2a462abb78ba294409e592e396f82883160c8f69f030eb0` |
-| `stocklens_0.14.0_amd64.deb` | 128,643,080 B | `da30dcf5889f3f8fa33d94d1bbd217b9c407f6d71812b9a631a6f98a9d3bcb02` |
-| `linux-unpacked/resources/app.asar` | 3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
-| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,461,264 B | `2f5386ea8ba06834c66d087f659777c9c06fdd7c00d6d41d29b0159d9f90da5a` |
+| 产物                                             |          大小 | SHA256                                                             |
+| ------------------------------------------------ | ------------: | ------------------------------------------------------------------ |
+| `StockLens-0.14.0.AppImage`                      | 154,527,950 B | `cfdb83d72cf80b06d2a462abb78ba294409e592e396f82883160c8f69f030eb0` |
+| `stocklens_0.14.0_amd64.deb`                     | 128,643,080 B | `da30dcf5889f3f8fa33d94d1bbd217b9c407f6d71812b9a631a6f98a9d3bcb02` |
+| `linux-unpacked/resources/app.asar`              |   3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
+| `linux-unpacked/resources/tdx-bridge/tdx-bridge` |  28,461,264 B | `2f5386ea8ba06834c66d087f659777c9c06fdd7c00d6d41d29b0159d9f90da5a` |
 
 ### Windows 产物（2026-11-01 重出）
 
 Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL 文本；
 0.13.2 的 Windows 三件套生成于 LICENSE 修正之前，不包含这两项。
 
-| 产物 | 大小 | SHA256 |
-| --- | ---: | --- |
-| `stocklens-0.14.0-setup.exe` | 133,618,790 B | `d9038bc0149b5bf8c6fe4419715bec908ce3ecfd26b9bb2f9c7c746ff656abd1` |
-| `stocklens-0.14.0-portable.exe` | 133,365,164 B | `35806a2723ec4fce03b596748daa85e146b9690f56aeb748203d897675d539c5` |
-| `StockLens-0.14.0-win-x64/` | 410,613,669 B / 76 文件 | — |
-| `StockLens-0.14.0-win-x64.zip` | 175,224,319 B | `e76171a6f1a83f06269cd63c4921a761f03ad56fbbb0233fe833f0a3eca241db` |
-| `win-x64/resources/app.asar` | 3,600,067 B | `4e1ceb7c6675a46360e076d08384f2add542dd370e9a821ee1b567892e7ab3d1` |
-| `win-x64/resources/tdx-bridge/tdx-bridge.exe` | 21,521,408 B | `e394848216ed9a4f91548b6b0eb8d98150a8a9cda9cd6d5a192cdedabe01f439` |
+| 产物                                          |                    大小 | SHA256                                                             |
+| --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
+| `stocklens-0.14.0-setup.exe`                  |           133,618,790 B | `d9038bc0149b5bf8c6fe4419715bec908ce3ecfd26b9bb2f9c7c746ff656abd1` |
+| `stocklens-0.14.0-portable.exe`               |           133,365,164 B | `35806a2723ec4fce03b596748daa85e146b9690f56aeb748203d897675d539c5` |
+| `StockLens-0.14.0-win-x64/`                   | 410,613,669 B / 76 文件 | —                                                                  |
+| `StockLens-0.14.0-win-x64.zip`                |           175,224,319 B | `e76171a6f1a83f06269cd63c4921a761f03ad56fbbb0233fe833f0a3eca241db` |
+| `win-x64/resources/app.asar`                  |             3,600,067 B | `4e1ceb7c6675a46360e076d08384f2add542dd370e9a821ee1b567892e7ab3d1` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,521,408 B | `e394848216ed9a4f91548b6b0eb8d98150a8a9cda9cd6d5a192cdedabe01f439` |
 
 实测：
 
@@ -227,7 +229,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
   恢复进度 **16%**（156.70/958.91 MB，4,734/29,446 文件）；
 - 绿色包、便携版、zip 解压后均启动 `v0.14.0`；便携版内嵌 asar 与绿色包同哈希；
 - Windows 质量门禁：296 TS（295 passed + 1 skipped，`.sh` wrapper 用例在 Windows 跳过）
-  + 158 Python；`audit:data` 39/39；`build:web` 为 `0.14.0-web`。
+  - 158 Python；`audit:data` 39/39；`build:web` 为 `0.14.0-web`。
 
 顺带修复（Windows 回归发现，不随包分发）：
 
@@ -265,12 +267,12 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 本地可直接运行，浏览器下载后需按 Release 说明放行。版本仍为 0.14.0，
 但包含上面的 7615 直连修复，与已发布的 Windows/Linux 0.14.0 包不是同一份运行代码。
 
-| 产物 | 大小 | SHA256 |
-| --- | ---: | --- |
-| `stocklens-0.14.0-arm64.dmg` | 150,201,054 B | `e06cad6ca3d798abd31b54e953de21eb6537921b8ad2fa0ed0fee0602722ce64` |
-| `mac-arm64/StockLens.app` | 312 MB / 269 文件 | — |
-| `mac-arm64/.../Resources/app.asar` | 3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
-| `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` | 22,809,456 B | `0821cbbd2c537426921d1a7d01d33826829a4e940b26c4ce3091905cda0de94d` |
+| 产物                                            |              大小 | SHA256                                                             |
+| ----------------------------------------------- | ----------------: | ------------------------------------------------------------------ |
+| `stocklens-0.14.0-arm64.dmg`                    |     150,201,054 B | `e06cad6ca3d798abd31b54e953de21eb6537921b8ad2fa0ed0fee0602722ce64` |
+| `mac-arm64/StockLens.app`                       | 312 MB / 269 文件 | —                                                                  |
+| `mac-arm64/.../Resources/app.asar`              |       3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
+| `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` |      22,809,456 B | `0821cbbd2c537426921d1a7d01d33826829a4e940b26c4ce3091905cda0de94d` |
 
 实测：
 
@@ -320,12 +322,12 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### Linux 产物（2026-11-01 重出）
 
-| 产物 | 大小 | SHA256 |
-| --- | ---: | --- |
-| `StockLens-0.13.2.AppImage` | 154,495,808 B | `948326b1d6949ccf40b445f3849fdfe4e248913511db293f4b64f9a4f491e6ff` |
-| `stocklens_0.13.2_amd64.deb` | 128,615,816 B | `cc25801541488c8b5417d31d0e5e3e1071e2a5e86da46edadc3d39679bc46a23` |
-| `linux-unpacked/resources/app.asar` | 3,590,783 B | `6ce39af8d9b1caeeae0e39e1b269b3c762d6eff98b67ad8938585ef7412eb5fa` |
-| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,436,688 B | `36fd04f21046705cc102f02e1ec4d106d2d42c07875eee98a64cfda802732e3e` |
+| 产物                                             |          大小 | SHA256                                                             |
+| ------------------------------------------------ | ------------: | ------------------------------------------------------------------ |
+| `StockLens-0.13.2.AppImage`                      | 154,495,808 B | `948326b1d6949ccf40b445f3849fdfe4e248913511db293f4b64f9a4f491e6ff` |
+| `stocklens_0.13.2_amd64.deb`                     | 128,615,816 B | `cc25801541488c8b5417d31d0e5e3e1071e2a5e86da46edadc3d39679bc46a23` |
+| `linux-unpacked/resources/app.asar`              |   3,590,783 B | `6ce39af8d9b1caeeae0e39e1b269b3c762d6eff98b67ad8938585ef7412eb5fa` |
+| `linux-unpacked/resources/tdx-bridge/tdx-bridge` |  28,436,688 B | `36fd04f21046705cc102f02e1ec4d106d2d42c07875eee98a64cfda802732e3e` |
 
 实测：linux-unpacked / AppImage / deb 解包后均启动 `v0.13.2`；默认自选为
 上证指数/深证成指/创业板指/科创50 四个指数；多股同列 9 格 × 3 条时间线 = 27 条，
@@ -334,11 +336,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### Windows 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.13.2-setup.exe` | 133,584,157 B | `213ad8df929b3e71531a3538c2fa13a1f2904e0358938ae6a4b34a7591d1f3c8` |
-| `StockLens-0.13.2-win-x64/` | 410,558,397 B / 76 文件 | — |
-| `StockLens-0.13.2-win-x64.zip` | 175,550,129 B | `0f2004515fd4b25b4953ea295f7d6f0ea69ce400cf604062738591e7e0e56d42` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.13.2-setup.exe`   | 133,584,157 B           | `213ad8df929b3e71531a3538c2fa13a1f2904e0358938ae6a4b34a7591d1f3c8` |
+| `StockLens-0.13.2-win-x64/`    | 410,558,397 B / 76 文件 | —                                                                  |
+| `StockLens-0.13.2-win-x64.zip` | 175,550,129 B           | `0f2004515fd4b25b4953ea295f7d6f0ea69ce400cf604062738591e7e0e56d42` |
 
 ## [0.13.1] - 2026-11-01
 
@@ -362,11 +364,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.13.1-setup.exe` | 133,577,501 B | `e81f536be5f3a1522ac2698b1498a57797db11e6fbdc40067542fcf754acea12` |
-| `StockLens-0.13.1-win-x64/` | 410,557,595 B / 76 文件 | — |
-| `StockLens-0.13.1-win-x64.zip` | 175,550,392 B | `63b96b27fa3105480144368636923670208ad540d13bf1742789ff7a6bd9625a` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.13.1-setup.exe`   | 133,577,501 B           | `e81f536be5f3a1522ac2698b1498a57797db11e6fbdc40067542fcf754acea12` |
+| `StockLens-0.13.1-win-x64/`    | 410,557,595 B / 76 文件 | —                                                                  |
+| `StockLens-0.13.1-win-x64.zip` | 175,550,392 B           | `63b96b27fa3105480144368636923670208ad540d13bf1742789ff7a6bd9625a` |
 
 ## [0.13.0] - 2026-11-01
 
@@ -401,11 +403,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.13.0-setup.exe` | 133,575,964 B | `90096e7f9c38e153c478ee52475cc19ff7c1b1d1a6dcb49f7956af57694f24b1` |
-| `StockLens-0.13.0-win-x64/` | 410,548,134 B / 76 文件 | — |
-| `StockLens-0.13.0-win-x64.zip` | 175,546,126 B | `50ee5fbe1a4a3d463e26e9e3eea7e438c53f9a2664d7018399b914ff61e28c5b` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.13.0-setup.exe`   | 133,575,964 B           | `90096e7f9c38e153c478ee52475cc19ff7c1b1d1a6dcb49f7956af57694f24b1` |
+| `StockLens-0.13.0-win-x64/`    | 410,548,134 B / 76 文件 | —                                                                  |
+| `StockLens-0.13.0-win-x64.zip` | 175,546,126 B           | `50ee5fbe1a4a3d463e26e9e3eea7e438c53f9a2664d7018399b914ff61e28c5b` |
 
 ## [0.12.0] - 2026-11-01
 
@@ -430,11 +432,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.12.0-setup.exe` | 133,582,065 B | `42ce0dabf74158159f60e776f2f4c8c6e0e3bbadc17aa41be2bd6174458b9150` |
-| `StockLens-0.12.0-win-x64/` | 410,556,436 B / 76 文件 | — |
-| `StockLens-0.12.0-win-x64.zip` | 175,549,217 B | `1cf7163684c2be6ed24e18c42df7cda62198287f0b340cca2fb9654820e901fb` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.12.0-setup.exe`   | 133,582,065 B           | `42ce0dabf74158159f60e776f2f4c8c6e0e3bbadc17aa41be2bd6174458b9150` |
+| `StockLens-0.12.0-win-x64/`    | 410,556,436 B / 76 文件 | —                                                                  |
+| `StockLens-0.12.0-win-x64.zip` | 175,549,217 B           | `1cf7163684c2be6ed24e18c42df7cda62198287f0b340cca2fb9654820e901fb` |
 
 ## [0.11.2] - 2026-11-01
 
@@ -464,11 +466,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.11.2-setup.exe` | 133,581,496 B | `f77bbddd7e8cc860a236892486a255f8c6410f3c53edb13211c7137c21bb082b` |
-| `StockLens-0.11.2-win-x64/` | 410,548,762 B / 76 文件 | — |
-| `StockLens-0.11.2-win-x64.zip` | 175,547,024 B | `ca15e225d9dccdc5e2a006df7f001eb0a8168f31b0ae00257999282521dff055` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.11.2-setup.exe`   | 133,581,496 B           | `f77bbddd7e8cc860a236892486a255f8c6410f3c53edb13211c7137c21bb082b` |
+| `StockLens-0.11.2-win-x64/`    | 410,548,762 B / 76 文件 | —                                                                  |
+| `StockLens-0.11.2-win-x64.zip` | 175,547,024 B           | `ca15e225d9dccdc5e2a006df7f001eb0a8168f31b0ae00257999282521dff055` |
 
 ## [0.11.0] - 2026-11-01
 
@@ -503,11 +505,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.11.0-setup.exe` | 133,584,233 B | `5322c8ba0fba03fd7172d69d01439e156710fbbe16981bc79aba7eb3598337e9` |
-| `StockLens-0.11.0-win-x64/` | 410,549,293 B / 76 文件 | — |
-| `StockLens-0.11.0-win-x64.zip` | 175,547,010 B | `d84bd5923c256c205e3b869637c567d85610159690f90347de23d48abc7df6c5` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.11.0-setup.exe`   | 133,584,233 B           | `5322c8ba0fba03fd7172d69d01439e156710fbbe16981bc79aba7eb3598337e9` |
+| `StockLens-0.11.0-win-x64/`    | 410,549,293 B / 76 文件 | —                                                                  |
+| `StockLens-0.11.0-win-x64.zip` | 175,547,010 B           | `d84bd5923c256c205e3b869637c567d85610159690f90347de23d48abc7df6c5` |
 
 ## [0.10.2] - 2026-11-01
 
@@ -528,11 +530,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.10.2-setup.exe` | 133,578,435 B | `ce4cf72c502964c6aaec14a9b367dafb9e5a00a4b10d874afe9832c427d90219` |
-| `StockLens-0.10.2-win-x64/` | 410,546,610 B / 76 文件 | — |
-| `StockLens-0.10.2-win-x64.zip` | 175,548,540 B | `c5802f3cb50d829dcca135113729257ad4a814eac86542a259ce840f50b1e5d2` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.10.2-setup.exe`   | 133,578,435 B           | `ce4cf72c502964c6aaec14a9b367dafb9e5a00a4b10d874afe9832c427d90219` |
+| `StockLens-0.10.2-win-x64/`    | 410,546,610 B / 76 文件 | —                                                                  |
+| `StockLens-0.10.2-win-x64.zip` | 175,548,540 B           | `c5802f3cb50d829dcca135113729257ad4a814eac86542a259ce840f50b1e5d2` |
 
 ## [0.10.1] - 2026-11-01
 
@@ -546,7 +548,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
   - 初始只拉前 20 只；
   - 表格滚动时按 `tbody tr[data-code]` 的视口范围补拉；
   - 市场/板块/排行三张表都接同一套逻辑。
-  实测市场滚动 900px 后走势图从 20 张增至 40 张，并随滚动继续补。
+    实测市场滚动 900px 后走势图从 20 张增至 40 张，并随滚动继续补。
 
 ### 验证
 
@@ -556,11 +558,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.10.1-setup.exe` | 133,584,360 B | `e6e55f46d3ee5d49d37d67a39c484d62566cb29d98cda865c6556dbf87d59b7e` |
-| `StockLens-0.10.1-win-x64/` | 410,544,611 B / 76 文件 | — |
-| `StockLens-0.10.1-win-x64.zip` | 175,548,032 B | `4a53a9cb9ea5aeb674f77adb6d93767ccdf5aada71c7b5677937878ea5ad587e` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.10.1-setup.exe`   | 133,584,360 B           | `e6e55f46d3ee5d49d37d67a39c484d62566cb29d98cda865c6556dbf87d59b7e` |
+| `StockLens-0.10.1-win-x64/`    | 410,544,611 B / 76 文件 | —                                                                  |
+| `StockLens-0.10.1-win-x64.zip` | 175,548,032 B           | `4a53a9cb9ea5aeb674f77adb6d93767ccdf5aada71c7b5677937878ea5ad587e` |
 
 安装/绿色/zip 均启动 `v0.10.1`。
 
@@ -584,11 +586,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.10.0-setup.exe` | 133,583,052 B | `58c9d294cc5715bdc77ba85ac3ea136fc68c3c8003f466ae008aa77dc0b138a2` |
-| `StockLens-0.10.0-win-x64/` | 410,543,022 B / 76 文件 | — |
-| `StockLens-0.10.0-win-x64.zip` | 175,549,062 B | `c372cf3420ee4a11ced574e0fbfa5b0eb592ae851bf947e99b9e026d7e45ba89` |
+| 产物                           | 大小                    | SHA256                                                             |
+| ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.10.0-setup.exe`   | 133,583,052 B           | `58c9d294cc5715bdc77ba85ac3ea136fc68c3c8003f466ae008aa77dc0b138a2` |
+| `StockLens-0.10.0-win-x64/`    | 410,543,022 B / 76 文件 | —                                                                  |
+| `StockLens-0.10.0-win-x64.zip` | 175,549,062 B           | `c372cf3420ee4a11ced574e0fbfa5b0eb592ae851bf947e99b9e026d7e45ba89` |
 
 安装/绿色/zip 均启动 `v0.10.0`。
 
@@ -616,11 +618,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.9.9-setup.exe` | 133,584,090 B | `40f7511705b4bad635be7cd497e38410cf003a86f312b111f76871dd9ffc5f82` |
-| `StockLens-0.9.9-win-x64/` | 410,542,891 B / 76 文件 | — |
-| `StockLens-0.9.9-win-x64.zip` | 175,548,910 B | `d1c56436be9d184cf9642c7b5feb0686d6afd5d404bba179987bd78abdf29440` |
+| 产物                          | 大小                    | SHA256                                                             |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.9.9-setup.exe`   | 133,584,090 B           | `40f7511705b4bad635be7cd497e38410cf003a86f312b111f76871dd9ffc5f82` |
+| `StockLens-0.9.9-win-x64/`    | 410,542,891 B / 76 文件 | —                                                                  |
+| `StockLens-0.9.9-win-x64.zip` | 175,548,910 B           | `d1c56436be9d184cf9642c7b5feb0686d6afd5d404bba179987bd78abdf29440` |
 
 安装/绿色/zip 均启动 `v0.9.9`。
 
@@ -658,11 +660,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.9.8-setup.exe` | 133,577,401 B | `bb2bc8807bc9c892e233cea78dd933a0e25dc62ff7648ddfd8bf7dc50c65651b` |
-| `StockLens-0.9.8-win-x64/` | 410,544,141 B / 76 文件 | — |
-| `StockLens-0.9.8-win-x64.zip` | 175,549,950 B | `83dc220a82f7584f86bb827becdd2d5395eb6ce35d5d51be63469d7f2dc92233` |
+| 产物                          | 大小                    | SHA256                                                             |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.9.8-setup.exe`   | 133,577,401 B           | `bb2bc8807bc9c892e233cea78dd933a0e25dc62ff7648ddfd8bf7dc50c65651b` |
+| `StockLens-0.9.8-win-x64/`    | 410,544,141 B / 76 文件 | —                                                                  |
+| `StockLens-0.9.8-win-x64.zip` | 175,549,950 B           | `83dc220a82f7584f86bb827becdd2d5395eb6ce35d5d51be63469d7f2dc92233` |
 
 安装/绿色/zip 均启动 `v0.9.8`；`npm run check` exit 0：294 个 TS（293 passed + 1 skipped）+ 158 Python。
 
@@ -692,11 +694,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.9.6-setup.exe` | 133,573,567 B | `459fe50bd660c654f6544b6dbf0d29f371f2ca2d742f80d62291e168666ff990` |
-| `StockLens-0.9.6-win-x64/` | 410,518,089 B / 76 文件 | — |
-| `StockLens-0.9.6-win-x64.zip` | 175,544,168 B | `5ccdf0d9f6d93cb85f4c2e2922372e50d9a62b3032bf36fe9f649739b4a7d4cc` |
+| 产物                          | 大小                    | SHA256                                                             |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.9.6-setup.exe`   | 133,573,567 B           | `459fe50bd660c654f6544b6dbf0d29f371f2ca2d742f80d62291e168666ff990` |
+| `StockLens-0.9.6-win-x64/`    | 410,518,089 B / 76 文件 | —                                                                  |
+| `StockLens-0.9.6-win-x64.zip` | 175,544,168 B           | `5ccdf0d9f6d93cb85f4c2e2922372e50d9a62b3032bf36fe9f649739b4a7d4cc` |
 
 安装/绿色/zip 均启动 `v0.9.6`；安装包内多股同列 3×3 验证通过。
 
@@ -719,11 +721,11 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.9.5-setup.exe` | 133,576,232 B | `3dc5824876ab439a96928c3cc10ae1f58d4b0027cacb8dee0fe0a8e5b317457d` |
-| `StockLens-0.9.5-win-x64/` | 410,495,551 B / 76 文件 | — |
-| `StockLens-0.9.5-win-x64.zip` | 175,539,117 B | `f42417b4b19544de4dd587ee466d16f358c83af0e3b72b69bd78d95b31116d1d` |
+| 产物                          | 大小                    | SHA256                                                             |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.9.5-setup.exe`   | 133,576,232 B           | `3dc5824876ab439a96928c3cc10ae1f58d4b0027cacb8dee0fe0a8e5b317457d` |
+| `StockLens-0.9.5-win-x64/`    | 410,495,551 B / 76 文件 | —                                                                  |
+| `StockLens-0.9.5-win-x64.zip` | 175,539,117 B           | `f42417b4b19544de4dd587ee466d16f358c83af0e3b72b69bd78d95b31116d1d` |
 
 安装包内市场列表 100 行完整（`v095-market.png`）；安装/绿色/zip 均显示 `v0.9.5`。
 
@@ -768,10 +770,10 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### 产物（2026-11-01 实机）
 
-| 产物 | 大小 | SHA256 |
-| --- | --- | --- |
-| `stocklens-0.9.4-setup.exe` | 133.6 MB（133,576,539 B） | `06c8e9e338f558dd1fcf17f2668aeeb60d043b6e58605c976dde7fafe9d25106` |
-| `StockLens-0.9.4-win-x64/` | 410.5 MB / 76 文件 | — |
+| 产物                          | 大小                      | SHA256                                                             |
+| ----------------------------- | ------------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.9.4-setup.exe`   | 133.6 MB（133,576,539 B） | `06c8e9e338f558dd1fcf17f2668aeeb60d043b6e58605c976dde7fafe9d25106` |
+| `StockLens-0.9.4-win-x64/`    | 410.5 MB / 76 文件        | —                                                                  |
 | `StockLens-0.9.4-win-x64.zip` | 175.5 MB（175,539,157 B） | `d62e11fcb6e6237d0db59a56ead75aabbdca990b06c584f19bfbced58da9d17c` |
 
 - 安装包静默安装 → 启动 `v0.9.4`，F10 公司概况 24 行键值正常 → 静默卸载干净；

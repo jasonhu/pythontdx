@@ -129,7 +129,12 @@ npm run build:mac:all       # 散装 .app + dmg（每次版本更新后的验证
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
-> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02 实机打包验收（0.9.0 ~ 0.14.4 见 `docs/07` 第十一至二十八、三十一至三十七节；0.14.4 散装 app + dmg 仅本地验证，不发 Release）。macOS 只支持 Apple Silicon，不维护 Intel 版（2026-11-02 用户决定）。
+> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。
+> 构建/测试环境：**Windows 10 22H2 x64、macOS 27.2 arm64、Ubuntu 26.04.1 x64**。
+> 自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02
+> 实机打包验收（0.9.0 ~ 0.14.4 见 `docs/07` 第十一至二十八、三十一至三十七节；
+> 0.14.4 散装 app + dmg 仅本地验证，不发 Release）。macOS 只支持 Apple Silicon，
+> 不维护 Intel 版（2026-11-02 用户决定）。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 

@@ -62,14 +62,59 @@ interface SidebarProps {
  *
  * 和自选股行不同，这里没有拖拽和删除：成分股是板块数据，不是用户维护的列表。
  */
-function SectorRow(props: { code: string; name: string; onPick: () => void }): JSX.Element {
+function SectorRow(props: {
+  code: string
+  name: string
+  onPick: () => void
+  index?: number
+  groupId?: string
+}): JSX.Element {
   const quote = (): Quote | undefined => quoteOf(props.code)
   const tone = (): string => toneOf(quote()?.changePct)
+  const [dropSide, setDropSide] = createSignal<'before' | 'after' | null>(null)
+  const canDrag = (): boolean => Boolean(props.groupId)
   return (
     <button
       class="sector-row"
+      classList={{
+        'sector-row--dragging': draggingCode() === props.code,
+        'sector-row--drop-before': dropSide() === 'before',
+        'sector-row--drop-after': dropSide() === 'after'
+      }}
       data-active={appState.activeCode === props.code}
-      title={`${props.name} ${props.code.toUpperCase()}`}
+      title={`${props.name} ${props.code.toUpperCase()}${canDrag() ? '（可拖拽排序）' : ''}`}
+      draggable={canDrag()}
+      onDragStart={(event) => {
+        if (!canDrag()) return
+        setDraggingCode(props.code)
+        event.dataTransfer?.setData('text/plain', props.code)
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+      }}
+      onDragOver={(event) => {
+        if (!canDrag() || !draggingCode() || draggingCode() === props.code) return
+        event.preventDefault()
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+        const rect = event.currentTarget.getBoundingClientRect()
+        setDropSide(event.clientY < rect.top + rect.height / 2 ? 'before' : 'after')
+      }}
+      onDragLeave={() => setDropSide(null)}
+      onDrop={(event) => {
+        if (!canDrag()) return
+        event.preventDefault()
+        event.stopPropagation()
+        const code = draggingCode() ?? event.dataTransfer?.getData('text/plain')
+        const groupId = props.groupId
+        const index = props.index
+        const side = dropSide()
+        setDropSide(null)
+        setDraggingCode(null)
+        if (!code || code === props.code || !groupId || index === undefined) return
+        moveWatchItem(code, groupId, side === 'after' ? index + 1 : index)
+      }}
+      onDragEnd={() => {
+        setDropSide(null)
+        setDraggingCode(null)
+      }}
       onClick={() => props.onPick()}
       onContextMenu={(event) => openStockMenu(event, { code: props.code, name: props.name })}
     >
@@ -207,7 +252,16 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     const group = appState.groups.find((item) => item.id === selection.groupId)
     return group ? groupSelection(group) : selection
   })
-  const customRows = createMemo(() => rankRows(customBoard()))
+  // 自定义板块按添加顺序展示（与多股同列一致），不按涨跌幅重排
+  const customRows = createMemo(() => {
+    const selection = customBoard()
+    if (!selection) return []
+    return selection.codes.map((code) => ({
+      code,
+      name: selection.names[code] || quoteOf(code)?.name || code,
+      quote: quoteOf(code)
+    }))
+  })
   /** 「自定义板块」= 除自选之外的所有分组；自选那一组不再以分组形式出现 */
   const customGroups = createMemo(() =>
     appState.groups.filter((group) => group.id !== defaultGroup()?.id)
@@ -486,8 +540,14 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             }
           >
             <For each={customRows()}>
-              {(row) => (
-                <SectorRow code={row.code} name={row.name} onPick={() => setActiveCode(row.code)} />
+              {(row, index) => (
+                <SectorRow
+                  code={row.code}
+                  name={row.name}
+                  index={index()}
+                  groupId={customBoard()?.groupId}
+                  onPick={() => setActiveCode(row.code)}
+                />
               )}
             </For>
           </Show>

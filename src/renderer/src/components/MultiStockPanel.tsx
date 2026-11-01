@@ -10,7 +10,7 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { KLineBar, KLinePeriod, MinuteTrend } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
-import { appState } from '../stores/app'
+import { appState, moveWatchItem } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -311,6 +311,8 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
   const [period, setPeriod] = createSignal<Period>('minute')
   const [zoom, setZoom] = createSignal(DEFAULT_ZOOM)
   const [page, setPage] = createSignal(0)
+  const [dragCode, setDragCode] = createSignal<string | null>(null)
+  const [dropIndex, setDropIndex] = createSignal<number | null>(null)
   const [sourceId, setSourceId] = createSignal(appState.activeGroupId)
   const [cards, setCards] = createSignal<Card[]>([])
   const [loading, setLoading] = createSignal(true)
@@ -379,6 +381,10 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
     // 来源 / 页码 / 周期变化时重新拉；load 内部 setPeriod 同一个值不会触发循环
     sourceId()
     page()
+    // 拖动排序后 items 顺序变化，需要重新铺九格
+    allItems()
+      .map((item) => item.code)
+      .join('|')
     void load(period())
   })
 
@@ -492,7 +498,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
               >
                 <div class="multi__grid">
                   <For each={cards()}>
-                    {(card) => {
+                    {(card, index) => {
                       const minutePoints = () => card.minute?.points ?? []
                       const lastPrice = () =>
                         period() === 'minute'
@@ -518,7 +524,42 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                       return (
                         <button
                           class="multi-card"
-                          classList={{ 'multi-card--down': changePct() < 0 }}
+                          classList={{
+                            'multi-card--down': changePct() < 0,
+                            'multi-card--dragging': dragCode() === card.code,
+                            'multi-card--drop': dropIndex() === index()
+                          }}
+                          draggable={true}
+                          title="拖动可调整多股同列顺序"
+                          onDragStart={(event) => {
+                            setDragCode(card.code)
+                            event.dataTransfer?.setData('text/plain', card.code)
+                            if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+                          }}
+                          onDragOver={(event) => {
+                            if (!dragCode() || dragCode() === card.code) return
+                            event.preventDefault()
+                            if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+                            setDropIndex(index())
+                          }}
+                          onDragLeave={() => {
+                            if (dropIndex() === index()) setDropIndex(null)
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            const code = dragCode() ?? event.dataTransfer?.getData('text/plain')
+                            const groupId = sourceGroup()?.id
+                            const target = page() * 9 + index()
+                            setDragCode(null)
+                            setDropIndex(null)
+                            if (!code || !groupId || code === card.code) return
+                            moveWatchItem(code, groupId, target)
+                          }}
+                          onDragEnd={() => {
+                            setDragCode(null)
+                            setDropIndex(null)
+                          }}
                           onClick={() => {
                             props.onSelect(card.code)
                             props.onClose()

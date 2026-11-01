@@ -1,9 +1,14 @@
 /**
- * 多股同列：6/9/12 格，来源可选自选或任自定义板块，可切换 60 根日 K / 当日分时。
+ * 多股同列：固定 3×3 九宫格，铺满窗口。
  *
- * 纯展示，不引入第二套数据源；点击卡片切换主图股票。
+ * 每一格都是真实 K 线（蜡烛 + 成交量 + MA5/10/20），不是收盘价折线：
+ *   · 9 张图共用同一个「可见根数」，↑ 放大、↓ 缩小，不需要先点某张图；
+ *   · 窗口永远贴住最后一根 K 线，右侧就是最新时间；
+ *   · 周期只放基础档：日/周/月/60/30/15/5/1 分钟。
+ * 纯展示，不引入第二套数据源。
  */
-import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import type { KLineBar, KLinePeriod } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
 import { appState } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
@@ -14,121 +19,262 @@ interface MultiStockPanelProps {
   onSelect: (code: string) => void
 }
 
-type Mode = 'day' | 'minute'
+type Period = 'day' | 'week' | 'month' | '60m' | '30m' | '15m' | '5m' | '1m'
+
+const PERIODS: Array<{ key: Period; label: string }> = [
+  { key: 'day', label: '日K' },
+  { key: 'week', label: '周K' },
+  { key: 'month', label: '月K' },
+  { key: '60m', label: '60分' },
+  { key: '30m', label: '30分' },
+  { key: '15m', label: '15分' },
+  { key: '5m', label: '5分' },
+  { key: '1m', label: '1分' }
+]
+
+/** 可见根数档位：↑ 往前一档（放大），↓ 往后一档（缩小） */
+const ZOOM_LEVELS = [20, 26, 32, 40, 50, 60, 80, 100, 120, 160, 200, 260]
+const DEFAULT_ZOOM = 5
+const FETCH_COUNT = 320
 
 interface Card {
   code: string
   name: string
-  path: string
-  changePct: number
-  close: number
-  date: string
-  hasData: boolean
+  market: string
+  bars: KLineBar[]
   error?: string
 }
 
-const W = 240
-const H = 70
-const PAD = 5
+interface MiniKlineProps {
+  bars: KLineBar[]
+  count: number
+}
 
-function sparkline(values: number[]): string {
-  if (values.length < 2) return ''
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  return values
-    .map((value, index) => {
-      const x = PAD + (index / (values.length - 1)) * (W - PAD * 2)
-      const y = H - PAD - ((value - min) / span) * (H - PAD * 2)
-      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`
+const W = 320
+const H = 176
+const PAD = 6
+const PRICE_H = 118
+const VOL_TOP = 128
+const VOL_H = 40
+
+/** 小图内部的均线，不依赖全局设置，保证 9 张图一致 */
+const MA_PERIODS = [5, 10, 20] as const
+const MA_COLORS: Record<number, string> = { 5: '#f0b429', 10: '#5b8cff', 20: '#c084fc' }
+
+function movingAveragePath(
+  bars: KLineBar[],
+  start: number,
+  end: number,
+  period: number,
+  yOf: (price: number) => number,
+  xOf: (index: number) => number
+): string {
+  const points: string[] = []
+  for (let index = start; index < end; index += 1) {
+    if (index + 1 < period) continue
+    let sum = 0
+    for (let back = 0; back < period; back += 1) sum += bars[index - back]?.close ?? 0
+    points.push(
+      `${points.length === 0 ? 'M' : 'L'}${xOf(index).toFixed(1)} ${yOf(sum / period).toFixed(1)}`
+    )
+  }
+  return points.join(' ')
+}
+
+/** 单格 K 线：蜡烛 + 量 + 三条均线，窗口右对齐到最新一根 */
+function MiniKline(props: MiniKlineProps): JSX.Element {
+  const view = () => {
+    const bars = props.bars
+    if (bars.length === 0) return null
+    const count = Math.max(4, Math.min(props.count, bars.length))
+    const start = bars.length - count
+    const end = bars.length
+    const visible = bars.slice(start, end)
+    let min = Infinity
+    let max = -Infinity
+    let volMax = 0
+    for (const bar of visible) {
+      if (bar.low < min) min = bar.low
+      if (bar.high > max) max = bar.high
+      if (bar.volume > volMax) volMax = bar.volume
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+    const span = max - min || Math.max(1, max * 0.01)
+    const step = (W - PAD * 2) / visible.length
+    const body = Math.max(1, step * 0.62)
+    const yOf = (price: number): number => PAD + (1 - (price - min) / span) * (PRICE_H - PAD * 2)
+    const xOf = (index: number): number => PAD + (index - start + 0.5) * step
+    const candles = visible.map((bar, offset) => {
+      const index = start + offset
+      const x = xOf(index)
+      const up = bar.close >= bar.open
+      const top = yOf(Math.max(bar.open, bar.close))
+      const bottom = yOf(Math.min(bar.open, bar.close))
+      return {
+        x,
+        wickTop: yOf(bar.high),
+        wickBottom: yOf(bar.low),
+        bodyTop: top,
+        height: Math.max(1, bottom - top),
+        up,
+        volume: bar.volume
+      }
     })
-    .join(' ')
+    const maPaths = MA_PERIODS.map((period) => ({
+      period,
+      d: movingAveragePath(bars, start, end, period, yOf, xOf)
+    })).filter((item) => item.d.length > 0)
+    return { start, end, visible, min, max, volMax, step, body, yOf, xOf, candles, maPaths }
+  }
+
+  return (
+    <Show when={view()} fallback={<div class="multi-card__state">暂无 K 线</div>}>
+      {(data) => (
+        <svg
+          class="multi-card__kline"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <For each={[0.25, 0.5, 0.75]}>
+            {(ratio) => (
+              <line
+                x1={PAD}
+                x2={W - PAD}
+                y1={PAD + ratio * (PRICE_H - PAD * 2)}
+                y2={PAD + ratio * (PRICE_H - PAD * 2)}
+                class="multi-kline__grid"
+              />
+            )}
+          </For>
+          <For each={data().candles}>
+            {(candle) => (
+              <g classList={{ 'multi-kline__up': candle.up, 'multi-kline__down': !candle.up }}>
+                <line
+                  x1={candle.x}
+                  x2={candle.x}
+                  y1={candle.wickTop}
+                  y2={candle.wickBottom}
+                  class="multi-kline__wick"
+                />
+                <rect
+                  x={candle.x - data().body / 2}
+                  y={candle.bodyTop}
+                  width={data().body}
+                  height={candle.height}
+                  class="multi-kline__body"
+                />
+              </g>
+            )}
+          </For>
+          <For each={data().maPaths}>
+            {(path) => (
+              <path
+                d={path.d}
+                fill="none"
+                stroke-width="1.1"
+                stroke={MA_COLORS[path.period]}
+                opacity="0.85"
+              />
+            )}
+          </For>
+          <For each={data().candles}>
+            {(candle) => (
+              <rect
+                x={candle.x - data().body / 2}
+                y={VOL_TOP + VOL_H - (candle.volume / (data().volMax || 1)) * VOL_H}
+                width={data().body}
+                height={Math.max(1, (candle.volume / (data().volMax || 1)) * VOL_H)}
+                classList={{
+                  'multi-kline__volume-up': candle.up,
+                  'multi-kline__volume-down': !candle.up
+                }}
+              />
+            )}
+          </For>
+        </svg>
+      )}
+    </Show>
+  )
 }
 
 export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
-  const [mode, setMode] = createSignal<Mode>('day')
-  const [maxCards, setMaxCards] = createSignal(9)
+  const [period, setPeriod] = createSignal<Period>('day')
+  const [zoom, setZoom] = createSignal(DEFAULT_ZOOM)
   const [sourceId, setSourceId] = createSignal(appState.activeGroupId)
-  const sourceGroup = () => appState.groups.find((group) => group.id === sourceId()) ?? appState.groups[0]
-  const sourceItems = () => sourceGroup()?.items ?? []
   const [cards, setCards] = createSignal<Card[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
 
-  const load = async (nextMode: Mode): Promise<void> => {
+  const sourceGroup = () =>
+    appState.groups.find((group) => group.id === sourceId()) ?? appState.groups[0]
+  const sourceItems = () => (sourceGroup()?.items ?? []).slice(0, 9)
+  const count = () => ZOOM_LEVELS[zoom()] ?? 60
+
+  const load = async (nextPeriod: Period): Promise<void> => {
     const current = ++requestId
-    setMode(nextMode)
+    setPeriod(nextPeriod)
     setLoading(true)
     setError(null)
-    const items = sourceItems().slice(0, maxCards())
-    try {
-      const loaded = await Promise.all(
-        items.map(async (item): Promise<Card> => {
-          try {
-            if (nextMode === 'day') {
-              const series = await api.trend.kline({ code: item.code, period: 'day', count: 60 })
-              const bars = series.bars
-              const last = bars[bars.length - 1]
-              const previous = bars[bars.length - 2]
-              const close = last?.close ?? 0
-              const changePct =
-                previous && previous.close !== 0
-                  ? ((close - previous.close) / previous.close) * 100
-                  : 0
-              return {
-                code: item.code,
-                name: item.name,
-                path: sparkline(bars.map((bar) => bar.close)),
-                changePct,
-                close,
-                date: last?.date ?? '',
-                hasData: bars.length > 0
-              }
-            }
-            const trend = await api.trend.minute(item.code)
-            const points = trend.points
-            const close = points[points.length - 1]?.price ?? 0
-            const changePct =
-              trend.prevClose !== 0 ? ((close - trend.prevClose) / trend.prevClose) * 100 : 0
-            return {
-              code: item.code,
-              name: item.name,
-              path: sparkline(points.map((point) => point.price)),
-              changePct,
-              close,
-              date: trend.date,
-              hasData: points.length > 0
-            }
-          } catch (cause) {
-            return {
-              code: item.code,
-              name: item.name,
-              path: '',
-              changePct: 0,
-              close: 0,
-              date: '',
-              hasData: false,
-              error: errorMessage(cause)
-            }
-          }
-        })
-      )
-      if (current === requestId) setCards(loaded)
-    } catch (cause) {
-      if (current === requestId) setError(errorMessage(cause))
-    } finally {
-      if (current === requestId) setLoading(false)
+    const items = sourceItems()
+    if (items.length === 0) {
+      setCards([])
+      setLoading(false)
+      return
     }
+    const loaded = await Promise.all(
+      items.map(async (item): Promise<Card> => {
+        try {
+          const series = await api.trend.kline({
+            code: item.code,
+            period: nextPeriod as KLinePeriod,
+            count: FETCH_COUNT
+          })
+          return {
+            code: item.code,
+            name: item.name,
+            market: item.market,
+            bars: series.bars
+          }
+        } catch (cause) {
+          return {
+            code: item.code,
+            name: item.name,
+            market: item.market,
+            bars: [],
+            error: errorMessage(cause)
+          }
+        }
+      })
+    )
+    if (current !== requestId) return
+    setCards(loaded)
+    setLoading(false)
   }
+
+  createEffect(() => {
+    // 来源变化时重新拉一遍
+    sourceId()
+    void load(period())
+  })
 
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') props.onClose()
+      if (event.key === 'Escape') {
+        props.onClose()
+        return
+      }
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+      event.preventDefault()
+      setZoom((value) => {
+        const next = event.key === 'ArrowUp' ? value - 1 : value + 1
+        return Math.max(0, Math.min(ZOOM_LEVELS.length - 1, next))
+      })
     }
+    // 缩放窗口在面板级别监听：9 张图同步，不需要先聚焦某一张
     window.addEventListener('keydown', onKeyDown)
     onCleanup(() => window.removeEventListener('keydown', onKeyDown))
-    void load('day')
   })
 
   return (
@@ -141,57 +287,36 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         onClick={(event) => event.stopPropagation()}
       >
         <header class="multi__head">
-          <div>
+          <div class="multi__titles">
             <div class="multi__eyebrow">
-              {mode() === 'day' ? '60 根日 K' : '当日分时'} · {sourceGroup()?.name ?? '自选'}
+              九宫格 · {count()} 根 · {sourceGroup()?.name ?? '自选'}
             </div>
             <h2 class="multi__title">多股同列</h2>
-          </div>
-          <div class="multi__modes">
-            <button
-              class="multi__mode"
-              data-active={mode() === 'day'}
-              onClick={() => void load('day')}
-            >
-              日 K
-            </button>
-            <button
-              class="multi__mode multi-minute-tab"
-              data-active={mode() === 'minute'}
-              onClick={() => void load('minute')}
-            >
-              分时
-            </button>
           </div>
           <select
             class="multi__source"
             aria-label="多股同列来源"
             value={sourceId()}
-            onChange={(event) => {
-              setSourceId(event.currentTarget.value)
-              void load(mode())
-            }}
+            onChange={(event) => setSourceId(event.currentTarget.value)}
           >
             <For each={appState.groups}>
               {(group) => <option value={group.id}>{group.name}</option>}
             </For>
           </select>
-          <div class="multi__limits">
-            <For each={[6, 9, 12]}>
-              {(count) => (
+          <div class="multi__periods" role="tablist" aria-label="K 线周期">
+            <For each={PERIODS}>
+              {(item) => (
                 <button
-                  class={`multi__mode multi-limit-${count}`}
-                  data-active={maxCards() === count}
-                  onClick={() => {
-                    setMaxCards(count)
-                    void load(mode())
-                  }}
+                  class={`multi__mode multi-period-${item.key}`}
+                  data-active={period() === item.key}
+                  onClick={() => setPeriod(item.key)}
                 >
-                  {count} 格
+                  {item.label}
                 </button>
               )}
             </For>
           </div>
+          <span class="multi__hint">↑↓ 缩放</span>
           <button
             class="btn btn--icon btn--bare"
             title="关闭多股同列"
@@ -202,61 +327,62 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         </header>
 
         <div class="multi__body">
-          <Show
-            when={!loading()}
-            fallback={
-              <div class="multi__empty">加载 {Math.min(sourceItems().length, maxCards())} 只…</div>
-            }
-          >
+          <Show when={!loading()} fallback={<div class="multi__empty">加载 9 只 K 线…</div>}>
             <Show when={!error()} fallback={<div class="multi__error">{error()}</div>}>
               <Show
                 when={cards().length > 0}
                 fallback={<div class="multi__empty">这个分组没有股票</div>}
               >
-                <div
-                  class="multi__grid"
-                  classList={{ 'multi__grid--12': maxCards() === 12 }}
-                >
+                <div class="multi__grid">
                   <For each={cards()}>
-                    {(card) => (
-                      <button
-                        class="multi-card"
-                        classList={{ 'multi-card--down': card.changePct < 0 }}
-                        onClick={() => {
-                          props.onSelect(card.code)
-                          props.onClose()
-                        }}
-                      >
-                        <div class="multi-card__head">
-                          <span class="multi-card__name">{card.name}</span>
-                          <span class="multi-card__code num">{card.code.toUpperCase()}</span>
-                        </div>
-                        <Show
-                          when={card.hasData}
-                          fallback={<div class="multi-card__error">{card.error ?? '暂无数据'}</div>}
+                    {(card) => {
+                      const last = () => card.bars[card.bars.length - 1]
+                      const changePct = () => {
+                        const bars = card.bars
+                        const tail = bars[bars.length - 1]
+                        const prev = bars[bars.length - 2]
+                        if (!tail || !prev || prev.close === 0) return 0
+                        return ((tail.close - prev.close) / prev.close) * 100
+                      }
+                      return (
+                        <button
+                          class="multi-card"
+                          classList={{ 'multi-card--down': changePct() < 0 }}
+                          onClick={() => {
+                            props.onSelect(card.code)
+                            props.onClose()
+                          }}
                         >
-                          <svg
-                            viewBox={`0 0 ${W} ${H}`}
-                            class="multi-card__spark"
-                            aria-hidden="true"
-                          >
-                            <path d={card.path} />
-                          </svg>
+                          <div class="multi-card__head">
+                            <span class="multi-card__name">{card.name}</span>
+                            <span class="multi-card__code num">{card.code.toUpperCase()}</span>
+                          </div>
+                          <div class="multi-card__chart">
+                            <Show
+                              when={card.bars.length > 0}
+                              fallback={
+                                <div class="multi-card__state">{card.error ?? '暂无 K 线'}</div>
+                              }
+                            >
+                              <MiniKline bars={card.bars} count={count()} />
+                            </Show>
+                          </div>
                           <div class="multi-card__foot">
-                            <span class="num">{fixed(card.close)}</span>
+                            <span class="multi-card__price num">{fixed(last()?.close ?? 0)}</span>
                             <span
+                              class="num"
                               classList={{
-                                'tone-down': card.changePct < 0,
-                                'tone-up': card.changePct > 0
+                                'tone-up': changePct() > 0,
+                                'tone-down': changePct() < 0
                               }}
                             >
-                              {signedPct(card.changePct)}
+                              {signedPct(changePct())}
                             </span>
-                            <span>{card.date}</span>
+                            <span class="multi-card__date">{last()?.date ?? ''}</span>
                           </div>
-                        </Show>
-                      </button>
-                    )}
+                        </button>
+                      )
+                    }}
                   </For>
                 </div>
               </Show>
@@ -265,10 +391,8 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         </div>
 
         <footer class="multi__foot">
-          <span>点击卡片切换主图</span>
-          <span>
-            最多 {maxCards()} 只 · {mode() === 'day' ? '0x052d 日 K' : '当日分时'}
-          </span>
+          <span>点击卡片切换主图 · ↑ 放大 / ↓ 缩小，9 张同步</span>
+          <span>周期：{PERIODS.find((item) => item.key === period())?.label}</span>
         </footer>
       </section>
     </div>

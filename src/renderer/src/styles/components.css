@@ -7408,3 +7408,216 @@
   height: min(var(--panel-h), calc(100vh - 64px));
   max-height: min(var(--panel-h), calc(100vh - 64px));
 }
+
+/* --------------------------------------------------------------------------
+ * 0.9.6：股票列表统一列宽/对齐（全市场 / 板块 / 排行榜）
+ * 代码 + 名称占左侧，数值列固定宽度靠右，走势固定 58px；名称吃掉剩余宽度，
+ * 不再让浏览器把多余空间平均摊到每个数字列之间。
+ * ------------------------------------------------------------------------ */
+.market__table,
+.block__table,
+.ranking__table {
+  table-layout: fixed;
+  margin: 0 auto;
+}
+
+.market__table {
+  width: 1000px;
+  max-width: 100%;
+}
+
+.block__table {
+  width: 900px;
+  max-width: 100%;
+}
+
+.ranking__table {
+  width: 1000px;
+  max-width: 100%;
+}
+
+.market__table th,
+.market__table td,
+.block__table th,
+.block__table td,
+.ranking__table th,
+.ranking__table td {
+  padding: 6px 10px;
+  height: 36px;
+  vertical-align: middle;
+}
+
+.market__table td:nth-child(1),
+.block__table td:nth-child(1),
+.ranking__table td:nth-child(2) {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.market__table td:nth-child(2),
+.block__table td:nth-child(2),
+.ranking__table td:nth-child(3) {
+  overflow: hidden;
+  color: var(--text-1);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.market__table td:nth-child(3),
+.market__table td:nth-child(4),
+.block__table td:nth-child(3),
+.ranking__table td:nth-child(4) {
+  color: var(--text-3);
+  text-align: center;
+}
+
+.ranking__table td:nth-child(3) {
+  color: var(--text-1);
+}
+
+.ranking__spark-head,
+.ranking__spark-cell {
+  width: 58px;
+}
+
+.ranking__spark-cell .sparkline {
+  display: block;
+  margin-left: auto;
+}
+
+/* --------------------------------------------------------------------------
+ * 0.9.6：多股同列固定 3×3，K 线铺满每一格
+ * ------------------------------------------------------------------------ */
+.multi-panel {
+  width: min(var(--panel-w), calc(100vw - 64px));
+  max-width: min(var(--panel-w), calc(100vw - 64px));
+  height: min(var(--panel-h), calc(100vh - 64px));
+  max-height: min(var(--panel-h), calc(100vh - 64px));
+}
+
+.multi__head {
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 12px 18px;
+}
+
+.multi__head > div:first-child {
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+
+.multi__periods {
+  display: flex;
+  flex: none;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.multi__periods .multi__mode {
+  padding: 3px 7px;
+}
+
+.multi__hint {
+  flex: none;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
+.multi__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.multi__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+}
+
+.multi-card {
+  gap: 3px;
+  min-height: 0;
+  height: 100%;
+  padding: 6px 9px 4px;
+  overflow: hidden;
+}
+
+.multi-card__head {
+  flex: none;
+}
+
+.multi-card__chart {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.multi-card__kline {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.multi-card__state {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.multi-kline__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.multi-kline__wick {
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.multi-kline__body {
+  fill: currentColor;
+}
+
+.multi-kline__up {
+  color: var(--up);
+}
+
+.multi-kline__down {
+  color: var(--down);
+}
+
+.multi-kline__volume-up {
+  fill: var(--up);
+  opacity: 0.45;
+}
+
+.multi-kline__volume-down {
+  fill: var(--down);
+  opacity: 0.45;
+}
+
+.multi-card__foot {
+  flex: none;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.multi-card__date {
+  margin-left: auto;
+}

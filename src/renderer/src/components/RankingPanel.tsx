@@ -16,9 +16,11 @@ import {
   mergeMoneyFlowRanking
 } from '@shared/ranking'
 import { api, errorMessage } from '../lib/ipc'
+import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
 import { openStockMenu } from '../stores/stockMenu'
 import { subscribePush } from '../lib/push'
 import { IconClose } from './Icons'
+import { Sparkline } from './Sparkline'
 
 interface RankingPanelProps {
   onClose: () => void
@@ -98,6 +100,38 @@ const SORTS: SortTab[] = [
 export function RankingPanel(props: RankingPanelProps): JSX.Element {
   const [sort, setSort] = createSignal(SORTS[0])
   const [rows, setRows] = createSignal<CategoryQuote[]>([])
+  createSparklineLoader(() => rows().slice(0, 80).map((quote) => quote.code))
+  /**
+   * 0x054b 不返回量比；用一次 MAC 批量报价补齐缺字段（只补空值，不覆盖原数据）。
+   * 同一批代码只补一次，避免 setRows 触发循环。
+   */
+  let enrichedKey = ''
+  createEffect(() => {
+    const list = rows()
+    if (list.length === 0) return
+    if (list.every((quote) => quote.volumeRatio !== undefined)) return
+    const key = list.map((quote) => quote.code).join(',')
+    if (key === enrichedKey) return
+    enrichedKey = key
+    void api.quote
+      .macQuotes(list.map((quote) => quote.code))
+      .then((mac) => {
+        const extra = new Map(mac.map((quote) => [quote.code, quote]))
+        setRows((previous) =>
+          previous.map((quote) => {
+            const more = extra.get(quote.code)
+            if (!more) return quote
+            return {
+              ...quote,
+              turnoverRate: quote.turnoverRate ?? more.turnoverRate,
+              volumeRatio: quote.volumeRatio ?? more.volumeRatio,
+              riseSpeed: quote.riseSpeed ?? more.riseSpeed
+            }
+          })
+        )
+      })
+      .catch(() => undefined)
+  })
   const [loading, setLoading] = createSignal(true)
   const [loadingMore, setLoadingMore] = createSignal(false)
   const [expanded, setExpanded] = createSignal(false)
@@ -381,14 +415,38 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
 
         <div class="ranking__table-wrap">
           <table class="ranking__table">
+            <colgroup>
+              <col style="width: 48px" />
+              <col style="width: 86px" />
+              <col style="width: 170px" />
+              <col style="width: 54px" />
+              <col style="width: 84px" />
+              <col style="width: 84px" />
+              <col style="width: 96px" />
+              <col style="width: 70px" />
+              <col style="width: 62px" />
+              <col style="width: 74px" />
+              <Show when={flowMode()}>
+                <col style="width: 110px" />
+              </Show>
+              <col style="width: 58px" />
+            </colgroup>
             <thead>
               <tr>
                 <th class="ranking__rank">#</th>
-                <th>代码 / 名称</th>
+                <th>代码</th>
+                <th>名称</th>
+                <th>市场</th>
                 <th class="ranking__num">现价</th>
                 <th class="ranking__num">涨幅</th>
                 <th class="ranking__num">成交额</th>
-                <th class="ranking__num">{flowMode() ? '主力净额 / 占比' : sort().label}</th>
+                <th class="ranking__num">换手</th>
+                <th class="ranking__num">量比</th>
+                <th class="ranking__num">涨速</th>
+                <Show when={flowMode()}>
+                  <th class="ranking__num">主力净额 / 占比</th>
+                </Show>
+                <th class="ranking__num ranking__spark-head">走势</th>
               </tr>
             </thead>
             <tbody>
@@ -402,10 +460,9 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                     }
                   >
                     <td class="ranking__rank num">{index() + 1}</td>
-                    <td>
-                      <div class="ranking__name">{quote.name}</div>
-                      <div class="ranking__code num">{quote.code.toUpperCase()}</div>
-                    </td>
+                    <td class="ranking__code num">{quote.code.toUpperCase()}</td>
+                    <td class="ranking__name">{quote.name}</td>
+                    <td class="ranking__market">{quote.market ?? '—'}</td>
                     <td class="ranking__num num">{fixed(quote.price)}</td>
                     <td
                       class="ranking__num num"
@@ -417,14 +474,44 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                       {signedPct(quote.changePct)}
                     </td>
                     <td class="ranking__num num">{compactAmount(quote.amount)}</td>
-                    <td
-                      class="ranking__num num"
-                      classList={{
-                        'tone-up': flowMode() && (quote.mainNet ?? 0) > 0,
-                        'tone-down': flowMode() && (quote.mainNet ?? 0) < 0
-                      }}
-                    >
-                      {metricText(quote, sort())}
+                    <td class="ranking__num num">
+                      {quote.turnoverRate !== undefined
+                        ? `${quote.turnoverRate.toFixed(2)}%`
+                        : '—'}
+                    </td>
+                    <td class="ranking__num num">
+                      {quote.volumeRatio !== undefined ? quote.volumeRatio.toFixed(2) : '—'}
+                    </td>
+                    <td class="ranking__num num">
+                      {quote.riseSpeed !== undefined
+                        ? `${quote.riseSpeed.toFixed(2)}%`
+                        : '—'}
+                    </td>
+                    <Show when={flowMode()}>
+                      <td
+                        class="ranking__num num"
+                        classList={{
+                          'tone-up': (quote.mainNet ?? 0) > 0,
+                          'tone-down': (quote.mainNet ?? 0) < 0
+                        }}
+                      >
+                        {metricText(quote, sort())}
+                      </td>
+                    </Show>
+                    <td class="ranking__num ranking__spark-cell">
+                      <Show
+                        when={sparklineOf(quote.code)}
+                        fallback={<span class="ranking__spark-empty">—</span>}
+                      >
+                        {(data) => (
+                          <Sparkline
+                            values={data().values}
+                            baseline={data().prevClose}
+                            width={46}
+                            height={20}
+                          />
+                        )}
+                      </Show>
                     </td>
                   </tr>
                 )}

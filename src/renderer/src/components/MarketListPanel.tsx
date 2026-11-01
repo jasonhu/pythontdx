@@ -322,6 +322,19 @@ export function MarketListPanel(props: {
 
         <div class="market__table-wrap">
           <table class="market__table">
+            <colgroup>
+              <col style="width: 86px" />
+              <col style="width: 170px" />
+              <col style="width: 54px" />
+              <col style="width: 64px" />
+              <col style="width: 84px" />
+              <col style="width: 84px" />
+              <col style="width: 96px" />
+              <col style="width: 70px" />
+              <col style="width: 62px" />
+              <col style="width: 74px" />
+              <col style="width: 58px" />
+            </colgroup>
             <thead>
               <tr>
                 <th>代码</th>

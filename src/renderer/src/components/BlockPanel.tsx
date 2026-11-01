@@ -237,9 +237,23 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                   </Show>
                   <div class="block__table-wrap">
                     <table class="block__table">
+                      <colgroup>
+                        <col style="width: 86px" />
+                        <col />
+                        <col style="width: 54px" />
+                        <col style="width: 84px" />
+                        <col style="width: 84px" />
+                        <col style="width: 96px" />
+                        <col style="width: 70px" />
+                        <col style="width: 62px" />
+                        <col style="width: 74px" />
+                        <col style="width: 58px" />
+                      </colgroup>
                       <thead>
                         <tr>
-                          <th>代码 / 名称</th>
+                          <th>代码</th>
+                          <th>名称</th>
+                          <th>市场</th>
                           <th class="num">现价</th>
                           <th class="num">涨幅</th>
                           <th class="num">成交额</th>
@@ -268,12 +282,9 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                                   })
                                 }
                               >
-                                <td>
-                                  <div class="block__stock-name">
-                                    {quote()?.name ?? block().names[code] ?? code}
-                                  </div>
-                                  <div class="block__stock-code num">{code.toUpperCase()}</div>
-                                </td>
+                                <td class="num block__code-cell">{code.toUpperCase()}</td>
+                                <td>{quote()?.name ?? block().names[code] ?? code}</td>
+                                <td class="block__market">{quote()?.market ?? '—'}</td>
                                 <td class="num">{quote() ? fixed(quote()!.price) : '—'}</td>
                                 <td
                                   class="num"

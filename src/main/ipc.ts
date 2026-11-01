@@ -22,7 +22,6 @@ import type { AppStore } from './services/store'
 import {
   createChartWindow,
   createSecondaryWindow,
-  createServerWindow,
   listDisplays,
   moveWindowToDisplay
 } from './window'
@@ -139,9 +138,9 @@ export function registerIpcHandlers(context: IpcContext): void {
     fetchMacMoneyFlowBatch(codes, workers)
   )
 
+  ipcMain.handle(IPC.macBoards, (_event, boardType?: number) => fetchMacBoards(boardType))
   ipcMain.handle(IPC.macUnusual, (_event, count?: number) => fetchMacUnusual(count))
 
-  ipcMain.handle(IPC.macBoards, (_event, boardType?: number) => fetchMacBoards(boardType))
 
   ipcMain.handle(IPC.auctionSeries, (_event, code: string, date?: string) =>
     fetchAuctions(code, date)
@@ -420,10 +419,6 @@ export function registerIpcHandlers(context: IpcContext): void {
       bounds: store.secondaryBounds,
       onBoundsChange: (bounds) => store.saveSecondaryBounds(bounds)
     })
-  })
-
-  ipcMain.handle(IPC.windowServers, () => {
-    createServerWindow()
   })
 
   ipcMain.handle(IPC.windowDisplays, (event) => {

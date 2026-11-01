@@ -217,6 +217,7 @@ export function MarketListPanel(props: {
     if (key !== quoteKey) {
       quoteKey = key
       loadedCount = 0
+      requestId += 1
       setQuotes([])
       if (limit() !== PAGE_SIZE) {
         setLimit(PAGE_SIZE)

@@ -7,7 +7,6 @@
 import { render } from 'solid-js/web'
 import App from './App'
 import { DetachedChart } from './components/DetachedChart'
-import { ServerWindow } from './components/ServerWindow'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
@@ -20,18 +19,12 @@ if (!container) {
 
 const params = new URLSearchParams(window.location.search)
 const detached = params.get('detached')
-// 独立窗口（行情服务器/分时图）不套主窗口的最小尺寸，避免被撑出横向滚动条
+// 独立分时图窗口不套主窗口的最小尺寸，避免被撑出横向滚动条
 document.documentElement.dataset.window = detached ?? 'main'
 const detachedCode = detached === 'chart' ? params.get('code') : null
 
 render(
   () =>
-    detachedCode ? (
-      <DetachedChart code={detachedCode} />
-    ) : detached === 'servers' ? (
-      <ServerWindow />
-    ) : (
-      <App />
-    ),
+    detachedCode ? <DetachedChart code={detachedCode} /> : <App />,
   container
 )

@@ -187,62 +187,6 @@ export function createSecondaryWindow(
   return window
 }
 
-let serverWindow: BrowserWindow | null = null
-
-/** 独立行情服务器窗口：测速、选择、持久化，不改主窗口状态。 */
-export function createServerWindow(): BrowserWindow {
-  if (serverWindow && !serverWindow.isDestroyed()) {
-    serverWindow.show()
-    serverWindow.focus()
-    return serverWindow
-  }
-  const icon = resolveWindowIcon()
-  const child = new BrowserWindow({
-    width: 900,
-    height: 720,
-    minWidth: 760,
-    minHeight: 560,
-    title: 'StockLens · 行情服务器',
-    backgroundColor: BACKGROUND_COLOR,
-    autoHideMenuBar: true,
-    ...(icon ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      spellcheck: false
-    }
-  })
-  serverWindow = child
-  child.on('closed', () => {
-    if (serverWindow === child) serverWindow = null
-  })
-  child.once('ready-to-show', () => child.show())
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    const url = new URL(process.env['ELECTRON_RENDERER_URL'])
-    url.searchParams.set('detached', 'servers')
-    void child.loadURL(url.toString())
-  } else {
-    void child.loadFile(join(__dirname, '../renderer/index.html'), {
-      query: { detached: 'servers' }
-    })
-  }
-  const capturePath = process.env.STOCKLENS_CAPTURE_SERVERS
-  if (capturePath) {
-    child.webContents.once('did-finish-load', () => {
-      setTimeout(() => {
-        void child.webContents
-          .capturePage()
-          .then((image) => writeFile(capturePath, image.toPNG()))
-          .then(() => console.log(`[capture] 行情服务器截图：${capturePath}`))
-          .catch((error) => console.error('[capture] 行情服务器截图失败', error))
-      }, 7000)
-    })
-  }
-  return child
-}
-
 const chartWindows = new Set<BrowserWindow>()
 
 /** 独立 K 线窗口：同一套 preload/渲染层，只渲染 DetachedChart。 */

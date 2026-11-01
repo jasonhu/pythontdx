@@ -401,7 +401,7 @@ export function createHttpApi(): StockLensApi {
     },
     mac: {
       unusual: (count) => post<MacUnusualItem[]>('/api/mac_unusual', { count }),
-      boards: (boardType) => post<MacBoard[]>('/api/mac_boards', { boardType })
+      boards: (boardType) => post<MacBoard[]>('/api/mac_boards', { boardType }),
     },
     auction: {
       series: (code, date) => post<AuctionPoint[]>('/api/auctions', { code, date }),
@@ -541,9 +541,6 @@ export function createHttpApi(): StockLensApi {
       },
       openSecondary: async () => {
         throw new Error('浏览器版不支持第二窗口')
-      },
-      openServers: async () => {
-        throw new Error('浏览器版请使用设置中的行情主站')
       },
       toggleAlwaysOnTop: async () => false,
       displays: async (): Promise<DisplayInfo[]> => [

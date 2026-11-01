@@ -1,14 +1,15 @@
 /**
- * 独立行情服务器窗口。
+ * 行情服务器弹层内容。
  *
  * 只负责测速、选择和持久化；不交易、不读账户、不碰授权数据。
+ * 由主窗口以弹层方式挂载，不再单独开原生窗口。
  */
-import { createMemo, createSignal, For, onMount, Show, type JSX } from 'solid-js'
+import { createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { ServerSpeedResult } from '@shared/types'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
-export function ServerWindow(props: { onClose?: () => void } = {}): JSX.Element {
+export function ServerWindow(props: { onClose: () => void }): JSX.Element {
   const [result, setResult] = createSignal<ServerSpeedResult | null>(null)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -55,6 +56,11 @@ export function ServerWindow(props: { onClose?: () => void } = {}): JSX.Element 
 
   onMount(() => {
     void run()
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') props.onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    onCleanup(() => window.removeEventListener('keydown', onKeyDown))
   })
 
   return (
@@ -74,7 +80,7 @@ export function ServerWindow(props: { onClose?: () => void } = {}): JSX.Element 
         <button
           class="btn btn--icon btn--bare server-page__close"
           title="关闭"
-          onClick={() => (props.onClose ? props.onClose() : window.close())}
+          onClick={() => props.onClose()}
         >
           <IconClose size={16} />
         </button>

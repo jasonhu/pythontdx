@@ -125,7 +125,7 @@ npm run build:win:setup     # 只要 NSIS 安装包
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
-> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。当前自动化只验证 Linux；Windows x64 已于 2026-11-01 实机打包验收（0.9.0 ~ 0.12.0 见 `docs/07` 第十一至二十五节），macOS 需在对应机器实机验收。
+> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。当前自动化只验证 Linux；Windows x64 已于 2026-11-01 实机打包验收（0.9.0 ~ 0.13.0 见 `docs/07` 第十一至二十六节），macOS 需在对应机器实机验收。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
@@ -172,8 +172,8 @@ docs/            说明文档（是什么、为什么）
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
 健康度 `npm run check` 全绿（295 个 TS 测试 + 158 个 Python 测试），
 2026-10-31 复核过构建、实机启动、包内资金流与公式多输出；
-2026-11-01 复核过 Windows x64 安装包 / 绿色包 / zip（0.9.0 ~ 0.12.0 见
-`docs/07` 第十一至二十五节）；
+2026-11-01 复核过 Windows x64 安装包 / 绿色包 / zip（0.9.0 ~ 0.13.0 见
+`docs/07` 第十一至二十六节）；
 2026-11-01 新增左栏「自选股 / 板块 / 自定义」三视图、板块选择大窗口、
 离线数据单文件备份/恢复、数据集归档（板块/财务含三大报表/龙虎榜），并修复指数除权
 （截图与实测见 `CHANGELOG`）。

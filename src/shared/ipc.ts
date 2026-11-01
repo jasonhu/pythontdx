@@ -28,6 +28,7 @@ import type {
   IndustryList,
   KLineAdjust,
   KLinePeriod,
+  MacBoard,
   KLineSeries,
   LocalDayBar,
   LocalDayResult,
@@ -51,7 +52,6 @@ import type {
   LocalDayWriteResult,
   MacMoneyFlow,
   MacMoneyFlowPoint,
-  MacBoard,
   MacUnusualItem,
   MarketBreadth,
   MinuteTrend,
@@ -103,8 +103,8 @@ export const IPC = {
   moneyMacBatch: 'money:mac-batch',
   /** MAC 0x1237 异动（invoke） */
   macUnusual: 'mac:unusual',
-  /** MAC 0x1231 板块列表（invoke） */
   macBoards: 'mac:boards',
+  /** MAC 0x1231 板块列表（invoke） */
   /** 集合竞价过程（invoke） */
   auctionSeries: 'auction:series',
   /** 本地竞价归档：写入/读取（invoke） */
@@ -258,8 +258,6 @@ export const IPC = {
   windowChart: 'window:chart',
   /** 打开第二个主窗口（invoke） */
   windowSecondary: 'window:secondary',
-  /** 打开独立行情服务器窗口（invoke） */
-  windowServers: 'window:servers',
   /** 当前窗口置顶切换（invoke，返回新状态） */
   windowAlwaysOnTop: 'window:always-on-top',
   /** 显示器列表（invoke） */
@@ -490,7 +488,6 @@ export interface StockLensApi {
     control(action: WindowAction): Promise<WindowState>
     openChart(code: string): Promise<void>
     openSecondary(): Promise<void>
-    openServers(): Promise<void>
     toggleAlwaysOnTop(): Promise<boolean>
     /** 显示器列表；current 表示窗口当前在哪块屏 */
     displays(): Promise<DisplayInfo[]>

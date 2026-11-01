@@ -10,6 +10,45 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [0.13.0] - 2026-11-01
+
+### 代码整理 / 审计 / 文档
+
+- **74 清理死代码**：
+  - 删除已不再使用的 `BoardsPanel.tsx`、`createServerWindow()`、`window:servers` IPC、
+    `openServers()` 预加载桥、`STOCKLENS_CAPTURE_SERVERS` 截图分支；
+  - 删除 `.boards-*`、`.market__pager`、`.dragon__pager`、`.watch-full__pager`、
+    `.market__kind` 等无引用 CSS；
+  - `ServerWindow` 收敛为主窗口弹层组件，`onClose` 必填，支持 Esc 关闭；
+  - `main.tsx` 只保留主窗口与独立分时图两条渲染路径。
+- **75 代码审计/缺陷修复**：
+  - 发现并修复全市场报价的竞态：切换 tab/搜索且已滚动加载 >200 行时，
+    旧请求未被 `requestId` 作废，可能把上一批报价追加到新列表；
+    现在 key 变化时先 `requestId += 1`；
+  - 复核 `npm run check`、`build:web`、数据校验/备份恢复测试；
+  - 残留的 `BoardsPanel` 删除后，`macBoards` 数据接口仍被
+    `board-categories.ts` 使用，已保留。
+- **76 README 重写**：
+  - 重新截取主界面、多股同列、全市场、排行、板块、F10、数据报告 7 张图；
+  - 按「界面 → 定位 → 功能 → 快速开始 → 架构 → 数据边界 → 目录 → 文档」重排；
+  - 删除 4 张过期截图，README 中的版本、测试数、F10 宽度、滚动交互同步到 0.13。
+- **77 版本/发布**：版本号 0.13.0，打 `v0.13.0` tag，推送 GitLab 与 GitHub。
+
+### 验证
+
+- 安装包内：服务器弹层 560×680、顶部板块按钮 0 个（`v0130-server.png`）；
+- 安装/绿色/zip 均启动 `v0.13.0`；
+- `npm run check` exit 0：295 个 TS（294 passed + 1 skipped）+ 158 Python（1 skipped）；
+- `npm run build:web` 通过。
+
+### 产物
+
+| 产物 | 大小 | SHA256 |
+| --- | --- | --- |
+| `stocklens-0.13.0-setup.exe` | 133,575,964 B | `90096e7f9c38e153c478ee52475cc19ff7c1b1d1a6dcb49f7956af57694f24b1` |
+| `StockLens-0.13.0-win-x64/` | 410,548,134 B / 76 文件 | — |
+| `StockLens-0.13.0-win-x64.zip` | 175,546,126 B | `50ee5fbe1a4a3d463e26e9e3eea7e438c53f9a2664d7018399b914ff61e28c5b` |
+
 ## [0.12.0] - 2026-11-01
 
 ### 新增

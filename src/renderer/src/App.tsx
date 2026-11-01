@@ -89,7 +89,6 @@ export default function App(): JSX.Element {
   const [dragonOpen, setDragonOpen] = createSignal(false)
   const [boardsOpen, setBoardsOpen] = createSignal(false)
   const [marketReportOpen, setMarketReportOpen] = createSignal(false)
-  const [focusMode, setFocusMode] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
   const [multiOpen, setMultiOpen] = createSignal(false)
@@ -145,16 +144,11 @@ export default function App(): JSX.Element {
       } else if (event.key === 't' || event.key === 'T') {
         event.preventDefault()
         toggleTheme()
-      } else if (event.key === 'f' || event.key === 'F') {
-        event.preventDefault()
-        setFocusMode((value) => !value)
       } else if (event.key === '?') {
         event.preventDefault()
         setShortcutsOpen((value) => !value)
       } else if (event.key === 'Escape' && shortcutsOpen()) {
         setShortcutsOpen(false)
-      } else if (event.key === 'Escape' && focusMode()) {
-        setFocusMode(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -226,7 +220,6 @@ export default function App(): JSX.Element {
       class="app"
       classList={{
         'app--empty': !activeQuote(),
-        'app--focus': focusMode(),
         'app--sidebar-hidden': appState.settings.sidebarHidden === true
       }}
       style={appStyle()}
@@ -281,8 +274,6 @@ export default function App(): JSX.Element {
                 onChartTabChange={(next) => {
                   if (next === 'minute' || next === 'five') setRailTab('tape')
                 }}
-                focusMode={focusMode()}
-                onToggleFocus={() => setFocusMode((value) => !value)}
               />
             </>
           )}

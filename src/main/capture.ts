@@ -18,6 +18,7 @@
  *   STOCKLENS_CAPTURE_TYPE    往焦点元素输入文本（搜索框验证用，走真实 insertText）
  *   STOCKLENS_CAPTURE_POINTER 真实指针操作：`move@选择器@比例` / `click@选择器@比例`
  *   STOCKLENS_CAPTURE_WHEEL   真实滚轮：`deltaY@选择器@比例`（如 -100@.chart-host@0.25）
+ *   STOCKLENS_CAPTURE_SCROLL  把某个滚动容器定到指定位置：`选择器@像素`（F10 长页面截图用）
  *   STOCKLENS_CAPTURE_PROBE   等它出现并回读它的文本，打印到终端
  *   STOCKLENS_CAPTURE_EVAL    截图前求值一个只读表达式并打印（量尺寸用，别写有副作用的代码）
  *   STOCKLENS_CAPTURE_AFTER_MS 驱动结束后、截图前额外等待的毫秒数（等走势图等慢数据）
@@ -218,6 +219,26 @@ async function drive(window: BrowserWindow): Promise<void> {
     console.log(`[capture] 滚轮：请求 DOM deltaY = [${requested.join(', ')}] → 实收 [${observed}]`)
     if (observed !== requested.join(',')) {
       console.warn('[capture] 滚轮换算与实测不一致 —— 注入 deltaY 的单位或符号可能变了')
+    }
+  }
+
+  // 长页面（F10）要截下半部分：滚轮在部分容器上滚不动，直接设 scrollTop 更可靠
+  const scrollSpec = process.env.STOCKLENS_CAPTURE_SCROLL
+  if (scrollSpec) {
+    const [selector, rawTop] = scrollSpec.split('@')
+    if (selector) {
+      const top = Number(rawTop) || 0
+      const actual = await evaluate(
+        window,
+        `(() => {
+          const element = document.querySelector(${json(selector)})
+          if (!element) return -1
+          element.scrollTop = ${top}
+          return element.scrollTop
+        })()`
+      )
+      console.log(`[capture] ${selector}.scrollTop → ${actual}`)
+      await wait(120)
     }
   }
 

@@ -425,7 +425,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 5px 10px;
+  padding: 4px 10px;
   margin-bottom: 1px;
   border-radius: var(--r-md);
   border: 1px solid transparent;
@@ -492,7 +492,7 @@
   font-size: var(--fs-sm);
   font-weight: 500;
   color: var(--text-1);
-  line-height: 1.2;
+  line-height: 1.15;
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
@@ -506,21 +506,21 @@
   font-size: var(--fs-2xs);
   color: var(--text-3);
   letter-spacing: 0.04em;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 /* 迷你走势图：固定 46px 槽位，数据未到也不让右侧价格列移动 */
 .watch-row__spark-slot {
   width: 46px;
   min-width: 46px;
-  height: 22px;
+  height: 20px;
 }
 
 .watch-row .sparkline {
   width: 46px !important;
   min-width: 46px;
   max-width: 46px;
-  height: 22px;
+  height: 20px;
   opacity: 0.95;
   transition: opacity var(--dur-2) var(--ease);
 }
@@ -533,7 +533,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 1px;
+  gap: 0;
   min-width: 58px;
   text-align: right;
 }
@@ -541,14 +541,14 @@
 .watch-row__price {
   font-size: var(--fs-sm);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
   border-radius: var(--r-xs);
   padding: 0 3px;
 }
 
 .watch-row__chg {
   font-size: var(--fs-2xs);
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .watch-row__price--up {
@@ -1426,16 +1426,7 @@
   display: none;
 }
 
-/* 专注模式：左右栏让位给图表，标题/状态栏保留 */
-.app--focus {
-  grid-template-columns: 0 minmax(0, 1fr) 0;
-}
-
-.app--focus .sidebar,
-.app--focus .rail,
-.app--focus .layout-resizer {
-  display: none;
-}
+/* 专注模式已移除：图表头只保留置顶/导出/新窗等常用操作 */
 
 /* 宽图表 / 最小窗口：名称、价格与操作按钮自动换行，避免名称逐字竖排 */
 .quote-header__top {

@@ -458,7 +458,9 @@ export function Sidebar(props: SidebarProps): JSX.Element {
               setActiveGroup(group.id)
             }}
           >
-            <option value="">选择自定义板块…</option>
+            <Show when={customGroups().length === 0}>
+              <option value="">暂无自定义板块</option>
+            </Show>
             <For each={customGroups()}>
               {(group) => (
                 <option value={group.id}>{`${group.name}（${group.items.length}）`}</option>

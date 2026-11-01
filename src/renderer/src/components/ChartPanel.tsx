@@ -100,8 +100,6 @@ export interface ChartPanelProps {
   onOpenIndicators: () => void
   /** 切到分时/五日时通知外壳联动右侧逐笔 */
   onChartTabChange?: (tab: Tab) => void
-  focusMode?: boolean
-  onToggleFocus?: () => void
   /** 独立窗口：隐藏会打开模态框/主窗口交互的按钮 */
   detached?: boolean
 }
@@ -809,13 +807,6 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                 onClick={() => props.onOpenReplay()}
               >
                 复盘
-              </button>
-              <button
-                class="btn btn--bare chart-focus"
-                title="专注模式：隐藏左右栏（F 切换，Esc 退出）"
-                onClick={() => props.onToggleFocus?.()}
-              >
-                {props.focusMode ? '退出专注' : '专注'}
               </button>
               <button
                 class="btn btn--bare chart-pin"

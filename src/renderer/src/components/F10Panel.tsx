@@ -118,17 +118,19 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
                 block.kind === 'table' ? (
                   <div class="f10-table-wrap">
                     <table class="f10-table">
-                      <thead>
-                        <tr>
-                          <For each={block.rows[0]}>
-                            {(cell, index) => (
-                              <th classList={{ num: block.numeric[index()] }}>{cell}</th>
-                            )}
-                          </For>
-                        </tr>
-                      </thead>
+                      <Show when={!block.headerless}>
+                        <thead>
+                          <tr>
+                            <For each={block.rows[0]}>
+                              {(cell, index) => (
+                                <th classList={{ num: block.numeric[index()] }}>{cell}</th>
+                              )}
+                            </For>
+                          </tr>
+                        </thead>
+                      </Show>
                       <tbody>
-                        <For each={block.rows.slice(1)}>
+                        <For each={block.headerless ? block.rows : block.rows.slice(1)}>
                           {(row) => (
                             <tr>
                               <For each={row}>
@@ -153,8 +155,21 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
                   </div>
                 ) : block.kind === 'heading' ? (
                   <h3 class="f10__heading">{block.text}</h3>
+                ) : block.kind === 'link' ? (
+                  <button
+                    class="f10__link"
+                    title="在浏览器中打开"
+                    onClick={() => void api.app.openExternal(block.url)}
+                  >
+                    {block.url}
+                  </button>
                 ) : (
-                  <pre class="f10__text">{block.text}</pre>
+                  <pre
+                    class="f10__text"
+                    classList={{ 'f10__text--mono': block.kind === 'text' && block.mono }}
+                  >
+                    {block.text}
+                  </pre>
                 )
               }
             </For>

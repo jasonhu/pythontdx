@@ -72,4 +72,55 @@ describe('parseF10', () => {
     expect(text).toContain('●公告（详见后）')
     expect(text).not.toMatch(/^后）$/m)
   })
+
+  it('把空格对齐 + ─── 分隔线的表还原成表格，并合并折行单元格', () => {
+    const source = [
+      '股东名称                       股份性质     持股数(万)  占总股本比%',
+      '─────────────────────────────────────────────────',
+      '惠州市利元亨投资有限公司       流通A股         5614.33        33.27',
+      '重庆煊林企业管理合伙企业(有限  流通A股          189.86         1.13',
+      '合伙)',
+      '卢家红                         流通A股          330.31         1.96',
+      '─────────────────────────────────────────────────',
+      '注：以上数据来自 2026-09-30'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const parsed = blocks.find((block) => block.kind === 'table')
+    if (parsed?.kind !== 'table') throw new Error('没有解析出空格对齐表')
+    expect(parsed.rows[0]).toEqual(['股东名称', '股份性质', '持股数(万)', '占总股本比%'])
+    expect(parsed.rows[1]?.[0]).toBe('惠州市利元亨投资有限公司')
+    expect(parsed.rows[2]?.[0]).toBe('重庆煊林企业管理合伙企业(有限合伙)')
+    expect(parsed.rows[3]?.[0]).toBe('卢家红')
+    expect(parsed.numeric).toEqual([false, false, true, true])
+    // 分隔线之后是正文，不能混进表格
+    const tail = blocks
+      .filter((block) => block.kind === 'text')
+      .map((block) => block.text)
+      .join('\n')
+    expect(tail).toContain('注：以上数据来自 2026-09-30')
+  })
+
+  it('没有表头的空格对齐列表也能变成表格', () => {
+    const source = [
+      '较上个报告期退出前十大流通股东',
+      '中国建设银行股份有限公司-易方达国证机器人  流通A股  211.87  1.26  退出',
+      '梁龙震                                     流通A股   63.76  0.38  退出',
+      '赖明                                       流通A股   63.50  0.38  退出',
+      '曾巧美                                     流通A股   55.14  0.33  退出'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const parsed = blocks.find((block) => block.kind === 'table')
+    if (parsed?.kind !== 'table') throw new Error('没有解析出无表头列表')
+    expect(parsed.headerless).toBe(true)
+    expect(parsed.rows).toHaveLength(4)
+    expect(parsed.rows[0]?.[0]).toContain('中国建设银行')
+    expect(parsed.numeric[2]).toBe(true)
+  })
+
+  it('公告/报道的 URL 单独成 link 块', () => {
+    const url = 'https://static.sse.com.cn/disclosure/listedinfo/announcement/c/new/2026-10-31/688499_20261031_KGYB.pdf'
+    const blocks = parseF10(`利元亨（688499）：关于授予限制性股票的公告。公告详情请查看附件\n${url}\n2026-10-30 17:34  下一条`)
+    const link = blocks.find((block) => block.kind === 'link')
+    expect(link).toEqual({ kind: 'link', url })
+  })
 })

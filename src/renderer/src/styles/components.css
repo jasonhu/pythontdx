@@ -1230,6 +1230,16 @@
   margin-bottom: 0;
 }
 
+/* 没解析成表格的空格对齐段落：等宽 + 不换行，保住原始终端列宽 */
+.f10__text--mono {
+  font-family: 'NSimSun', '新宋体', 'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'Cascadia Mono',
+    monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+}
+
 .f10__heading {
   margin: 18px 0 8px;
   color: var(--text-1);
@@ -1240,6 +1250,25 @@
 
 .f10__heading:first-child {
   margin-top: 0;
+}
+
+.f10__link {
+  display: block;
+  max-width: 100%;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.f10__link:hover {
+  text-decoration: underline;
 }
 
 .f10-table-wrap {
@@ -6818,7 +6847,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 5px 10px;
+  padding: 4px 10px;
   margin-bottom: 1px;
   border: 1px solid transparent;
   border-radius: var(--r-md);
@@ -6853,7 +6882,7 @@
   color: var(--text-1);
   font-size: var(--fs-sm);
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -6862,7 +6891,7 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
   letter-spacing: 0.04em;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .sector-row__nums {
@@ -6878,13 +6907,13 @@
   color: var(--text-1);
   font-size: var(--fs-sm);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .sector-row__chg {
   min-width: 0;
   font-size: var(--fs-2xs);
-  line-height: 1.2;
+  line-height: 1.15;
   text-align: right;
 }
 
@@ -7249,13 +7278,13 @@
   align-items: center;
   justify-content: flex-end;
   width: 46px;
-  height: 22px;
+  height: 20px;
 }
 
 .sector-row__spark .sparkline {
   width: 46px !important;
   min-width: 46px;
-  height: 22px;
+  height: 20px;
   opacity: 0.95;
   transition: opacity var(--dur-2) var(--ease);
 }

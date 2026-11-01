@@ -407,8 +407,50 @@ export async function fetchF10Statement(
 
 /* ---------------------------------------------------------------- 数据工具 */
 
+interface BreadthPage {
+  up: number
+  down: number
+  flat: number
+  limitUp: number
+  limitDown: number
+  total: number
+  nextStart: number | null
+  updatedAt: number
+}
+
+/**
+ * 涨跌家数按页扫：每 8 页（640 只）发一次请求，页间让 priority 的图表请求
+ * 插队。整包扫描会独占串行 sidecar 5~7 秒，期间切股票/切分时都要等。
+ */
 export async function fetchMarketBreadth(): Promise<MarketBreadth> {
-  return bridge.send<MarketBreadth>('market_breadth', {}, 30_000)
+  let start = 0
+  let up = 0
+  let down = 0
+  let flat = 0
+  let limitUp = 0
+  let limitDown = 0
+
+  for (let request = 0; request < 200; request += 1) {
+    const page = await bridge.send<BreadthPage>('market_breadth_page', { start, pages: 8 }, 60_000)
+    up += page.up
+    down += page.down
+    flat += page.flat
+    limitUp += page.limitUp
+    limitDown += page.limitDown
+    if (page.nextStart == null) {
+      return {
+        up,
+        down,
+        flat,
+        limitUp,
+        limitDown,
+        total: up + down + flat,
+        updatedAt: page.updatedAt
+      }
+    }
+    start = page.nextStart
+  }
+  throw new TdxError('涨跌家数分页异常')
 }
 
 const DATA_TIMEOUT_MS = 180_000
@@ -506,9 +548,7 @@ export async function backupOfflineData(path: string): Promise<DataBackupCreateR
 }
 
 /** 订阅备份/恢复的真实进度；主进程把它转发成 IPC 事件。 */
-export function onBackupProgress(
-  listener: (progress: DataBackupProgress) => void
-): () => void {
+export function onBackupProgress(listener: (progress: DataBackupProgress) => void): () => void {
   return bridge.onProgress(listener)
 }
 

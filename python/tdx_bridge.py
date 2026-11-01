@@ -3521,9 +3521,7 @@ class Bridge:
                 down += 1
         return up, down
 
-    def market_breadth(self) -> dict:
-        """全 A 股涨跌家数（不含指数/基金）。"""
-        quotes = self._all_category_quotes()
+    def _breadth_counts(self, quotes: list[dict]) -> dict:
         up = down = flat = 0
         for quote in quotes:
             value = quote.get("changePct")
@@ -3543,6 +3541,49 @@ class Bridge:
             "limitUp": limit_up,
             "limitDown": limit_down,
             "total": up + down + flat,
+        }
+
+    def market_breadth(self) -> dict:
+        """全 A 股涨跌家数（不含指数/基金）。"""
+        quotes = self._all_category_quotes()
+        return {
+            **self._breadth_counts(quotes),
+            "updatedAt": int(time.time() * 1000),
+        }
+
+    def market_breadth_page(self, start: int = 0, pages: int = 8) -> dict:
+        """分页版涨跌家数：一次只扫 pages 页，队列可在页间插入图表请求。
+
+        全市场约 70 页；整包扫描会独占 sidecar 串行队列 5~7 秒。
+        主进程按 nextStart 循环调用，每页之间让 priority 请求先走。
+        """
+        start = max(0, int(start))
+        pages = max(1, min(20, int(pages)))
+        quotes: list[dict] = []
+        done = False
+
+        for _ in range(pages):
+            if start >= 6400:
+                done = True
+                break
+            page = self.category_quotes(
+                category=6,
+                sort_type=0x000E,
+                start=start,
+                count=80,
+            )
+            if not page:
+                done = True
+                break
+            quotes.extend(page)
+            start += len(page)
+            if len(page) < 80:
+                done = True
+                break
+
+        return {
+            **self._breadth_counts(quotes),
+            "nextStart": None if done else start,
             "updatedAt": int(time.time() * 1000),
         }
 
@@ -5322,6 +5363,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         if not isinstance(bars, list):
             raise TdxError("bars 必须是数组")
         return bridge.local_min_write(str(payload.get("path") or ""), bars)
+    if cmd == "market_breadth_page":
+        return bridge.market_breadth_page(
+            start=int(payload.get("start", 0)),
+            pages=int(payload.get("pages", 8)),
+        )
     if cmd == "market_breadth":
         return bridge.market_breadth()
     if cmd == "formula_backtest":

@@ -104,8 +104,8 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（310 个用例）
-npm run test:python         # 只跑 Python 协议/HTTP 测试（163 个用例）
+npm run test                # 只跑 TS 测试（315 个用例）
+npm run test:python         # 只跑 Python 协议/HTTP 测试（164 个用例）
 npm run audit:data          # 数据覆盖自检（39 项，会触发自动归档；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
@@ -118,6 +118,8 @@ npm run build:win:portable  # 只要单文件便携版 exe
 npm run build:win:setup     # 只要 NSIS 安装包
 npm run build:linux         # Linux 打包：AppImage + deb
 npm run build:mac           # macOS dmg（仅 Apple Silicon / arm64）
+npm run build:mac:app       # 只出散装 .app（本地快速验证）
+npm run build:mac:all       # 散装 .app + dmg（每次版本更新后的验证流程）
 ```
 
 **Python 提示**：开发机需要 Python 3.10+（`python3` 或 `python` 在 PATH 上；
@@ -127,7 +129,7 @@ npm run build:mac           # macOS dmg（仅 Apple Silicon / arm64）
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
-> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02 实机打包验收（0.9.0 ~ 0.14.3 见 `docs/07` 第十一至二十八、三十一至三十六节；0.14.3 仅 tag，无 dmg）。macOS 只支持 Apple Silicon，不维护 Intel 版（2026-11-02 用户决定）。
+> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02 实机打包验收（0.9.0 ~ 0.14.4 见 `docs/07` 第十一至二十八、三十一至三十七节；0.14.4 散装 app + dmg 仅本地验证，不发 Release）。macOS 只支持 Apple Silicon，不维护 Intel 版（2026-11-02 用户决定）。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
@@ -172,7 +174,7 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（310 个 TS 测试 + 163 个 Python 测试），
+健康度 `npm run check` 全绿（315 个 TS 测试 + 164 个 Python 测试），
 2026-10-31 复核过构建、实机启动、包内资金流与公式多输出；
 2026-11-01/02 复核过 Windows x64 安装包 / 绿色包 / zip / 便携版（0.9.0 ~ 0.14.2 见
 `docs/07` 第十一至二十八、三十一至三十三节）；
@@ -180,6 +182,8 @@ v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接
 thin Mach-O 误判、arm64 目标错配与 7615 系统代理超时（见 `docs/07` 第三十四节）；
 0.14.3 修首屏分时图请求优先级与涨跌家数阻塞（14.97s → 2.9s，仅 tag、无 dmg；
 见 `docs/07` 第三十六节与 `docs/06` 第 41 条）；
+0.14.4 加分时/五日本地快照（首屏 404ms）、macOS sidecar 解包缓存（二次启动 0.28s）
+与涨跌家数分页；散装 app + dmg 本地验证，见 `docs/07` 第三十七节；
 2026-11-01 新增左栏「自选股 / 板块 / 自定义」三视图、板块选择大窗口、
 离线数据单文件备份/恢复、数据集归档（板块/财务含三大报表/龙虎榜），并修复指数除权
 （截图与实测见 `CHANGELOG`）。

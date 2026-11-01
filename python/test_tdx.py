@@ -876,3 +876,38 @@ class TestDatasetWriter(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMarketBreadthPage(unittest.TestCase):
+    """涨跌家数分页：整包扫描要拆成多次请求，图表 priority 才能在页间插队。"""
+
+    @staticmethod
+    def quote(code: str, change_pct: float) -> dict:
+        return {
+            "code": code,
+            "name": "测试",
+            "changePct": change_pct,
+            "prevClose": 10.0,
+            "price": 11.0,
+            "high": 11.0,
+            "low": 9.0,
+        }
+
+    def test_page_reports_next_start_and_counts(self) -> None:
+        bridge = tdx.Bridge()
+        pages = {
+            0: [self.quote("600000", 1.0)] * 80,
+            80: [self.quote("000001", -1.0)] * 2,
+        }
+        bridge.category_quotes = lambda **kwargs: pages.get(kwargs["start"], [])
+
+        first = bridge.market_breadth_page(start=0, pages=1)
+        self.assertEqual(first["nextStart"], 80)
+        self.assertEqual(first["total"], 80)
+        self.assertEqual(first["up"], 80)
+
+        final = bridge.market_breadth_page(start=0, pages=8)
+        self.assertIsNone(final["nextStart"])
+        self.assertEqual(final["total"], 82)
+        self.assertEqual(final["up"], 80)
+        self.assertEqual(final["down"], 2)

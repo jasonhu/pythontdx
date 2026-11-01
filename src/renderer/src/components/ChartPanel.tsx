@@ -22,7 +22,7 @@ import type {
   MinuteTrend,
   MultiDayTrend
 } from '@shared/types'
-import { fixed, signedPct, thousands } from '@shared/format'
+import { fixed, signedPct, thousands, timeOfDay } from '@shared/format'
 import { isIndexCode } from '@shared/market'
 import { api, errorMessage } from '../lib/ipc'
 import { subscribePush } from '../lib/push'
@@ -33,6 +33,7 @@ import { normalizeMaPeriods } from '@shared/ma'
 import type { KLineRangeStats } from '../lib/chart-geometry'
 import type { SmartDrawingPlan } from '@shared/patterns'
 import { toneOf } from '../lib/tone'
+import { readTrendCache, writeTrendCache } from '../lib/trend-cache'
 import { KLineChart } from './KLineChart'
 import { ChartSkeleton } from './ChartSkeleton'
 import { TrendChart, type TrendHover } from './TrendChart'
@@ -195,6 +196,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
   const code = createMemo(() => props.code)
   const isTrend = (): boolean => tab() === 'minute' || tab() === 'five'
   const [cachedSeries, setCachedSeries] = createSignal<KLineSeries | null>(null)
+  const [cachedTrend, setCachedTrend] = createSignal<{
+    days: MinuteTrend[]
+    savedAt: number
+  } | null>(null)
   let cacheSequence = 0
 
   const [data, { refetch }] = createResource<
@@ -205,13 +210,37 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     async (source) => {
       const sequence = ++cacheSequence
       setCachedSeries(null)
+      setCachedTrend(null)
       if (source.tab === 'five') {
-        const multi = await api.trend.fiveDay(source.code)
-        return { kind: 'trend', days: multi.days }
+        const cached = readTrendCache<MultiDayTrend>('five', source.code)
+        if (cached && sequence === cacheSequence) {
+          setCachedTrend({ days: cached.data.days, savedAt: cached.savedAt })
+        }
+        try {
+          const multi = await api.trend.fiveDay(source.code)
+          writeTrendCache('five', source.code, multi)
+          if (sequence === cacheSequence) setCachedTrend(null)
+          return { kind: 'trend', days: multi.days }
+        } catch (error) {
+          // 离线时先用上一帧快照，别把已经画出来的图换成错误页。
+          if (cached) return { kind: 'trend', days: cached.data.days }
+          throw error
+        }
       }
       if (source.tab === 'minute') {
-        const trend = await api.trend.minute(source.code)
-        return { kind: 'trend', days: [trend] }
+        const cached = readTrendCache<MinuteTrend>('minute', source.code)
+        if (cached && sequence === cacheSequence) {
+          setCachedTrend({ days: [cached.data], savedAt: cached.savedAt })
+        }
+        try {
+          const trend = await api.trend.minute(source.code)
+          writeTrendCache('minute', source.code, trend)
+          if (sequence === cacheSequence) setCachedTrend(null)
+          return { kind: 'trend', days: [trend] }
+        } catch (error) {
+          if (cached) return { kind: 'trend', days: [cached.data] }
+          throw error
+        }
       }
       /*
        * K 线首屏：先读本地缓存，再把网络请求排在它后面。
@@ -272,9 +301,11 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         if (code() !== currentCode || tab() !== currentTab) return
         if (currentTab === 'minute') {
           const trend = payload as MinuteTrend
+          writeTrendCache('minute', currentCode, trend)
           setPushed({ kind: 'trend', days: [trend] })
         } else if (currentTab === 'five') {
           const multi = payload as MultiDayTrend
+          writeTrendCache('five', currentCode, multi)
           setPushed({ kind: 'trend', days: multi.days })
         } else {
           setPushed({ kind: 'kline', series: payload as KLineSeries })
@@ -288,7 +319,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     const pushedData = pushed()
     if (pushedData?.kind === 'trend') return pushedData.days
     const current = data()
-    return current?.kind === 'trend' ? current.days : undefined
+    if (current?.kind === 'trend') return current.days
+    return cachedTrend()?.days
   }
 
   const klineSeries = (): KLineSeries | undefined => {
@@ -752,6 +784,15 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             </span>
           </Show>
 
+          <Show when={isTrend() && cachedTrend()}>
+            <span
+              class="chart-cache-badge"
+              title={`本地快照 ${timeOfDay(cachedTrend()?.savedAt ?? 0)}`}
+            >
+              离线缓存
+            </span>
+          </Show>
+
           {/* 十字光标联动读数：有悬浮时显示读数，否则显示图例 */}
           <div class="chart-headline">
             <Show when={hover()}>
@@ -958,7 +999,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             首屏加载时给骨架屏；已经有数据时再刷新（data() 仍是旧值）就继续显示图表，
             避免每次定时刷新都闪一下白。
           */}
-          <Show when={!data.loading || data() || cachedSeries()} fallback={<ChartSkeleton />}>
+          <Show
+            when={!data.loading || data() || cachedSeries() || cachedTrend()}
+            fallback={<ChartSkeleton />}
+          >
             <Show
               when={!isEmpty()}
               fallback={<div class="chart-empty">暂无行情数据（可能停牌或尚未开盘）</div>}

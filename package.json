@@ -1,6 +1,6 @@
 {
   "name": "stocklens",
-  "version": "0.14.3",
+  "version": "0.14.4",
   "private": true,
   "description": "StockLens · 高颜值跨平台股票行情终端（Electron + Vite + SolidJS）",
   "author": "River",
@@ -36,6 +36,8 @@
     "build:win": "npm run build:python && npm run build && electron-builder --win",
     "build:win:portable": "npm run build:python && npm run build && electron-builder --win portable",
     "build:win:setup": "npm run build:python && npm run build && electron-builder --win nsis",
+    "build:mac:app": "npm run build:python && npm run build && electron-builder --mac --dir",
+    "build:mac:all": "npm run build:python && npm run build && electron-builder --mac --dir && electron-builder --mac",
     "build:mac": "npm run build:python && npm run build && electron-builder --mac",
     "build:linux": "npm run build:python && npm run build && electron-builder --linux",
     "shot:web": "electron scripts/web-shot.cjs",

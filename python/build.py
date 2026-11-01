@@ -13,13 +13,36 @@ resources/tdx-bridge/，主进程按这个路径拉起子进程。
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+
+
+def sidecar_cache_tag() -> str:
+    """macOS onefile 解包缓存键：Python 源码/connect.cfg/Nuitka 版本变则换目录。
+
+    Nuitka 的 cached 模式会复用目录内容；不能只用应用版本号，否则同版本下改了
+    Python 却复用旧 sidecar。这里对实际会被打进单文件的源码做指纹。
+    """
+    digest = hashlib.sha256()
+    try:
+        digest.update(package_version("Nuitka").encode("utf-8"))
+    except PackageNotFoundError:
+        digest.update(b"unknown-nuitka")
+
+    for path in sorted(ROOT.glob("*.py")):
+        if path.name.startswith("test_"):
+            continue
+        digest.update(path.name.encode("utf-8"))
+        digest.update(path.read_bytes())
+    digest.update((ROOT / "connect.cfg").read_bytes())
+    return digest.hexdigest()[:16]
 
 
 def patchelf_path() -> str | None:
@@ -76,8 +99,18 @@ def build_nuitka() -> None:
         "--nofollow-import-to=tkinter",
         # 客户端解包的主站列表随 sidecar 一起分发，用户目录没有 connect.cfg 时仍可用。
         f"--include-data-files={ROOT / 'connect.cfg'}=connect.cfg",
-        str(ROOT / "tdx_bridge.py"),
     ]
+
+    if sys.platform == "darwin":
+        # onefile 每次启动都解包约 90MB；macOS 冷启动实测 8~9 秒，而缓存解包目录后
+        # 只要 0.28 秒。缓存键由源码/Nuitka 版本决定，升级 sidecar 时自然失效。
+        cache_tag = sidecar_cache_tag()
+        command.append(
+            f"--onefile-tempdir-spec={{CACHE_DIR}}/stocklens/tdx-bridge/{cache_tag}"
+        )
+        print(f"[build] macOS onefile cache: {{CACHE_DIR}}/stocklens/tdx-bridge/{cache_tag}")
+
+    command.append(str(ROOT / "tdx_bridge.py"))
     print("[build] Nuitka:", " ".join(command), flush=True)
     subprocess.run(command, cwd=ROOT, env=env, check=True)
 

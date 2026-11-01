@@ -6,8 +6,8 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：0.14.3（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：310 个 TS 测试 + 163 个 Python 测试（1 skipped）·
+**版本：0.14.4（release candidate）** · **许可证：GPL-3.0-or-later** ·
+`npm run check`：315 个 TS 测试 + 164 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
 > 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验。
@@ -180,8 +180,9 @@ npm run build:mac     # macOS dmg（仅 Apple Silicon / arm64）
 
 产物在 `release/<version>/`。Windows x64 0.14.2 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含首屏本地优先），Linux 0.14.0 AppImage/deb、macOS 0.14.2 arm64 dmg 也已实机验收。
 
-> **0.14.3 只打了 tag，没有重打/发布 dmg**（等 1.0）：修的是首屏分时图的请求优先级
-> 与涨跌家数阻塞，跨平台同一套代码；详见 `CHANGELOG` 与 `docs/06` 第 41 条。
+> **0.14.4 本地验证**：`npm run build:mac:all` 会同时生成散装 `.app` 和 dmg；分时首屏先画
+> localStorage 快照（约 0.4s），macOS sidecar 解包缓存后启动约 0.28s。dmg 只做本地验证，
+> 不发布 GitHub Release。
 
 > **macOS 打包/编译已通过**：在 Apple Silicon（macOS 27.2）上 `npm run build:mac`
 > 产出 arm64 dmg，`codesign --verify --deep --strict` 通过、从只读 dmg 启动并出实时行情；

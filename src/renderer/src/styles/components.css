@@ -2172,7 +2172,7 @@
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 258px minmax(0, 1fr);
+  grid-template-columns: 210px minmax(0, 1fr);
 }
 
 .block__side {
@@ -2300,6 +2300,7 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
+  padding: 0 10px;
 }
 
 .block__table {
@@ -7421,19 +7422,13 @@
   margin: 0 auto;
 }
 
-.market__table {
-  width: 1000px;
-  max-width: 100%;
-}
-
-.block__table {
-  width: 900px;
-  max-width: 100%;
-}
-
+.market__table,
+.block__table,
 .ranking__table {
-  width: 1000px;
+  width: 100%;
   max-width: 100%;
+  margin: 0;
+  font-size: 11.5px;
 }
 
 .market__table th,
@@ -7442,9 +7437,10 @@
 .block__table td,
 .ranking__table th,
 .ranking__table td {
-  padding: 6px 10px;
-  height: 36px;
+  padding: 6px 6px;
+  height: 34px;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .market__table td:nth-child(1),
@@ -7468,7 +7464,11 @@
 .market__table td:nth-child(3),
 .market__table td:nth-child(4),
 .block__table td:nth-child(3),
-.ranking__table td:nth-child(4) {
+.ranking__table td:nth-child(4),
+.market__table th:nth-child(3),
+.market__table th:nth-child(4),
+.block__table th:nth-child(3),
+.ranking__table th:nth-child(4) {
   color: var(--text-3);
   text-align: center;
 }
@@ -7620,4 +7620,68 @@
 
 .multi-card__date {
   margin-left: auto;
+}
+
+/* 45：多股同列的格子/周期按钮不要焦点蓝框 */
+.multi-card:focus,
+.multi-card:focus-visible,
+.multi__periods .multi__mode:focus,
+.multi__periods .multi__mode:focus-visible,
+.multi__pager .multi__mode:focus,
+.multi__pager .multi__mode:focus-visible {
+  outline: none;
+}
+
+.multi__pager {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.multi__page {
+  min-width: 42px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  text-align: center;
+}
+
+.multi__pager .multi__mode:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* 46：分时图的昨收基准与量 */
+.multi-min__baseline {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+}
+
+.multi-min__volume {
+  fill: var(--accent);
+  opacity: 0.35;
+}
+
+/* 45：格子悬停/聚焦都不画蓝框，只做轻微背景变化 */
+.multi-card:hover,
+.multi-card:focus,
+.multi-card:focus-visible {
+  border-color: var(--border);
+  background: var(--panel-hover);
+  outline: none;
+}
+
+/* 代码列表头与内容用同一等宽字体，视觉起点一致 */
+.market__table th:nth-child(1),
+.block__table th:nth-child(1),
+.ranking__table th:nth-child(2) {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
 }

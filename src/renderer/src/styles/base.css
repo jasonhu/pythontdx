@@ -17,7 +17,20 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+html {
   overflow: hidden;
+}
+
+body {
+  overflow: auto;
+}
+
+/* 50：窗口缩到 1180×680 以下不再挤压布局，交给滚动条 */
+#root {
+  min-width: 1180px;
+  min-height: 680px;
 }
 
 body {

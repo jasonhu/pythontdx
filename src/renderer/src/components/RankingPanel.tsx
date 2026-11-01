@@ -21,6 +21,7 @@ import { openStockMenu } from '../stores/stockMenu'
 import { subscribePush } from '../lib/push'
 import { IconClose } from './Icons'
 import { Sparkline } from './Sparkline'
+import { EXTRA_COLUMNS, ExtraColumnCells, ExtraColumnHeaders } from './StockExtraColumns'
 
 interface RankingPanelProps {
   onClose: () => void
@@ -114,7 +115,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
     if (key === enrichedKey) return
     enrichedKey = key
     void api.quote
-      .macQuotes(list.map((quote) => quote.code))
+      .macQuotesFinance(list.map((quote) => quote.code))
       .then((mac) => {
         const extra = new Map(mac.map((quote) => [quote.code, quote]))
         setRows((previous) =>
@@ -125,7 +126,12 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
               ...quote,
               turnoverRate: quote.turnoverRate ?? more.turnoverRate,
               volumeRatio: quote.volumeRatio ?? more.volumeRatio,
-              riseSpeed: quote.riseSpeed ?? more.riseSpeed
+              riseSpeed: quote.riseSpeed ?? more.riseSpeed,
+              avgPrice: quote.avgPrice ?? more.avgPrice,
+              amplitude: quote.amplitude ?? more.amplitude,
+              pb: quote.pb ?? more.pb,
+              totalCap: quote.totalCap ?? more.totalCap,
+              floatCap: quote.floatCap ?? more.floatCap
             }
           })
         )
@@ -416,20 +422,23 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
         <div class="ranking__table-wrap">
           <table class="ranking__table">
             <colgroup>
-              <col style="width: 48px" />
-              <col style="width: 86px" />
-              <col style="width: 170px" />
-              <col style="width: 54px" />
-              <col style="width: 84px" />
-              <col style="width: 84px" />
-              <col style="width: 96px" />
-              <col style="width: 70px" />
-              <col style="width: 62px" />
+              <col style="width: 42px" />
+              <col style="width: 76px" />
+              <col style="width: 90px" />
+              <col style="width: 44px" />
+              <col style="width: 72px" />
               <col style="width: 74px" />
-              <Show when={flowMode()}>
-                <col style="width: 110px" />
-              </Show>
+              <col style="width: 84px" />
+              <col style="width: 56px" />
+              <col style="width: 50px" />
               <col style="width: 58px" />
+              <For each={EXTRA_COLUMNS}>
+                {(column) => <col style={{ width: `${column.width}px` }} />}
+              </For>
+              <Show when={flowMode()}>
+                <col style="width: 86px" />
+              </Show>
+              <col style="width: 50px" />
             </colgroup>
             <thead>
               <tr>
@@ -443,6 +452,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                 <th class="ranking__num">换手</th>
                 <th class="ranking__num">量比</th>
                 <th class="ranking__num">涨速</th>
+                <ExtraColumnHeaders />
                 <Show when={flowMode()}>
                   <th class="ranking__num">主力净额 / 占比</th>
                 </Show>
@@ -460,7 +470,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                     }
                   >
                     <td class="ranking__rank num">{index() + 1}</td>
-                    <td class="ranking__code num">{quote.code.toUpperCase()}</td>
+                    <td class="ranking__code">{quote.code.toUpperCase()}</td>
                     <td class="ranking__name">{quote.name}</td>
                     <td class="ranking__market">{quote.market ?? '—'}</td>
                     <td class="ranking__num num">{fixed(quote.price)}</td>
@@ -487,6 +497,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
                         ? `${quote.riseSpeed.toFixed(2)}%`
                         : '—'}
                     </td>
+                    <ExtraColumnCells quote={quote} />
                     <Show when={flowMode()}>
                       <td
                         class="ranking__num num"

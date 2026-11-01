@@ -16,6 +16,7 @@ import { openStockMenu } from '../stores/stockMenu'
 import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
 import { IconClose } from './Icons'
 import { Sparkline } from './Sparkline'
+import { EXTRA_COLUMNS, ExtraColumnCells, ExtraColumnHeaders } from './StockExtraColumns'
 
 interface BlockPanelProps {
   onClose: () => void
@@ -74,7 +75,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
       const result: Quote[] = []
       for (let start = 0; start < codes.length; start += QUOTE_CHUNK) {
         const chunk = codes.slice(start, start + QUOTE_CHUNK)
-        result.push(...(await api.quote.macQuotes(chunk)))
+        result.push(...(await api.quote.macQuotesFinance(chunk)))
         if (current !== quoteId) return
       }
       setQuotes(result)
@@ -238,16 +239,33 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                   <div class="block__table-wrap">
                     <table class="block__table">
                       <colgroup>
-                        <col style="width: 86px" />
-                        <col />
+                        <col style="width: 68px" />
+                        <col style="width: 100px" />
+                        <col style="width: 38px" />
+                        <col style="width: 66px" />
+                        <col style="width: 68px" />
+                        <col style="width: 78px" />
+                        <col style="width: 56px" />
+                        <col style="width: 48px" />
                         <col style="width: 54px" />
-                        <col style="width: 84px" />
-                        <col style="width: 84px" />
-                        <col style="width: 96px" />
-                        <col style="width: 70px" />
-                        <col style="width: 62px" />
-                        <col style="width: 74px" />
-                        <col style="width: 58px" />
+                        <For each={EXTRA_COLUMNS}>
+                          {(column) => (
+                            <col
+                              style={{
+                                width: `${
+                                  column.key === 'totalCap'
+                                    ? 70
+                                    : column.key === 'floatCap'
+                                      ? 72
+                                      : column.key === 'volume'
+                                        ? 70
+                                        : column.width - 2
+                                }px`
+                              }}
+                            />
+                          )}
+                        </For>
+                        <col style="width: 36px" />
                       </colgroup>
                       <thead>
                         <tr>
@@ -260,6 +278,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                           <th class="num">换手</th>
                           <th class="num">量比</th>
                           <th class="num">涨速</th>
+                          <ExtraColumnHeaders />
                           <th class="num block__spark-head">走势</th>
                         </tr>
                       </thead>
@@ -282,7 +301,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                                   })
                                 }
                               >
-                                <td class="num block__code-cell">{code.toUpperCase()}</td>
+                                <td class="block__code-cell">{code.toUpperCase()}</td>
                                 <td>{quote()?.name ?? block().names[code] ?? code}</td>
                                 <td class="block__market">{quote()?.market ?? '—'}</td>
                                 <td class="num">{quote() ? fixed(quote()!.price) : '—'}</td>
@@ -313,6 +332,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                                     ? `${quote()!.riseSpeed!.toFixed(2)}%`
                                     : '—'}
                                 </td>
+                                <ExtraColumnCells quote={quote()} />
                                 <td class="num block__spark-cell">
                                   <Show
                                     when={sparklineOf(code)}

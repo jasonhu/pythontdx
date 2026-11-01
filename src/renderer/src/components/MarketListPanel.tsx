@@ -15,6 +15,7 @@ import { toCsv } from '@shared/csv'
 import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
 import { IconClose } from './Icons'
 import { Sparkline } from './Sparkline'
+import { EXTRA_COLUMNS, ExtraColumnCells, ExtraColumnHeaders } from './StockExtraColumns'
 
 type TabKey = 'all' | 'index' | 'fund' | 'reit' | 'bond' | 'kcb' | 'cyb' | 'bj' | 'b'
 
@@ -222,7 +223,7 @@ export function MarketListPanel(props: {
     void (async () => {
       try {
         // MAC 批量报价带量比/涨速；默认排序也用它，列不会出现整列「—」
-        const data = await api.quote.macQuotes(codes)
+        const data = await api.quote.macQuotesFinance(codes)
         if (current !== requestId) return
         setQuotes(data)
         setError(null)
@@ -323,17 +324,20 @@ export function MarketListPanel(props: {
         <div class="market__table-wrap">
           <table class="market__table">
             <colgroup>
-              <col style="width: 86px" />
-              <col style="width: 170px" />
+              <col style="width: 78px" />
+              <col style="width: 130px" />
+              <col style="width: 46px" />
               <col style="width: 54px" />
-              <col style="width: 64px" />
-              <col style="width: 84px" />
-              <col style="width: 84px" />
-              <col style="width: 96px" />
-              <col style="width: 70px" />
-              <col style="width: 62px" />
               <col style="width: 74px" />
+              <col style="width: 76px" />
+              <col style="width: 86px" />
               <col style="width: 58px" />
+              <col style="width: 52px" />
+              <col style="width: 60px" />
+              <For each={EXTRA_COLUMNS}>
+                {(column) => <col style={{ width: `${column.width}px` }} />}
+              </For>
+              <col style="width: 50px" />
             </colgroup>
             <thead>
               <tr>
@@ -347,6 +351,7 @@ export function MarketListPanel(props: {
                 <th class="num">换手</th>
                 <th class="num">量比</th>
                 <th class="num">涨速</th>
+                <ExtraColumnHeaders />
                 <th class="num market__spark-head">走势</th>
               </tr>
             </thead>
@@ -370,7 +375,7 @@ export function MarketListPanel(props: {
                         })
                       }
                     >
-                      <td class="num">{item.code.toUpperCase()}</td>
+                      <td>{item.code.toUpperCase()}</td>
                       <td>{quote()?.name || item.name}</td>
                       <td>{item.market}</td>
                       <td class="market__kind">{item.kind}</td>
@@ -400,6 +405,7 @@ export function MarketListPanel(props: {
                           ? `${quote()!.riseSpeed!.toFixed(2)}%`
                           : '—'}
                       </td>
+                      <ExtraColumnCells quote={quote()} />
                       <td class="num market__spark-cell">
                         <Show
                           when={sparklineOf(item.code)}

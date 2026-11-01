@@ -66,7 +66,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
     setLoadingQuotes(true)
     try {
       if (block.indexCode) {
-        const [index] = await api.quote.snapshot([block.indexCode])
+        const [index] = await api.quote.macQuotes([block.indexCode])
         if (current !== quoteId) return
         setIndexQuote(index ?? null)
       }
@@ -74,7 +74,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
       const result: Quote[] = []
       for (let start = 0; start < codes.length; start += QUOTE_CHUNK) {
         const chunk = codes.slice(start, start + QUOTE_CHUNK)
-        result.push(...(await api.quote.snapshot(chunk)))
+        result.push(...(await api.quote.macQuotes(chunk)))
         if (current !== quoteId) return
       }
       setQuotes(result)

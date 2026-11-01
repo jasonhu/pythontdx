@@ -221,8 +221,8 @@ export function MarketListPanel(props: {
     setLoading(true)
     void (async () => {
       try {
-        const data =
-          sort() !== 'default' ? await api.quote.macQuotes(codes) : await api.quote.snapshot(codes)
+        // MAC 批量报价带量比/涨速；默认排序也用它，列不会出现整列「—」
+        const data = await api.quote.macQuotes(codes)
         if (current !== requestId) return
         setQuotes(data)
         setError(null)

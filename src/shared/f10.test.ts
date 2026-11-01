@@ -154,12 +154,24 @@ describe('parseF10', () => {
     expect(blocks.some((block) => block.kind === 'text' && block.text.includes('公告A'))).toBe(false)
   })
 
+  it('普通数据表后面的链接不会被当成公告明细', () => {
+    const source = `┌──────┬──────┐
+│项目  │数值  │
+│A     │1.00  │
+└──────┴──────┘
+http://example.com/news1
+http://example.com/news2`
+    const blocks = parseF10(source)
+    expect(blocks.some((block) => block.kind === 'table')).toBe(true)
+    expect(blocks.filter((block) => block.kind === 'link')).toHaveLength(2)
+  })
+
   it('明细比摘要表多时删掉摘要，只保留完整明细', () => {
     const source = [
       '【1.公告列表】',
       '┌──────┬──────┐',
       '│日期  │标题  │',
-      '│a     │公告A │',
+      '│2026-10-30│公告A │',
       '└──────┴──────┘',
       '2026-10-30 公告A。公告详情请查看附件',
       'http://example.com/a.pdf',

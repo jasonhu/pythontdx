@@ -24,10 +24,14 @@ export function attachTableLinks(blocks: F10Block[]): void {
       continue
     }
     const links = tail.filter((block) => block.kind === 'link').map((block) => block.url)
-    const dataRows = table.headerless ? table.rows.length : table.rows.length - 1
-    if (links.length === 0) continue
+    const offset = table.headerless ? 0 : 1
+    const dataRows = table.rows.length - offset
+    // 只处理公告表：首列是日期；避免把普通数据表后面的新闻链接误当公告明细
+    const announcement =
+      dataRows > 0 &&
+      table.rows.slice(offset).every((row) => /^\d{4}-\d{2}-\d{2}/.test((row[0] ?? '').trim()))
+    if (links.length === 0 || !announcement) continue
     if (links.length === dataRows) {
-      const offset = table.headerless ? 0 : 1
       table.links = table.rows.map((_, row) =>
         row >= offset ? links[row - offset] : undefined
       )

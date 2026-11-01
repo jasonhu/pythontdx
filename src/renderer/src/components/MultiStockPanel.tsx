@@ -70,6 +70,8 @@ interface MiniKlineProps {
 const W = 320
 const H = 176
 const PAD = 6
+/** 右侧不留大缝：刻度紧贴图 */
+const RIGHT_PAD = 2
 const PRICE_H = 118
 const VOL_TOP = 128
 const VOL_H = 40
@@ -117,7 +119,7 @@ function MiniKline(props: MiniKlineProps): JSX.Element {
     }
     if (!Number.isFinite(min) || !Number.isFinite(max)) return null
     const span = max - min || Math.max(1, max * 0.01)
-    const step = (W - PAD * 2) / visible.length
+    const step = (W - PAD - RIGHT_PAD) / visible.length
     const body = Math.max(1, step * 0.62)
     const yOf = (price: number): number => PAD + (1 - (price - min) / span) * (PRICE_H - PAD * 2)
     const xOf = (index: number): number => PAD + (index - start + 0.5) * step
@@ -176,7 +178,7 @@ function MiniKline(props: MiniKlineProps): JSX.Element {
             {(ratio) => (
               <line
                 x1={PAD}
-                x2={W - PAD}
+                x2={W - RIGHT_PAD}
                 y1={PAD + ratio * (PRICE_H - PAD * 2)}
                 y2={PAD + ratio * (PRICE_H - PAD * 2)}
                 class="multi-kline__grid"
@@ -275,7 +277,7 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
     const max = base + diff
     const span = max - min
     // 横轴固定 240 个交易分钟，未走完的部分留白；数据到了线才往前延伸
-    const step = (W - PAD * 2) / DAY_POINTS
+    const step = (W - PAD - RIGHT_PAD) / DAY_POINTS
     const yOf = (price: number): number => PAD + (1 - (price - min) / span) * (PRICE_H - PAD * 2)
     const xOf = (index: number): number => PAD + (index + 0.5) * step
     const pricePath = visible
@@ -315,11 +317,22 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
             preserveAspectRatio="none"
             aria-hidden="true"
           >
+            <For each={[60, 120, 180]}>
+              {(index) => (
+                <line
+                  x1={PAD + ((index + 0.5) / DAY_POINTS) * (W - PAD - RIGHT_PAD)}
+                  x2={PAD + ((index + 0.5) / DAY_POINTS) * (W - PAD - RIGHT_PAD)}
+                  y1={PAD}
+                  y2={VOL_TOP + VOL_H}
+                  class="multi-min__time"
+                />
+              )}
+            </For>
           <For each={[0.25, 0.5, 0.75]}>
             {(ratio) => (
               <line
                 x1={PAD}
-                x2={W - PAD}
+                x2={W - RIGHT_PAD}
                 y1={PAD + ratio * (PRICE_H - PAD * 2)}
                 y2={PAD + ratio * (PRICE_H - PAD * 2)}
                 class="multi-kline__grid"
@@ -330,7 +343,7 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
             {(baseline) => (
               <line
                 x1={PAD}
-                x2={W - PAD}
+                x2={W - RIGHT_PAD}
                 y1={baseline()}
                 y2={baseline()}
                 class="multi-min__baseline"

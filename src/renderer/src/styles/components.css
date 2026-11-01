@@ -7721,16 +7721,16 @@
 .multi-card__axis {
   position: relative;
   flex: none;
-  width: 34px;
+  width: 27px;
   overflow: hidden;
   color: var(--text-3);
   font-family: var(--font-mono);
-  font-size: 7px;
-  line-height: 9px;
+  font-size: 6px;
+  line-height: 8px;
 }
 
 .multi-card__axis--minute {
-  width: 40px;
+  width: 28px;
 }
 
 .multi-card__axis > span {

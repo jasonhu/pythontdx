@@ -137,6 +137,7 @@
 | V5  | macOS 上的**红绿灯让位**与打包 | 没有 macOS 环境                                           | 在 mac 上跑 `npm run build:mac` |
 | V9  | **Nuitka sidecar 打包**        | Linux Nuitka 4.3.3 构建并 `ping` 通过；onefile 不携带源码 | 仅 Linux                        |
 | V10 | **Linux packaged 应用启动**    | linux-unpacked / AppImage / deb 均已启动截图              | 窗口/行情已确认；Linux 完成     |
+| V11 | **34/35 量比/涨速/走势图实数据** | 验收时 7709 刷新持续超时、MAC 间歇失败，界面多为 `—` | 数据源恢复后打开板块/全市场列表截图；代码已加 5s 超时与 MAC 兜底 |
 
 > 港股/美股/期货/期权不在范围（`docs/00` G3），7727 扩展行情也不接入，
 > 不再作为待验证项。

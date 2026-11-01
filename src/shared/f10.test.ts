@@ -199,6 +199,32 @@ http://example.com/news2`
   })
 
 
+  it('相邻表头只隔一个空格时也能拆出独立列', () => {
+    const source = `均价 剩余股数(万) 变动途径
+────────────────────
+44.15 0.32 二级市场买卖
+14.00 1.06 股权激励`
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出高管表')
+    expect(table.rows[0]).toEqual(['均价', '剩余股数(万)', '变动途径'])
+    expect(table.rows[1]).toEqual(['44.15', '0.32', '二级市场买卖'])
+  })
+
+  it('公司概况这种 2/4 列键值表渲染为 kv', () => {
+    const source = `┌──────┬──────────────┬──────┬──────┐
+│公司名称│广东利元亨智能装备股份有限公司│      │      │
+│英文全称│Guangdong Lyric Robot Automation Co., Ltd.│      │      │
+│证券简称│利元亨                    │证券代码│688499│
+└──────┴──────────────┴──────┴──────┘`
+    const blocks = parseF10(source)
+    const kv = blocks.find((block) => block.kind === 'kv')
+    if (kv?.kind !== 'kv') throw new Error('没有解析出键值表')
+    expect(kv.pairs).toHaveLength(4)
+    expect(kv.pairs[0]).toEqual({ label: '公司名称', value: '广东利元亨智能装备股份有限公司' })
+    expect(kv.pairs[3]).toEqual({ label: '证券代码', value: '688499' })
+  })
+
   it('「★本栏包括」折行里的【5.xxx】不是章节标题', () => {
     const source = [
       '公司概况☆ ◇688499 利元亨',

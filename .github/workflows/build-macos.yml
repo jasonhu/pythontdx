@@ -2,6 +2,7 @@
 #
 # 刻意**不发布 Release**：dmg 先留到 1.0；这个 workflow 只做构建、签名校验、
 # GPL 校验，并把 dmg + sha256 作为 Actions artifact 保留，方便手动下载测试。
+# 触发：workflow_dispatch + v1.* tag；0.14.x tag 不触发（不出 dmg）。
 #
 # 为什么是 macos-15：GitHub 的标准 macOS runner 里，`macos-15` 是 **arm64**，
 # `macos-15-intel` 才是 x64。本项目 macOS 只支持 Apple Silicon，Nuitka sidecar
@@ -12,7 +13,8 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*'
+      # 0.14.x 只打 tag、不出 dmg；1.0 起才自动构建。
+      - 'v1.*'
 
 permissions:
   contents: read

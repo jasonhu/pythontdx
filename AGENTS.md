@@ -127,7 +127,7 @@ npm run build:mac           # macOS dmg（仅 Apple Silicon / arm64）
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
-> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02 实机打包验收（0.9.0 ~ 0.14.2 见 `docs/07` 第十一至二十八、三十一至三十五节）。macOS 只支持 Apple Silicon，不维护 Intel 版（2026-11-02 用户决定）。
+> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02 实机打包验收（0.9.0 ~ 0.14.3 见 `docs/07` 第十一至二十八、三十一至三十六节；0.14.3 仅 tag，无 dmg）。macOS 只支持 Apple Silicon，不维护 Intel 版（2026-11-02 用户决定）。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
@@ -178,7 +178,8 @@ v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接
 `docs/07` 第十一至二十八、三十一至三十三节）；
 2026-11-02 实机打包并验收 macOS arm64 dmg（0.14.2，ad-hoc 签名），同时修掉
 thin Mach-O 误判、arm64 目标错配与 7615 系统代理超时（见 `docs/07` 第三十四节）；
-并修首屏分时图被「涨跌家数」全市场扫描阻塞（14.97s → 4.2s，未发布，见 docs/06 #41）；
+0.14.3 修首屏分时图请求优先级与涨跌家数阻塞（14.97s → 2.9s，仅 tag、无 dmg；
+见 `docs/07` 第三十六节与 `docs/06` 第 41 条）；
 2026-11-01 新增左栏「自选股 / 板块 / 自定义」三视图、板块选择大窗口、
 离线数据单文件备份/恢复、数据集归档（板块/财务含三大报表/龙虎榜），并修复指数除权
 （截图与实测见 `CHANGELOG`）。

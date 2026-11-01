@@ -647,7 +647,14 @@ export async function fetchMinuteTrend(code: string, signal?: AbortSignal): Prom
   assertSupported(code)
   if (signal?.aborted) throw new TdxError('请求已取消')
 
-  return minuteCache.resolve(code, () => bridge.send<MinuteTrend>('minute', { code }))
+  /*
+   * 分时是默认 tab，首屏必须插到行情 refresh 前面：
+   * sidecar 冷启动后 refresh 可能要 1.75s，分时排它后面就是「打开软件
+   * 十几秒才出图」的直接原因（K 线 cacheOnly 早就 priority=true）。
+   */
+  return minuteCache.resolve(code, () =>
+    bridge.send<MinuteTrend>('minute', { code }, undefined, true)
+  )
 }
 
 export async function fetchFiveDayTrend(
@@ -657,7 +664,9 @@ export async function fetchFiveDayTrend(
   assertSupported(code)
   if (signal?.aborted) throw new TdxError('请求已取消')
 
-  return fiveDayCache.resolve(code, () => bridge.send<MultiDayTrend>('five_day', { code }))
+  return fiveDayCache.resolve(code, () =>
+    bridge.send<MultiDayTrend>('five_day', { code }, undefined, true)
+  )
 }
 
 /* ------------------------------------------------------------------ 搜索 */

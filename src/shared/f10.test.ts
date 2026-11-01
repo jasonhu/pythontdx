@@ -245,6 +245,32 @@ describe('parseF10', () => {
     expect(table.rows[1]?.[1]).toBe('一般项目：工业机器人制造；工业设计服务')
   })
 
+  it('同一张表被分隔线分段时并回上一张表', () => {
+    const source = `项目名          营业收入(元)  收入比例(%)
+────────────────────────────
+锂电池设备      14.46亿        73.77
+────────────────────────────
+中国大陆(地区)  19.22亿        98.06
+其他国家(地区)  3808.50万       1.94`
+    const blocks = parseF10(source)
+    const tables = blocks.filter((block) => block.kind === 'table')
+    expect(tables).toHaveLength(1)
+    if (tables[0]?.kind !== 'table') throw new Error('没有解析出表')
+    expect(tables[0].rows).toHaveLength(4)
+    expect(tables[0].rows[2]?.[0]).toBe('中国大陆(地区)')
+  })
+
+  it('按地区汇总的行（带亿/万）也能成无表头表', () => {
+    const source = `中国大陆(地区)                          19.22亿        98.06       4.76亿        99.50      24.76
+其他国家或地区(地区)                  3808.50万         1.94     237.38万         0.50       6.23`
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出地区表')
+    expect(table.headerless).toBe(true)
+    expect(table.rows).toHaveLength(2)
+    expect(table.rows[0]?.[0]).toBe('中国大陆(地区)')
+  })
+
   it('带「亿/万」单位的列仍按数字右对齐', () => {
     const source = [
       '项目名          营业收入(元)  收入比例(%)',

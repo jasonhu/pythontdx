@@ -101,7 +101,7 @@ function readSpaceList(
   const first = split(lines[index] ?? '')
   if (first.length < 3) return null
   // 表头行（机构名称/股东名称…）没有数字；从表头开始切会把单位行也当数据
-  const numericToken = /^[-+]?[\d,]+(\.\d+)?%?$/
+  const numericToken = /^[-+]?[\d,]+(\.\d+)?(亿|万|元|股|手|%)?$/
   if (!first.some((token) => numericToken.test(token))) return null
   const rows: string[][] = []
   let cursor = index
@@ -119,7 +119,7 @@ function readSpaceList(
     rows.push(cells)
     cursor += 1
   }
-  if (rows.length < 3) return null
+  if (rows.length < 2) return null
   const numeric = numericColumns(rows, false)
   if (!numeric.some(Boolean)) return null
   return { block: { kind: 'table', rows, numeric, headerless: true }, next: cursor }
@@ -434,7 +434,20 @@ export function parseF10(source: string): F10Block[] {
     if (listTable) {
       flushTable()
       flushText()
-      blocks.push(listTable.block)
+      const previous = blocks[blocks.length - 1]
+      const rows = listTable.block.kind === 'table' ? listTable.block.rows : []
+      const sameColumns =
+        previous?.kind === 'table' &&
+        rows.length > 0 &&
+        previous.rows[0]?.length === rows[0]?.length
+      // 同一张表被 ─── 分成几段（经营分析的行业/产品/地区/销售模式）：
+      // 列数一致且中间没有标题，就接回上一张表，共用表头
+      if (sameColumns && previous?.kind === 'table') {
+        previous.rows.push(...rows.map((row) => [...row]))
+        previous.numeric = numericColumns(previous.rows)
+      } else {
+        blocks.push(listTable.block)
+      }
       index = listTable.next - 1
       continue
     }

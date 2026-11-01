@@ -428,7 +428,7 @@
 .watch-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) 46px minmax(58px, auto) 20px;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -535,15 +535,13 @@
   opacity: 1;
 }
 
-.watch-row__side {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .watch-row__nums {
-  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   min-width: 58px;
+  text-align: right;
 }
 
 .watch-row__price {
@@ -1358,7 +1356,8 @@
 /* ------------------------------------------------------------ 窄窗适配 */
 @media (max-width: 1240px) {
   /* 窄窗仍保留迷你图：只压缩价格列间距，不隐藏走势。 */
-  .watch-row__nums {
+  .watch-row__nums,
+  .sector-row__nums {
     min-width: 62px;
   }
 
@@ -1668,4 +1667,33 @@
 .server-page__foot code {
   color: var(--text-2);
   font-family: var(--font-num);
+}
+
+/* ============================================================================
+   原生下拉统一底色
+   ----------------------------------------------------------------------------
+   各处的 <select> 原本分别用 --panel / --bg-base / transparent，深色主题下
+   控制框会透出背后内容，浅色主题下又和面板不是同一个白；Windows 上原生
+   选项弹层还会用系统色。这里统一成实心面板色，并把 option 的颜色写死，
+   保证深/浅两套主题下控制框与展开列表都是「同一块底色 + 可读文字」。
+   ========================================================================== */
+select,
+.alert__select,
+.chart-sub-select,
+.chart-ext-select,
+.chart-minute-select,
+.screener__field select,
+.screener__formula-scope,
+.data__bulk-scope,
+.data__kline-period,
+.custom-select,
+.statusbar__format {
+  background-color: var(--panel-solid);
+  color: var(--text-1);
+}
+
+select option,
+select optgroup {
+  background-color: var(--panel-solid);
+  color: var(--text-1);
 }

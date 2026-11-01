@@ -113,3 +113,20 @@ export function searchEntries(
     kind: entry.info.kind
   }))
 }
+
+/**
+ * 单条证券是否命中拼音（全拼或首字母，前缀优先、也允许包含）。
+ *
+ * `searchEntries` 用于「搜索框给前 20 条」；全市场列表要保留全部命中行，
+ * 所以把拼音判断单独抽出来复用，保证两处规则一致。
+ */
+export function matchesPinyin(entry: SearchEntry, keyword: string): boolean {
+  const query = normalize(keyword)
+  if (!query) return false
+  return (
+    entry.initials.startsWith(query) ||
+    entry.full.startsWith(query) ||
+    entry.initials.includes(query) ||
+    entry.full.includes(query)
+  )
+}

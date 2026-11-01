@@ -73,20 +73,24 @@ function SectorRow(props: { code: string; name: string; onPick: () => void }): J
       onClick={() => props.onPick()}
       onContextMenu={(event) => openStockMenu(event, { code: props.code, name: props.name })}
     >
-      <span class="sector-row__name">{props.name}</span>
-      <Show when={sparklineOf(props.code)}>
-        {(data) => (
-          <span class="sector-row__spark">
-            <Sparkline values={data().values} baseline={data().prevClose} width={42} height={16} />
-          </span>
-        )}
-      </Show>
+      <span class="sector-row__main">
+        <span class="sector-row__name">{props.name}</span>
+        <span class="sector-row__code num">{props.code.toUpperCase()}</span>
+      </span>
+      <span class="sector-row__spark">
+        <Show when={sparklineOf(props.code)}>
+          {(data) => (
+            <Sparkline values={data().values} baseline={data().prevClose} width={46} height={22} />
+          )}
+        </Show>
+      </span>
       <span class="sector-row__nums">
         <span class="sector-row__price num">{quote() ? fixed(quote()!.price) : '—'}</span>
         <span class={`sector-row__chg num ${tone()}`}>
           {quote() ? signedPct(quote()!.changePct) : '—'}
         </span>
       </span>
+      <span class="sector-row__tail" aria-hidden="true" />
     </button>
   )
 }
@@ -305,7 +309,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           <IconFilter size={13} />
         </button>
         <button
-          class="btn btn--icon btn--bare market-open"
+          class="btn btn--icon btn--bare market-list-open"
           title="全市场列表"
           aria-label="打开全市场列表"
           onClick={() => props.onOpenMarket()}

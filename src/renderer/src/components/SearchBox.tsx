@@ -137,7 +137,7 @@ export function SearchBox(): JSX.Element {
           type="text"
           spellcheck={false}
           autocomplete="off"
-          placeholder="搜索股票 / 代码 / 拼音，回车添加自选"
+          placeholder="搜索股票 / 代码 / 拼音首字母，回车添加自选"
           value={keyword()}
           onInput={(event) => setKeyword(event.currentTarget.value)}
           onKeyDown={onKeyDown}

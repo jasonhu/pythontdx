@@ -10,10 +10,13 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
-## [未发布]
+## [0.9.1] - 2026-11-01
 
 ### 新增
 
+- **拼音首字母搜索补齐全市场列表**：全市场列表原来只按代码/名称过滤，现在输入
+  `gzmt`、`wly` 也能命中；索引按需动态加载（`pinyin-pro` 单独 chunk），
+  与顶部搜索框共用 `@shared/search` 的 `matchesPinyin` 规则，首字母/全拼都支持。
 - **左栏三视图：自选股 / 板块 / 自定义**：左侧列表顶部加三档切换。
   「板块」点开即弹出大窗口选板块（行业 111 / 概念 269 / 风格 161 / 指数板块 117 /
   一般 100），选完在左栏按涨跌幅列出该板块的个股排行；「自定义」把自选分组当作
@@ -63,6 +66,20 @@ StockLens 的所有重要变更都记录在这里。
 
 ### 修复
 
+- **左栏板块/自定义行只有名称、没有代码（用户反馈 #19）**：`SectorRow` 现在和自选股行
+  一样显示「名称 + 代码」两行，代码用 `SH/SZ/BJ` 前缀；
+- **三个栏目排版不一致（用户反馈 #20）**：自选股、板块、自定义统一成同一套网格
+  （名称/代码 1fr + 迷你走势 46px + 价格/涨幅 58px+ + 尾部 20px），
+  价格列右边缘对齐；自选股行去掉包住价格的 `__side` 包装层，删除按钮单独占最后一列，
+  关闭迷你图时也不再挤动价格列；
+- **下拉框底色在深/浅主题下不一致（用户反馈 #21）**：各处 `<select>` 原本分别用
+  `--panel`（半透明）/`--bg-base`/`transparent`，Windows 上原生控制框会透出背景、
+  展开列表还会用系统色。现在统一为实心 `--panel-solid`，并给 `select option/optgroup`
+  显式写底色与文字色；已逐一核对自定义板块、数据工具范围/周期、图表周期、预警、
+  条件选股、状态栏格式（截图 `rows-custom-dark/light.png`、`selects-data-*.png`）。
+- **侧栏「全市场列表」按钮和标题栏「行情」按钮 class 重名**：两者都叫
+  `market-open`，截图脚本点到了服务器测速页；侧栏改为 `market-list-open`
+  （无样式引用，纯选择器冲突）。
 - **上证指数出现除权线 / 分红数据**：7615 的 F10 只按 6 位 symbol 查，
   `sh000001` 被当成 `sz000001`（平安银行），于是指数 K 线画出平安银行的除权线、
   F10 分红页也显示它的分红。`f10_dividend` 现在对指数直接返回空表；图表侧新增
@@ -83,30 +100,36 @@ StockLens 的所有重要变更都记录在这里。
 ### 工程
 
 - Windows x64 用 `electron-builder --win nsis dir` 出一套产物：NSIS 安装包 +
-  散装绿色目录 + 绿色包 zip，全部落在 `release/0.9.0/`，实测记录见 `docs/07` 第十一节。
-- `npm run check` 在 Windows 上 exit 0：**267 个 TS 测试** +
+  散装绿色目录 + 绿色包 zip，全部落在 `release/0.9.1/`，实测记录见 `docs/07` 第十二节。
+- `npm run check` 在 Windows 上 exit 0：**270 个 TS 测试** +
   **158 个 Python 测试**（各 1 skipped）。
 - 新增测试：`isIndexCode` 4 个（含 `sh000001` / `sz000001` 同号不同市场）、
   离线备份/恢复 2 个（补缺失 + 路径穿越）、指数无分红 1 个、
   客户端自定义板块解析 3 个（blocknew.cfg 定长记录 / .blk 市场位 / 目录优先级）、
-  三大报表解析 2 个（full 保留全部列 / 摘要用中文标签）、before-pack 2 个。
+  三大报表解析 2 个（full 保留全部列 / 摘要用中文标签）、
+  拼音匹配 3 个（首字母 / 前缀 / 不命中）、before-pack 2 个。
 
 ### 验证（2026-11-01，Windows 10 x64 实机）
 
 | 产物                               | 大小                      | SHA256                                                             |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,242,232 B） | `eb1fbcf9a529fe9921f76b2cebc0261218c35a5fff37a854ea4130b6402c66ff` |
-| `StockLens-0.9.0-win-x64/`（散装） | 409.1 MB（409,112,576 B） | —                                                                  |
-| `StockLens-0.9.0-win-x64.zip`      | 175.1 MB（175,103,475 B） | `b54eb92767c240b5103cc907e046f7cb10f6a9cda6b5c1ad0c84d88ac8b86e31` |
+| `stocklens-0.9.1-setup.exe`        | 133.6 MB（133,567,285 B） | `c87de55f31d0f4df6cd7abdc716b2f6f9301f264c316838bad2661db3a391f8a` |
+| `StockLens-0.9.1-win-x64/`（散装） | 410.5 MB（410,455,359 B） | —                                                                  |
+| `StockLens-0.9.1-win-x64.zip`      | 175.5 MB（175,528,404 B） | `5174289b77904e4d3f13d162417a22c746f0023b55711e4a4640efa7ef0520cc` |
 
-- 安装包：`MSYS2_ARG_CONV_EXCL='*' setup.exe /S '/D=<目录>'` 真静默（4.1s，无窗口，
+- 安装包：`MSYS2_ARG_CONV_EXCL='*' setup.exe /S '/D=<目录>'` 真静默（无窗口，
   Git Bash 直写 `/S` 会被 MSYS 转成 `S:/` 进而弹图形向导）→ 快捷方式、HKCU 卸载项齐全 →
-  安装版启动取到实时行情（`screenshots/installed-new.png`）→ `MSYS2_ARG_CONV_EXCL='*'
-  "Uninstall StockLens.exe" /S` 后安装目录、快捷方式、注册表项全部清除；
-- 绿色包：整目录拷到 `.tmp/green test 绿色`（含空格与中文）直接运行，
-  实时行情、分时图、五档盘口、明细正常（`screenshots/green-win-data.png`）；
-- zip：解压出 76 个文件（409,112,576 B）后运行同样正常（`screenshots/zip-win.png`）；
-- 新界面：板块选择大窗口（`screenshots/sector-picker.png`）、板块内涨跌幅排行
+  安装版启动取到实时行情、状态栏 `v0.9.1`（`screenshots/v091-installed.png`）→
+  `MSYS2_ARG_CONV_EXCL='*' "Uninstall StockLens.exe" /S` 后目录、快捷方式、注册表项全部清除；
+- 绿色包：整目录拷到 `.tmp/green091` 直接运行，状态栏 `v0.9.1`
+  （`screenshots/v091-green.png`）；
+- zip：解压出 76 个文件（410,455,359 B）后运行同样正常、`v0.9.1`
+  （`screenshots/v091-zip.png`）；
+- 0.9.1 界面改动：左栏三栏排版与代码行（`screenshots/rows-watch-dark.png`、
+  `rows-sector-dark.png`、`rows-custom-dark.png`、`rows-custom-light.png`）、
+  下拉框深浅主题（`screenshots/selects-data-dark.png`、`selects-data-light.png`）、
+  拼音首字母 `gzmt`（`screenshots/market-pinyin.png`）；
+- 0.9.0 起已验收的界面：板块选择大窗口（`screenshots/sector-picker.png`）、板块内涨跌幅排行
   （`screenshots/sector-ranking.png`）、自定义板块排行（`screenshots/custom-ranking.png`）、
   板块内选股走势图（`screenshots/block-sparkline.png`）、龙虎榜分页
   （`screenshots/dragon-pager.png`）、数据集归档任务与完成汇总

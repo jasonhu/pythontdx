@@ -15,6 +15,7 @@
  *   STOCKLENS_CAPTURE_CLICK   截图前依次点击的选择器，逗号分隔（切 tab 这类操作）
  *   STOCKLENS_CAPTURE_FOCUS   点击并等界面就绪之后，把焦点放到这个选择器上
  *   STOCKLENS_CAPTURE_KEYS    截图前依次发送的按键，逗号分隔，用 Electron 的键名（如 Up,Up）
+ *   STOCKLENS_CAPTURE_TYPE    往焦点元素输入文本（搜索框验证用，走真实 insertText）
  *   STOCKLENS_CAPTURE_POINTER 真实指针操作：`move@选择器@比例` / `click@选择器@比例`
  *   STOCKLENS_CAPTURE_WHEEL   真实滚轮：`deltaY@选择器@比例`（如 -100@.chart-host@0.25）
  *   STOCKLENS_CAPTURE_PROBE   等它出现并回读它的文本，打印到终端
@@ -136,6 +137,14 @@ async function drive(window: BrowserWindow): Promise<void> {
   if (focus) {
     await evaluate(window, `document.querySelector(${json(focus)})?.focus()`)
     await wait(120)
+  }
+
+  // STOCKLENS_CAPTURE_TYPE 往当前焦点输入文本：搜索框这类需要真实输入事件的场景，
+  // 只发 keyDown 不会插入字符（要 char 事件），用 insertText 最接近粘贴/输入法。
+  const typed = process.env.STOCKLENS_CAPTURE_TYPE
+  if (typed) {
+    window.webContents.insertText(typed)
+    await wait(200)
   }
 
   for (const key of split(process.env.STOCKLENS_CAPTURE_KEYS)) {

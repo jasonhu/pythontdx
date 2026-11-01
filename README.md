@@ -6,13 +6,13 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：0.9.0（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：267 个 TS 测试 + 158 个 Python 测试（各 1 skipped）·
+**版本：0.9.1（release candidate）** · **许可证：GPL-3.0-or-later** ·
+`npm run check`：270 个 TS 测试 + 158 个 Python 测试（各 1 skipped）·
 `npm run audit:data`：39/39。
 
 > 0.9 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
 > macOS 也还没有实机打包验收。这两项完成后再发 1.0。
-> Windows x64 的安装包 / 绿色包 / zip 已于 2026-11-01 实机打包并验收（见 `docs/07` 第十一节）。
+> Windows x64 的安装包 / 绿色包 / zip 已于 2026-11-01 实机打包并验收（见 `docs/07` 第十一、十二节）。
 
 ---
 
@@ -146,7 +146,7 @@ python3 python/tdx_server.py --web-dir out/web --port 8765
 ### 检查
 
 ```bash
-npm run check         # 类型 + Lint + 267 TS + 158 Python
+npm run check         # 类型 + Lint + 270 TS + 158 Python
 npm run audit:data    # 39 项数据覆盖/完整性审计
 npm run shot          # 构建并截图，输出到 screenshots/
 ```

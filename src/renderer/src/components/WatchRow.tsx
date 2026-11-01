@@ -105,8 +105,8 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
         <div class="watch-row__code num">{props.item.code.toUpperCase()}</div>
       </div>
 
-      <Show when={appState.settings.showSparkline}>
-        <div class="watch-row__spark-slot">
+      <div class="watch-row__spark-slot">
+        <Show when={appState.settings.showSparkline}>
           <Show when={sparklineOf(props.item.code)}>
             {(data) => (
               <Sparkline
@@ -118,39 +118,37 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
               />
             )}
           </Show>
-        </div>
-      </Show>
+        </Show>
+      </div>
 
-      <div class="watch-row__side">
-        <div class="watch-row__nums">
-          <div
-            class="watch-row__price num"
-            classList={{
-              [tone()]: true,
-              'watch-row__price--up': flash() === 'up',
-              'watch-row__price--down': flash() === 'down'
-            }}
-          >
-            {fixed(quote()?.price)}
-          </div>
-          <div class="watch-row__chg num" classList={{ [tone()]: true }}>
-            {signedPct(quote()?.changePct)}
-          </div>
-        </div>
-
-        <span
-          class="watch-row__remove"
-          role="button"
-          aria-label="移出自选"
-          title="移出自选"
-          onClick={(event) => {
-            event.stopPropagation()
-            removeWatchItem(props.item.code)
+      <div class="watch-row__nums">
+        <div
+          class="watch-row__price num"
+          classList={{
+            [tone()]: true,
+            'watch-row__price--up': flash() === 'up',
+            'watch-row__price--down': flash() === 'down'
           }}
         >
-          <IconClose size={11} />
-        </span>
+          {fixed(quote()?.price)}
+        </div>
+        <div class="watch-row__chg num" classList={{ [tone()]: true }}>
+          {signedPct(quote()?.changePct)}
+        </div>
       </div>
+
+      <span
+        class="watch-row__remove"
+        role="button"
+        aria-label="移出自选"
+        title="移出自选"
+        onClick={(event) => {
+          event.stopPropagation()
+          removeWatchItem(props.item.code)
+        }}
+      >
+        <IconClose size={11} />
+      </span>
     </button>
   )
 }

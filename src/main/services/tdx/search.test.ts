@@ -5,7 +5,7 @@
  * 这些用例锁住「首字母 / 全拼 / 中文 / 代码」四条路径。
  */
 import { describe, expect, it } from 'vitest'
-import { buildSearchEntries, searchEntries } from './search'
+import { buildSearchEntries, matchesPinyin, searchEntries } from './search'
 import type { SecurityInfo } from './types'
 
 const ITEMS: SecurityInfo[] = [
@@ -35,5 +35,24 @@ describe('searchEntries', () => {
 
   it('没有匹配时返回空数组', () => {
     expect(searchEntries(ENTRIES, 'zzzzzz')).toEqual([])
+  })
+})
+
+describe('matchesPinyin', () => {
+  const maotai = ENTRIES[0]!
+
+  it('命中首字母缩写与全拼', () => {
+    expect(matchesPinyin(maotai, 'gzmt')).toBe(true)
+    expect(matchesPinyin(maotai, 'GZMT')).toBe(true)
+    expect(matchesPinyin(maotai, 'guizhou')).toBe(true)
+  })
+
+  it('命中首字母前缀（全市场列表按输入逐字过滤）', () => {
+    expect(matchesPinyin(maotai, 'gz')).toBe(true)
+  })
+
+  it('不相关的字母组合不命中', () => {
+    expect(matchesPinyin(maotai, 'zzzz')).toBe(false)
+    expect(matchesPinyin(maotai, '')).toBe(false)
   })
 })

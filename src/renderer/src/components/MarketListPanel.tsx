@@ -6,7 +6,7 @@
  */
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { Quote } from '@shared/types'
-import type { SearchSecurity } from '@shared/search'
+import type { SearchEntry, SearchSecurity } from '@shared/search'
 import { compactAmount, fixed, signedPct } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { openStockMenu } from '../stores/stockMenu'
@@ -86,8 +86,32 @@ export function MarketListPanel(props: {
   const [allKey, setAllKey] = createSignal('')
   const [allLoading, setAllLoading] = createSignal(false)
   const [allProgress, setAllProgress] = createSignal('')
+  const [pinyinReady, setPinyinReady] = createSignal(false)
   let requestId = 0
   let allRequestId = 0
+  /** 拼音索引按需构建（pinyin-pro 词典较大，动态 import 让首屏不背这份体积） */
+  let searchIndex: SearchEntry[] | undefined
+  let pinyinMatcher: ((entry: SearchEntry, keyword: string) => boolean) | undefined
+  let pinyinLoading: Promise<void> | undefined
+
+  const loadPinyinIndex = (): Promise<void> => {
+    if (searchIndex) return Promise.resolve()
+    // 在同步段读取响应式代码表：异步回调里读不会触发依赖跟踪
+    const items = catalog()
+    pinyinLoading ??= import('@shared/search').then((module) => {
+      pinyinLoading = undefined
+      if (items.length === 0) return
+      pinyinMatcher = module.matchesPinyin
+      searchIndex = module.buildSearchEntries(items)
+      setPinyinReady(true)
+    })
+    return pinyinLoading
+  }
+
+  createEffect(() => {
+    // 只在输入看起来像拼音时构建索引，纯数字/中文查询不付这份成本
+    if (catalog().length > 0 && /^[a-z]{2,}$/i.test(query().trim())) void loadPinyinIndex()
+  })
 
   createEffect(() => {
     void (async () => {
@@ -104,12 +128,21 @@ export function MarketListPanel(props: {
 
   const filtered = createMemo(() => {
     const text = query().trim().toLowerCase()
+    // 订阅索引就绪状态：拼音索引异步建好后要让过滤重新跑一遍
+    const entries = pinyinReady() ? searchIndex : undefined
+    const entryOf = entries ? new Map(entries.map((entry) => [entry.info.code, entry])) : null
+    const phonetic = text.replace(/[^a-z0-9\u4e00-\u9fff]/g, '')
     return catalog()
       .filter((item) => matches(tab(), item))
-      .filter(
-        (item) =>
-          !text || item.code.toLowerCase().includes(text) || item.name.toLowerCase().includes(text)
-      )
+      .filter((item) => {
+        if (!text) return true
+        if (item.code.toLowerCase().includes(text) || item.name.toLowerCase().includes(text)) {
+          return true
+        }
+        const entry = entryOf?.get(item.code)
+        if (!entry || !phonetic || !pinyinMatcher) return false
+        return pinyinMatcher(entry, phonetic)
+      })
   })
 
   const sortKey = createMemo(() => `${tab()}|${query()}`)
@@ -270,7 +303,7 @@ export function MarketListPanel(props: {
           <input
             class="market__search"
             type="search"
-            placeholder="搜索代码 / 名称"
+            placeholder="搜索代码 / 名称 / 拼音首字母"
             value={query()}
             onInput={(event) => {
               setQuery(event.currentTarget.value)

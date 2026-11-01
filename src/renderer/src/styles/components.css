@@ -6779,52 +6779,83 @@
 }
 
 .sector-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px minmax(58px, auto) 20px;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 6px 10px;
+  padding: 8px 12px;
   margin-bottom: 2px;
   border: 1px solid transparent;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--text-2);
   font-size: var(--fs-xs);
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease);
 }
 
 .sector-row:hover {
-  background: var(--panel);
+  background: var(--panel-hover);
 }
 
 .sector-row[data-active='true'] {
   background: var(--panel-active);
-  border-color: var(--accent);
+  border-color: rgba(91, 140, 255, 0.32);
   color: var(--text-1);
 }
 
-.sector-row__name {
-  flex: 1;
+.sector-row__main {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+}
+
+.sector-row__name {
   overflow: hidden;
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.sector-row__code {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+}
+
 .sector-row__nums {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  min-width: 58px;
+  text-align: right;
 }
 
 .sector-row__price {
-  color: var(--text-2);
+  color: var(--text-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 .sector-row__chg {
-  min-width: 52px;
+  min-width: 0;
+  font-size: var(--fs-2xs);
   text-align: right;
+}
+
+/* 与自选股行右侧的删除按钮占位对齐，三个栏目价格列才不会错位 */
+.sector-row__tail {
+  width: 20px;
+  height: 1px;
 }
 
 .sector-loading {
@@ -7178,8 +7209,22 @@
 
 /* 板块排行行里的迷你走势图 */
 .sector-row__spark {
-  flex: none;
-  width: 42px;
-  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 46px;
+  height: 24px;
+}
+
+.sector-row__spark .sparkline {
+  width: 46px !important;
+  min-width: 46px;
+  height: 24px;
+  opacity: 0.95;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.sector-row:hover .sparkline {
+  opacity: 1;
 }
 

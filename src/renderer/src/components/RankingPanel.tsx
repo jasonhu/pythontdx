@@ -427,8 +427,8 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
           class="ranking__table-wrap"
           onScroll={(event) => {
             const el = event.currentTarget
-            if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return
             requestVisibleSparklines(el)
+            if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return
             if (hasMore() && !loadingMore() && !fullMode()) void loadMore()
           }}
         >

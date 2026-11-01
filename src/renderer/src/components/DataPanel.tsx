@@ -17,6 +17,8 @@ import type {
   DataBackupCreateResult,
   DataBackupInspectResult,
   DataBackupRestoreResult,
+  DataCoverageResult,
+  DataIntegrityResult,
   DataInventory,
   FullKLineCacheResult,
   KLineExportResult,
@@ -109,6 +111,60 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [inventory, setInventory] = createSignal<DataInventory | null>(null)
   const [inventoryLoading, setInventoryLoading] = createSignal(true)
   const [inventoryError, setInventoryError] = createSignal<string | null>(null)
+  const [coverage, setCoverage] = createSignal<DataCoverageResult | null>(null)
+  const [integrity, setIntegrity] = createSignal<DataIntegrityResult | null>(null)
+  const [integrityBusy, setIntegrityBusy] = createSignal(false)
+  const [integrityError, setIntegrityError] = createSignal<string | null>(null)
+  const runIntegrity = async (): Promise<void> => {
+    setIntegrityBusy(true)
+    setIntegrityError(null)
+    setIntegrity(null)
+    try {
+      // 先出统计（文件数/大小/日期覆盖），再跑耗时的逐份校验
+      const [inventoryData, coverageData] = await Promise.all([
+        api.data.inventory(),
+        api.data.coverage()
+      ])
+      setInventory(inventoryData)
+      setCoverage(coverageData)
+      setIntegrity(await api.data.integrity())
+    } catch (cause) {
+      setIntegrityError(errorMessage(cause))
+    } finally {
+      setIntegrityBusy(false)
+    }
+  }
+
+  const inventoryTotals = (): { files: number; bytes: number } | null => {
+    const data = inventory()
+    if (!data) return null
+    const sections = [data.raw, data.cache, data.lake, data.exports, data.normalized, data.local]
+    return {
+      files: sections.reduce((sum, item) => sum + item.files, 0),
+      bytes: sections.reduce((sum, item) => sum + item.bytes, 0)
+    }
+  }
+
+  const exportIntegrityReport = (): void => {
+    const report = integrity()
+    if (!report) return
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    downloadText(
+      `stocklens-integrity-${stamp}.json`,
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          root: inventory()?.root ?? '',
+          inventory: inventory(),
+          coverage: coverage(),
+          integrity: report
+        },
+        null,
+        2
+      )
+    )
+  }
+
   /* ---------------------------------------------------- 离线数据备份/恢复 */
   const [backupPath, setBackupPath] = createSignal('')
   const [backupBusy, setBackupBusy] = createSignal(false)
@@ -1037,6 +1093,133 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 </>
               )}
             </Show>
+
+            <div class="data__integrity">
+              <div class="data__integrity-head">
+                <div>
+                  <div class="data__label">本地离线数据校验</div>
+                  <div class="data__sub">
+                    逐份校验 K 线 / tick / 竞价 / F10 / 资金流 / 服务器文件的 manifest 与
+                    SHA256，发现缺失、损坏或行数非法会列出来；只读，不修改任何数据。
+                  </div>
+                </div>
+                <div class="data__integrity-actions">
+                  <button
+                    class="btn data__integrity-run"
+                    disabled={integrityBusy()}
+                    onClick={() => void runIntegrity()}
+                  >
+                    {integrityBusy() ? '统计/校验中…' : '统计与校验'}
+                  </button>
+                  <button
+                    class="btn data__integrity-export"
+                    disabled={!integrity()}
+                    onClick={exportIntegrityReport}
+                  >
+                    导出报告
+                  </button>
+                </div>
+              </div>
+              <Show when={integrityError()}>
+                {(message) => <div class="data__query-error">{message()}</div>}
+              </Show>
+              <Show when={integrity()}>
+                {(report) => (
+                  <div class="data__integrity-report">
+                    <div class="data__integrity-summary">
+                      <span
+                        class="data__integrity-badge"
+                        classList={{ 'data__integrity-badge--bad': !report().ok }}
+                      >
+                        {report().ok ? '校验通过' : '发现问题'}
+                      </span>
+                      <span>
+                        共校验 {report().checked} 份 · 失败 {report().failed} 份
+                      </span>
+                      <span class="data__integrity-time">
+                        {new Date().toLocaleString('zh-CN')}
+                      </span>
+                    </div>
+                    <Show when={coverage()}>
+                      {(data) => (
+                        <div class="data__coverage">
+                          <div class="data__coverage-summary">
+                            数据集 {data().datasets.length} 项 · 覆盖 {data().totalFiles} 文件 /{' '}
+                            {formatBytes(data().totalBytes)}
+                            <Show when={inventoryTotals()}>
+                              {(totals) => (
+                                <span>
+                                  {' '}
+                                  · 六个目录合计 {totals().files} 文件 / {formatBytes(totals().bytes)}
+                                </span>
+                              )}
+                            </Show>{' '}
+                            · 扫描于 {new Date(data().generatedAt).toLocaleString('zh-CN')}
+                          </div>
+                          <div class="data__coverage-grid">
+                            <For each={data().datasets}>
+                              {(item) => (
+                                <div class="data__coverage-item">
+                                  <span class="data__coverage-name">{item.name}</span>
+                                  <span>
+                                    {item.files} 文件 / {formatBytes(item.bytes)}
+                                  </span>
+                                  <span class="data__coverage-range">
+                                    {item.oldest ?? '—'} ~ {item.newest ?? '—'}
+                                  </span>
+                                  <span
+                                    class="data__coverage-state"
+                                    classList={{ 'data__coverage-state--empty': item.status !== 'ok' }}
+                                  >
+                                    {item.status === 'ok' ? '有数据' : '空'}
+                                  </span>
+                                </div>
+                              )}
+                            </For>
+                          </div>
+                        </div>
+                      )}
+                    </Show>
+                    <Show when={integrityBusy()}>
+                      <div class="data__integrity-progress">正在逐份校验 manifest / SHA256…</div>
+                    </Show>
+                    <div class="data__integrity-checks">
+                      <For each={report().checks}>
+                        {(check) => (
+                          <div class="data__integrity-check">
+                            <span class="data__integrity-name">{check.name}</span>
+                            <span class="num">
+                              {check.checked} 份 / 失败 {check.failed}
+                            </span>
+                            <span
+                              class="data__integrity-state"
+                              classList={{ 'data__integrity-state--bad': check.failed > 0 }}
+                            >
+                              {check.failed > 0 ? '异常' : '正常'}
+                            </span>
+                            <Show when={check.details.length > 0}>
+                              <ul class="data__integrity-details">
+                                <For each={check.details.slice(0, 5)}>
+                                  {(detail) => (
+                                    <li>
+                                      {detail.manifest}：{detail.error}
+                                    </li>
+                                  )}
+                                </For>
+                              </ul>
+                            </Show>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                    <div class="data__integrity-backfill">
+                      K 线 manifest 补齐：新建 {report().klineBackfill.created} · 已有{' '}
+                      {report().klineBackfill.skipped} · 失败 {report().klineBackfill.failed}
+                    </div>
+                  </div>
+                )}
+              </Show>
+            </div>
           </section>
 
           <section class="data__backup">

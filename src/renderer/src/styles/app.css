@@ -1698,8 +1698,8 @@ select optgroup {
 }
 
 .server-shell {
-  width: min(980px, 94vw);
-  height: min(760px, 90vh);
+  width: min(760px, 94vw);
+  height: min(700px, 90vh);
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);

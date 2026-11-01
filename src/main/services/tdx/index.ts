@@ -23,6 +23,8 @@ import type {
   DataBackupInspectResult,
   DataBackupRestoreResult,
   DatasetArchiveResult,
+  DataCoverageResult,
+  DataIntegrityResult,
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
@@ -479,6 +481,16 @@ export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {
 
 export async function dataInventory(): Promise<DataInventory> {
   return bridge.send<DataInventory>('data_inventory', {}, 20_000)
+}
+
+/** 离线归档 manifest + SHA256 全量校验，可能跑几分钟 */
+export async function dataIntegrity(): Promise<DataIntegrityResult> {
+  return bridge.send<DataIntegrityResult>('data_integrity', {}, 10 * 60_000)
+}
+
+/** 各数据集文件数/大小/日期覆盖，只读扫描 */
+export async function dataCoverage(): Promise<DataCoverageResult> {
+  return bridge.send<DataCoverageResult>('data_coverage', {}, 2 * 60_000)
 }
 
 /**

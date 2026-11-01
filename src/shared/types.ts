@@ -739,6 +739,48 @@ export interface DataInventory {
   }
 }
 
+/* --------------------------------------------------- 离线数据覆盖统计 */
+
+export interface DataCoverageItem {
+  name: string
+  files: number
+  bytes: number
+  oldest: string | null
+  newest: string | null
+  status: string
+  periods?: Record<string, number>
+}
+
+export interface DataCoverageResult {
+  generatedAt: string
+  root: string
+  datasets: DataCoverageItem[]
+  totalFiles: number
+  totalBytes: number
+}
+
+/* --------------------------------------------------- 离线数据完整性校验 */
+
+export interface DataIntegrityDetail {
+  manifest: string
+  error: string
+}
+
+export interface DataIntegrityCheck {
+  name: string
+  checked: number
+  failed: number
+  details: DataIntegrityDetail[]
+}
+
+export interface DataIntegrityResult {
+  ok: boolean
+  checks: DataIntegrityCheck[]
+  klineBackfill: { created: number; skipped: number; failed: number }
+  checked: number
+  failed: number
+}
+
 /* --------------------------------------------------- 离线数据备份 / 恢复 */
 
 /** 备份文件内的清单（`_stocklens_backup.json`） */

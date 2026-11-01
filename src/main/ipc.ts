@@ -55,6 +55,8 @@ import {
   exportKlines,
   cacheKlines,
   cacheFullKlines,
+  dataCoverage,
+  dataIntegrity,
   dataInventory,
   backupOfflineData,
   inspectOfflineBackup,
@@ -264,6 +266,8 @@ export function registerIpcHandlers(context: IpcContext): void {
   )
 
   ipcMain.handle(IPC.dataInventory, () => dataInventory())
+  ipcMain.handle(IPC.dataIntegrity, () => dataIntegrity())
+  ipcMain.handle(IPC.dataCoverage, () => dataCoverage())
 
   /* ------------------------------------------------ 离线数据备份 / 恢复 */
   // 备份/恢复是磁盘密集型操作，真正的进度在主进程日志里；这里只负责调用与

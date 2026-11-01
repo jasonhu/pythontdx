@@ -22,6 +22,8 @@ import type {
   F10NewsItem,
   F10TradingTable,
   LocalDayResult,
+  DataCoverageResult,
+  DataIntegrityResult,
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
@@ -459,6 +461,8 @@ export function createHttpApi(): StockLensApi {
       exportKlines: (req) => post<KLineExportResult>('/api/export_klines', req),
       cacheKlines: (req) => post<KLineCacheResult>('/api/cache_klines', req),
       fullCacheKlines: (req) => post<FullKLineCacheResult>('/api/cache_full_klines', req),
+      integrity: () => post<DataIntegrityResult>('/api/data_integrity', {}),
+      coverage: () => post<DataCoverageResult>('/api/data_coverage', {}),
       inventory: () => post<DataInventory>('/api/data_inventory', {}),
       // 备份/恢复要读写本机磁盘路径，浏览器端没有这个能力；桌面端走 Electron IPC。
       backupCreate: async () => {

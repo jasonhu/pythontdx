@@ -35,6 +35,8 @@ import type {
   DataBackupInspectResult,
   DataBackupRestoreResult,
   DatasetArchiveResult,
+  DataCoverageResult,
+  DataIntegrityResult,
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
@@ -177,6 +179,10 @@ export const IPC = {
   cacheFullKlines: 'data:cache-full-klines',
   /** 离线数据目录清单（invoke） */
   dataInventory: 'data:inventory',
+  /** 离线数据完整性校验（invoke） */
+  dataIntegrity: 'data:integrity',
+  /** 离线数据覆盖统计（invoke） */
+  dataCoverage: 'data:coverage',
   /** 离线数据备份成单个 zip（invoke） */
   dataBackupCreate: 'data:backup-create',
   /** 读取备份清单（invoke） */
@@ -417,6 +423,8 @@ export interface StockLensApi {
       count?: number
       adjust?: string
     }): Promise<KLineExportResult>
+    integrity(): Promise<DataIntegrityResult>
+    coverage(): Promise<DataCoverageResult>
     inventory(): Promise<DataInventory>
     cacheKlines(req: {
       codes: string[]

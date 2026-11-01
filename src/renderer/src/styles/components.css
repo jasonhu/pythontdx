@@ -7684,3 +7684,155 @@
   height: min(860px, 88vh);
   max-height: min(860px, 88vh);
 }
+
+/* 66：离线数据完整性校验报告 */
+.data__integrity {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.data__integrity-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.data__integrity-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.data__integrity-report {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+
+.data__integrity-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.data__integrity-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--down);
+  background: var(--down-soft);
+  font-weight: 600;
+}
+
+.data__integrity-badge--bad {
+  color: var(--up);
+  background: var(--up-soft);
+}
+
+.data__integrity-time {
+  margin-left: auto;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+.data__integrity-checks {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.data__integrity-check {
+  display: grid;
+  grid-template-columns: 120px 1fr 52px;
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.data__integrity-name {
+  color: var(--text-1);
+  font-family: var(--font-mono);
+}
+
+.data__integrity-state {
+  color: var(--down);
+  text-align: right;
+}
+
+.data__integrity-state--bad {
+  color: var(--up);
+}
+
+.data__integrity-details {
+  grid-column: 1 / -1;
+  margin: 2px 0 4px 12px;
+  color: var(--up);
+  font-size: var(--fs-2xs);
+  list-style: disc;
+}
+
+.data__integrity-backfill {
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__coverage {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.data__coverage-summary {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__coverage-grid {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.data__coverage-item {
+  display: grid;
+  grid-template-columns: 110px 150px 1fr 44px;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+}
+
+.data__coverage-name {
+  color: var(--text-1);
+  font-family: var(--font-mono);
+}
+
+.data__coverage-range {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.data__coverage-state {
+  color: var(--down);
+  text-align: right;
+}
+
+.data__coverage-state--empty {
+  color: var(--text-3);
+}
+
+.data__integrity-progress {
+  margin-top: 8px;
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+}

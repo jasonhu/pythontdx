@@ -46,7 +46,6 @@ import { PortfolioPanel } from './components/PortfolioPanel'
 import { MarketListPanel } from './components/MarketListPanel'
 import { UnusualPanel } from './components/UnusualPanel'
 import { DragonPanel } from './components/DragonPanel'
-import { BoardsPanel } from './components/BoardsPanel'
 import { MarketReportPanel } from './components/MarketReportPanel'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
 import { StockMenu } from './components/StockMenu'
@@ -89,7 +88,6 @@ export default function App(): JSX.Element {
   const [marketOpen, setMarketOpen] = createSignal(false)
   const [unusualOpen, setUnusualOpen] = createSignal(false)
   const [dragonOpen, setDragonOpen] = createSignal(false)
-  const [boardsOpen, setBoardsOpen] = createSignal(false)
   const [marketReportOpen, setMarketReportOpen] = createSignal(false)
   const [f10Open, setF10Open] = createSignal(false)
   const [announcementsOpen, setAnnouncementsOpen] = createSignal(false)
@@ -230,7 +228,6 @@ export default function App(): JSX.Element {
         onOpenData={() => setDataOpen(true)}
         onOpenUnusual={() => setUnusualOpen(true)}
         onOpenDragon={() => setDragonOpen(true)}
-        onOpenBoards={() => setBoardsOpen(true)}
         onOpenAlerts={() => setAlertsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenServers={() => setServersOpen(true)}
@@ -462,16 +459,6 @@ export default function App(): JSX.Element {
 
       <Show when={marketReportOpen()}>
         <MarketReportPanel onClose={() => setMarketReportOpen(false)} />
-      </Show>
-
-      <Show when={boardsOpen()}>
-        <BoardsPanel
-          onClose={() => setBoardsOpen(false)}
-          onSelect={(code) => {
-            setActiveCode(code)
-            setBoardsOpen(false)
-          }}
-        />
       </Show>
 
       <Show when={dragonOpen()}>

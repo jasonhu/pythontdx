@@ -25,7 +25,6 @@ interface WatchlistFullscreenProps {
   onSelect: (code: string) => void
 }
 
-const PAGE_SIZE = 24
 const SPARK_W = 220
 const SPARK_H = 44
 const SPARK_PAD = 3
@@ -52,15 +51,12 @@ interface Spark {
 }
 
 export function WatchlistFullscreen(props: WatchlistFullscreenProps): JSX.Element {
-  const [page, setPage] = createSignal(0)
   const [sparks, setSparks] = createSignal<Record<string, Spark>>({})
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
   let requestId = 0
 
   const items = createMemo(() => activeItems().slice(0, 40))
-  const pageCount = createMemo(() => Math.max(1, Math.ceil(items().length / PAGE_SIZE)))
-  const pageItems = createMemo(() => items().slice(page() * PAGE_SIZE, (page() + 1) * PAGE_SIZE))
   const groupName = createMemo(
     () => appState.groups.find((group) => group.id === appState.activeGroupId)?.name ?? '自选'
   )
@@ -97,7 +93,7 @@ export function WatchlistFullscreen(props: WatchlistFullscreenProps): JSX.Elemen
   }
 
   createEffect(() => {
-    const list = pageItems()
+    const list = items()
     void loadSparks(list)
   })
 
@@ -122,31 +118,12 @@ export function WatchlistFullscreen(props: WatchlistFullscreenProps): JSX.Elemen
     <div class="watch-full" role="dialog" aria-modal="true" aria-label="全屏自选">
       <header class="watch-full__head">
         <div>
-          <div class="watch-full__eyebrow">全屏自选 · 每页 {PAGE_SIZE} 只</div>
+          <div class="watch-full__eyebrow">全屏自选 · 按窗口宽度自动排布</div>
           <h2 class="watch-full__title">
             {groupName()} <span>{items().length} 只</span>
           </h2>
         </div>
         <div class="watch-full__actions">
-          <Show when={pageCount() > 1}>
-            <button
-              class="btn"
-              disabled={page() <= 0}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              上一页
-            </button>
-            <span class="watch-full__pager num">
-              {page() + 1} / {pageCount()}
-            </span>
-            <button
-              class="btn"
-              disabled={page() >= pageCount() - 1}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              下一页
-            </button>
-          </Show>
           <Show when={loading()}>
             <span class="watch-full__loading">加载分时…</span>
           </Show>
@@ -163,11 +140,11 @@ export function WatchlistFullscreen(props: WatchlistFullscreenProps): JSX.Elemen
       <Show when={error()}>{(message) => <div class="watch-full__error">{message()}</div>}</Show>
 
       <Show
-        when={pageItems().length > 0}
+        when={items().length > 0}
         fallback={<div class="watch-full__empty">当前分组没有股票</div>}
       >
         <div class="watch-full__grid">
-          <For each={pageItems()}>
+          <For each={items()}>
             {(item) => {
               const quote = (): ReturnType<typeof quoteOf> => quoteOf(item.code)
               const spark = (): Spark | undefined => sparks()[item.code]

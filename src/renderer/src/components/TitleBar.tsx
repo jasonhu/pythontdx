@@ -26,7 +26,6 @@ interface TitleBarProps {
   onOpenData: () => void
   onOpenUnusual: () => void
   onOpenDragon: () => void
-  onOpenBoards: () => void
   onOpenAlerts: () => void
   onOpenSettings: () => void
   onOpenServers: () => void
@@ -85,13 +84,6 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
           onClick={() => props.onOpenDragon()}
         >
           龙虎
-        </button>
-        <button
-          class="btn btn--bare boards-open"
-          title="板块行情"
-          onClick={() => props.onOpenBoards()}
-        >
-          板块
         </button>
         <button class="btn btn--bare data-open" title="数据工具" onClick={() => props.onOpenData()}>
           数据

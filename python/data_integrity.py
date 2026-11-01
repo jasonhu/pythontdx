@@ -9,7 +9,7 @@ from kline_manifest import backfill_kline_manifests, verify_kline_manifests
 from parquet_store import file_sha256
 
 
-def _verify(root: Path, name: str, pattern: str, limit: int = 200) -> dict:
+def _verify(root: Path, name: str, pattern: str, limit: int = 100_000) -> dict:
     checked = 0
     failed = 0
     details: list[dict] = []
@@ -54,7 +54,7 @@ def _verify_auction(root: Path) -> dict:
 
 def verify_data_integrity(root: Path) -> dict:
     kline_backfill = backfill_kline_manifests(Path(root) / "cache" / "klines")
-    kline_check = verify_kline_manifests(Path(root) / "cache" / "klines")
+    kline_check = verify_kline_manifests(Path(root) / "cache" / "klines", limit=100_000)
     checks = [
         {"name": "klines", **kline_check},
         _verify(root, "ticks", "lake/ticks/**/*.manifest.json"),

@@ -1,11 +1,11 @@
 /**
- * 多股同列：当前自选分组最多 9 只（6/9 切换），可切换 60 根日 K / 当日分时。
+ * 多股同列：6/9/12 格，来源可选自选或任自定义板块，可切换 60 根日 K / 当日分时。
  *
  * 纯展示，不引入第二套数据源；点击卡片切换主图股票。
  */
 import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import { fixed, signedPct } from '@shared/format'
-import { activeItems, appState } from '../stores/app'
+import { appState } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -47,7 +47,10 @@ function sparkline(values: number[]): string {
 
 export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
   const [mode, setMode] = createSignal<Mode>('day')
-  const [maxCards, setMaxCards] = createSignal(6)
+  const [maxCards, setMaxCards] = createSignal(9)
+  const [sourceId, setSourceId] = createSignal(appState.activeGroupId)
+  const sourceGroup = () => appState.groups.find((group) => group.id === sourceId()) ?? appState.groups[0]
+  const sourceItems = () => sourceGroup()?.items ?? []
   const [cards, setCards] = createSignal<Card[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -58,7 +61,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
     setMode(nextMode)
     setLoading(true)
     setError(null)
-    const items = activeItems().slice(0, maxCards())
+    const items = sourceItems().slice(0, maxCards())
     try {
       const loaded = await Promise.all(
         items.map(async (item): Promise<Card> => {
@@ -140,7 +143,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
         <header class="multi__head">
           <div>
             <div class="multi__eyebrow">
-              {mode() === 'day' ? '60 根日 K' : '当日分时'} · 当前分组
+              {mode() === 'day' ? '60 根日 K' : '当日分时'} · {sourceGroup()?.name ?? '自选'}
             </div>
             <h2 class="multi__title">多股同列</h2>
           </div>
@@ -160,33 +163,35 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
               分时
             </button>
           </div>
-          <span class="multi__group">
-            {appState.groups.find((group) => group.id === appState.activeGroupId)?.name}
-          </span>
-          <Show when={activeItems().length > 6}>
-            <div class="multi__limits">
-              <button
-                class="multi__mode multi-limit-6"
-                data-active={maxCards() === 6}
-                onClick={() => {
-                  setMaxCards(6)
-                  void load(mode())
-                }}
-              >
-                6 格
-              </button>
-              <button
-                class="multi__mode multi-limit-9"
-                data-active={maxCards() === 9}
-                onClick={() => {
-                  setMaxCards(9)
-                  void load(mode())
-                }}
-              >
-                9 格
-              </button>
-            </div>
-          </Show>
+          <select
+            class="multi__source"
+            aria-label="多股同列来源"
+            value={sourceId()}
+            onChange={(event) => {
+              setSourceId(event.currentTarget.value)
+              void load(mode())
+            }}
+          >
+            <For each={appState.groups}>
+              {(group) => <option value={group.id}>{group.name}</option>}
+            </For>
+          </select>
+          <div class="multi__limits">
+            <For each={[6, 9, 12]}>
+              {(count) => (
+                <button
+                  class={`multi__mode multi-limit-${count}`}
+                  data-active={maxCards() === count}
+                  onClick={() => {
+                    setMaxCards(count)
+                    void load(mode())
+                  }}
+                >
+                  {count} 格
+                </button>
+              )}
+            </For>
+          </div>
           <button
             class="btn btn--icon btn--bare"
             title="关闭多股同列"
@@ -200,15 +205,18 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
           <Show
             when={!loading()}
             fallback={
-              <div class="multi__empty">加载 {Math.min(activeItems().length, maxCards())} 只…</div>
+              <div class="multi__empty">加载 {Math.min(sourceItems().length, maxCards())} 只…</div>
             }
           >
             <Show when={!error()} fallback={<div class="multi__error">{error()}</div>}>
               <Show
                 when={cards().length > 0}
-                fallback={<div class="multi__empty">当前分组没有股票</div>}
+                fallback={<div class="multi__empty">这个分组没有股票</div>}
               >
-                <div class="multi__grid">
+                <div
+                  class="multi__grid"
+                  classList={{ 'multi__grid--12': maxCards() === 12 }}
+                >
                   <For each={cards()}>
                     {(card) => (
                       <button

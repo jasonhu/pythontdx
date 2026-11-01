@@ -3380,8 +3380,8 @@
 }
 
 .multi-panel {
-  width: min(1080px, 94vw);
-  height: min(760px, 88vh);
+  width: min(1500px, 96vw);
+  height: 92vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -3393,6 +3393,7 @@
 
 .multi__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-4);
   padding: 18px 24px 12px;
@@ -3447,6 +3448,18 @@
   font-size: var(--fs-2xs);
 }
 
+.multi__source {
+  flex: none;
+  min-width: 120px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text-1);
+  font-size: var(--fs-2xs);
+}
+
 .multi__body {
   min-height: 0;
   flex: 1;
@@ -3458,6 +3471,11 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+/* 12 格用 4×3，9 格用 3×3 */
+.multi__grid--12 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .multi-card {
@@ -7314,3 +7332,29 @@
   opacity: 1;
 }
 
+
+/* --------------------------------------------------------------------------
+ * 0.9.4：所有「看股票信息」的二级窗口按主窗口尺寸放大
+ * 96vw × 92vh，不再各自写死 760~1180px；主窗口全屏时这些窗口也接近全屏。
+ * 设置/数据管理这类表单窗口不在此列。
+ * ------------------------------------------------------------------------ */
+.ranking,
+.tape-large,
+.f10,
+.announcements,
+.block-panel,
+.screener,
+.replay-panel,
+.formula-panel,
+.market-panel,
+.unusual-panel,
+.dragon-panel,
+.boards-panel,
+.mreport-panel,
+.sector-picker__panel,
+.multi-panel {
+  width: 96vw;
+  max-width: 96vw;
+  height: 92vh;
+  max-height: 92vh;
+}

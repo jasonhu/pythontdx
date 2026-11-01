@@ -114,11 +114,18 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [coverage, setCoverage] = createSignal<DataCoverageResult | null>(null)
   const [integrity, setIntegrity] = createSignal<DataIntegrityResult | null>(null)
   const [integrityBusy, setIntegrityBusy] = createSignal(false)
+  const [integrityElapsed, setIntegrityElapsed] = createSignal(0)
   const [integrityError, setIntegrityError] = createSignal<string | null>(null)
   const runIntegrity = async (): Promise<void> => {
     setIntegrityBusy(true)
     setIntegrityError(null)
     setIntegrity(null)
+    setIntegrityElapsed(0)
+    const startedAt = performance.now()
+    const timer = setInterval(
+      () => setIntegrityElapsed((performance.now() - startedAt) / 1000),
+      200
+    )
     try {
       // 先出统计（文件数/大小/日期覆盖），再跑耗时的逐份校验
       const [inventoryData, coverageData] = await Promise.all([
@@ -131,6 +138,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     } catch (cause) {
       setIntegrityError(errorMessage(cause))
     } finally {
+      clearInterval(timer)
       setIntegrityBusy(false)
     }
   }
@@ -1100,7 +1108,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   <div class="data__label">本地离线数据校验</div>
                   <div class="data__sub">
                     逐份校验 K 线 / tick / 竞价 / F10 / 资金流 / 服务器文件的 manifest 与
-                    SHA256，发现缺失、损坏或行数非法会列出来；只读，不修改任何数据。
+                    SHA256，发现缺失、损坏或行数非法会列出来；不修改行情数据，
+                    缺失的 K 线 manifest 会补索引。
                   </div>
                 </div>
                 <div class="data__integrity-actions">
@@ -1122,6 +1131,21 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
               <Show when={integrityError()}>
                 {(message) => <div class="data__query-error">{message()}</div>}
+              </Show>
+              <Show when={integrityBusy()}>
+                <div class="data__integrity-busy">
+                  <div class="data__integrity-bar">
+                    <span
+                      style={{
+                        width: `${Math.min(92, 8 + integrityElapsed() * 9).toFixed(1)}%`
+                      }}
+                    />
+                  </div>
+                  <span>
+                    正在扫描目录并逐份校验 manifest / SHA256… 已等待{' '}
+                    {integrityElapsed().toFixed(1)}s
+                  </span>
+                </div>
               </Show>
               <Show when={integrity()}>
                 {(report) => (

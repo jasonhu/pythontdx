@@ -473,6 +473,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
               <For each={rows()}>
                 {(quote, index) => (
                   <tr
+                    data-code={quote.code}
                     class="ranking__row"
                     onClick={() => props.onSelect(quote)}
                     onContextMenu={(event) =>

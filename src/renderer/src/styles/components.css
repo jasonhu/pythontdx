@@ -7836,3 +7836,27 @@
   color: var(--accent);
   font-size: var(--fs-2xs);
 }
+
+/* 69：离线数据统计/校验进度条 */
+.data__integrity-busy {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__integrity-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--panel-hover);
+}
+
+.data__integrity-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2, var(--accent)));
+  transition: width 220ms ease-out;
+}

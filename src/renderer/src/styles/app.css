@@ -1526,6 +1526,7 @@
 .server-page__sub code {
   color: var(--text-2);
   font-family: var(--font-num);
+  overflow-wrap: anywhere;
 }
 
 .server-page__close {
@@ -1698,8 +1699,8 @@ select optgroup {
 }
 
 .server-shell {
-  width: min(760px, 94vw);
-  height: min(700px, 90vh);
+  width: min(560px, 94vw);
+  height: min(680px, 90vh);
   overflow: hidden;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);

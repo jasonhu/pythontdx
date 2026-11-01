@@ -115,6 +115,8 @@ StockLens 的所有重要变更都记录在这里。
   指数日 K 无复权/无除权线（`screenshots/index-no-xdxr.png`）；
 - 包内 sidecar `resources/tdx-bridge/tdx-bridge.exe`（21.5 MB）：`ping` → `pong`，
   `quotes` 返回 600519 实时数据（含五档），`backup_inspect` 可读备份清单；
+- 全 A 财务归档实跑 1,612 只（三大报表 + 财务/分红，29 MB）后 7615 限速，
+  已停止；归档按文件幂等，续跑只补缺（`docs/12` §2.5）；
 - 未做代码签名：`Get-AuthenticodeSignature` 为 `NotSigned`，首次运行会有 SmartScreen 提示（TD7）。
 
 ---

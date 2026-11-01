@@ -318,7 +318,8 @@ class TestTdxStats(unittest.TestCase):
                 else:
                     os.environ["STOCKLENS_DATA_DIR"] = old
             self.assertEqual(saved["bytes"], 3)
-            self.assertTrue(saved["savedTo"].endswith("raw/tdx/x.bin"))
+            # savedTo 是本地路径，Windows 用 `\`、Linux/macOS 用 `/`，断言不能写死分隔符
+            self.assertEqual(Path(saved["savedTo"]).parts[-3:], ("raw", "tdx", "x.bin"))
             self.assertTrue(Path(saved["savedTo"]).exists())
 
     def test_export_stats_normalized(self):

@@ -104,7 +104,7 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（261 个用例）
+npm run test                # 只跑 TS 测试（263 个用例）
 npm run test:python         # 只跑 Python 协议/HTTP 测试（148 个用例）
 npm run audit:data          # 数据覆盖自检（39 项，会触发自动归档；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
@@ -125,7 +125,7 @@ npm run build:win:setup     # 只要 NSIS 安装包
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
-> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。当前自动化只验证 Linux，Windows/macOS 需在对应机器实机验收。
+> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。当前自动化只验证 Linux；Windows x64 已于 2026-11-01 实机打包验收（`docs/07` 第十一节），macOS 需在对应机器实机验收。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
@@ -170,8 +170,9 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（261 个 TS 测试 + 148 个 Python 测试），
-2026-10-31 复核过构建、实机启动、包内资金流与公式多输出。
+健康度 `npm run check` 全绿（263 个 TS 测试 + 148 个 Python 测试），
+2026-10-31 复核过构建、实机启动、包内资金流与公式多输出；
+2026-11-01 复核过 Windows x64 安装包 / 绿色包 / zip（见 `docs/07` 第十一节）。
 
 已交付：实时行情/盘口/多周期图表、默认五均线、全屏自选、板块/MAC/F10 19 页签、预警且/或、
 条件选股预设与自动池、公式/回测、复盘、CSV/Parquet/数据湖、

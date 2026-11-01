@@ -7,11 +7,12 @@
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
 **版本：0.9.0（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：261 个 TS 测试 + 148 个 Python 测试（1 skipped）·
+`npm run check`：263 个 TS 测试 + 148 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
 > 0.9 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
-> Windows/macOS 也还没有实机打包验收。这两项完成后再发 1.0。
+> macOS 也还没有实机打包验收。这两项完成后再发 1.0。
+> Windows x64 的安装包 / 绿色包 / zip 已于 2026-11-01 实机打包并验收（见 `docs/07` 第十一节）。
 
 ---
 

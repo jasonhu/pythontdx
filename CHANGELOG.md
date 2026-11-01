@@ -10,6 +10,46 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [未发布]
+
+### 修复
+
+- **Windows 打包必然失败（`npm run build:win`）**：`scripts/before-pack.cjs` 只找
+  `python/dist/tdx-bridge`，而 Nuitka 在 Windows 上产出的是 `tdx-bridge.exe`，
+  beforePack 阶段直接报「找不到 sidecar」。现在按 `electronPlatformName` 取文件名，
+  并新增 `scripts/before-pack.test.mjs`（2 个用例；vitest include 扩到
+  `scripts/**/*.test.mjs`）锁住平台映射。
+- **Python 测试在 Windows 上误报失败**：`test_save_raw_file` 断言 `savedTo` 以
+  `raw/tdx/x.bin` 结尾，Windows 路径分隔符是 `\`，改为按 `Path.parts` 断言。
+
+### 工程
+
+- Windows x64 用 `electron-builder --win nsis dir` 出一套产物：NSIS 安装包 +
+  散装绿色目录 + 绿色包 zip，全部落在 `release/0.9.0/`，实测记录见 `docs/07` 第十一节。
+- `npm run check` 在 Windows 上 exit 0：**263 个 TS 测试**（含新增 2 个）+
+  148 个 Python 测试（1 skipped）。
+
+### 验证（2026-11-01，Windows 10 x64 实机）
+
+| 产物                               | 大小                      | SHA256                                                             |
+| ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
+| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,177,647 B） | `c9dcdd9e0ac35e4353f410f514d411120184a5653a493d3fd2e6ba26ce68f706` |
+| `StockLens-0.9.0-win-x64/`（散装） | 409.0 MB（76 个文件）     | —                                                                  |
+| `StockLens-0.9.0-win-x64.zip`      | 175.0 MB（175,036,179 B） | `639251bff0c51896eda554576493af0df7762c04b0c864569d8d1161c1f3253a` |
+
+- 安装包：`/S /D=<临时目录>` 静默安装 exit 0 → 桌面 + 开始菜单快捷方式、HKCU 卸载项齐全 →
+  安装版启动并取到实时行情（`screenshots/installed-win.png`）→ 静默卸载后
+  安装目录、两个快捷方式、注册表项全部清除；
+- 绿色包：整目录拷到 `.tmp/green test 绿色`（含空格与中文）直接运行，
+  实时行情、分时图、五档盘口、明细正常（`screenshots/green-win-data.png`）；
+- zip：解压出 76 个文件（409,004,005 B）后运行同样正常（`screenshots/zip-win.png`）；
+- 包内 sidecar `resources/tdx-bridge/tdx-bridge.exe`（21.4 MB）：`ping` → `pong`，
+  `quotes` 返回 600519 / 000858 实时数据；
+- 启动耗时（`STOCKLENS_CAPTURE_DELAY=0`，双击 → 页面加载完成）：0.82 / 0.78 / 0.77 秒；
+- 未做代码签名：`Get-AuthenticodeSignature` 为 `NotSigned`，首次运行会有 SmartScreen 提示（TD7）。
+
+---
+
 ## [0.9.0] - 2026-10-31（release candidate）
 
 ### 发布

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
@@ -10,10 +11,16 @@ import solid from 'vite-plugin-solid'
  */
 const root = resolve(__dirname, 'src/web')
 const project = resolve(__dirname)
+const { version } = JSON.parse(readFileSync(resolve(project, 'package.json'), 'utf8')) as {
+  version: string
+}
 
 export default defineConfig({
   root,
   plugins: [solid()],
+  define: {
+    __APP_VERSION__: JSON.stringify(version)
+  },
   resolve: {
     alias: {
       '@renderer': resolve(project, 'src/renderer/src'),

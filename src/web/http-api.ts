@@ -68,6 +68,7 @@ import type {
 import type { CategoryRequest, KLineRequest, StockLensApi, TradesRequest } from '@shared/ipc'
 import type { SearchEntry, SearchSecurity } from '@shared/search'
 import { DEFAULT_GROUP_ID, DEFAULT_SETTINGS, SEED_GROUPS, STATE_VERSION } from '@shared/types'
+import { WEB_VERSION } from './version'
 
 const BASE = (import.meta.env.VITE_STOCKLENS_API ?? '').replace(/\/$/, '')
 const FORCE_POLLING = new URLSearchParams(window.location.search).get('transport') === 'poll'
@@ -567,7 +568,7 @@ export function createHttpApi(): StockLensApi {
       }),
       info: async (): Promise<AppInfo> => ({
         name: 'StockLens Web',
-        version: '0.7.0-web',
+        version: WEB_VERSION,
         electron: '—',
         chrome: navigator.userAgent,
         node: '—',

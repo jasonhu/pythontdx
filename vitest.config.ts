@@ -1,5 +1,10 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
+
+const { version } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
+  version: string
+}
 
 /**
  * 测试配置刻意保持极简：
@@ -11,6 +16,9 @@ export default defineConfig({
     alias: {
       '@shared': resolve(__dirname, 'src/shared')
     }
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(version)
   },
   test: {
     // scripts/ 里只有构建脚本的纯函数测试（before-pack 的平台判定），

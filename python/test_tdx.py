@@ -485,8 +485,10 @@ class TestClientBlocks(unittest.TestCase):
 
     def test_client_roots_priority(self):
         roots = tdx.client_roots("X:/custom_tdx")
-        self.assertEqual(str(roots[0]), "X:\\custom_tdx")
-        self.assertTrue(any(str(item).endswith("tdx") for item in roots))
+        # Path 的分隔符由当前平台决定：Windows 的 str() 是反斜杠，Linux 保留正斜杠。
+        # 断言 Path 本身，才能同时验证「显式目录排第一」而不绑定某个平台的分隔符。
+        self.assertEqual(roots[0], Path("X:/custom_tdx"))
+        self.assertTrue(any(item.name == "tdx" for item in roots))
 
     def test_client_block_indices(self):
         with tempfile.TemporaryDirectory() as directory:

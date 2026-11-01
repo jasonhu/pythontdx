@@ -7,12 +7,13 @@
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
 **版本：0.13.2（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：295 个 TS 测试 + 158 个 Python 测试（各 1 skipped）·
+`npm run check`：296 个 TS 测试 + 158 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
 > 0.13 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
 > macOS 也还没有实机打包验收。这两项完成后再发 1.0。
-> Windows x64 的安装包 / 绿色包 / zip 已于 2026-11-01 实机打包并验收（见 `docs/07`）。
+> Windows x64 的安装包 / 绿色包 / zip 已于 2026-11-01 实机打包并验收；
+> Linux 0.13.2 AppImage/deb 也已实机打包、启动并做界面回归（见 `docs/07` 第二十九节）。
 
 ---
 
@@ -167,7 +168,7 @@ python3 python/tdx_server.py --web-dir out/web --port 8765
 ### 检查与打包
 
 ```bash
-npm run check         # 类型 + Lint + 295 TS + 158 Python
+npm run check         # 类型 + Lint + 296 TS + 158 Python
 npm run audit:data    # 39 项数据覆盖/完整性审计
 npm run shot          # 构建并截图，输出到 screenshots/
 
@@ -176,7 +177,9 @@ npm run build:linux   # AppImage + deb
 npm run build:mac     # macOS（需在 macOS 上构建）
 ```
 
-产物在 `release/<version>/`。当前自动化只验证 Linux；Windows/macOS 需在对应系统本机验收。
+产物在 `release/<version>/`。Linux 0.13.2 与 Windows x64 0.13.2 均已实机打包并启动验收；macOS 需在对应系统本机验收。
+
+> 注意：0.13.2 的 Windows 三件套生成于本次 Linux 回归之前，未包含 `LICENSE` 打包修正；重新分发前建议在 Windows 重打。Linux 包已包含。
 
 ---
 

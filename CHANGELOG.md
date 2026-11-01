@@ -26,10 +26,36 @@ StockLens 的所有重要变更都记录在这里。
 
 - 安装包内 `multi-min__time` 27 条；分时刻度回读 `+1.53% / +0.76% / 0.00%`；
 - 安装/绿色/zip 均启动 `v0.13.2`；
-- `npm run check` exit 0：295 个 TS（294 passed + 1 skipped）+ 158 Python（1 skipped）；
+- `npm run check` exit 0：295 个 TS（Windows 构建时计数）+ 158 Python（1 skipped）；
 - `npm run build:web` 通过。
 
-### 产物
+### Linux 回归与修复（2026-11-01 晚）
+
+- **82 Linux 质量门禁**：`npm run check` 通过 **296 TS（296 passed，29 文件）+
+  158 Python（1 skipped）**；`npm run audit:data` **39/39**，`failures=[]`。
+- **83 测试跨平台**：`test_client_roots_priority` 原先断言 Windows 反斜杠字符串，
+  在 Linux 必失败；改为比较 `Path` 对象，同时保留「显式目录优先」的语义。
+- **84 Web 版本号**：右下角原先写死 `v0.7.0-web`；改为构建时从 `package.json`
+  注入（`v0.13.2-web`），补 `scripts/version.test.mjs` 防回归。
+- **85 GPL 随包**：`electron-builder.yml` 的 `files` 加入 `LICENSE`；
+  AppImage/deb 内现已包含 GPL-3.0-or-later 文本。Windows 0.13.2 三件套生成于
+  本次修正之前，未包含该文件，重新分发前建议在 Windows 重打。
+
+### Linux 产物（2026-11-01 重出）
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `StockLens-0.13.2.AppImage` | 154,495,808 B | `948326b1d6949ccf40b445f3849fdfe4e248913511db293f4b64f9a4f491e6ff` |
+| `stocklens_0.13.2_amd64.deb` | 128,615,816 B | `cc25801541488c8b5417d31d0e5e3e1071e2a5e86da46edadc3d39679bc46a23` |
+| `linux-unpacked/resources/app.asar` | 3,590,783 B | `6ce39af8d9b1caeeae0e39e1b269b3c762d6eff98b67ad8938585ef7412eb5fa` |
+| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,436,688 B | `36fd04f21046705cc102f02e1ec4d106d2d42c07875eee98a64cfda802732e3e` |
+
+实测：linux-unpacked / AppImage / deb 解包后均启动 `v0.13.2`；默认自选为
+上证指数/深证成指/创业板指/科创50 四个指数；多股同列 9 格 × 3 条时间线 = 27 条，
+右侧分时刻度为百分比；Web 截图版本 `v0.13.2-web`；AppImage/deb 的
+`app.asar` 均含 35,149 字节 GPL 文本。
+
+### Windows 产物
 
 | 产物 | 大小 | SHA256 |
 | --- | --- | --- |

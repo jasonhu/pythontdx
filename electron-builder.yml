@@ -7,10 +7,12 @@ directories:
   output: release/${version}
 
 # 只打包「运行时真正需要」的东西：out/ 产物 + package.json + 生产依赖
+# LICENSE 必须随包分发（GPL-3.0-or-later），不能只留在仓库里。
 files:
   - out/**
   - resources/**
   - package.json
+  - LICENSE
   - '!**/*.{md,map,ts,tsx}'
   - '!node_modules/**/{test,__tests__,docs,example,examples}/**'
 

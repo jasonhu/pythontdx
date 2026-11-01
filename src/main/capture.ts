@@ -19,6 +19,7 @@
  *   STOCKLENS_CAPTURE_WHEEL   真实滚轮：`deltaY@选择器@比例`（如 -100@.chart-host@0.25）
  *   STOCKLENS_CAPTURE_PROBE   等它出现并回读它的文本，打印到终端
  *   STOCKLENS_CAPTURE_EVAL    截图前求值一个只读表达式并打印（量尺寸用，别写有副作用的代码）
+ *   STOCKLENS_CAPTURE_AFTER_MS 驱动结束后、截图前额外等待的毫秒数（等走势图等慢数据）
  *
  * 最后一个开关是给**自动化验证**用的：截图是给眼睛看的，但程序断言需要文本；
  * 顺带它还是「等界面就绪」的信号 —— 切完 tab 数据是异步来的，不等就会和加载抢时间。
@@ -49,6 +50,9 @@ async function capture(
     await drive(window)
     // 让最后一次异步渲染真正上屏；capturePage 可能拿到上一帧，
     // 板块/数据弹窗刚加载完就截图时尤其明显。
+    // STOCKLENS_CAPTURE_AFTER_MS 用于等迷你走势图这类「点完还在慢慢补」的数据。
+    const after = Number(process.env.STOCKLENS_CAPTURE_AFTER_MS ?? 0)
+    if (Number.isFinite(after) && after > 0) await wait(after)
     await wait(350)
     const image = await window.webContents.capturePage()
     await writeFile(target, image.toPNG())

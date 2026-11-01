@@ -191,8 +191,8 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   }
 
   const sectorRows = createMemo(() => rankRows(sector()))
-  // 板块成分股的迷你走势图：只给前 60 只拉分时，避免一个 400 只的板块打出几百个请求
-  createSparklineLoader(() => (sector()?.codes ?? []).slice(0, 60))
+  // 板块成分股的迷你走势图：全部代码排队加载（加载器限 3 并发，边可见边出现）
+  createSparklineLoader(() => sector()?.codes ?? [])
   /**
    * 自定义板块按 groupId 现算，而不是用选择时的快照：
    * 用户在这个分组里加/删股票后，排行要立刻跟着变。

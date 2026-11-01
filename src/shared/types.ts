@@ -798,6 +798,10 @@ export interface DatasetArchiveResult {
   sectorRows: number
   lhbRows: number
   financeCodes: number
+  /** 三大报表（资产负债表/利润表/现金流量表）写入的行数。 */
+  statementRows: number
+  /** 财务整只抓取失败的代码（网络/停牌等），成功为空数组。 */
+  financeFailed: string[]
   manifest: string
   files: DatasetArchiveFile[]
 }

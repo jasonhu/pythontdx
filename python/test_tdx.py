@@ -744,5 +744,64 @@ class TestLimitPercent(unittest.TestCase):
         self.assertEqual(limit_percent("sh600001", "ST测试"), 5)
 
 
+class TestStatementPayload(unittest.TestCase):
+    """7615 三大报表：离线归档要保留全部原始列与报告期，不能只取展示用子集。"""
+
+    def _payload(self):
+        return {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {
+                    "ColName": ["rq", "T007", "T039", "T999"],
+                    "Content": [
+                        ["2026-09-30", 49926813769.81, 318304891882.72, None],
+                        ["2026-06-30", 1.5, 2.5, 3.5],
+                    ],
+                },
+                {"ColName": ["nhytype"], "Content": [[0]]},
+            ],
+        }
+
+    def test_full_mode_keeps_every_column(self):
+        from tdx_f10 import parse_statement_payload
+
+        result = parse_statement_payload(self._payload(), "zcfzb", True)
+        self.assertEqual(result["columns"], ["rq", "T007", "T039", "T999"])
+        self.assertEqual(len(result["rows"]), 2)
+        self.assertEqual(result["template"], 0)
+        self.assertTrue(result["full"])
+
+    def test_summary_mode_uses_known_labels(self):
+        from tdx_f10 import parse_statement_payload
+
+        result = parse_statement_payload(self._payload(), "zcfzb", False)
+        self.assertEqual(result["columns"], ["报告期", "资产总计", "货币资金"])
+        self.assertEqual(result["rows"][0][0], "2026-09-30")
+
+
+class TestDatasetWriter(unittest.TestCase):
+    """Windows 上杀软/索引会短暂占用目标文件，原子改名必须重试。"""
+
+    def test_replace_retries_on_permission_error(self):
+        from unittest import mock
+
+        attempts = []
+
+        def flaky_replace(source, target):
+            attempts.append(source)
+            if len(attempts) < 3:
+                raise PermissionError("file is locked")
+            Path(target).write_text("ok", encoding="utf-8")
+
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "x.jsonl.gz.part"
+            target = Path(directory) / "x.jsonl.gz"
+            source.write_text("pending", encoding="utf-8")
+            with mock.patch.object(tdx.os, "replace", side_effect=flaky_replace):
+                tdx._replace_atomic(source, target)
+            self.assertEqual(len(attempts), 3)
+            self.assertEqual(target.read_text(encoding="utf-8"), "ok")
+
+
 if __name__ == "__main__":
     unittest.main()

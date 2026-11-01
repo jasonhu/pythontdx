@@ -51,8 +51,8 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
   })
 
   const quoteMap = createMemo(() => new Map(quotes().map((quote) => [quote.code, quote])))
-  // 成分股迷你走势图只给前 60 只拉分时，避免大板块打出几百个请求
-  createSparklineLoader(() => (selected()?.codes ?? []).slice(0, 60))
+  // 成分股迷你走势图：全部代码排队加载（加载器限 3 并发，大板块也不会一次打出几百个请求）
+  createSparklineLoader(() => selected()?.codes ?? [])
 
   const selectBlock = async (block: BlockGroup): Promise<void> => {
     setSelected(block)

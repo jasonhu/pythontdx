@@ -5081,6 +5081,23 @@
   padding: 0 20px 12px;
 }
 
+.dragon__pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 8px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.dragon__pager .btn {
+  height: 24px;
+  padding: 0 10px;
+  font-size: var(--fs-2xs);
+}
+
 .dragon__table {
   width: 100%;
   border-collapse: collapse;

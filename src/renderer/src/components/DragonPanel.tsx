@@ -25,6 +25,7 @@ export function DragonPanel(props: {
 }): JSX.Element {
   const [table, setTable] = createSignal<F10TradingTable | null>(null)
   const [query, setQuery] = createSignal('')
+  const [page, setPage] = createSignal(0)
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
 
@@ -60,6 +61,17 @@ export function DragonPanel(props: {
             .includes(text)
         )
       })
+  })
+
+  const PAGE_SIZE = 100
+
+  const pageCount = createMemo(() => Math.max(1, Math.ceil(rows().length / PAGE_SIZE)))
+
+  const currentPage = createMemo(() => Math.min(page(), pageCount() - 1))
+
+  const pageRows = createMemo(() => {
+    const start = currentPage() * PAGE_SIZE
+    return rows().slice(start, start + PAGE_SIZE)
   })
 
   const visibleColumns = createMemo(() =>
@@ -125,9 +137,14 @@ export function DragonPanel(props: {
             type="search"
             placeholder="搜索代码 / 名称"
             value={query()}
-            onInput={(event) => setQuery(event.currentTarget.value)}
+            onInput={(event) => {
+              setQuery(event.currentTarget.value)
+              setPage(0)
+            }}
           />
-          <span class="dragon__hint">共 {rows().length} 条（全部显示）· 点击切股票</span>
+          <span class="dragon__hint">
+            共 {rows().length} 条 · 第 {currentPage() + 1}/{pageCount()} 页（每页 {PAGE_SIZE} 条，点击切股票）
+          </span>
         </div>
 
         <Show when={error()}>{(message) => <div class="dragon__error">{message()}</div>}</Show>
@@ -140,7 +157,7 @@ export function DragonPanel(props: {
               </tr>
             </thead>
             <tbody>
-              <For each={rows()}>
+              <For each={pageRows()}>
                 {(row) => {
                   const code = (): string | null => fullCode(row, table()?.columns ?? [])
                   return (
@@ -173,6 +190,26 @@ export function DragonPanel(props: {
           <Show when={!loading() && rows().length === 0}>
             <div class="dragon__loading">没有匹配记录</div>
           </Show>
+        </div>
+
+        <div class="dragon__pager">
+          <button
+            class="btn"
+            disabled={currentPage() === 0}
+            onClick={() => setPage(Math.max(0, currentPage() - 1))}
+          >
+            上一页
+          </button>
+          <span>
+            {currentPage() + 1} / {pageCount()}
+          </span>
+          <button
+            class="btn"
+            disabled={currentPage() >= pageCount() - 1}
+            onClick={() => setPage(Math.min(pageCount() - 1, currentPage() + 1))}
+          >
+            下一页
+          </button>
         </div>
       </section>
     </div>

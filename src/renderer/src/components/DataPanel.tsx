@@ -59,7 +59,7 @@ const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> =
   {
     key: 'datasets',
     label: '板块/财务/龙虎榜归档',
-    hint: '板块全量 + 自选财务 + 龙虎榜全量，写数据湖 datasets/'
+    hint: '板块全量 + 财务（含三大报表）+ 龙虎榜全量，写数据湖 datasets/'
   }
 ]
 
@@ -614,6 +614,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setDownloadTotal(keys.length)
     downloadCancel = false
     let done = 0
+    let datasetSummary = ''
     try {
       for (const key of keys) {
         if (downloadCancel) break
@@ -628,15 +629,33 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         } else if (key === 'snapshot') await runSnapshotExport()
         else if (key === 'stats') await runExport()
         else if (key === 'datasets') {
-          const result = await api.data.archiveDatasets(watchCodes())
-          setDownloadMessage(
-            `数据集已落盘：板块 ${result.sectorRows} 行 / 龙虎榜 ${result.lhbRows} 行 / 财务 ${result.financeCodes} 只`
-          )
+          const scope = bulkScope()
+          const codes = scope === 'watchlist' ? watchCodes() : await allAShareCodes()
+          let sectorRows = 0
+          let lhbRows = 0
+          let financeCodes = 0
+          let statementRows = 0
+          let failed = 0
+          for (let start = 0; start < codes.length; start += 30) {
+            if (downloadCancel) break
+            const batch = codes.slice(start, start + 30)
+            setDownloadMessage(
+              `数据集归档：${start + 1}-${start + batch.length}/${codes.length}（板块 + 财务含三大报表 + 龙虎榜）`
+            )
+            const result = await api.data.archiveDatasets(batch)
+            sectorRows = Math.max(sectorRows, result.sectorRows)
+            lhbRows = Math.max(lhbRows, result.lhbRows)
+            financeCodes += result.financeCodes
+            statementRows += result.statementRows
+            failed += result.financeFailed.length
+          }
+          datasetSummary = `板块 ${sectorRows} 行 / 龙虎榜 ${lhbRows} 行 / 财务 ${financeCodes} 只 / 三大报表新增 ${statementRows} 行${failed > 0 ? `（失败 ${failed} 只）` : ''}`
+          setDownloadMessage(`数据集已落盘：${datasetSummary}`)
         } else await runArchive()
         done += 1
         setDownloadDone(done)
       }
-      setDownloadMessage('全部选中任务已完成')
+      setDownloadMessage(datasetSummary ? `全部任务已完成 · ${datasetSummary}` : '全部选中任务已完成')
     } catch (cause) {
       setDownloadError(errorMessage(cause))
     } finally {
@@ -903,7 +922,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               <select
                 class="data__bulk-scope"
                 value={bulkScope()}
-                disabled={downloadRunning() || !downloadSelection().kline}
+                disabled={
+                  downloadRunning() || (!downloadSelection().kline && !downloadSelection().datasets)
+                }
                 onChange={(event) => setBulkScope(event.currentTarget.value as 'watchlist' | 'all')}
               >
                 <option value="watchlist">仅自选</option>

@@ -2830,6 +2830,18 @@ def backup_restore(path: str) -> dict:
     }
 
 
+def _replace_atomic(source: Path, target: Path, attempts: int = 6) -> None:
+    """原子改名；Windows 上目标可能被杀软/搜索索引短暂占用，重试几次再放弃。"""
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.15 * (attempt + 1))
+
+
 def _write_dataset_jsonl(target: Path, rows: list[dict]) -> dict:
     """把一份数据集写成 jsonl.gz（原子写入；已存在则跳过，规则 12）。"""
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -2839,7 +2851,7 @@ def _write_dataset_jsonl(target: Path, rows: list[dict]) -> dict:
     with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=6) as stream:
         for row in rows:
             stream.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
-    os.replace(temporary, target)
+    _replace_atomic(temporary, target)
     return {
         "file": str(target),
         "rows": len(rows),
@@ -4327,19 +4339,77 @@ class Bridge:
         except Exception as error:  # noqa: BLE001 - 龙虎榜失败不阻断其它数据集
             files.append({"file": "lhb", "error": str(error)})
 
+        def archive_finance_code(code: str) -> tuple[list[dict], int, bool]:
+            """单只股票的财务落盘：主要指标 + 分红 + 三大报表全字段。
+
+            返回（文件记录, 报表行数, 是否成功）；已有文件跳过，不覆盖（规则 12）。
+            """
+            result_files: list[dict] = []
+            rows_written = 0
+            ok = False
+            finance_path = store / "finance" / f"{code}.jsonl.gz"
+            if finance_path.exists():
+                result_files.append({"file": str(finance_path), "rows": 0, "skipped": True})
+                ok = True
+            else:
+                entry: dict = {"code": code}
+                try:
+                    entry["finance"] = fetch_finance(code)
+                    ok = True
+                except Exception as error:  # noqa: BLE001
+                    entry["financeError"] = str(error)
+                try:
+                    entry["dividend"] = fetch_dividend(code)
+                except Exception as error:  # noqa: BLE001
+                    entry["dividendError"] = str(error)
+                result_files.append(_write_dataset_jsonl(finance_path, [entry]))
+
+            for kind in ("zcfzb", "lyb", "xjllb"):
+                path = store / "statements" / kind / f"{code}.jsonl.gz"
+                if path.exists():
+                    result_files.append({"file": str(path), "rows": 0, "skipped": True})
+                    continue
+                try:
+                    statement = fetch_statement(code, kind, True)
+                except Exception as error:  # noqa: BLE001 - 单张报表失败不阻断其它数据
+                    result_files.append({"file": str(path), "error": str(error)})
+                    continue
+                columns = [str(name) for name in statement.get("columns") or []]
+                rows = []
+                for values in statement.get("rows") or []:
+                    row = {
+                        "code": code,
+                        "kind": kind,
+                        "template": statement.get("template", 0),
+                    }
+                    row.update({name: value for name, value in zip(columns, values)})
+                    if "rq" in row:
+                        row["period"] = row["rq"]
+                    rows.append(row)
+                rows_written += len(rows)
+                result_files.append(_write_dataset_jsonl(path, rows))
+                ok = True
+            return result_files, rows_written, ok
+
+        def archive_finance_code_safe(code: str) -> tuple[list[dict], int, bool]:
+            """单只失败（含磁盘写入被占用）只记错误，不能拖垮整批归档。"""
+            try:
+                return archive_finance_code(code)
+            except Exception as error:  # noqa: BLE001
+                return [{"file": code, "error": str(error)}], 0, False
+
         finance_codes = 0
-        for code in codes:
-            entry: dict = {"code": code}
-            try:
-                entry["finance"] = fetch_finance(code)
-            except Exception as error:  # noqa: BLE001
-                entry["financeError"] = str(error)
-            try:
-                entry["dividend"] = fetch_dividend(code)
-            except Exception as error:  # noqa: BLE001
-                entry["dividendError"] = str(error)
-            files.append(_write_dataset_jsonl(store / "finance" / f"{code}.jsonl.gz", [entry]))
-            finance_codes += 1
+        statement_rows = 0
+        finance_failed: list[str] = []
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(archive_finance_code_safe, codes))
+        for code, (code_files, rows, ok) in zip(codes, results):
+            files.extend(code_files)
+            statement_rows += rows
+            if ok:
+                finance_codes += 1
+            else:
+                finance_failed.append(code)
 
         manifest = {
             "format": 1,
@@ -4348,6 +4418,8 @@ class Bridge:
             "sectorRows": sector_rows,
             "lhbRows": lhb_rows,
             "financeCodes": finance_codes,
+            "statementRows": statement_rows,
+            "financeFailed": finance_failed,
             "files": files,
         }
         manifest_path = store / "manifest.json"
@@ -4361,6 +4433,8 @@ class Bridge:
             "sectorRows": sector_rows,
             "lhbRows": lhb_rows,
             "financeCodes": finance_codes,
+            "statementRows": statement_rows,
+            "financeFailed": finance_failed,
             "manifest": str(manifest_path),
             "files": files,
         }

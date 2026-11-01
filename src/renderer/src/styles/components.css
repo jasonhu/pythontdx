@@ -2172,7 +2172,7 @@
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: 184px minmax(0, 1fr);
 }
 
 .block__side {
@@ -7684,4 +7684,13 @@
 .ranking__table th:nth-child(2) {
   font-family: var(--font-mono);
   font-size: 11.5px;
+}
+
+
+/* 52：F10 不再铺满整屏，固定阅读宽度，减少左右空白 */
+.f10 {
+  width: min(1240px, 92vw);
+  max-width: min(1240px, 92vw);
+  height: min(860px, 88vh);
+  max-height: min(860px, 88vh);
 }

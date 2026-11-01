@@ -31,7 +31,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'b', label: 'B股' }
 ]
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = 200
 
 type SortMode =
   'default' | 'change' | 'changeAsc' | 'amount' | 'price' | 'turnover' | 'volume' | 'speed'
@@ -80,7 +80,9 @@ export function MarketListPanel(props: {
   const [catalog, setCatalog] = createSignal<SearchSecurity[]>([])
   const [tab, setTab] = createSignal<TabKey>('all')
   const [query, setQuery] = createSignal('')
-  const [page, setPage] = createSignal(0)
+  const [limit, setLimit] = createSignal(PAGE_SIZE)
+  let loadedCount = 0
+  let quoteKey = ''
   const [quotes, setQuotes] = createSignal<Quote[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
@@ -163,20 +165,18 @@ export function MarketListPanel(props: {
     )
   })
 
-  const pageCount = createMemo(() => Math.max(1, Math.ceil(displayed().length / PAGE_SIZE)))
-  const pageItems = createMemo(() =>
-    displayed().slice(page() * PAGE_SIZE, page() * PAGE_SIZE + PAGE_SIZE)
-  )
+  // 垂直滚动加载：初始 200 行，滚到底再加 200；不再用上/下翻页
+  const visibleItems = createMemo(() => displayed().slice(0, limit()))
 
   const loadAll = async (mode: SortMode): Promise<void> => {
     if (mode === 'default') {
       setSort('default')
-      setPage(0)
+      setLimit(PAGE_SIZE)
       return
     }
     const key = sortKey()
     setSort(mode)
-    setPage(0)
+    setLimit(PAGE_SIZE)
     if (allKey() === key && rankedCodes().length > 0) return
     const current = ++allRequestId
     setAllLoading(true)
@@ -209,23 +209,33 @@ export function MarketListPanel(props: {
   }
 
   createEffect(() => {
-    page()
-    tab()
-    query()
-    const current = ++requestId
-    const codes = pageItems().map((item) => item.code)
-    setQuotes([])
-    if (codes.length === 0) {
-      setLoading(false)
-      return
+    const key = `${tab()}|${query()}|${sort()}`
+    if (key !== quoteKey) {
+      quoteKey = key
+      loadedCount = 0
+      setQuotes([])
+      if (limit() !== PAGE_SIZE) {
+        setLimit(PAGE_SIZE)
+        return
+      }
     }
+
+    const items = displayed()
+    const target = Math.min(limit(), items.length)
+    if (target <= loadedCount) return
+    const current = ++requestId
+    const codes = items.slice(loadedCount, target).map((item) => item.code)
     setLoading(true)
     void (async () => {
       try {
-        // MAC 批量报价带量比/涨速；默认排序也用它，列不会出现整列「—」
-        const data = await api.quote.macQuotesFinance(codes)
+        const data: Quote[] = []
+        for (let start = 0; start < codes.length; start += 400) {
+          data.push(...(await api.quote.macQuotesFinance(codes.slice(start, start + 400))))
+          if (current !== requestId) return
+        }
+        loadedCount = target
         if (current !== requestId) return
-        setQuotes(data)
+        setQuotes((previous) => [...previous, ...data])
         setError(null)
       } catch (cause) {
         if (current === requestId) setError(errorMessage(cause))
@@ -237,7 +247,7 @@ export function MarketListPanel(props: {
 
   const quoteMap = createMemo(() => new Map(quotes().map((quote) => [quote.code, quote])))
   // 当前页 100 只，排队加载分时（限并发），翻页自动换一批
-  createSparklineLoader(() => pageItems().slice(0, 30).map((item) => item.code))
+  createSparklineLoader(() => visibleItems().slice(0, 60).map((item) => item.code))
 
   return (
     <div class="market-backdrop" onClick={() => props.onClose()}>
@@ -270,7 +280,7 @@ export function MarketListPanel(props: {
                 data-active={tab() === item.key}
                 onClick={() => {
                   setTab(item.key)
-                  setPage(0)
+                  setLimit(PAGE_SIZE)
                   setSort('default')
                   setAllKey('')
                 }}
@@ -312,7 +322,7 @@ export function MarketListPanel(props: {
             value={query()}
             onInput={(event) => {
               setQuery(event.currentTarget.value)
-              setPage(0)
+              setLimit(PAGE_SIZE)
               setSort('default')
               setAllKey('')
             }}
@@ -321,7 +331,15 @@ export function MarketListPanel(props: {
 
         <Show when={error()}>{(message) => <div class="market__error">{message()}</div>}</Show>
 
-        <div class="market__table-wrap">
+        <div
+          class="market__table-wrap"
+          onScroll={(event) => {
+            const el = event.currentTarget
+            if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return
+            if (loading() || visibleItems().length >= filtered().length) return
+            setLimit((value) => value + PAGE_SIZE)
+          }}
+        >
           <table class="market__table">
             <colgroup>
               <col style="width: 78px" />
@@ -356,7 +374,7 @@ export function MarketListPanel(props: {
               </tr>
             </thead>
             <tbody>
-              <For each={pageItems()}>
+              <For each={visibleItems()}>
                 {(item) => {
                   const quote = () => quoteMap().get(item.code)
                   return (
@@ -433,19 +451,19 @@ export function MarketListPanel(props: {
           <Show when={allLoading()}>
             <div class="market__loading">MAC 加载整栏报价并排序… {allProgress()}</div>
           </Show>
-          <Show when={!loading() && pageItems().length === 0}>
+          <Show when={!loading() && visibleItems().length === 0}>
             <div class="market__empty">没有匹配的证券</div>
           </Show>
         </div>
 
         <footer class="market__foot">
           <span>
-            共 {filtered().length} 条 · 第 {page() + 1} / {pageCount()} 页
+            共 {filtered().length} 条 · 已显示 {visibleItems().length} 条 · 滚动加载更多
           </span>
           <button
             class="btn market__export"
             onClick={() => {
-              const rows = pageItems().map((item) => {
+              const rows = visibleItems().map((item) => {
                 const quote = quoteMap().get(item.code)
                 return [
                   item.code,
@@ -461,7 +479,7 @@ export function MarketListPanel(props: {
                 ]
               })
               downloadText(
-                `stocklens-market-page-${page() + 1}.csv`,
+                `stocklens-market-${visibleItems().length}.csv`,
                 toCsv(
                   [
                     '代码',
@@ -491,22 +509,6 @@ export function MarketListPanel(props: {
           >
             板块个股
           </button>
-          <div class="market__pager">
-            <button
-              class="btn market__prev"
-              disabled={page() === 0}
-              onClick={() => setPage((value) => Math.max(0, value - 1))}
-            >
-              上一页
-            </button>
-            <button
-              class="btn market__next"
-              disabled={page() + 1 >= pageCount()}
-              onClick={() => setPage((value) => Math.min(pageCount() - 1, value + 1))}
-            >
-              下一页
-            </button>
-          </div>
         </footer>
       </section>
     </div>

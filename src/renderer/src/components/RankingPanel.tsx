@@ -419,11 +419,18 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
           )}
         </Show>
 
-        <div class="ranking__table-wrap">
+        <div
+          class="ranking__table-wrap"
+          onScroll={(event) => {
+            const el = event.currentTarget
+            if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return
+            if (hasMore() && !loadingMore() && !fullMode()) void loadMore()
+          }}
+        >
           <table class="ranking__table">
             <colgroup>
-              <col style="width: 42px" />
-              <col style="width: 76px" />
+              <col style="width: 36px" />
+              <col style="width: 70px" />
               <col style="width: 90px" />
               <col style="width: 44px" />
               <col style="width: 72px" />
@@ -557,9 +564,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
               </span>
             }
           >
-            <button class="ranking__more" disabled={loadingMore()} onClick={() => void loadMore()}>
-              {loadingMore() ? '加载中…' : '加载更多'}
-            </button>
+            <span>{loadingMore() ? '加载中…' : '滚动到底自动加载'}</span>
           </Show>
         </footer>
       </section>

@@ -8,7 +8,9 @@ import type { BlockGroup, BlockKind, BlockList, IndustryList, Quote } from '@sha
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
 import { openStockMenu } from '../stores/stockMenu'
+import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
 import { IconClose } from './Icons'
+import { Sparkline } from './Sparkline'
 
 interface BlockPanelProps {
   onClose: () => void
@@ -49,6 +51,8 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
   })
 
   const quoteMap = createMemo(() => new Map(quotes().map((quote) => [quote.code, quote])))
+  // 成分股迷你走势图只给前 60 只拉分时，避免大板块打出几百个请求
+  createSparklineLoader(() => (selected()?.codes ?? []).slice(0, 60))
 
   const selectBlock = async (block: BlockGroup): Promise<void> => {
     setSelected(block)
@@ -235,6 +239,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                           <th class="num">现价</th>
                           <th class="num">涨幅</th>
                           <th class="num">成交额</th>
+                          <th class="num">走势</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -274,6 +279,21 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                                 </td>
                                 <td class="num">
                                   {quote() ? compactAmount(quote()!.amount) : '—'}
+                                </td>
+                                <td class="num">
+                                  <Show
+                                    when={sparklineOf(code)}
+                                    fallback={<span class="block__spark-empty">—</span>}
+                                  >
+                                    {(data) => (
+                                      <Sparkline
+                                        values={data().values}
+                                        baseline={data().prevClose}
+                                        width={46}
+                                        height={18}
+                                      />
+                                    )}
+                                  </Show>
                                 </td>
                               </tr>
                             )

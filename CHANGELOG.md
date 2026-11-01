@@ -50,7 +50,7 @@ StockLens 的所有重要变更都记录在这里。
   **分类方式**（一级行业/二级行业/通达信行业/概念/风格/指数板块/一般/客户端自定义/
   应用内分组），右栏才是具体板块——分类方式多，平铺一行放不下也不能并列。
   截图 `screenshots/watch-flat.png`、`screenshots/sector-picker-2level.png`、
-  `screenshots/custom-chips.png`。
+  `screenshots/custom-dropdown.png`、`screenshots/custom-rename.png`。
 - **板块/财务/龙虎榜离线归档**：数据工具新增「板块/财务/龙虎榜归档」任务，
   写 `lake/datasets/snapshot_date=YYYY-MM-DD/`：板块成分（概念/风格/指数/一般/
   通达信行业/研发行业，11.2 万行成员关系）、880 指数映射、龙虎榜全量（实测 2,404 行）、
@@ -90,16 +90,16 @@ StockLens 的所有重要变更都记录在这里。
 
 | 产物                               | 大小                      | SHA256                                                             |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,219,557 B） | `6bdc64278725533f14c99f0de0a02bc5621c1340c28a2f980011a1eae5a33cfd` |
-| `StockLens-0.9.0-win-x64/`（散装） | 409.1 MB（409,090,299 B） | —                                                                  |
-| `StockLens-0.9.0-win-x64.zip`      | 175.1 MB（175,081,881 B） | `5a3a6a33603a59947acca1cc87151b6d41f6b03b70923c1939e1f08a112825a8` |
+| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,219,557 B） | `fa19e5ff7fe7a153c0a9954dc8331453e0275e2494fb2bc2000e2b1e93b62acc` |
+| `StockLens-0.9.0-win-x64/`（散装） | 409.1 MB（409,103,448 B） | —                                                                  |
+| `StockLens-0.9.0-win-x64.zip`      | 175.1 MB（175,097,812 B） | `ef350896a2f9ec2ba9e21464c26d0d9b58100d6db8d2b43ef9c7581ead3434e5` |
 
 - 安装包：`/S /D=<临时目录>` 静默安装 exit 0 → 桌面 + 开始菜单快捷方式、HKCU 卸载项齐全 →
   安装版启动并取到实时行情（`screenshots/installed-new.png`）→ 静默卸载后
   安装目录、两个快捷方式、注册表项全部清除；
 - 绿色包：整目录拷到 `.tmp/green test 绿色`（含空格与中文）直接运行，
   实时行情、分时图、五档盘口、明细正常（`screenshots/green-win-data.png`）；
-- zip：解压出 76 个文件（409,090,299 B）后运行同样正常（`screenshots/zip-win.png`）；
+- zip：解压出 76 个文件（409,103,448 B）后运行同样正常（`screenshots/zip-win.png`）；
 - 新界面：板块选择大窗口（`screenshots/sector-picker.png`）、板块内涨跌幅排行
   （`screenshots/sector-ranking.png`）、自定义板块排行（`screenshots/custom-ranking.png`）、
   数据工具备份区（`screenshots/data-backup.png`）、二级行业页签（`screenshots/boards-l2.png`）、

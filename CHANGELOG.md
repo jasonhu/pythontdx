@@ -17,9 +17,12 @@ StockLens 的所有重要变更都记录在这里。
 - **冷启动分时图**：ChartPanel 先用 localStorage 里的上一帧分时/五日快照画图
   （标注「离线缓存」），不再等 sidecar；实测首屏 **404ms**。网络回来覆盖。
   最多保留 12 个分时 / 6 个五日，写入节流 2 秒。
-- **macOS sidecar 解包**：Nuitka onefile 每次启动重新解包约 90MB，首次实测
-  **8.5s**；macOS 改为按「Python 源码 + connect.cfg + Nuitka 版本」指纹缓存解包目录，
-  之后启动 **0.28s**。缓存键随 sidecar 代码变化，不会复用旧逻辑。
+- **macOS sidecar 首次执行扫描**：不是解包/CPU 慢。standalone 目录（无解包）
+  首次也要 **7.75s**、第二次 **0.09s**；复制到新路径首次 1.82s、第二次 0.09s。
+  `syspolicyd` 日志显示 Gatekeeper 在逐个扫描新 dylib 的 provenance。
+  根因是 Nuitka onefile 每次启动用新的临时目录，每次都被当成新二进制扫描。
+  macOS 改为按「Python 源码 + connect.cfg + Nuitka 版本」指纹固定解包目录，
+  之后启动 **0.28s**；缓存键随 sidecar 代码变化，不会复用旧逻辑。
 - **涨跌家数卡队列**：原来一个 `market_breadth` 独占串行 sidecar 5.7s，期间切股票/
   切分时全部等待。新增 `market_breadth_page`，每 8 页（640 只）一次请求，页间让
   priority 图表请求插队；仍是单 sidecar，没有改进程架构。
@@ -30,6 +33,8 @@ StockLens 的所有重要变更都记录在这里。
 
 - `npm run check` exit 0：**315 TS（32 文件）+ 164 Python（1 skipped）**；
 - 分时快照首屏：**404ms**（副作用是显示「离线缓存」，网络回来后消失）；
+- sidecar 启动：standalone 首次 7.75s → 二次 0.09s；onefile 固定缓存路径后
+  二次 0.28~0.45s；`syspolicyd` 日志确认是 Gatekeeper 首次扫描；
 - 同机 0.14.3 打包版请求 trace：`market_breadth` 6.45s → 12.12s，独占 5.7s；
   分页后每段约 0.8s；
 - 0.14.4 散装 app 与 dmg 由 `npm run build:mac:all` 生成，做本地启动/签名/GPL 验证；

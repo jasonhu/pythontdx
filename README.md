@@ -181,7 +181,7 @@ npm run build:mac     # macOS dmg（仅 Apple Silicon / arm64）
 产物在 `release/<version>/`。Windows x64 0.14.2 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含首屏本地优先），Linux 0.14.0 AppImage/deb、macOS 0.14.2 arm64 dmg 也已实机验收。
 
 > **0.14.4 本地验证**：`npm run build:mac:all` 会同时生成散装 `.app` 和 dmg；分时首屏先画
-> localStorage 快照（约 0.4s），macOS sidecar 解包缓存后启动约 0.28s。dmg 只做本地验证，
+> localStorage 快照（约 0.4s），macOS sidecar 固定路径避免重复 Gatekeeper 扫描后启动约 0.28s。dmg 只做本地验证，
 > 不发布 GitHub Release。
 
 > **macOS 打包/编译已通过**：在 Apple Silicon（macOS 27.2）上 `npm run build:mac`

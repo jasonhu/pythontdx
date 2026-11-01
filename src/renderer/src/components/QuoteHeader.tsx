@@ -6,7 +6,7 @@ import { MARKET_LABEL, type Quote } from '@shared/types'
 import { compactAmount, compactVolume, fixed, signed, signedPct, timeOfDay } from '@shared/format'
 import { createValueFlash } from '../lib/dom'
 import { toneOf, type Tone } from '../lib/tone'
-import { addWatchItem, removeWatchItem, watchItemOf } from '../stores/app'
+import { addWatchItem, defaultGroup, removeWatchItem } from '../stores/app'
 import { api } from '../lib/ipc'
 import { IconStar, IconStarFilled } from './Icons'
 
@@ -44,7 +44,9 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
     })()
   })
 
-  const inWatchlist = (): boolean => watchItemOf(props.quote.code) !== undefined
+  // 星标只代表「在自选股里」；同一只票还可以同时属于多个自定义板块
+  const inWatchlist = (): boolean =>
+    defaultGroup()?.items.some((item) => item.code === props.quote.code) === true
 
   /** 涨停 / 跌停判定（接口直接给了涨跌停价，顺手做个醒目标记） */
   const limitState = (): 'up' | 'down' | null => {

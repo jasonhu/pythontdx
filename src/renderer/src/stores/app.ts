@@ -162,8 +162,15 @@ export function setActiveGroup(id: string): void {
   persist({ activeGroupId: id })
 }
 
+/** 同一毫秒内连续新建分组时也不能撞 id */
+let idSequence = 0
+function newId(prefix: string): string {
+  idSequence += 1
+  return `${prefix}${Date.now().toString(36)}${idSequence.toString(36)}`
+}
+
 export function createGroup(name?: string): void {
-  const id = `g${Date.now().toString(36)}`
+  const id = newId('g')
   const groups = [...plainGroups(state.groups), { id, name: name?.trim() || '新分组', items: [] }]
   setState('groups', groups)
   setState('activeGroupId', id)
@@ -174,7 +181,7 @@ export function createGroupWithItems(
   name: string,
   items: ReadonlyArray<Pick<WatchItem, 'code' | 'name' | 'market'>>
 ): number {
-  const id = `g${Date.now().toString(36)}`
+  const id = newId('g')
   const seen = new Set<string>()
   const unique = items.filter((item) => {
     if (!item.code || seen.has(item.code)) return false
@@ -278,23 +285,21 @@ export function addWatchItem(
   // 不指定分组时进「自选股」，而不是当前浏览的自定义板块：
   // 搜索/右键「加入自选」的语义是固定的那一份自选，不该跟着页面状态漂移。
   const targetId = groupId ?? defaultGroup()?.id ?? state.activeGroupId
-
-  // 已经在任何一个分组里了：不重复添加，直接切过去
-  const existingGroup = state.groups.find((group) =>
-    group.items.some((entry) => entry.code === item.code)
-  )
-  if (existingGroup) {
-    if (existingGroup.id !== state.activeGroupId) setActiveGroup(existingGroup.id)
-    setActiveCode(item.code)
-    return
-  }
-
   const groups = plainGroups(state.groups)
   const target = groups.find((group) => group.id === targetId) ?? groups[0]
   if (!target) return
+
+  // 只在「目标分组」里去重：同一只股票可以既在自选、又在多个自定义板块里
+  const already = target.items.some((entry) => entry.code === item.code)
+  if (already) {
+    setActiveGroup(target.id)
+    setActiveCode(item.code)
+    return
+  }
   target.items.push({ ...item })
 
   setState('groups', groups)
+  setActiveGroup(target.id)
   setActiveCode(item.code)
   persist({ groups })
 }
@@ -326,22 +331,28 @@ export function addStockToGroup(
 ): void {
   const target = state.groups.find((group) => group.id === groupId)
   if (!target) return
-  const current = state.groups.find((group) =>
-    group.items.some((entry) => entry.code === item.code)
-  )
-  if (!current) {
-    addWatchItem(item, groupId)
+  const already = target.items.some((entry) => entry.code === item.code)
+  if (already) {
+    setActiveCode(item.code)
     return
   }
-  if (current.id !== groupId) moveWatchItem(item.code, groupId, target.items.length)
+  // 只加到目标分组，保留它在自选/其它自定义板块里的归属
+  const groups = plainGroups(state.groups)
+  const group = groups.find((entry) => entry.id === groupId)
+  if (!group) return
+  group.items.push({ ...item })
+  setState('groups', groups)
   setActiveCode(item.code)
+  persist({ groups })
 }
 
-export function removeWatchItem(code: string): void {
-  const group = state.groups.find((entry) => entry.items.some((item) => item.code === code))
+export function removeWatchItem(code: string, groupId?: string): void {
+  const targetId = groupId ?? defaultGroup()?.id
+  const group = state.groups.find((entry) => entry.id === targetId)
   if (!group) return
-
   const index = group.items.findIndex((item) => item.code === code)
+  if (index < 0) return
+
   const groups = plainGroups(state.groups).map((entry) =>
     entry.id === group.id
       ? { ...entry, items: entry.items.filter((item) => item.code !== code) }
@@ -380,25 +391,26 @@ export function renameWatchItem(code: string, name: string): void {
  * 组内排序与跨组移动都走这一个函数，逻辑只需要维护一份。
  */
 export function moveWatchItem(code: string, targetGroupId: string, targetIndex: number): void {
-  let moved: WatchItem | undefined
-
-  const groups = plainGroups(state.groups).map((group) => ({
-    ...group,
-    items: group.items.filter((item) => {
-      if (item.code === code) {
-        moved = { ...item }
-        return false
-      }
-      return true
-    })
-  }))
-
-  if (!moved) return
+  const groups = plainGroups(state.groups)
   const target = groups.find((group) => group.id === targetGroupId)
   if (!target) return
 
-  const index = Math.max(0, Math.min(targetIndex, target.items.length))
-  target.items.splice(index, 0, moved)
+  // 只调整目标分组里的位置；同一只票在其它分组（自选/别的自定义板块）的归属保持不变
+  const existing = target.items.findIndex((item) => item.code === code)
+  let item: WatchItem | undefined
+  let index = targetIndex
+  if (existing >= 0) {
+    item = target.items.splice(existing, 1)[0]
+    if (existing < index) index -= 1
+  } else {
+    const source = state.groups.flatMap((group) => group.items).find((entry) => entry.code === code)
+    if (!source) return
+    item = { ...source }
+  }
+  if (!item) return
+
+  const insertAt = Math.max(0, Math.min(index, target.items.length))
+  target.items.splice(insertAt, 0, item)
 
   setState('groups', groups)
   persist({ groups })

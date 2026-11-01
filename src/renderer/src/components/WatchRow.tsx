@@ -144,7 +144,7 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
         title="移出自选"
         onClick={(event) => {
           event.stopPropagation()
-          removeWatchItem(props.item.code)
+          removeWatchItem(props.item.code, props.groupId)
         }}
       >
         <IconClose size={11} />

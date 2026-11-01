@@ -155,6 +155,57 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
   `'NoneType' object has no attribute 'strip'`；改为显式 `encoding="utf-8"` 后
   审计恢复为 39/39，失败原因也不再被吞掉。
 
+### 修复（macOS 首次实机打包发现）
+
+- **7615 不再被系统代理接管**：macOS 的 urllib 会读取系统代理，代理不转发 7615
+  时公告/估值/财务/新闻全部 12 秒超时（本机配置了局域网 HTTP 代理；同一地址
+  curl 直连 0.2 秒）。7709 是裸 TCP 不受影响，问题看起来很像「服务器慢」。
+  `python/tdx_f10.py` 改用 `build_opener(ProxyHandler({}))` 直连；
+  新增「坏代理仍直连」回归测试（159 Python）。
+- **thin Mach-O 判定修正**：`scripts/before-pack.cjs` 原先用 `readUInt32BE`
+  比较 `0xfeedfacf`，而单架构 Mach-O 的 magic 是小端 `cf fa ed fe`，永远不相等。
+  系统自带二进制都是 universal 所以一直没暴露；Nuitka 产出 thin arm64 后
+  macOS 打包必然报「不是 Mach-O」。改为按小端解析，并校验目标架构。
+- **macOS 只交付 arm64**：2026-11-02 用户决定不需要支持 Intel；
+  `electron-builder.yml` 把目标固定为 `arch: [arm64]`，`before-pack.cjs` 对
+  x64 / universal 目标直接拒绝（实测强制 `--x64` 会以中文错误 exit 1），
+  避免产出「x64 外壳 + arm64 sidecar」的坏包。删除 `build:mac:arm64` /
+  `build:mac:x64` 两个脚本；`before-pack.test.mjs` 增加到 10 条测试（304 TS）。
+- **下载后不再报「已损坏」**：`electron-builder.yml` 用 `mac.identity: '-'` 做整包
+  ad-hoc 签名（`hardenedRuntime: false`）。`codesign --verify --deep --strict` 通过，
+  包内含 `_CodeSignature/CodeResources`；浏览器下载后显示「Apple 无法验证」，
+  可在系统设置里「仍要打开」，或 `xattr -dr com.apple.quarantine` 放行。
+  `spctl -a` 仍拒绝，ad-hoc 不等于可信；彻底消除警告仍需 Developer ID + 公证。
+  GitHub Release 的安装说明见 `docs/07` 第三十三节。
+
+### macOS 产物（2026-11-02 首次实机）
+
+在 Apple Silicon（macOS 27.2）上构建 arm64 dmg；**ad-hoc 签名、未公证**，
+本地可直接运行，浏览器下载后需按 Release 说明放行。版本仍为 0.14.0，
+但包含上面的 7615 直连修复，与已发布的 Windows/Linux 0.14.0 包不是同一份运行代码。
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `stocklens-0.14.0-arm64.dmg` | 150,201,054 B | `e06cad6ca3d798abd31b54e953de21eb6537921b8ad2fa0ed0fee0602722ce64` |
+| `mac-arm64/StockLens.app` | 312 MB / 269 文件 | — |
+| `mac-arm64/.../Resources/app.asar` | 3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
+| `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` | 22,809,456 B | `0821cbbd2c537426921d1a7d01d33826829a4e940b26c4ce3091905cda0de94d` |
+
+实测：
+
+- `npm run check` exit 0：**304 TS + 159 Python（1 skipped）**；`audit:data` 39/39；
+  `build:web` 为 `0.14.0-web`；
+- **ad-hoc 整包签名**：`codesign --verify --deep --strict` exit 0，
+  `Identifier=com.stocklens.app`、`Sealed Resources version=2`；`spctl -a` 仍拒绝；
+- 从挂载的只读 dmg 启动：状态栏「实时」、4 个宽基指数有真实价格、版本 `v0.14.0`；
+  截图 `screenshots/v0140-macos-dmg.png`；
+- 7615 公告面板在系统代理开启时加载 100 条，截图
+  `screenshots/v0140-macos-announcements.png`；
+- lldb 断言红绿灯可见且 frame=`(18,16,14,14)`，`contentView` 1600×900 与窗口同高，
+  渲染层 `padding-left: 84px`；原生红绿灯截图受 Screen Recording 权限限制；
+- 包内 `app.asar` 与 Linux 0.14.0 同哈希，含 35,149 B GPL 与
+  `data:backup-progress`；dmg `hdiutil verify` 通过。
+
 ## [0.13.2] - 2026-11-01
 
 ### 多股同列细化

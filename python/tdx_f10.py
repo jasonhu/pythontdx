@@ -8,9 +8,18 @@ from __future__ import annotations
 
 import json
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener
 
 TQLEX_URL = "http://static.tdx.com.cn:7615/TQLEX"
+
+# 7615 是和 7709 一样的直达行情通道，不能交给 HTTP 代理。
+#
+# 2026-11-02 macOS 实机验收发现：urllib 默认会读取系统代理（这台机器配了
+# 局域网 HTTP 代理），代理不转发 7615 时公告/估值/财务/新闻全部 12 秒超时；
+# 同一地址 curl 直连 0.2 秒返回。7709 是裸 TCP、本来就不经过代理，所以只有
+# F10 这批 HTTP 接口坏掉，症状还很像「服务器慢」。显式传一个空的 ProxyHandler，
+# 保证三个平台行为一致，也避免把行情请求悄悄塞进与本项目无关的代理。
+_OPENER = build_opener(ProxyHandler({}))
 ENTRY = "CWSearch.tzx_rcache"
 PROFILE_ENTRY = "CWServ.tdxf10_gg_gsgk"
 VALUATION_ENTRY = "HQServ.hq_nlp_gpsj"
@@ -226,7 +235,7 @@ def _post_tqlex(entry: str, body: dict) -> dict:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=12) as response:
+        with _OPENER.open(request, timeout=12) as response:
             raw = response.read()
     except (HTTPError, URLError, TimeoutError) as error:
         raise F10Error(f"7615 请求失败：{error}") from error
@@ -694,7 +703,7 @@ def fetch_finance(code: str) -> dict:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=12) as response:
+        with _OPENER.open(request, timeout=12) as response:
             raw = response.read()
     except (HTTPError, URLError, TimeoutError) as error:
         raise F10Error(f"7615 财务请求失败：{error}") from error
@@ -729,7 +738,7 @@ def fetch_valuation(code: str) -> dict:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=12) as response:
+        with _OPENER.open(request, timeout=12) as response:
             raw = response.read()
     except (HTTPError, URLError, TimeoutError) as error:
         raise F10Error(f"7615 估值请求失败：{error}") from error
@@ -755,7 +764,7 @@ def fetch_profile(code: str) -> dict:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=12) as response:
+        with _OPENER.open(request, timeout=12) as response:
             raw = response.read()
     except (HTTPError, URLError, TimeoutError) as error:
         raise F10Error(f"7615 公司概况请求失败：{error}") from error
@@ -1033,7 +1042,7 @@ def fetch_news(code: str) -> list[dict]:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=12) as response:
+        with _OPENER.open(request, timeout=12) as response:
             raw = response.read()
     except (HTTPError, URLError, TimeoutError) as error:
         raise F10Error(f"7615 新闻请求失败：{error}") from error
@@ -1065,7 +1074,7 @@ def fetch_announcements(code: str) -> list[dict]:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=12) as response:
+        with _OPENER.open(request, timeout=12) as response:
             raw = response.read()
     except (HTTPError, URLError, TimeoutError) as error:
         raise F10Error(f"7615 公告请求失败：{error}") from error

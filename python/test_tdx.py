@@ -797,6 +797,59 @@ class TestStatementPayload(unittest.TestCase):
         self.assertEqual(result["rows"][0][0], "2026-09-30")
 
 
+class TestTqlexProxyBypass(unittest.TestCase):
+    """7615 和 7709 一样是直达行情通道，不能被系统/环境代理接管。
+
+    起源（2026-11-02 macOS 实机验收）：这台机器的系统代理是局域网 HTTP 代理，
+    urllib 会读它，而 7709 是裸 TCP 不受影响；
+    结果 F10 公告/估值/财务/新闻全部在 12 秒后超时，数据自检也只跑到
+    「公告」就中断。curl 直连同一地址 0.2 秒返回，说明代理不转发 7615。
+    """
+
+    def test_ignores_http_proxy(self):
+        import http.server
+        import threading
+        from unittest import mock
+
+        import tdx_f10
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802 - BaseHTTPRequestHandler 的命名约定
+                self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                body = b'{"ErrorCode":0,"ResultSets":[]}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{server.server_address[1]}/TQLEX"
+            # 指向必然拒绝连接的代理：只要请求还经过代理，就会直接失败
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "http_proxy": "http://127.0.0.1:1",
+                    "HTTP_PROXY": "http://127.0.0.1:1",
+                    "no_proxy": "",
+                    "NO_PROXY": "",
+                },
+            ):
+                with mock.patch.object(tdx_f10, "TQLEX_URL", url):
+                    payload = tdx_f10._post_tqlex("Test", {"Params": []})
+            self.assertEqual(payload.get("ErrorCode"), 0)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+
 class TestDatasetWriter(unittest.TestCase):
     """Windows 上杀软/索引会短暂占用目标文件，原子改名必须重试。"""
 

@@ -70,9 +70,24 @@ mac:
   # 没有 .icns 时 electron-builder 会自动用这张 512×512 的 PNG 转换生成
   icon: build/icon.png
   category: public.app-category.finance
+  # 免费分发方案：整包 ad-hoc 签名（不需要 Developer ID / 付费账号）。
+  #
+  # 不签名的包从浏览器下载后，macOS 会报「已损坏，无法打开」——没有「仍要打开」
+  # 入口，用户只能删掉；ad-hoc 签名后变成「Apple 无法验证…」，可以在
+  # 系统设置 → 隐私与安全性里放行，或 `xattr -dr com.apple.quarantine`。
+  # 它仍然不是可信签名，不能消除首次打开的警告；要彻底消除必须 Developer ID +
+  # 公证（需要付费账号），届时把 identity 改回自动发现、hardenedRuntime 改 true。
+  identity: '-'
+  # ad-hoc + hardened runtime 需要 disable-library-validation entitlement，否则
+  # Electron 预签名的 Framework 会被 library validation 拒绝；这里不需要公证，
+  # 直接关掉 hardened runtime 最省事。
+  hardenedRuntime: false
   target:
+    # macOS 只交付 Apple Silicon（arm64）。2026-11-02 用户明确不需要支持 Intel。
+    # sidecar 是 Nuitka 单文件，只能由本机 Python 编译出本机架构；在 Intel 机器上
+    # 会得到「arm64 外壳 + x64 sidecar」，before-pack.cjs 会直接拦下，不产坏包。
     - target: dmg
-      arch: [arm64, x64]
+      arch: [arm64]
 
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}

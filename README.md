@@ -7,14 +7,13 @@
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
 **版本：0.14.2（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：299 个 TS 测试 + 162 个 Python 测试（各 1 skipped）·
+`npm run check`：307 个 TS 测试 + 163 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
-> 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
-> macOS 也还没有实机打包验收。这两项完成后再发 1.0。
-> Windows x64 0.14.2 与 Linux 0.14.0 均已实机打包并启动验收，包含备份/恢复进度条与
-> GPL 文本（见 `docs/07` 第三十至三十三节）；0.14.2 在本地缓存齐全时 K 线首图
-> 约 0.35 秒、逐笔首行约 0.2 秒。
+> 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验。
+> Windows x64 0.14.2、Linux 0.14.0 与 macOS arm64 0.14.2 均已实机打包并启动验收
+> （见 `docs/07` 第三十至三十四节）；macOS 只支持 Apple Silicon，不维护 Intel 版。
+> 0.14.2 在本地缓存齐全时 K 线首图约 0.35 秒、逐笔首行约 0.2 秒（Windows 实测）。
 
 ---
 
@@ -170,18 +169,27 @@ python3 python/tdx_server.py --web-dir out/web --port 8765
 ### 检查与打包
 
 ```bash
-npm run check         # 类型 + Lint + 296 TS + 158 Python
+npm run check         # 类型 + Lint + 304 TS + 159 Python
 npm run audit:data    # 39 项数据覆盖/完整性审计
 npm run shot          # 构建并截图，输出到 screenshots/
 
 npm run build:win     # Windows 安装包 + 便携版（需在 Windows 上构建）
 npm run build:linux   # AppImage + deb
-npm run build:mac     # macOS（需在 macOS 上构建）
+npm run build:mac     # macOS dmg（仅 Apple Silicon / arm64）
 ```
 
-产物在 `release/<version>/`。Windows x64 0.14.2 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含首屏本地优先），Linux 0.14.0 AppImage/deb 也已实机验收；macOS 需在对应系统本机验收。
+产物在 `release/<version>/`。Windows x64 0.14.2 已实机打包并启动验收（安装包 / 绿色包 / zip / 便携版，含首屏本地优先），Linux 0.14.0 AppImage/deb、macOS 0.14.2 arm64 dmg 也已实机验收。
 
-> 0.14.2 的 Windows 包与 0.14.0 的 Linux 包均包含备份/恢复进度条和项目 GPL 文本；0.13.2 的 Windows 三件套生成于该修正之前，已由 0.14.x 取代。
+> **macOS 安装（ad-hoc 签名、未公证）**：从浏览器下载后首次打开会被 Gatekeeper
+> 拦截——点「完成」，到 系统设置 → 隐私与安全性 → 仍要打开；或在核对 SHA256 后执行
+> `xattr -dr com.apple.quarantine /Applications/StockLens.app`。
+> ad-hoc 不是可信任签名（`spctl -a` 仍拒绝），但整包签名是完整的
+> （`codesign --verify --deep --strict` 通过）；完整说明见 `docs/07` 第三十五节。
+
+> 0.14.2 的 Windows 包与 0.14.0 的 Linux 包均包含备份/恢复进度条和项目 GPL 文本；
+> macOS 0.14.2 包同样含 GPL，并额外包含 7615 直连修复（`python/tdx_f10.py`）与
+> ad-hoc 签名，因此与 Windows 0.14.2 不是完全同一份运行代码——下次统一发版时应
+> 升版本后三平台重打。
 
 ---
 

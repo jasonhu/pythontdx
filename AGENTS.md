@@ -104,8 +104,8 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（299 个用例）
-npm run test:python         # 只跑 Python 协议/HTTP 测试（162 个用例）
+npm run test                # 只跑 TS 测试（307 个用例）
+npm run test:python         # 只跑 Python 协议/HTTP 测试（163 个用例）
 npm run audit:data          # 数据覆盖自检（39 项，会触发自动归档；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
@@ -116,6 +116,8 @@ npm run build               # 生产构建（产物在 out/）
 npm run build:win           # Windows 打包：安装包 + 单文件便携版
 npm run build:win:portable  # 只要单文件便携版 exe
 npm run build:win:setup     # 只要 NSIS 安装包
+npm run build:linux         # Linux 打包：AppImage + deb
+npm run build:mac           # macOS dmg（仅 Apple Silicon / arm64）
 ```
 
 **Python 提示**：开发机需要 Python 3.10+（`python3` 或 `python` 在 PATH 上；
@@ -125,7 +127,7 @@ npm run build:win:setup     # 只要 NSIS 安装包
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
 `--web-dir out/web` 可单端口托管；Web 端自选/设置/预警/公式/持仓写 localStorage，行情仍只读；SSE + WebSocket 已接；独立窗口不可用。
 
-> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02 实机打包验收（0.9.0 ~ 0.14.2 见 `docs/07` 第十一至二十八、三十一至三十三节），macOS 需在对应机器实机验收。
+> **平台范围**：代码保持 Windows/Linux/macOS 跨平台；各自在对应系统本机构建，不做交叉编译。自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02 实机打包验收（0.9.0 ~ 0.14.2 见 `docs/07` 第十一至二十八、三十一至三十五节）。macOS 只支持 Apple Silicon，不维护 Intel 版（2026-11-02 用户决定）。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
 
@@ -170,20 +172,22 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（299 个 TS 测试 + 162 个 Python 测试），
+健康度 `npm run check` 全绿（307 个 TS 测试 + 163 个 Python 测试），
 2026-10-31 复核过构建、实机启动、包内资金流与公式多输出；
-2026-11-01 复核过 Windows x64 安装包 / 绿色包 / zip / 便携版（0.9.0 ~ 0.14.2 见
+2026-11-01/02 复核过 Windows x64 安装包 / 绿色包 / zip / 便携版（0.9.0 ~ 0.14.2 见
 `docs/07` 第十一至二十八、三十一至三十三节）；
+2026-11-02 实机打包并验收 macOS arm64 dmg（0.14.2，ad-hoc 签名），同时修掉
+thin Mach-O 误判、arm64 目标错配与 7615 系统代理超时（见 `docs/07` 第三十四节）；
 2026-11-01 新增左栏「自选股 / 板块 / 自定义」三视图、板块选择大窗口、
 离线数据单文件备份/恢复、数据集归档（板块/财务含三大报表/龙虎榜），并修复指数除权
 （截图与实测见 `CHANGELOG`）。
 
 已交付：实时行情/盘口/多周期图表、默认五均线、全屏自选、板块/MAC/F10 19 页签、预警且/或、
 条件选股预设与自动池、公式/回测、复盘、CSV/Parquet/数据湖、
-Web 前端（本地状态写）、Linux AppImage/deb，以及图表几何与协议层测试覆盖。
+Web 前端（本地状态写）、Linux AppImage/deb、macOS arm64 dmg，以及图表几何与协议层测试覆盖。
 
 - 长期目标与范围：先读 `docs/00-项目章程.md`；差距与优先级见 `PLAN.md` 第二、四节
-- 平台：代码跨 Windows/Linux/macOS；在各自系统本机构建，不做交叉编译；自动化主要跑 Linux，Windows 由本机实测
+- 平台：代码跨 Windows/Linux/macOS；在各自系统本机构建，不做交叉编译；自动化主要跑 Linux，Windows / macOS 由对应机器实测
 - 数据源只做 A 股；港股/美股/期货/期权明确不做，7727 扩展行情也不做
 - 技术债见 `PLAN.md` 第五节
 

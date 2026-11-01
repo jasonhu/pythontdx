@@ -1,0 +1,98 @@
+# macOS arm64 构建。
+#
+# 刻意**不发布 Release**：dmg 先留到 1.0；这个 workflow 只做构建、签名校验、
+# GPL 校验，并把 dmg + sha256 作为 Actions artifact 保留，方便手动下载测试。
+#
+# 为什么是 macos-15：GitHub 的标准 macOS runner 里，`macos-15` 是 **arm64**，
+# `macos-15-intel` 才是 x64。本项目 macOS 只支持 Apple Silicon，Nuitka sidecar
+# 不能交叉编译，x64 runner 会被 before-pack 拒绝。
+name: build-macos-arm64
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify arm64 runner
+        run: |
+          uname -m
+          test "$(uname -m)" = "arm64"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Quality gate
+        run: npm run check
+
+      - name: Build macOS dmg
+        run: npm run build:mac
+
+      - name: Verify ad-hoc signature
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          APP="release/$VERSION/mac-arm64/StockLens.app"
+          codesign --verify --deep "$APP"
+          codesign -dv --verbose=4 "$APP" 2>&1 | grep "Sealed Resources"
+          # ad-hoc 仍然会被 spctl 拒绝；这里只确认整包签名完整，不是「已损坏」。
+          spctl -a -vv "$APP" 2>&1 || true
+
+      - name: Verify GPL text is packaged
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          ASAR="release/$VERSION/mac-arm64/StockLens.app/Contents/Resources/app.asar"
+          TMP=$(mktemp -d)
+          (cd "$TMP" && "$GITHUB_WORKSPACE/node_modules/.bin/asar" extract-file "$ASAR" LICENSE)
+          test "$(wc -c < "$TMP/LICENSE" | tr -d ' ')" = "35149"
+          head -n 1 "$TMP/LICENSE"
+
+      - name: Checksum
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          DMG="release/$VERSION/stocklens-$VERSION-arm64.dmg"
+          test -f "$DMG"
+          shasum -a 256 "$DMG" | tee "release/$VERSION/stocklens-$VERSION-arm64.dmg.sha256"
+
+      - name: Check tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          test "v$VERSION" = "$GITHUB_REF_NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stocklens-macos-arm64-${{ github.run_id }}
+          path: |
+            release/*/stocklens-*-arm64.dmg
+            release/*/stocklens-*-arm64.dmg.sha256
+          if-no-files-found: error
+          retention-days: 14

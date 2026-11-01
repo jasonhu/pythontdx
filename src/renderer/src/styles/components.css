@@ -7402,8 +7402,8 @@
 .mreport-panel,
 .sector-picker__panel,
 .multi-panel {
-  width: 96vw;
-  max-width: 96vw;
-  height: 92vh;
-  max-height: 92vh;
+  width: var(--panel-w);
+  max-width: var(--panel-w);
+  height: var(--panel-h);
+  max-height: var(--panel-h);
 }

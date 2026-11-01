@@ -487,6 +487,21 @@ class TestClientBlocks(unittest.TestCase):
         self.assertEqual(str(roots[0]), "X:\\custom_tdx")
         self.assertTrue(any(str(item).endswith("tdx") for item in roots))
 
+    def test_client_block_indices(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "T0002" / "hq_cache"
+            cache.mkdir(parents=True)
+            (cache / "infoharbor_block.dat").write_text(
+                "#GN_示例板块,10,880999,20200101,20200102,,\r\n"
+                "#FG_风格示例,20,880998,20200101,20200102,,\r\n"
+                "#ZS_无指数,0,,20200101,,,\r\n",
+                encoding="gbk",
+            )
+            mapping = tdx.client_block_indices(directory)
+            self.assertEqual(mapping[("gn", "示例板块")], "sh880999")
+            self.assertEqual(mapping[("fg", "风格示例")], "sh880998")
+            self.assertNotIn(("zs", "无指数"), mapping)
+
 
 class TestScreenIndustry(unittest.TestCase):
     def test_filter_codes(self):

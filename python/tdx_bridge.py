@@ -2208,6 +2208,36 @@ def client_roots(explicit: str = "") -> list[Path]:
     return roots
 
 
+def client_block_indices(explicit: str = "") -> dict[tuple[str, str], str]:
+    """客户端 `hq_cache/infoharbor_block.dat` 里的板块 → 880xxx 映射。
+
+    服务器 `tdxzs.cfg` 只有概念 233/269、风格 141/161 有 880 指数；
+    客户端这份缓存实测概念 269/269、风格 158/161，能补齐服务器缺的部分。
+    """
+    for root in client_roots(explicit):
+        path = root / "T0002" / "hq_cache" / "infoharbor_block.dat"
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text("gbk", "ignore")
+        except OSError:
+            continue
+        mapping: dict[tuple[str, str], str] = {}
+        for line in text.splitlines():
+            if not line.startswith("#"):
+                continue
+            parts = line[1:].split(",")
+            if len(parts) < 3 or "_" not in parts[0]:
+                continue
+            prefix, name = parts[0].split("_", 1)
+            kind = {"GN": "gn", "FG": "fg", "ZS": "zs"}.get(prefix)
+            code = parts[2].strip()
+            if kind and name and code.startswith("88"):
+                mapping[(kind, name)] = f"sh{code}"
+        return mapping
+    return {}
+
+
 SCREEN_FIELDS = (
     "price",
     "changePct",
@@ -4080,6 +4110,10 @@ class Bridge:
                 return f"bj{symbol}", symbol
             return symbol, symbol
 
+        # 服务器 tdxzs.cfg 缺的板块指数，用本机客户端 infoharbor_block.dat 补齐
+        # （实测概念 233→269、风格 141→158）。
+        client_index = client_block_indices() if kind in ("gn", "fg") else {}
+
         blocks: list[dict] = []
         code_count = 0
         for block in raw_blocks:
@@ -4104,6 +4138,7 @@ class Bridge:
                     "codes": codes,
                     "names": names,
                     "indexCode": sector_by_name.get(block["name"], "")
+                    or client_index.get((kind, block["name"]), "")
                 }
             )
 

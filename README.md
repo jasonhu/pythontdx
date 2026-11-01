@@ -6,8 +6,8 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：0.9.3（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：278 个 TS 测试 + 158 个 Python 测试（各 1 skipped）·
+**版本：0.9.4（release candidate）** · **许可证：GPL-3.0-or-later** ·
+`npm run check`：292 个 TS 测试 + 158 个 Python 测试（各 1 skipped）·
 `npm run audit:data`：39/39。
 
 > 0.9 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
@@ -146,7 +146,7 @@ python3 python/tdx_server.py --web-dir out/web --port 8765
 ### 检查
 
 ```bash
-npm run check         # 类型 + Lint + 278 TS + 158 Python
+npm run check         # 类型 + Lint + 292 TS + 158 Python
 npm run audit:data    # 39 项数据覆盖/完整性审计
 npm run shot          # 构建并截图，输出到 screenshots/
 ```

@@ -7402,8 +7402,9 @@
 .mreport-panel,
 .sector-picker__panel,
 .multi-panel {
-  width: var(--panel-w);
-  max-width: var(--panel-w);
-  height: var(--panel-h);
-  max-height: var(--panel-h);
+  /* 96vw×92vh 再减去遮罩 32px 内边距，避免窄窗口下左右/上下被裁掉 */
+  width: min(var(--panel-w), calc(100vw - 64px));
+  max-width: min(var(--panel-w), calc(100vw - 64px));
+  height: min(var(--panel-h), calc(100vh - 64px));
+  max-height: min(var(--panel-h), calc(100vh - 64px));
 }

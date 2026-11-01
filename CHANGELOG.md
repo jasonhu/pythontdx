@@ -10,6 +10,31 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [0.10.2] - 2026-11-01
+
+### 修复
+
+- **63 行情服务器不再另开系统窗口**：标题栏「行情」改为在主窗口内打开
+  `server-backdrop + server-shell` 弹层（980×760），不再出现「系统标题栏 + 页面标题」
+  两层框和两个关闭按钮；现只有一个右上角 ×，点遮罩也可关闭。
+- `ServerWindow` 保留 `onClose` 注入，未传时仍兼容 `window.close()`；
+  独立窗口代码未删除，但主入口已不再调用。
+
+### 验证
+
+- 开发态：`server-shell` 980×760、`.server-page__close` 数量 1（`server-modal.png`）；
+- 安装包内同样 980×760、1 个关闭按钮（`v0102-server.png`）；
+- 安装/绿色/zip 均启动 `v0.10.2`；
+- `npm run check` exit 0：295 个 TS（294 passed + 1 skipped）+ 158 Python（1 skipped）；`build:web` 通过。
+
+### 产物
+
+| 产物 | 大小 | SHA256 |
+| --- | --- | --- |
+| `stocklens-0.10.2-setup.exe` | 133,578,435 B | `ce4cf72c502964c6aaec14a9b367dafb9e5a00a4b10d874afe9832c427d90219` |
+| `StockLens-0.10.2-win-x64/` | 410,546,610 B / 76 文件 | — |
+| `StockLens-0.10.2-win-x64.zip` | 175,548,540 B | `c5802f3cb50d829dcca135113729257ad4a814eac86542a259ce840f50b1e5d2` |
+
 ## [0.10.1] - 2026-11-01
 
 ### 修复

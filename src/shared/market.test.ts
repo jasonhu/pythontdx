@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { inferMarket, joinCode, marketSession, normalizeCode, splitCode } from './market'
+import {
+  inferMarket,
+  isIndexCode,
+  joinCode,
+  marketSession,
+  normalizeCode,
+  splitCode
+} from './market'
 
 describe('splitCode', () => {
   it('拆出市场与代码', () => {
@@ -67,6 +74,33 @@ describe('normalizeCode', () => {
     expect(normalizeCode('')).toBeNull()
     expect(normalizeCode('茅台')).toBeNull()
     expect(normalizeCode('123')).toBeNull()
+  })
+})
+
+describe('isIndexCode', () => {
+  it('沪市 000/999/880/881 是指数', () => {
+    expect(isIndexCode('sh000001')).toBe(true) // 上证指数
+    expect(isIndexCode('sh000300')).toBe(true) // 沪深300
+    expect(isIndexCode('sh880471')).toBe(true) // 板块指数
+    expect(isIndexCode('sh999999')).toBe(true)
+  })
+
+  it('深市 399 是指数，其余不是', () => {
+    expect(isIndexCode('sz399001')).toBe(true) // 深证成指
+    expect(isIndexCode('sz399006')).toBe(true) // 创业板指
+    expect(isIndexCode('sz000001')).toBe(false) // 平安银行
+    expect(isIndexCode('sz300750')).toBe(false)
+  })
+
+  it('同号不同市场不能串：sh000001 是指数，sz000001 是股票', () => {
+    expect(isIndexCode('sh000001')).toBe(true)
+    expect(isIndexCode('sz000001')).toBe(false)
+  })
+
+  it('普通股票与无前缀代码都返回 false', () => {
+    expect(isIndexCode('sh600519')).toBe(false)
+    expect(isIndexCode('bj430047')).toBe(false)
+    expect(isIndexCode('000001')).toBe(false)
   })
 })
 

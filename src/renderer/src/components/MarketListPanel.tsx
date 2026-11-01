@@ -9,6 +9,7 @@ import type { Quote } from '@shared/types'
 import type { SearchSecurity } from '@shared/search'
 import { compactAmount, fixed, signedPct } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { openStockMenu } from '../stores/stockMenu'
 import { downloadText } from '../lib/download'
 import { toCsv } from '@shared/csv'
 import { IconClose } from './Icons'
@@ -311,6 +312,12 @@ export function MarketListPanel(props: {
                           props.onClose()
                         }
                       }}
+                      onContextMenu={(event) =>
+                        openStockMenu(event, {
+                          code: item.code,
+                          name: quote()?.name || item.name
+                        })
+                      }
                     >
                       <td class="num">{item.code.toUpperCase()}</td>
                       <td>{quote()?.name || item.name}</td>

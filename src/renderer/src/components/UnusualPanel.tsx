@@ -10,6 +10,7 @@ import { compactAmount, fixed, signedPct } from '@shared/format'
 import { limitRowsFromQuotes, type LimitKind } from '@shared/limits'
 import { buildChangeDistribution } from '@shared/distribution'
 import { api, errorMessage } from '../lib/ipc'
+import { openStockMenu } from '../stores/stockMenu'
 import { IconClose, IconRefresh } from './Icons'
 
 const LIMIT = 360
@@ -202,7 +203,12 @@ export function UnusualPanel(props: {
               <tbody>
                 <For each={items()}>
                   {(item) => (
-                    <tr onClick={() => props.onSelect(item.code)}>
+                    <tr
+                      onClick={() => props.onSelect(item.code)}
+                      onContextMenu={(event) =>
+                        openStockMenu(event, { code: item.code, name: item.name })
+                      }
+                    >
                       <td class="num">{item.time}</td>
                       <td class="num">{item.code.toUpperCase()}</td>
                       <td>{item.name}</td>

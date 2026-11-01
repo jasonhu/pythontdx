@@ -12,8 +12,34 @@ StockLens 的所有重要变更都记录在这里。
 
 ## [未发布]
 
+### 新增
+
+- **左栏三视图：自选股 / 板块 / 自定义**：左侧列表顶部加三档切换。
+  「板块」点开即弹出大窗口选板块（行业 111 / 概念 269 / 风格 161 / 指数板块 117 /
+  一般 100），选完在左栏按涨跌幅列出该板块的个股排行；「自定义」把自选分组当作
+  自定义板块，同样按涨跌幅排行，可用「+」新建分组。成分股不在自选订阅里时，
+  自动按代码批量补 MAC 报价（120 只/批）。板块选择器单独成组件
+  （`SectorPicker.tsx`），参考通达信把「板块多」这件事交给大窗口。
+- **离线数据备份 / 恢复**：数据工具页新增「备份到…」，用保存对话框选路径
+  （同名文件直接报错，不覆盖），把 raw / cache / lake / exports / normalized / local
+  打成单个 zip；行情数据本身已压缩，zip 用 STORED 只做单文件封装，另存
+  `_stocklens_backup.json` 清单并返回 SHA256。「校验」读回文件数/字节数/打包时间；
+  「恢复」只补本机缺失文件、已存在的跳过（规则 12），并拒绝 `../` 路径穿越。
+  备份/恢复在 Python sidecar 里做，超时给到 2 小时，适合直接写 NAS。
+- **板块行情补二级行业**：MAC 0x1231 的 `boardType=1`（345 个细分行业）之前没接，
+  BoardsPanel 现在有「一级行业 / 二级行业」两个页签。
+- **个股列表右键菜单**：全市场、板块成分、板块排行、A 股排行榜、条件选股结果、
+  沪深异动的股票行右键弹出菜单，可直接加入「自选股」或某个**具名的自定义板块**
+  （列出分组名与数量）。分组互斥，已在别的分组时移动到所选板块，已在目标分组只切换选中。
+  菜单做成全局单例（`stores/stockMenu.ts` + `components/StockMenu.tsx`），
+  截图 `screenshots/stock-context-menu.png`。
+
 ### 修复
 
+- **上证指数出现除权线 / 分红数据**：7615 的 F10 只按 6 位 symbol 查，
+  `sh000001` 被当成 `sz000001`（平安银行），于是指数 K 线画出平安银行的除权线、
+  F10 分红页也显示它的分红。`f10_dividend` 现在对指数直接返回空表；图表侧新增
+  `isIndexCode`（与 Python 规则一致）不再发起分红请求，并隐藏指数无意义的复权档位。
 - **Windows 打包必然失败（`npm run build:win`）**：`scripts/before-pack.cjs` 只找
   `python/dist/tdx-bridge`，而 Nuitka 在 Windows 上产出的是 `tdx-bridge.exe`，
   beforePack 阶段直接报「找不到 sidecar」。现在按 `electronPlatformName` 取文件名，
@@ -26,26 +52,32 @@ StockLens 的所有重要变更都记录在这里。
 
 - Windows x64 用 `electron-builder --win nsis dir` 出一套产物：NSIS 安装包 +
   散装绿色目录 + 绿色包 zip，全部落在 `release/0.9.0/`，实测记录见 `docs/07` 第十一节。
-- `npm run check` 在 Windows 上 exit 0：**263 个 TS 测试**（含新增 2 个）+
-  148 个 Python 测试（1 skipped）。
+- `npm run check` 在 Windows 上 exit 0：**267 个 TS 测试** +
+  **151 个 Python 测试**（各 1 skipped）。
+- 新增测试：`isIndexCode` 4 个（含 `sh000001` / `sz000001` 同号不同市场）、
+  离线备份/恢复 2 个（补缺失 + 路径穿越）、指数无分红 1 个、before-pack 2 个。
 
 ### 验证（2026-11-01，Windows 10 x64 实机）
 
 | 产物                               | 大小                      | SHA256                                                             |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,177,647 B） | `c9dcdd9e0ac35e4353f410f514d411120184a5653a493d3fd2e6ba26ce68f706` |
-| `StockLens-0.9.0-win-x64/`（散装） | 409.0 MB（76 个文件）     | —                                                                  |
-| `StockLens-0.9.0-win-x64.zip`      | 175.0 MB（175,036,179 B） | `639251bff0c51896eda554576493af0df7762c04b0c864569d8d1161c1f3253a` |
+| `stocklens-0.9.0-setup.exe`        | 133.2 MB（133,201,189 B） | `478ab67b3d5bef3a49bee4e7943742d241adc85521630a69b4512760842a45ba` |
+| `StockLens-0.9.0-win-x64/`（散装） | 409.1 MB（409,070,870 B） | —                                                                  |
+| `StockLens-0.9.0-win-x64.zip`      | 175.1 MB（175,064,791 B） | `4d2bc034c2ae5dfff1ba5c5d55546edec04e32b4950a0e27b435cb249adc1b54` |
 
 - 安装包：`/S /D=<临时目录>` 静默安装 exit 0 → 桌面 + 开始菜单快捷方式、HKCU 卸载项齐全 →
-  安装版启动并取到实时行情（`screenshots/installed-win.png`）→ 静默卸载后
+  安装版启动并取到实时行情（`screenshots/installed-new.png`）→ 静默卸载后
   安装目录、两个快捷方式、注册表项全部清除；
 - 绿色包：整目录拷到 `.tmp/green test 绿色`（含空格与中文）直接运行，
   实时行情、分时图、五档盘口、明细正常（`screenshots/green-win-data.png`）；
-- zip：解压出 76 个文件（409,004,005 B）后运行同样正常（`screenshots/zip-win.png`）；
-- 包内 sidecar `resources/tdx-bridge/tdx-bridge.exe`（21.4 MB）：`ping` → `pong`，
-  `quotes` 返回 600519 / 000858 实时数据；
-- 启动耗时（`STOCKLENS_CAPTURE_DELAY=0`，双击 → 页面加载完成）：0.82 / 0.78 / 0.77 秒；
+- zip：解压出 76 个文件（409,070,870 B）后运行同样正常（`screenshots/zip-win.png`）；
+- 新界面：板块选择大窗口（`screenshots/sector-picker.png`）、板块内涨跌幅排行
+  （`screenshots/sector-ranking.png`）、自定义板块排行（`screenshots/custom-ranking.png`）、
+  数据工具备份区（`screenshots/data-backup.png`）、二级行业页签（`screenshots/boards-l2.png`）、
+  指数日 K 无复权/无除权线（`screenshots/index-no-xdxr.png`）；
+- 包内 sidecar `resources/tdx-bridge/tdx-bridge.exe`（21.5 MB）：`ping` → `pong`，
+  `quotes` 返回 600519 / 000858 实时数据，`backup_inspect` 可读备份清单；
+- 启动耗时（`STOCKLENS_CAPTURE_DELAY=0`，双击 → 页面加载完成，首版 Windows 包实测）：0.82 / 0.78 / 0.77 秒；
 - 未做代码签名：`Get-AuthenticodeSignature` 为 `NotSigned`，首次运行会有 SmartScreen 提示（TD7）。
 
 ---

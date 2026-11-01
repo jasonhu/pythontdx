@@ -357,6 +357,72 @@ class TestTdxStats(unittest.TestCase):
                 database.close()
 
 
+class TestDataBackup(unittest.TestCase):
+    """离线数据备份/恢复：单文件 zip、恢复只补缺失、不覆盖已有文件。"""
+
+    def test_backup_inspect_restore(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory) / "data"
+            (data / "cache" / "klines").mkdir(parents=True)
+            (data / "lake").mkdir()
+            (data / "cache" / "klines" / "sh600519_day_all_qfq.parquet").write_bytes(b"parquet")
+            (data / "lake" / "sh600519.manifest.json").write_text("{}", encoding="utf-8")
+
+            old = os.environ.get("STOCKLENS_DATA_DIR")
+            os.environ["STOCKLENS_DATA_DIR"] = str(data)
+            try:
+                archive = Path(directory) / "backup.zip"
+                created = tdx.backup_create(str(archive))
+                self.assertEqual(created["fileCount"], 2)
+                self.assertGreater(created["archiveBytes"], 0)
+                self.assertEqual(len(created["sha256"]), 64)
+
+                inspected = tdx.backup_inspect(str(archive))
+                self.assertEqual(inspected["fileCount"], 2)
+                self.assertEqual(inspected["format"], tdx.BACKUP_FORMAT)
+
+                # 删掉一份、改一份：恢复要把缺的补回来，已存在的保持原样
+                (data / "lake" / "sh600519.manifest.json").unlink()
+                existing = data / "cache" / "klines" / "sh600519_day_all_qfq.parquet"
+                existing.write_bytes(b"newer")
+                result = tdx.backup_restore(str(archive))
+                self.assertEqual(result["restored"], 1)
+                self.assertEqual(result["skipped"], 1)
+                self.assertEqual(
+                    (data / "lake" / "sh600519.manifest.json").read_text(encoding="utf-8"),
+                    "{}",
+                )
+                self.assertEqual(existing.read_bytes(), b"newer")
+
+                # 同名备份不覆盖
+                with self.assertRaises(tdx.TdxError):
+                    tdx.backup_create(str(archive))
+            finally:
+                if old is None:
+                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                else:
+                    os.environ["STOCKLENS_DATA_DIR"] = old
+
+    def test_restore_rejects_path_traversal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            data = Path(directory) / "data"
+            data.mkdir()
+            archive = Path(directory) / "evil.zip"
+            with zipfile.ZipFile(archive, "w") as writer:
+                writer.writestr("../escape.txt", b"x")
+            old = os.environ.get("STOCKLENS_DATA_DIR")
+            os.environ["STOCKLENS_DATA_DIR"] = str(data)
+            try:
+                with self.assertRaises(tdx.TdxError):
+                    tdx.backup_restore(str(archive))
+                self.assertFalse((Path(directory) / "escape.txt").exists())
+            finally:
+                if old is None:
+                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                else:
+                    os.environ["STOCKLENS_DATA_DIR"] = old
+
+
 class TestBlocks(unittest.TestCase):
     def test_parse_block_dat(self):
         data = fixture("block-gn-head")
@@ -535,6 +601,15 @@ class TestF10(unittest.TestCase):
         text = tdx.parse_f10_content(fixture("f10-content200"))
         self.assertTrue(text.startswith("最新提示☆"))
         self.assertIn("贵州茅台", text)
+
+    def test_index_has_no_dividend(self):
+        """指数不能拿到分红数据：曾因按 symbol 查把 sh000001 当成平安银行。"""
+        bridge = tdx.Bridge()
+        self.addCleanup(bridge.close)
+        for code in ("sh000001", "sz399001", "sh880471"):
+            result = bridge.f10_dividend(code)
+            self.assertEqual(result["rows"], [], code)
+            self.assertEqual(result["count"], 0, code)
 
 
 class TestBars(unittest.TestCase):

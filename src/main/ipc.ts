@@ -6,7 +6,7 @@
  *  - 处理器内部不吞异常：抛出后 Electron 会把它序列化回渲染层，
  *    渲染层由 lib/ipc.ts 的 safeInvoke 统一转成可读的中文提示。
  */
-import { ipcMain, app, shell, Notification, BrowserWindow } from 'electron'
+import { ipcMain, app, dialog, shell, Notification, BrowserWindow } from 'electron'
 import type {
   AppState,
   BlockKind,
@@ -56,6 +56,9 @@ import {
   cacheKlines,
   cacheFullKlines,
   dataInventory,
+  backupOfflineData,
+  inspectOfflineBackup,
+  restoreOfflineData,
   fetchChartPatterns,
   limitReview,
   speedTestServers,
@@ -260,6 +263,41 @@ export function registerIpcHandlers(context: IpcContext): void {
   )
 
   ipcMain.handle(IPC.dataInventory, () => dataInventory())
+
+  /* ------------------------------------------------ 离线数据备份 / 恢复 */
+  // 备份/恢复是磁盘密集型操作，真正的进度在主进程日志里；这里只负责调用与
+  // 路径选择。对话框必须挂在当前窗口上，否则在 Windows 上会跑到窗口后面去。
+  ipcMain.handle(IPC.dataBackupCreate, (_event, path: string) => backupOfflineData(path))
+
+  ipcMain.handle(IPC.dataBackupInspect, (_event, path: string) => inspectOfflineBackup(path))
+
+  ipcMain.handle(IPC.dataBackupRestore, (_event, path: string) => restoreOfflineData(path))
+
+  ipcMain.handle(IPC.dataChooseBackupPath, async (_event, defaultName: string) => {
+    const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const options = {
+      title: '保存离线数据备份',
+      defaultPath: defaultName || 'stocklens-offline.zip',
+      filters: [{ name: 'ZIP 备份', extensions: ['zip'] }]
+    }
+    const result = owner
+      ? await dialog.showSaveDialog(owner, options)
+      : await dialog.showSaveDialog(options)
+    return result.canceled || !result.filePath ? null : result.filePath
+  })
+
+  ipcMain.handle(IPC.dataChooseRestorePath, async () => {
+    const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const options = {
+      title: '选择离线数据备份',
+      filters: [{ name: 'ZIP 备份', extensions: ['zip'] }],
+      properties: ['openFile' as const]
+    }
+    const result = owner
+      ? await dialog.showOpenDialog(owner, options)
+      : await dialog.showOpenDialog(options)
+    return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]
+  })
 
   ipcMain.handle(IPC.limitReview, (_event, date: string) => limitReview(date))
 

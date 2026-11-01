@@ -7,6 +7,7 @@ import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'sol
 import type { BlockGroup, BlockKind, BlockList, IndustryList, Quote } from '@shared/types'
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { openStockMenu } from '../stores/stockMenu'
 import { IconClose } from './Icons'
 
 interface BlockPanelProps {
@@ -248,6 +249,12 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                                   const item = quote()
                                   if (item) props.onSelect(item)
                                 }}
+                                onContextMenu={(event) =>
+                                  openStockMenu(event, {
+                                    code,
+                                    name: quote()?.name ?? block().names[code] ?? code
+                                  })
+                                }
                               >
                                 <td>
                                   <div class="block__stock-name">

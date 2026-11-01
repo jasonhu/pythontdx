@@ -11,7 +11,10 @@ import { IconClose } from './Icons'
 
 const TABS: Array<{ type: number; label: string }> = [
   { type: 255, label: '全部' },
-  { type: 0, label: '行业' },
+  // MAC 0x1231 的 0 表示一级行业、1 表示二级（细分）行业；早先只接了 0，
+  // 345 个二级行业一直看不到（2026-11-01 实测 boardType=1 返回 345 条）。
+  { type: 0, label: '一级行业' },
+  { type: 1, label: '二级行业' },
   { type: 3, label: '概念' },
   { type: 4, label: '风格' },
   { type: 5, label: '地域' }

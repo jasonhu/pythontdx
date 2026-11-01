@@ -460,6 +460,18 @@ export function createHttpApi(): StockLensApi {
       cacheKlines: (req) => post<KLineCacheResult>('/api/cache_klines', req),
       fullCacheKlines: (req) => post<FullKLineCacheResult>('/api/cache_full_klines', req),
       inventory: () => post<DataInventory>('/api/data_inventory', {}),
+      // 备份/恢复要读写本机磁盘路径，浏览器端没有这个能力；桌面端走 Electron IPC。
+      backupCreate: async () => {
+        throw new Error('浏览器版不支持离线数据备份，请在桌面端操作')
+      },
+      backupInspect: async () => {
+        throw new Error('浏览器版不支持离线数据备份，请在桌面端操作')
+      },
+      backupRestore: async () => {
+        throw new Error('浏览器版不支持离线数据备份，请在桌面端操作')
+      },
+      chooseBackupPath: async () => null,
+      chooseRestorePath: async () => null,
       limitReview: (date) => post<LimitReviewResult>('/api/limit_review', { date }),
       patterns: (req) => post<ChartPatternsResult>('/api/chart_patterns', req),
       archiveSnapshot: () => post<SnapshotArchiveResult>('/api/archive_snapshot', {}),

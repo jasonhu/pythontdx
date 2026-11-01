@@ -14,6 +14,7 @@ import type {
 } from '@shared/types'
 import { compactAmount, fixed, signedPct, thousands } from '@shared/format'
 import { api, errorMessage } from '../lib/ipc'
+import { openStockMenu } from '../stores/stockMenu'
 import { IconClose } from './Icons'
 import { appState, createGroupWithItems, updateSettings } from '../stores/app'
 import type { ScreenPreset } from '@shared/types'
@@ -648,7 +649,13 @@ export function ScreenerPanel(props: ScreenerPanelProps): JSX.Element {
                 <tbody>
                   <For each={data().quotes}>
                     {(quote) => (
-                      <tr class="screener__row" onClick={() => props.onSelect(quote)}>
+                      <tr
+                        class="screener__row"
+                        onClick={() => props.onSelect(quote)}
+                        onContextMenu={(event) =>
+                          openStockMenu(event, { code: quote.code, name: quote.name })
+                        }
+                      >
                         <td>
                           <div class="screener__name">{quote.name}</div>
                           <div class="screener__code num">{quote.code.toUpperCase()}</div>

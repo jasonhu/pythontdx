@@ -16,6 +16,7 @@ import {
   mergeMoneyFlowRanking
 } from '@shared/ranking'
 import { api, errorMessage } from '../lib/ipc'
+import { openStockMenu } from '../stores/stockMenu'
 import { subscribePush } from '../lib/push'
 import { IconClose } from './Icons'
 
@@ -393,7 +394,13 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
             <tbody>
               <For each={rows()}>
                 {(quote, index) => (
-                  <tr class="ranking__row" onClick={() => props.onSelect(quote)}>
+                  <tr
+                    class="ranking__row"
+                    onClick={() => props.onSelect(quote)}
+                    onContextMenu={(event) =>
+                      openStockMenu(event, { code: quote.code, name: quote.name })
+                    }
+                  >
                     <td class="ranking__rank num">{index() + 1}</td>
                     <td>
                       <div class="ranking__name">{quote.name}</div>

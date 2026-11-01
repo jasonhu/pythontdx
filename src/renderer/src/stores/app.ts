@@ -299,6 +299,31 @@ export function importWatchGroups(groups: readonly WatchGroup[]): void {
   persist({ groups: merged, activeGroupId: state.activeGroupId })
 }
 
+/**
+ * 右键菜单用：把一只股票放进指定分组。
+ *
+ * 分组是互斥的（一只股票只属于一个分组，拖拽就是「移动」），所以：
+ *   · 不在任何分组 → 新增到目标分组；
+ *   · 已在别的分组 → 移动过去；
+ *   · 已在目标分组 → 只切换选中，不重复加。
+ */
+export function addStockToGroup(
+  item: Pick<WatchItem, 'code' | 'name' | 'market'>,
+  groupId: string
+): void {
+  const target = state.groups.find((group) => group.id === groupId)
+  if (!target) return
+  const current = state.groups.find((group) =>
+    group.items.some((entry) => entry.code === item.code)
+  )
+  if (!current) {
+    addWatchItem(item, groupId)
+    return
+  }
+  if (current.id !== groupId) moveWatchItem(item.code, groupId, target.items.length)
+  setActiveCode(item.code)
+}
+
 export function removeWatchItem(code: string): void {
   const group = state.groups.find((entry) => entry.items.some((item) => item.code === code))
   if (!group) return

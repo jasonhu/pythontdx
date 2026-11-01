@@ -19,6 +19,9 @@ import type {
   MarketBreadth,
   LocalDayBar,
   LocalDayResult,
+  DataBackupCreateResult,
+  DataBackupInspectResult,
+  DataBackupRestoreResult,
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
@@ -454,6 +457,24 @@ export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {
 
 export async function dataInventory(): Promise<DataInventory> {
   return bridge.send<DataInventory>('data_inventory', {}, 20_000)
+}
+
+/**
+ * 备份整个离线数据目录。
+ *
+ * 超时给到 2 小时：用户的数据湖可能有几 GB，走的是真实磁盘写入 + NAS 路径，
+ * 主进程不能按普通报表请求的 20 秒去掐断。
+ */
+export async function backupOfflineData(path: string): Promise<DataBackupCreateResult> {
+  return bridge.send<DataBackupCreateResult>('backup_create', { path }, 2 * 60 * 60_000)
+}
+
+export async function inspectOfflineBackup(path: string): Promise<DataBackupInspectResult> {
+  return bridge.send<DataBackupInspectResult>('backup_inspect', { path }, 120_000)
+}
+
+export async function restoreOfflineData(path: string): Promise<DataBackupRestoreResult> {
+  return bridge.send<DataBackupRestoreResult>('backup_restore', { path }, 2 * 60 * 60_000)
 }
 
 export async function fetchChartPatterns(req: ChartPatternsRequest): Promise<ChartPatternsResult> {

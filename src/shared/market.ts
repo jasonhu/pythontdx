@@ -86,6 +86,22 @@ export function isRedUpMarket(market: Market): boolean {
   return market === 'SH' || market === 'SZ' || market === 'BJ' || market === 'HK'
 }
 
+/**
+ * 是否指数代码（规则与 Python 侧 `is_index_code` 保持一致）。
+ *
+ * 必须带市场前缀判断：`sh000001` 是上证指数，`sz000001` 是平安银行，
+ * 只看数字前缀一定会串。指数没有分红送转，所以「除权」相关的请求与标记
+ * 都要先过这一关 —— 否则 7615 的 F10 接口只按 6 位 symbol 查，会把
+ * `sh000001` 当成 `000001` 返回平安银行的分红数据（2026-11-01 实测）。
+ */
+export function isIndexCode(code: string): boolean {
+  const { market, symbol } = splitCode(code)
+  if (market === 'SH') return /^(000|999|880|881)/.test(symbol)
+  if (market === 'SZ') return symbol.startsWith('399')
+  if (market === 'BJ') return symbol.startsWith('899')
+  return false
+}
+
 /* ------------------------------------------------------------ 交易时段 */
 
 const SHANGHAI_PARTS = new Intl.DateTimeFormat('en-US', {

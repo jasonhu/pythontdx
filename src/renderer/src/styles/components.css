@@ -6292,6 +6292,54 @@
   font-size: var(--fs-xs);
 }
 
+/* ------------------------------------------- 离线数据备份 / 恢复 */
+.data__backup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.data__backup-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.data__backup-path {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  background: var(--bg-base);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data__backup-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.data__backup-restore {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+
+.data__backup-restore-btn[disabled] {
+  opacity: 0.55;
+}
+
 .data__download {
   display: flex;
   flex-direction: column;
@@ -6645,5 +6693,386 @@
   border: 1px solid var(--danger);
   border-radius: var(--r-xs);
   color: var(--danger);
+  font-size: var(--fs-2xs);
+}
+
+/* ------------------------------------------- 左侧：自选股 / 板块 / 自定义 */
+.sidebar__modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  flex: none;
+  padding: 0 var(--sp-3) var(--sp-2);
+}
+
+.sidebar__mode {
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  transition:
+    color var(--dur-1) var(--ease),
+    border-color var(--dur-1) var(--ease),
+    background-color var(--dur-1) var(--ease);
+}
+
+.sidebar__mode[data-active='true'] {
+  color: var(--text-1);
+  border-color: var(--accent);
+  background: var(--panel-active);
+}
+
+.sector-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+
+.sector-head__pick {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text-1);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.sector-head__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.sector-head__count {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.sector-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sector-row:hover {
+  background: var(--panel);
+}
+
+.sector-row[data-active='true'] {
+  background: var(--panel-active);
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+.sector-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sector-row__nums {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sector-row__price {
+  color: var(--text-2);
+}
+
+.sector-row__chg {
+  min-width: 52px;
+  text-align: right;
+}
+
+.sector-loading {
+  padding: 6px 10px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.sector-error {
+  margin: 0 var(--sp-2) var(--sp-2);
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  background: rgba(248, 81, 73, 0.12);
+  color: var(--down);
+  font-size: var(--fs-2xs);
+}
+
+/* --------------------------------------------- 板块选择大窗口 */
+.sector-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.sector-picker__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 94vw);
+  height: min(780px, 88vh);
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--bg-base);
+  box-shadow: var(--shadow-3);
+}
+
+.sector-picker__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 18px 8px;
+}
+
+.sector-picker__eyebrow {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.sector-picker__title {
+  margin: 2px 0 0;
+  font-size: var(--fs-lg);
+  color: var(--text-1);
+}
+
+.sector-picker__tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 18px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sector-picker__tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sector-picker__tab {
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--panel);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.sector-picker__tab[data-active='true'] {
+  color: var(--text-1);
+  border-color: var(--accent);
+  background: var(--panel-active);
+}
+
+.sector-picker__search {
+  flex: 1;
+  min-width: 180px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text-1);
+  font-size: var(--fs-xs);
+}
+
+.sector-picker__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sector-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  gap: 6px;
+  padding: 12px 18px 18px;
+}
+
+.sector-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.sector-card:hover {
+  border-color: var(--accent);
+  background: var(--panel-hover);
+  color: var(--text-1);
+}
+
+.sector-card__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sector-card__count {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.sector-picker__hint {
+  padding: 40px 18px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.sector-picker__error {
+  margin: 8px 18px 0;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  background: rgba(248, 81, 73, 0.12);
+  color: var(--down);
+  font-size: var(--fs-xs);
+}
+
+.sector-picker__foot {
+  padding: 8px 18px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+/* ------------------------------------------- 个股右键菜单 */
+.stock-menu {
+  position: fixed;
+  /* 排行榜/板块/选股面板的遮罩是 300~332，右键菜单必须盖在它们上面 */
+  z-index: 420;
+  width: 238px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--panel-solid);
+  box-shadow: var(--shadow-3);
+}
+
+.stock-menu__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stock-menu__head strong {
+  font-size: var(--fs-xs);
+  color: var(--text-1);
+}
+
+.stock-menu__head span {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+.stock-menu__section {
+  padding: 8px 8px 4px;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.stock-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.stock-menu__item:hover {
+  background: var(--panel-hover);
+  color: var(--text-1);
+}
+
+.stock-menu__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-menu__badge {
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--panel-active);
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+}
+
+.stock-menu__count {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.stock-menu__hint {
+  padding: 6px 8px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  line-height: 1.6;
+}
+
+.stock-menu__foot {
+  padding: 6px 8px 2px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
   font-size: var(--fs-2xs);
 }

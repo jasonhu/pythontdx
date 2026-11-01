@@ -730,6 +730,49 @@ export interface DataInventory {
   }
 }
 
+/* --------------------------------------------------- 离线数据备份 / 恢复 */
+
+/** 备份文件内的清单（`_stocklens_backup.json`） */
+export interface DataBackupManifest {
+  format: number
+  app: string
+  createdAt: number
+  dataRoot: string
+  fileCount: number
+  totalBytes: number
+}
+
+export interface DataBackupCreateResult {
+  path: string
+  fileCount: number
+  totalBytes: number
+  archiveBytes: number
+  sha256: string
+  createdAt: number
+  dataRoot: string
+}
+
+export interface DataBackupInspectResult {
+  path: string
+  archiveBytes: number
+  fileCount: number
+  totalBytes: number
+  createdAt: number
+  dataRoot: string
+  format: number
+}
+
+export interface DataBackupRestoreResult {
+  path: string
+  /** 本次补回的缺失文件数 */
+  restored: number
+  /** 本机已存在、按规则跳过（不覆盖）的文件数 */
+  skipped: number
+  /** 补回的字节数 */
+  bytes: number
+  dataRoot: string
+}
+
 export interface KLineCacheResult {
   cached: number
   skipped: number

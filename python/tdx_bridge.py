@@ -2565,6 +2565,190 @@ def data_inventory() -> dict:
     }
 
 
+# ------------------------------------------------------------ 离线数据备份/恢复
+
+BACKUP_FORMAT = 1
+BACKUP_MANIFEST = "_stocklens_backup.json"
+BACKUP_CHUNK = 1024 * 1024
+
+
+def _backup_root() -> Path:
+    root = stocklens_data_dir()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _backup_target(path: str, *, must_exist: bool) -> Path:
+    text = str(path or "").strip().strip('"')
+    if not text:
+        raise TdxError("请先选择备份文件路径")
+    target = Path(text).expanduser()
+    if must_exist:
+        if not target.is_file():
+            raise TdxError(f"找不到备份文件：{target}")
+    elif target.is_dir():
+        raise TdxError(f"目标是目录，请指定一个 .zip 文件：{target}")
+    return target
+
+
+def _backup_files(root: Path) -> list[Path]:
+    """备份要收的文件：数据目录下全部文件，跳过未写完的 .part。"""
+    files = [
+        item
+        for item in root.rglob("*")
+        if item.is_file() and not item.name.endswith(".part")
+    ]
+    files.sort(key=lambda item: item.relative_to(root).as_posix())
+    return files
+
+
+def _sha256_of(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(BACKUP_CHUNK), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def backup_create(path: str) -> dict:
+    """把整个离线数据目录打成单个 zip。
+
+    行情数据本身已经是 Parquet/ZSTD 或 gzip，deflate 再压一遍几乎没有收益，
+    所以用 STORED 只做「单文件封装」，几 GB 的目录也不会卡在压缩上。
+    已存在的同名文件直接报错，不覆盖 —— 备份是用户自己指定的可移动介质，
+    写坏了没有第二次机会。
+    """
+    root = _backup_root()
+    target = _backup_target(path, must_exist=False)
+    if target.exists():
+        raise TdxError(f"文件已存在，请换一个名字：{target}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(target.name + ".part")
+
+    files = _backup_files(root)
+    total = 0
+    started = int(time.time() * 1000)
+    try:
+        with zipfile.ZipFile(temporary, "w", zipfile.ZIP_STORED, allowZip64=True) as archive:
+            for file in files:
+                archive.write(file, file.relative_to(root).as_posix())
+                total += file.stat().st_size
+            archive.writestr(
+                BACKUP_MANIFEST,
+                json.dumps(
+                    {
+                        "format": BACKUP_FORMAT,
+                        "app": "StockLens",
+                        "createdAt": started,
+                        "dataRoot": str(root),
+                        "fileCount": len(files),
+                        "totalBytes": total,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+        os.replace(temporary, target)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+    return {
+        "path": str(target),
+        "fileCount": len(files),
+        "totalBytes": total,
+        "archiveBytes": target.stat().st_size,
+        "sha256": _sha256_of(target),
+        "createdAt": started,
+        "dataRoot": str(root),
+    }
+
+
+def backup_inspect(path: str) -> dict:
+    """读备份的清单：文件数、原始字节数、打包时间，用于恢复前确认。"""
+    source = _backup_target(path, must_exist=True)
+    try:
+        with zipfile.ZipFile(source) as archive:
+            manifest: dict = {}
+            if BACKUP_MANIFEST in archive.namelist():
+                try:
+                    manifest = json.loads(archive.read(BACKUP_MANIFEST).decode("utf-8"))
+                except (ValueError, UnicodeDecodeError):
+                    manifest = {}
+            files = [
+                item
+                for item in archive.infolist()
+                if not item.is_dir() and item.filename != BACKUP_MANIFEST
+            ]
+    except zipfile.BadZipFile as error:
+        raise TdxError("不是合法的 ZIP 备份文件") from error
+    return {
+        "path": str(source),
+        "archiveBytes": source.stat().st_size,
+        "fileCount": int(manifest.get("fileCount") or len(files)),
+        "totalBytes": int(manifest.get("totalBytes") or sum(item.file_size for item in files)),
+        "createdAt": int(manifest.get("createdAt") or 0),
+        "dataRoot": str(manifest.get("dataRoot") or ""),
+        "format": int(manifest.get("format") or 0),
+    }
+
+
+def backup_restore(path: str) -> dict:
+    """把备份解回数据目录。
+
+    规则 12：已存在的文件一律跳过，不覆盖 —— 备份通常来自更早的机器，
+    本机后来下载的数据可能更新。恢复只负责「补齐缺的那部分」。
+    """
+    source = _backup_target(path, must_exist=True)
+    root = _backup_root()
+    restored = 0
+    skipped = 0
+    restored_bytes = 0
+    try:
+        archive = zipfile.ZipFile(source)
+    except zipfile.BadZipFile as error:
+        raise TdxError("不是合法的 ZIP 备份文件") from error
+
+    with archive:
+        for info in archive.infolist():
+            if info.is_dir() or info.filename == BACKUP_MANIFEST:
+                continue
+            relative = Path(info.filename.replace("\\", "/"))
+            if (
+                relative.is_absolute()
+                or ".." in relative.parts
+                or not relative.parts
+                or (relative.parts[0].endswith(":") if relative.parts else False)
+            ):
+                raise TdxError(f"备份文件包含非法路径：{info.filename}")
+            destination = root.joinpath(*relative.parts)
+            if destination.exists():
+                skipped += 1
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_name(destination.name + ".part")
+            try:
+                with archive.open(info) as src, temporary.open("wb") as dst:
+                    while True:
+                        chunk = src.read(BACKUP_CHUNK)
+                        if not chunk:
+                            break
+                        dst.write(chunk)
+                os.replace(temporary, destination)
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                raise
+            restored += 1
+            restored_bytes += info.file_size
+
+    return {
+        "path": str(source),
+        "restored": restored,
+        "skipped": skipped,
+        "bytes": restored_bytes,
+        "dataRoot": str(root),
+    }
+
+
 def _kline_cache_path(code: str, period: str, count: int, adjust: str) -> Path:
     safe = f"{code.lower()}_{period}_{int(count)}_{adjust}.parquet"
     return kline_cache_dir() / safe
@@ -3658,6 +3842,12 @@ class Bridge:
     def f10_dividend(self, code: str) -> dict:
         from tdx_f10 import fetch_dividend
 
+        # 指数没有分红送转。7615 的 F10 只按 6 位 symbol 查，sh000001 会被当成
+        # sz000001（平安银行）返回真实分红数据，于是上证指数的 K 线上会画出
+        # 和平安银行一样的除权线（2026-11-01 实测）。指数一律返回空表。
+        market = MARKET_IDS.get(code[:2].lower(), -1)
+        if is_index_code(market, code[2:]):
+            return {"columns": [], "rows": [], "count": 0}
         return fetch_dividend(code)
 
     def f10_market(self, section: str) -> dict:
@@ -4640,6 +4830,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return collect_data_coverage(stocklens_data_dir())
     if cmd == "data_inventory":
         return data_inventory()
+    if cmd == "backup_create":
+        return backup_create(str(payload.get("path") or ""))
+    if cmd == "backup_inspect":
+        return backup_inspect(str(payload.get("path") or ""))
+    if cmd == "backup_restore":
+        return backup_restore(str(payload.get("path") or ""))
     if cmd == "cache_klines":
         return bridge.cache_klines(
             list(payload.get("codes") or []),

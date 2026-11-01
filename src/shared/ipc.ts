@@ -31,6 +31,9 @@ import type {
   KLineSeries,
   LocalDayBar,
   LocalDayResult,
+  DataBackupCreateResult,
+  DataBackupInspectResult,
+  DataBackupRestoreResult,
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
@@ -173,6 +176,16 @@ export const IPC = {
   cacheFullKlines: 'data:cache-full-klines',
   /** 离线数据目录清单（invoke） */
   dataInventory: 'data:inventory',
+  /** 离线数据备份成单个 zip（invoke） */
+  dataBackupCreate: 'data:backup-create',
+  /** 读取备份清单（invoke） */
+  dataBackupInspect: 'data:backup-inspect',
+  /** 从备份恢复离线数据（invoke） */
+  dataBackupRestore: 'data:backup-restore',
+  /** 保存对话框：选备份文件路径（invoke） */
+  dataChooseBackupPath: 'data:choose-backup-path',
+  /** 打开对话框：选要恢复的备份文件（invoke） */
+  dataChooseRestorePath: 'data:choose-restore-path',
   /** 本地日 K 缓存涨停复盘（invoke） */
   limitReview: 'data:limit-review',
   /** Python 技术形态识别（invoke） */
@@ -417,6 +430,16 @@ export interface StockLensApi {
     }): Promise<FullKLineCacheResult>
     limitReview(date: string): Promise<LimitReviewResult>
     patterns(req: ChartPatternsRequest): Promise<ChartPatternsResult>
+    /** 离线数据备份成单个 zip；路径由对话框选，已存在则不覆盖 */
+    backupCreate(path: string): Promise<DataBackupCreateResult>
+    /** 读备份清单（文件数 / 原始字节数 / 打包时间） */
+    backupInspect(path: string): Promise<DataBackupInspectResult>
+    /** 从备份恢复；只补缺失文件，已存在的跳过 */
+    backupRestore(path: string): Promise<DataBackupRestoreResult>
+    /** 保存对话框；取消返回 null */
+    chooseBackupPath(defaultName: string): Promise<string | null>
+    /** 打开对话框；取消返回 null */
+    chooseRestorePath(): Promise<string | null>
     archiveSnapshot(): Promise<SnapshotArchiveResult>
     lakeArchives(limit?: number): Promise<SnapshotArchiveItem[]>
     tickArchiveSave(code: string, date: string): Promise<TickArchiveResult>

@@ -14,6 +14,9 @@ import type {
   LocalDayResult,
   LocalImportResult,
   LocalDayWriteResult,
+  DataBackupCreateResult,
+  DataBackupInspectResult,
+  DataBackupRestoreResult,
   DataInventory,
   FullKLineCacheResult,
   KLineExportResult,
@@ -93,6 +96,17 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [inventory, setInventory] = createSignal<DataInventory | null>(null)
   const [inventoryLoading, setInventoryLoading] = createSignal(true)
   const [inventoryError, setInventoryError] = createSignal<string | null>(null)
+  /* ---------------------------------------------------- 离线数据备份/恢复 */
+  const [backupPath, setBackupPath] = createSignal('')
+  const [backupBusy, setBackupBusy] = createSignal(false)
+  const [backupResult, setBackupResult] = createSignal<DataBackupCreateResult | null>(null)
+  const [backupError, setBackupError] = createSignal<string | null>(null)
+  const [restorePath, setRestorePath] = createSignal('')
+  const [restoreBusy, setRestoreBusy] = createSignal(false)
+  const [inspectBusy, setInspectBusy] = createSignal(false)
+  const [backupInfo, setBackupInfo] = createSignal<DataBackupInspectResult | null>(null)
+  const [restoreResult, setRestoreResult] = createSignal<DataBackupRestoreResult | null>(null)
+  const [restoreError, setRestoreError] = createSignal<string | null>(null)
   const [bulkRunning, setBulkRunning] = createSignal(false)
   const [bulkScope, setBulkScope] = createSignal<'watchlist' | 'all'>('watchlist')
   const [bulkDone, setBulkDone] = createSignal(0)
@@ -161,6 +175,108 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       setInventoryError(errorMessage(cause))
     } finally {
       setInventoryLoading(false)
+    }
+  }
+
+  /* ---------------------------------------------------- 离线数据备份/恢复 */
+
+  /** 默认文件名带时间戳：同名备份在后端会直接报错，不让它悄悄覆盖旧的 */
+  const defaultBackupName = (): string => {
+    const now = new Date()
+    const pad = (value: number): string => String(value).padStart(2, '0')
+    return (
+      `stocklens-offline-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+      `-${pad(now.getHours())}${pad(now.getMinutes())}.zip`
+    )
+  }
+
+  const pickBackupPath = async (): Promise<void> => {
+    setBackupError(null)
+    try {
+      const picked = await api.data.chooseBackupPath(defaultBackupName())
+      if (picked) setBackupPath(picked)
+    } catch (cause) {
+      setBackupError(errorMessage(cause))
+    }
+  }
+
+  const runBackup = async (): Promise<void> => {
+    setBackupError(null)
+    setBackupResult(null)
+    let target = backupPath().trim()
+    if (!target) {
+      try {
+        const picked = await api.data.chooseBackupPath(defaultBackupName())
+        if (!picked) return
+        target = picked
+        setBackupPath(picked)
+      } catch (cause) {
+        setBackupError(errorMessage(cause))
+        return
+      }
+    }
+    setBackupBusy(true)
+    try {
+      const result = await api.data.backupCreate(target)
+      setBackupResult(result)
+      // 备份完顺手填到恢复框里，方便校验或直接换机恢复
+      setRestorePath(result.path)
+      void loadInventory()
+    } catch (cause) {
+      setBackupError(errorMessage(cause))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  const pickRestorePath = async (): Promise<void> => {
+    setRestoreError(null)
+    try {
+      const picked = await api.data.chooseRestorePath()
+      if (picked) {
+        setRestorePath(picked)
+        setBackupInfo(null)
+        setRestoreResult(null)
+      }
+    } catch (cause) {
+      setRestoreError(errorMessage(cause))
+    }
+  }
+
+  const inspectRestore = async (): Promise<void> => {
+    const path = restorePath().trim()
+    if (!path) {
+      setRestoreError('请先选择备份文件')
+      return
+    }
+    setInspectBusy(true)
+    setRestoreError(null)
+    setBackupInfo(null)
+    try {
+      setBackupInfo(await api.data.backupInspect(path))
+    } catch (cause) {
+      setRestoreError(errorMessage(cause))
+    } finally {
+      setInspectBusy(false)
+    }
+  }
+
+  const runRestore = async (): Promise<void> => {
+    const path = restorePath().trim()
+    if (!path) {
+      setRestoreError('请先选择备份文件')
+      return
+    }
+    setRestoreBusy(true)
+    setRestoreError(null)
+    setRestoreResult(null)
+    try {
+      setRestoreResult(await api.data.backupRestore(path))
+      void loadInventory()
+    } catch (cause) {
+      setRestoreError(errorMessage(cause))
+    } finally {
+      setRestoreBusy(false)
     }
   }
 
@@ -880,6 +996,98 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 </>
               )}
             </Show>
+          </section>
+
+          <section class="data__backup">
+            <div class="data__inventory-head">
+              <div>
+                <div class="data__label">离线数据备份 / 恢复</div>
+                <div class="data__sub">
+                  把 raw / cache / lake / exports / normalized / local 全部打成一个 zip
+                  （行情本身已压缩，这里只做单文件封装）。拷到 NAS 后，重装或换机时选它就能补回，
+                  不用重新从服务器下载。
+                </div>
+              </div>
+              <button
+                class="btn data__backup-start"
+                disabled={backupBusy()}
+                onClick={() => void runBackup()}
+              >
+                {backupBusy() ? '备份中…' : '备份到…'}
+              </button>
+            </div>
+
+            <div class="data__backup-row">
+              <code class="data__backup-path">
+                {backupPath() || '（未选择，点「备份到…」会弹出保存对话框）'}
+              </code>
+              <button class="btn" disabled={backupBusy()} onClick={() => void pickBackupPath()}>
+                选择路径
+              </button>
+            </div>
+            <Show when={backupError()}>
+              {(message) => <div class="data__query-error">{message()}</div>}
+            </Show>
+            <Show when={backupResult()}>
+              {(result) => (
+                <div class="data__kline-manifest">
+                  备份完成：{result().fileCount} 个文件 · 原始 {formatBytes(result().totalBytes)} ·
+                  压缩包 {formatBytes(result().archiveBytes)} · SHA256{' '}
+                  {result().sha256.slice(0, 16)}…
+                </div>
+              )}
+            </Show>
+
+            <div class="data__backup-restore">
+              <div class="data__sub">恢复只补齐本机缺的文件；已存在的文件一律跳过，不覆盖。</div>
+              <div class="data__backup-row">
+                <input
+                  class="data__backup-path data__backup-input"
+                  placeholder="备份 zip 路径"
+                  value={restorePath()}
+                  onInput={(event) => setRestorePath(event.currentTarget.value)}
+                />
+                <button class="btn" disabled={restoreBusy()} onClick={() => void pickRestorePath()}>
+                  选择备份
+                </button>
+                <button
+                  class="btn"
+                  disabled={inspectBusy() || restoreBusy() || !restorePath().trim()}
+                  onClick={() => void inspectRestore()}
+                >
+                  {inspectBusy() ? '读取中…' : '校验'}
+                </button>
+                <button
+                  class="btn data__backup-restore-btn"
+                  disabled={restoreBusy() || !restorePath().trim()}
+                  onClick={() => void runRestore()}
+                >
+                  {restoreBusy() ? '恢复中…' : '恢复'}
+                </button>
+              </div>
+              <Show when={restoreError()}>
+                {(message) => <div class="data__query-error">{message()}</div>}
+              </Show>
+              <Show when={backupInfo()}>
+                {(info) => (
+                  <div class="data__kline-manifest">
+                    备份内容：{info().fileCount} 个文件 · 原始 {formatBytes(info().totalBytes)} ·
+                    压缩包 {formatBytes(info().archiveBytes)}
+                    {info().createdAt > 0
+                      ? ` · 打包于 ${new Date(info().createdAt).toLocaleString('zh-CN')}`
+                      : ''}
+                  </div>
+                )}
+              </Show>
+              <Show when={restoreResult()}>
+                {(result) => (
+                  <div class="data__kline-manifest">
+                    恢复完成：补回 {result().restored} 个文件（{formatBytes(result().bytes)}）；
+                    跳过已存在 {result().skipped} 个。
+                  </div>
+                )}
+              </Show>
+            </div>
           </section>
 
           <section class="data__limit-review">

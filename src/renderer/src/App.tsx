@@ -48,6 +48,7 @@ import { DragonPanel } from './components/DragonPanel'
 import { BoardsPanel } from './components/BoardsPanel'
 import { MarketReportPanel } from './components/MarketReportPanel'
 import { ShortcutsPanel } from './components/ShortcutsPanel'
+import { StockMenu } from './components/StockMenu'
 import {
   activeQuoteCode,
   appInfo,
@@ -587,6 +588,8 @@ export default function App(): JSX.Element {
         onPointerDown={(event) => beginResize('rail', event)}
         onDblClick={() => updateSettings({ railWidth: 318 })}
       />
+      {/* 任意个股列表右键弹出的「加入自选/自定义板块」菜单 */}
+      <StockMenu />
     </div>
   )
 }

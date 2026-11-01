@@ -23,6 +23,7 @@ import type {
   MultiDayTrend
 } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
+import { isIndexCode } from '@shared/market'
 import { api, errorMessage } from '../lib/ipc'
 import { subscribePush } from '../lib/push'
 import { downloadText } from '../lib/download'
@@ -384,6 +385,12 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
 
   createEffect(() => {
     const code = props.code
+    // 指数没有分红送转，也没有「除权」这件事。7615 的 F10 只按 6 位 symbol 查，
+    // sh000001 会被当成 sz000001（平安银行），所以这里直接不发请求。
+    if (isIndexCode(code)) {
+      setDividends([])
+      return
+    }
     void api.f10
       .dividend(code)
       .then((table) => {
@@ -464,7 +471,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         </div>
 
         <div class="chart-toolbar chart-toolbar--secondary">
-          <Show when={!isTrend()}>
+          {/* 指数没有复权概念，隐藏复权档位；否则点「前复权」看起来像生效了，其实没意义 */}
+          <Show when={!isTrend() && !isIndexCode(props.code)}>
             <div class="chart-adjust-group">
               <For
                 each={[

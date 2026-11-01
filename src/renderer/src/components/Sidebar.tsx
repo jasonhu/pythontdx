@@ -11,9 +11,11 @@
  * 其它交互：点标签切换分组；双击标签就地改名；悬停时出现删除按钮；
  * 列表空白处也能接收拖入（追加到末尾）；空分组显示引导文案。
  */
-import { createSignal, For, Show, type JSX } from 'solid-js'
-import type { WatchGroup } from '@shared/types'
+import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
+import type { Quote, WatchGroup } from '@shared/types'
+import { fixed, signedPct } from '@shared/format'
 import {
+  activeGroup,
   activeItems,
   appState,
   createGroup,
@@ -22,9 +24,15 @@ import {
   moveWatchItem,
   removeGroup,
   renameGroup,
+  setActiveCode,
   setActiveGroup,
   setDraggingCode
 } from '../stores/app'
+import { applyQuotes, quoteOf } from '../stores/quotes'
+import { openStockMenu } from '../stores/stockMenu'
+import { api, errorMessage } from '../lib/ipc'
+import { toneOf } from '../lib/tone'
+import { SectorPicker, type SectorSelection } from './SectorPicker'
 import {
   IconChart,
   IconClose,
@@ -51,6 +59,33 @@ interface SidebarProps {
   onOpenFullWatchlist: () => void
 }
 
+/**
+ * 板块排行 / 自定义排行里的一行。
+ *
+ * 和自选股行不同，这里没有拖拽和删除：成分股是板块数据，不是用户维护的列表。
+ */
+function SectorRow(props: { code: string; name: string; onPick: () => void }): JSX.Element {
+  const quote = (): Quote | undefined => quoteOf(props.code)
+  const tone = (): string => toneOf(quote()?.changePct)
+  return (
+    <button
+      class="sector-row"
+      data-active={appState.activeCode === props.code}
+      title={`${props.name} ${props.code.toUpperCase()}`}
+      onClick={() => props.onPick()}
+      onContextMenu={(event) => openStockMenu(event, { code: props.code, name: props.name })}
+    >
+      <span class="sector-row__name">{props.name}</span>
+      <span class="sector-row__nums">
+        <span class="sector-row__price num">{quote() ? fixed(quote()!.price) : '—'}</span>
+        <span class={`sector-row__chg num ${tone()}`}>
+          {quote() ? signedPct(quote()!.changePct) : '—'}
+        </span>
+      </span>
+    </button>
+  )
+}
+
 export function Sidebar(props: SidebarProps): JSX.Element {
   const [editingId, setEditingId] = createSignal<string | null>(null)
   const [draft, setDraft] = createSignal('')
@@ -62,8 +97,118 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   /** 分组排序时的落点：插到哪个标签的前面/后面 */
   const [groupDrop, setGroupDrop] = createSignal<{ id: string; side: DropSide } | null>(null)
 
+  /* ------------------------------------------- 自选股 / 板块 / 自定义 三种视图 */
+  type SidebarView = 'watch' | 'sector' | 'custom'
+  const [view, setView] = createSignal<SidebarView>('watch')
+  const [pickerOpen, setPickerOpen] = createSignal(false)
+  const [pickerCustomOnly, setPickerCustomOnly] = createSignal(false)
+  /** 板块视图当前选中的板块 */
+  const [sector, setSector] = createSignal<SectorSelection | null>(null)
+  /** 自定义视图当前选中的分组 */
+  const [customSector, setCustomSector] = createSignal<SectorSelection | null>(null)
+  const [sectorLoading, setSectorLoading] = createSignal(false)
+  const [sectorError, setSectorError] = createSignal<string | null>(null)
+
   const totalCount = (): number =>
     appState.groups.reduce((sum, group) => sum + group.items.length, 0)
+
+  /** 板块成分股不在自选订阅里，得按代码批量补一次 MAC 报价 */
+  const loadSectorQuotes = async (selection: SectorSelection): Promise<void> => {
+    setSectorLoading(true)
+    setSectorError(null)
+    try {
+      const codes = selection.codes
+      for (let start = 0; start < codes.length; start += 120) {
+        const chunk = codes.slice(start, start + 120)
+        if (chunk.length === 0) continue
+        applyQuotes(await api.quote.macQuotes(chunk))
+      }
+    } catch (cause) {
+      setSectorError(errorMessage(cause))
+    } finally {
+      setSectorLoading(false)
+    }
+  }
+
+  createEffect(() => {
+    const selection = sector()
+    if (!selection || view() !== 'sector') return
+    void loadSectorQuotes(selection)
+  })
+
+  const groupSelection = (group: WatchGroup): SectorSelection => ({
+    key: `custom:${group.id}`,
+    kind: 'custom',
+    name: group.name,
+    codes: group.items.map((item) => item.code),
+    names: Object.fromEntries(group.items.map((item) => [item.code, item.name])),
+    groupId: group.id
+  })
+
+  const openPicker = (customOnly: boolean): void => {
+    setPickerCustomOnly(customOnly)
+    setPickerOpen(true)
+  }
+
+  const openSectorView = (): void => {
+    setView('sector')
+    if (!sector()) openPicker(false)
+  }
+
+  const openCustomView = (): void => {
+    setView('custom')
+    if (!customSector()) {
+      const group = activeGroup()
+      if (group) {
+        setCustomSector(groupSelection(group))
+        return
+      }
+      openPicker(true)
+    }
+  }
+
+  const pickSector = (selection: SectorSelection): void => {
+    if (selection.kind === 'custom') {
+      setCustomSector(selection)
+      // 自定义板块就是分组：选完顺手切过去，回「自选股」时也是这一组
+      if (selection.groupId) setActiveGroup(selection.groupId)
+      setView('custom')
+      return
+    }
+    setSector(selection)
+    setView('sector')
+  }
+
+  /** 按涨跌幅从高到低：排行列表的唯一排序规则 */
+  const rankRows = (
+    selection: SectorSelection | null
+  ): Array<{ code: string; name: string; quote: Quote | undefined }> => {
+    if (!selection) return []
+    return selection.codes
+      .map((code) => ({
+        code,
+        name: selection.names[code] || quoteOf(code)?.name || code,
+        quote: quoteOf(code)
+      }))
+      .sort(
+        (a, b) =>
+          (b.quote?.changePct ?? Number.NEGATIVE_INFINITY) -
+          (a.quote?.changePct ?? Number.NEGATIVE_INFINITY)
+      )
+  }
+
+  const sectorRows = createMemo(() => rankRows(sector()))
+  /**
+   * 自定义板块按 groupId 现算，而不是用选择时的快照：
+   * 用户在这个分组里加/删股票后，排行要立刻跟着变。
+   */
+  const customBoard = createMemo(() => {
+    const selection = customSector()
+    if (!selection?.groupId) return selection
+    const group = appState.groups.find((item) => item.id === selection.groupId)
+    return group ? groupSelection(group) : selection
+  })
+  const customRows = createMemo(() => rankRows(customBoard()))
 
   const startRename = (group: WatchGroup): void => {
     setDraft(group.name)
@@ -138,8 +283,14 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       <div class="sidebar__head">
         <div class="sidebar__title">
           <IconStar size={12} />
-          自选股
-          <span class="badge">{totalCount()}</span>
+          {view() === 'watch' ? '自选股' : view() === 'sector' ? '板块排行' : '自定义板块'}
+          <span class="badge">
+            {view() === 'watch'
+              ? totalCount()
+              : view() === 'sector'
+                ? (sector()?.codes.length ?? 0)
+                : (customBoard()?.codes.length ?? 0)}
+          </span>
         </div>
         <button
           class="btn btn--icon btn--bare watch-fullscreen-open"
@@ -211,107 +362,218 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         </button>
       </div>
 
-      <div class="group-tabs">
-        <For each={appState.groups}>
-          {(group) => (
-            <div
-              class="group-chip"
-              classList={{
-                'group-chip--drop': stockDropGroupId() === group.id,
-                'group-chip--dragging': draggingGroup() === group.id,
-                'group-chip--drop-before':
-                  groupDrop()?.id === group.id && groupDrop()?.side === 'before',
-                'group-chip--drop-after':
-                  groupDrop()?.id === group.id && groupDrop()?.side === 'after'
-              }}
-              data-active={group.id === appState.activeGroupId}
-              draggable={editingId() !== group.id}
-              onClick={() => setActiveGroup(group.id)}
-              onDblClick={() => startRename(group)}
-              onDragStart={(event) => {
-                if (editingId() === group.id) {
-                  event.preventDefault()
-                  return
-                }
-                setDraggingGroup(group.id)
-                event.dataTransfer?.setData('text/plain', group.id)
-                if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-              }}
-              onDragEnd={() => {
-                setDraggingGroup(null)
-                setGroupDrop(null)
-                setStockDropGroupId(null)
-              }}
-              onDragOver={(event) => onGroupDragOver(event, group.id)}
-              onDragLeave={() => {
-                setStockDropGroupId((current) => (current === group.id ? null : current))
-                setGroupDrop((current) => (current?.id === group.id ? null : current))
-              }}
-              onDrop={(event) => onGroupDrop(event, group.id)}
-              title={`${group.name} · ${group.items.length} 只（双击改名，拖拽可调整顺序或接收股票）`}
-            >
-              <Show
-                when={editingId() === group.id}
-                fallback={
-                  <>
-                    <span class="group-chip__name">{group.name}</span>
-                    <span class="group-chip__count num">{group.items.length}</span>
-                    <Show when={appState.groups.length > 1}>
-                      <span
-                        class="group-chip__close"
-                        role="button"
-                        aria-label="删除分组"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          removeGroup(group.id)
-                        }}
-                      >
-                        <IconClose size={9} />
-                      </span>
-                    </Show>
-                  </>
-                }
-              >
-                <input
-                  class="group-chip__input"
-                  value={draft()}
-                  autofocus
-                  onInput={(event) => setDraft(event.currentTarget.value)}
-                  onBlur={commitRename}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') commitRename()
-                    if (event.key === 'Escape') setEditingId(null)
-                  }}
-                  onClick={(event) => event.stopPropagation()}
-                />
-              </Show>
-            </div>
-          )}
-        </For>
+      <div class="sidebar__modes" role="tablist" aria-label="左侧列表类型">
+        <button
+          class="sidebar__mode"
+          role="tab"
+          data-active={view() === 'watch'}
+          onClick={() => setView('watch')}
+        >
+          自选股
+        </button>
+        <button
+          class="sidebar__mode"
+          role="tab"
+          data-active={view() === 'sector'}
+          onClick={openSectorView}
+        >
+          板块
+        </button>
+        <button
+          class="sidebar__mode"
+          role="tab"
+          data-active={view() === 'custom'}
+          onClick={openCustomView}
+        >
+          自定义
+        </button>
       </div>
 
-      <div
-        class="sidebar__list"
-        onDragOver={(event) => draggingCode() && event.preventDefault()}
-        onDrop={dropStockOnList}
-      >
-        <Show
-          when={activeItems().length > 0}
-          fallback={
-            <div class="group-empty">
-              这个分组还是空的
-              <br />
-              搜索添加，或把其它分组的股票拖进来
-            </div>
-          }
-        >
-          <For each={activeItems()}>
-            {(item, index) => (
-              <WatchRow item={item} index={index()} groupId={appState.activeGroupId} />
+      <Show when={view() === 'watch'}>
+        <div class="group-tabs">
+          <For each={appState.groups}>
+            {(group) => (
+              <div
+                class="group-chip"
+                classList={{
+                  'group-chip--drop': stockDropGroupId() === group.id,
+                  'group-chip--dragging': draggingGroup() === group.id,
+                  'group-chip--drop-before':
+                    groupDrop()?.id === group.id && groupDrop()?.side === 'before',
+                  'group-chip--drop-after':
+                    groupDrop()?.id === group.id && groupDrop()?.side === 'after'
+                }}
+                data-active={group.id === appState.activeGroupId}
+                draggable={editingId() !== group.id}
+                onClick={() => setActiveGroup(group.id)}
+                onDblClick={() => startRename(group)}
+                onDragStart={(event) => {
+                  if (editingId() === group.id) {
+                    event.preventDefault()
+                    return
+                  }
+                  setDraggingGroup(group.id)
+                  event.dataTransfer?.setData('text/plain', group.id)
+                  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+                }}
+                onDragEnd={() => {
+                  setDraggingGroup(null)
+                  setGroupDrop(null)
+                  setStockDropGroupId(null)
+                }}
+                onDragOver={(event) => onGroupDragOver(event, group.id)}
+                onDragLeave={() => {
+                  setStockDropGroupId((current) => (current === group.id ? null : current))
+                  setGroupDrop((current) => (current?.id === group.id ? null : current))
+                }}
+                onDrop={(event) => onGroupDrop(event, group.id)}
+                title={`${group.name} · ${group.items.length} 只（双击改名，拖拽可调整顺序或接收股票）`}
+              >
+                <Show
+                  when={editingId() === group.id}
+                  fallback={
+                    <>
+                      <span class="group-chip__name">{group.name}</span>
+                      <span class="group-chip__count num">{group.items.length}</span>
+                      <Show when={appState.groups.length > 1}>
+                        <span
+                          class="group-chip__close"
+                          role="button"
+                          aria-label="删除分组"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            removeGroup(group.id)
+                          }}
+                        >
+                          <IconClose size={9} />
+                        </span>
+                      </Show>
+                    </>
+                  }
+                >
+                  <input
+                    class="group-chip__input"
+                    value={draft()}
+                    autofocus
+                    onInput={(event) => setDraft(event.currentTarget.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitRename()
+                      if (event.key === 'Escape') setEditingId(null)
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                </Show>
+              </div>
             )}
           </For>
-        </Show>
-      </div>
+        </div>
+
+        <div
+          class="sidebar__list"
+          onDragOver={(event) => draggingCode() && event.preventDefault()}
+          onDrop={dropStockOnList}
+        >
+          <Show
+            when={activeItems().length > 0}
+            fallback={
+              <div class="group-empty">
+                这个分组还是空的
+                <br />
+                搜索添加，或把其它分组的股票拖进来
+              </div>
+            }
+          >
+            <For each={activeItems()}>
+              {(item, index) => (
+                <WatchRow item={item} index={index()} groupId={appState.activeGroupId} />
+              )}
+            </For>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={view() === 'sector'}>
+        <div class="sector-head">
+          <button class="sector-head__pick" title="选择板块" onClick={() => openPicker(false)}>
+            <span class="sector-head__name">{sector()?.name ?? '选择板块'}</span>
+            <span class="sector-head__count num">{sector()?.codes.length ?? 0}</span>
+          </button>
+          <button
+            class="btn btn--icon btn--bare"
+            title="换一个板块"
+            aria-label="换一个板块"
+            onClick={() => openPicker(false)}
+          >
+            <IconGrid size={13} />
+          </button>
+        </div>
+        <Show when={sectorError()}>{(message) => <div class="sector-error">{message()}</div>}</Show>
+        <div class="sidebar__list sector-list">
+          <Show
+            when={sector()}
+            fallback={
+              <div class="group-empty">
+                点上方「选择板块」
+                <br />
+                按涨跌幅查看该板块个股排行
+              </div>
+            }
+          >
+            <Show when={sectorLoading()}>
+              <div class="sector-loading">加载成分股行情…</div>
+            </Show>
+            <For each={sectorRows()}>
+              {(row) => (
+                <SectorRow code={row.code} name={row.name} onPick={() => setActiveCode(row.code)} />
+              )}
+            </For>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={view() === 'custom'}>
+        <div class="sector-head">
+          <button class="sector-head__pick" title="选择自定义板块" onClick={() => openPicker(true)}>
+            <span class="sector-head__name">{customBoard()?.name ?? '选择自定义板块'}</span>
+            <span class="sector-head__count num">{customBoard()?.codes.length ?? 0}</span>
+          </button>
+          <button
+            class="btn btn--icon btn--bare"
+            title="换一个自定义板块"
+            aria-label="换一个自定义板块"
+            onClick={() => openPicker(true)}
+          >
+            <IconGrid size={13} />
+          </button>
+        </div>
+        <div class="sidebar__list sector-list">
+          <Show
+            when={customSector()}
+            fallback={
+              <div class="group-empty">
+                点上方选择一个自定义板块
+                <br />
+                （自定义板块就是自选分组，可用「+」新建）
+              </div>
+            }
+          >
+            <For each={customRows()}>
+              {(row) => (
+                <SectorRow code={row.code} name={row.name} onPick={() => setActiveCode(row.code)} />
+              )}
+            </For>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={pickerOpen()}>
+        <SectorPicker
+          customOnly={pickerCustomOnly()}
+          onClose={() => setPickerOpen(false)}
+          onPick={pickSector}
+        />
+      </Show>
 
       <div class="sidebar__foot">
         数据来源 通达信行情

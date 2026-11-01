@@ -19,6 +19,7 @@
  *   STOCKLENS_CAPTURE_POINTER 真实指针操作：`move@选择器@比例` / `click@选择器@比例`
  *   STOCKLENS_CAPTURE_WHEEL   真实滚轮：`deltaY@选择器@比例`（如 -100@.chart-host@0.25）
  *   STOCKLENS_CAPTURE_SCROLL  把某个滚动容器定到指定位置：`选择器@像素`（F10 长页面截图用）
+ *   STOCKLENS_CAPTURE_SERIES  F10 逐页截图：传目录路径，自动遍历左侧每个页签，各截「顶部/底部」两张
  *   STOCKLENS_CAPTURE_PROBE   等它出现并回读它的文本，打印到终端
  *   STOCKLENS_CAPTURE_EVAL    截图前求值一个只读表达式并打印（量尺寸用，别写有副作用的代码）
  *   STOCKLENS_CAPTURE_AFTER_MS 驱动结束后、截图前额外等待的毫秒数（等走势图等慢数据）
@@ -26,18 +27,19 @@
  * 最后一个开关是给**自动化验证**用的：截图是给眼睛看的，但程序断言需要文本；
  * 顺带它还是「等界面就绪」的信号 —— 切完 tab 数据是异步来的，不等就会和加载抢时间。
  */
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { app, type BrowserWindow } from 'electron'
 
 export function setupCapture(window: BrowserWindow, flushState?: () => Promise<void>): void {
   const target = process.env.STOCKLENS_CAPTURE
-  if (!target) return
+  const series = process.env.STOCKLENS_CAPTURE_SERIES
+  if (!target && !series) return
 
   const delay = Number(process.env.STOCKLENS_CAPTURE_DELAY ?? 4000)
 
   window.webContents.once('did-finish-load', () => {
     setTimeout(() => {
-      void capture(window, target, flushState)
+      void capture(window, target ?? '', flushState)
     }, delay)
   })
 }
@@ -50,15 +52,20 @@ async function capture(
   let code = 0
   try {
     await drive(window)
-    // 让最后一次异步渲染真正上屏；capturePage 可能拿到上一帧，
-    // 板块/数据弹窗刚加载完就截图时尤其明显。
-    // STOCKLENS_CAPTURE_AFTER_MS 用于等迷你走势图这类「点完还在慢慢补」的数据。
-    const after = Number(process.env.STOCKLENS_CAPTURE_AFTER_MS ?? 0)
-    if (Number.isFinite(after) && after > 0) await wait(after)
-    await wait(350)
-    const image = await window.webContents.capturePage()
-    await writeFile(target, image.toPNG())
-    console.log(`[capture] 截图已保存：${target}`)
+    const series = process.env.STOCKLENS_CAPTURE_SERIES
+    if (series) {
+      await captureF10Series(window, series)
+    } else {
+      // 让最后一次异步渲染真正上屏；capturePage 可能拿到上一帧，
+      // 板块/数据弹窗刚加载完就截图时尤其明显。
+      // STOCKLENS_CAPTURE_AFTER_MS 用于等迷你走势图这类「点完还在慢慢补」的数据。
+      const after = Number(process.env.STOCKLENS_CAPTURE_AFTER_MS ?? 0)
+      if (Number.isFinite(after) && after > 0) await wait(after)
+      await wait(350)
+      const image = await window.webContents.capturePage()
+      await writeFile(target, image.toPNG())
+      console.log(`[capture] 截图已保存：${target}`)
+    }
   } catch (error) {
     console.error('[capture] 截图失败：', error)
     code = 1
@@ -79,6 +86,52 @@ async function capture(
 }
 
 /** 按需把界面点到想验证的状态、送按键、回读文本；环境变量都没配时什么都不做 */
+/**
+ * F10 逐页截图：左侧每个页签各截「顶部 / 底部」两张。
+ * 由 STOCKLENS_CAPTURE_SERIES 指定输出目录，文件名带序号和页签名，便于逐张审查。
+ */
+async function captureF10Series(window: BrowserWindow, dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true })
+  const count = Number(
+    await evaluate(window, `document.querySelectorAll('.f10__nav-item').length`)
+  )
+  if (!Number.isFinite(count) || count === 0) {
+    console.warn('[capture] F10 页签列表为空，跳过逐页截图')
+    return
+  }
+  for (let index = 0; index < count; index += 1) {
+    const name = await evaluate(
+      window,
+      `(document.querySelectorAll('.f10__nav-item')[${index}]?.textContent ?? '').trim()`
+    )
+    await evaluate(
+      window,
+      `document.querySelectorAll('.f10__nav-item')[${index}]?.click()`
+    )
+    await wait(1200)
+    for (const [suffix, offset] of [
+      ['top', 0],
+      ['bottom', 1_000_000]
+    ] as const) {
+      await evaluate(
+        window,
+        `(() => {
+          const el = document.querySelector('.f10__content')
+          if (!el) return -1
+          el.scrollTop = ${offset}
+          return el.scrollTop
+        })()`
+      )
+      await wait(400)
+      const image = await window.webContents.capturePage()
+      const safe = (name || `page-${index + 1}`).replace(/[/:*?"<>|\s]+/g, '-')
+      const file = `${dir}/${String(index + 1).padStart(2, '0')}-${safe}-${suffix}.png`
+      await writeFile(file, image.toPNG())
+      console.log(`[capture] 已保存 ${file}`)
+    }
+  }
+}
+
 async function drive(window: BrowserWindow): Promise<void> {
   // 顺序刻意和人的操作一致：点 tab → 等界面就绪 → 点住图表 → 按上下键。
   // 焦点必须放在**等就绪之后**：切 tab 会重建图表 DOM，提前聚焦的话，

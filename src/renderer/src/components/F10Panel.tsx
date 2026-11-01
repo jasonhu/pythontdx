@@ -155,6 +155,17 @@ export function F10Panel(props: F10PanelProps): JSX.Element {
                   </div>
                 ) : block.kind === 'heading' ? (
                   <h3 class="f10__heading">{block.text}</h3>
+                ) : block.kind === 'kv' ? (
+                  <dl class="f10-kv">
+                    <For each={block.pairs}>
+                      {(pair) => (
+                        <div class="f10-kv__row">
+                          <dt>{pair.label}</dt>
+                          <dd>{pair.value}</dd>
+                        </div>
+                      )}
+                    </For>
+                  </dl>
                 ) : block.kind === 'link' ? (
                   <button
                     class="f10__link"

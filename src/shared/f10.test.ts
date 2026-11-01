@@ -117,10 +117,97 @@ describe('parseF10', () => {
     expect(parsed.numeric[2]).toBe(true)
   })
 
+  it('表头第二行的多个单位都并回对应列', () => {
+    const source = [
+      '┌────┬──────┬──────┐',
+      '│项目│营业收入│营业利润│',
+      '│    │  (万元)│  (万元)│',
+      '├────┼──────┼──────┤',
+      '│主营│ 100.00│  20.00│',
+      '└────┴──────┴──────┘'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出表头单位表')
+    expect(table.rows[0]).toEqual(['项目', '营业收入(万元)', '营业利润(万元)'])
+  })
+
   it('公告/报道的 URL 单独成 link 块', () => {
     const url = 'https://static.sse.com.cn/disclosure/listedinfo/announcement/c/new/2026-10-31/688499_20261031_KGYB.pdf'
     const blocks = parseF10(`利元亨（688499）：关于授予限制性股票的公告。公告详情请查看附件\n${url}\n2026-10-30 17:34  下一条`)
     const link = blocks.find((block) => block.kind === 'link')
     expect(link).toEqual({ kind: 'link', url })
+  })
+
+
+  it('「★本栏包括」折行里的【5.xxx】不是章节标题', () => {
+    const source = [
+      '公司概况☆ ◇688499 利元亨',
+      '★本栏包括【1.基本资料】【2.发行和交易】【3.员工效益】【4.研发投入】',
+      '          【5.参股控股】【6.关联交易】',
+      '          【9.重大事项】',
+      '',
+      '【1.基本资料】',
+      '公司名称 广东利元亨智能装备股份有限公司'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const headings = blocks.filter((block) => block.kind === 'heading').map((block) => block.text)
+    expect(headings).toEqual(['【1.基本资料】'])
+    const text = blocks
+      .filter((block) => block.kind === 'text')
+      .map((block) => block.text)
+      .join('\n')
+    expect(text).toContain('【5.参股控股】')
+    expect(text).toContain('【9.重大事项】')
+  })
+
+  it('框线表的多行表头与名称折行都接回同一行', () => {
+    const source = [
+      '【2.股权投资】',
+      '┌─────────┬─────┬─────┐',
+      '│所持对象          │(初始)投资│  币种│',
+      '│                  │    (万元)│      │',
+      '├─────────┼─────┼─────┤',
+      '│苏州朝希优势壹号产│   3000.00│人民币│',
+      '│业投资合伙企业（有│          │      │',
+      '│限合伙）          │          │      │',
+      '├─────────┼─────┼─────┤',
+      '│曼恩斯特          │   1500.00│人民币│',
+      '└─────────┴─────┴─────┘'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出投资表')
+    expect(table.rows[0]).toEqual(['所持对象', '(初始)投资(万元)', '币种'])
+    expect(table.rows[1]?.[0]).toBe('苏州朝希优势壹号产业投资合伙企业（有限合伙）')
+    expect(table.rows[2]?.[0]).toBe('曼恩斯特')
+  })
+
+  it('第一列空、后续列折行的单元格按列接回上一行', () => {
+    const source = [
+      '┌──────┬──────────────┐',
+      '│项目    │内容                    │',
+      '├──────┼──────────────┤',
+      '│经营范围│一般项目：工业机器人制造│',
+      '│      │；工业设计服务          │',
+      '└──────┴──────────────┘'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出经营范围表')
+    expect(table.rows[1]?.[1]).toBe('一般项目：工业机器人制造；工业设计服务')
+  })
+
+  it('带「亿/万」单位的列仍按数字右对齐', () => {
+    const source = [
+      '项目名          营业收入(元)  收入比例(%)',
+      '──────────────────────────────────',
+      '锂电池制造设备      14.46亿        73.77',
+      '其他业务          1915.56万         0.62'
+    ].join('\n')
+    const blocks = parseF10(source)
+    const table = blocks.find((block) => block.kind === 'table')
+    if (table?.kind !== 'table') throw new Error('没有解析出经营分析表')
+    expect(table.numeric).toEqual([false, true, true])
   })
 })

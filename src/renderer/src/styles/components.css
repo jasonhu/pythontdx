@@ -1230,6 +1230,42 @@
   margin-bottom: 0;
 }
 
+/* 键值型资料（公司概况）：两列，长英文值可以正常换行 */
+.f10-kv {
+  margin: 4px 0 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.f10-kv__row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.f10-kv__row:last-child {
+  border-bottom: 0;
+}
+
+.f10-kv__row:nth-child(odd) {
+  background: var(--panel);
+}
+
+.f10-kv dt {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.f10-kv dd {
+  margin: 0;
+  color: var(--text-1);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}
+
 /* 没解析成表格的空格对齐段落：等宽 + 不换行，保住原始终端列宽 */
 .f10__text--mono {
   font-family: 'NSimSun', '新宋体', 'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'Cascadia Mono',

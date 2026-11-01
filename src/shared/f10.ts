@@ -11,6 +11,7 @@ export type F10Block =
   | { kind: 'heading'; text: string }
   | { kind: 'link'; url: string }
   | { kind: 'table'; rows: string[][]; numeric: boolean[]; headerless?: boolean }
+  | { kind: 'kv'; pairs: Array<{ label: string; value: string }> }
 
 /** F10 原表的竖线：ULC 框线 │ / 全角 ｜ / ASCII | 三种都出现过。 */
 const CELL_EDGE = /[│┃|｜]/
@@ -73,7 +74,7 @@ function numericColumns(rows: string[][], skipFirst = true): boolean[] {
       .filter(Boolean)
     if (cells.length === 0) return false
     const numeric = cells.filter((cell) =>
-      /^[-+]?[¥￥]?[\d,]+(\.\d+)?%?$/.test(cell.replace(/[—–-]$/, ''))
+      /^[-+]?[¥￥]?[\d,]+(\.\d+)?(亿|万|元|股|手|%)?$/.test(cell.replace(/[—–-]$/, ''))
     )
     return numeric.length / cells.length >= 0.6
   })
@@ -267,6 +268,7 @@ export function parseF10(source: string): F10Block[] {
     }
 
     // 【1.最新提示】这类整行标题单独成块，正文才有层次
+    let intro = false
     let paragraph: string[] = []
     const flushParagraph = (): void => {
       const text = paragraph.join('\n').trim()
@@ -276,12 +278,17 @@ export function parseF10(source: string): F10Block[] {
       paragraph = []
     }
     for (const line of merged) {
-      if (/^【[^】]+】$/.test(line.trim())) {
+      const trimmed = line.trim()
+      const headingLine = /^【[^】]+】$/.test(trimmed)
+      if (headingLine && !intro) {
         flushParagraph()
-        blocks.push({ kind: 'heading', text: line.trim() })
-      } else {
-        paragraph.push(line)
+        blocks.push({ kind: 'heading', text: trimmed })
+        continue
       }
+      paragraph.push(line)
+      // 「★本栏包括…」会折行，续行的【5.xxx】仍属于说明，不能当章节标题
+      if (trimmed.startsWith('★本栏包括')) intro = true
+      else if (!trimmed.includes('【')) intro = false
     }
     flushParagraph()
     textLines = []
@@ -305,6 +312,24 @@ export function parseF10(source: string): F10Block[] {
           if (cell && normalized[0]) normalized[0][index] = `${normalized[0][index] ?? ''}${cell}`
         })
         normalized.splice(1, 1)
+      }
+      // 「公司名称 | 值」这种 2~4 列的键值表：按表格渲染会把长英文值撑成一列巨宽，
+      // 右侧键名被挤成竖排；改成 label/value 列表更清晰
+      const pairRows = normalized.filter((row) => {
+        const filled = row.filter(Boolean)
+        return filled.length === 2 && Boolean(row[0]) && Boolean(row[1])
+      }).length
+      if (width >= 3 && pairRows >= Math.ceil(normalized.length * 0.6)) {
+        const pairs: Array<{ label: string; value: string }> = []
+        for (const row of normalized) {
+          if (row[0] && row[1]) pairs.push({ label: row[0], value: row[1] })
+          if (row[2] && row[3]) pairs.push({ label: row[2], value: row[3] })
+        }
+        if (pairs.length > 0) {
+          blocks.push({ kind: 'kv', pairs })
+          rows = []
+          return
+        }
       }
       if (width < 2 || normalized.length < 2) {
         // 单列/单行不是表：F10 常拿框线包一段公告，硬套 table 只会出怪样式
@@ -334,14 +359,33 @@ export function parseF10(source: string): F10Block[] {
   const pushRow = (cells: string[]): void => {
     const cleaned = [...cells]
     while (cleaned.length > 0 && !cleaned[cleaned.length - 1]) cleaned.pop()
-    if (cleaned.length === 0 || !cleaned.some((cell) => /[\u4e00-\u9fffA-Za-z0-9]/.test(cell))) return
-    const tailEmpty = cleaned.length > 1 && cleaned.slice(1).every((cell) => !cell)
-    if (tailEmpty && rows.length > 0) {
-      // 折行：续行只有第一列有字，接回上一行，别拆成两行
-      const previous = rows[rows.length - 1]
-      if (previous) previous[0] = `${previous[0] ?? ''}${cleaned[0]}`
-      return
+    if (cleaned.length === 0) return
+    if (rows.length > 0) {
+      const previous = rows[rows.length - 1]!
+      const tailEmpty = cleaned.length > 1 && cleaned.slice(1).every((cell) => !cell)
+      const headEmpty = cleaned.length > 1 && !cleaned[0]
+      if (tailEmpty) {
+        // 折行：续行只有第一列有字，接回上一行第一列
+        previous[0] = `${previous[0] ?? ''}${cleaned[0]}`
+        return
+      }
+      if (cleaned.length === 1) {
+        // 名称折行（如「苏州朝希…/业投资合伙企业/…」），只剩一个片段
+        previous[0] = `${previous[0] ?? ''}${cleaned[0]}`
+        return
+      }
+      if (headEmpty) {
+        // 第一列空、其它列续字：每一列都接回上一行（经营范围、控股关系、表头单位行）
+        let merged = false
+        cleaned.forEach((cell, index) => {
+          if (index === 0 || !cell) return
+          previous[index] = `${previous[index] ?? ''}${cell}`
+          merged = true
+        })
+        if (merged) return
+      }
     }
+    if (!cleaned.some((cell) => /[\u4e00-\u9fffA-Za-z0-9]/.test(cell))) return
     rows.push(cleaned)
   }
 
@@ -392,19 +436,6 @@ export function parseF10(source: string): F10Block[] {
       const cells = splitCells(line)
       // 表格外框/分隔线：丢掉（带拐角的才肯定是表框）
       if (border && TABLE_JUNCTION.test(line)) continue
-      const content = cells.filter(Boolean)
-      // 宽表里的单格行：短尾巴（"）"、"后）"）接回上一行，其余断开按正文显示
-      if (rows.length > 0 && rows.some((row) => row.length > 2) && content.length === 1) {
-        const previous = rows[rows.length - 1]
-        const tail = content[0] ?? ''
-        if (previous && tail.length <= 4 && (previous[0]?.length ?? 0) >= 6) {
-          previous[0] = `${previous[0]}${tail}`
-        } else {
-          flushTable()
-          textLines.push(tail)
-        }
-        continue
-      }
       flushText()
       pushRow(cells)
     } else if (border && rows.length > 0) {

@@ -104,6 +104,7 @@ const api: StockLensApi = {
     backupCreate: (path) => ipcRenderer.invoke(IPC.dataBackupCreate, path),
     backupInspect: (path) => ipcRenderer.invoke(IPC.dataBackupInspect, path),
     backupRestore: (path) => ipcRenderer.invoke(IPC.dataBackupRestore, path),
+    archiveDatasets: (codes) => ipcRenderer.invoke(IPC.dataArchiveDatasets, codes),
     chooseBackupPath: (defaultName) => ipcRenderer.invoke(IPC.dataChooseBackupPath, defaultName),
     chooseRestorePath: () => ipcRenderer.invoke(IPC.dataChooseRestorePath),
     limitReview: (date) => ipcRenderer.invoke(IPC.limitReview, date),
@@ -119,7 +120,6 @@ const api: StockLensApi = {
   block: {
     list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),
     industries: () => ipcRenderer.invoke(IPC.blockIndustries),
-    client: (dir) => ipcRenderer.invoke(IPC.blockClient, dir)
   },
   screen: {
     run: (request) => ipcRenderer.invoke(IPC.screenRun, request),

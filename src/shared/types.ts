@@ -592,17 +592,6 @@ export interface BlockGroup {
   names: Record<string, string>
 }
 
-/** 通达信客户端本地自定义板块（`T0002/blocknew`） */
-export interface ClientBlockResult {
-  dir: string
-  file: string
-  blockCount: number
-  codeCount: number
-  /** 配置里引用了但 .blk 缺失的板块名 */
-  missing: string[]
-  boards: BlockGroup[]
-}
-
 export interface BlockList {
   kind: BlockKind
   label: string
@@ -791,6 +780,26 @@ export interface DataBackupRestoreResult {
   /** 补回的字节数 */
   bytes: number
   dataRoot: string
+}
+
+/* ------------------------------------------- 板块/财务/龙虎榜离线归档 */
+
+export interface DatasetArchiveFile {
+  file: string
+  rows?: number
+  bytes?: number
+  sha256?: string
+  skipped?: boolean
+  error?: string
+}
+
+export interface DatasetArchiveResult {
+  dir: string
+  sectorRows: number
+  lhbRows: number
+  financeCodes: number
+  manifest: string
+  files: DatasetArchiveFile[]
 }
 
 export interface KLineCacheResult {

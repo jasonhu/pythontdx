@@ -470,6 +470,9 @@ export function createHttpApi(): StockLensApi {
       backupRestore: async () => {
         throw new Error('浏览器版不支持离线数据备份，请在桌面端操作')
       },
+      archiveDatasets: async () => {
+        throw new Error('浏览器版不支持离线数据归档，请在桌面端操作')
+      },
       chooseBackupPath: async () => null,
       chooseRestorePath: async () => null,
       limitReview: (date) => post<LimitReviewResult>('/api/limit_review', { date }),
@@ -488,9 +491,6 @@ export function createHttpApi(): StockLensApi {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),
       industries: () => post<IndustryList>('/api/industries', {}),
       // 客户端自定义板块要读本机 D:\tdx 目录，浏览器端没有这个能力
-      client: async () => {
-        throw new Error('浏览器版读不到本机通达信客户端的自定义板块，请在桌面端查看')
-      }
     },
     screen: {
       run: (request: ScreenRequest) => post<ScreenResult>('/api/screen', request),

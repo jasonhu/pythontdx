@@ -13,7 +13,6 @@ import type {
   AuctionPoint,
   BlockKind,
   BlockList,
-  ClientBlockResult,
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
@@ -23,6 +22,7 @@ import type {
   DataBackupCreateResult,
   DataBackupInspectResult,
   DataBackupRestoreResult,
+  DatasetArchiveResult,
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
@@ -427,11 +427,6 @@ export async function fetchIndustries(): Promise<IndustryList> {
   return bridge.send<IndustryList>('industries', {}, BLOCK_TIMEOUT_MS)
 }
 
-/** 通达信客户端本地自定义板块（blocknew.cfg + *.blk）。 */
-export async function fetchClientBlocks(dir = ''): Promise<ClientBlockResult> {
-  return bridge.send<ClientBlockResult>('client_blocks', { dir }, 30_000)
-}
-
 /** 全市场条件选股；后端按 60 秒缓存全市场分类行情。 */
 export async function fetchScreen(request: ScreenRequest): Promise<ScreenResult> {
   return bridge.send<ScreenResult>('screen', { filters: request }, BLOCK_TIMEOUT_MS)
@@ -481,6 +476,11 @@ export async function inspectOfflineBackup(path: string): Promise<DataBackupInsp
 
 export async function restoreOfflineData(path: string): Promise<DataBackupRestoreResult> {
   return bridge.send<DataBackupRestoreResult>('backup_restore', { path }, 2 * 60 * 60_000)
+}
+
+/** 板块 / 财务 / 龙虎榜全量落盘；财务按传入代码逐只抓，耗时可能很长。 */
+export async function archiveDatasets(codes: string[]): Promise<DatasetArchiveResult> {
+  return bridge.send<DatasetArchiveResult>('archive_datasets', { codes }, 2 * 60 * 60_000)
 }
 
 export async function fetchChartPatterns(req: ChartPatternsRequest): Promise<ChartPatternsResult> {

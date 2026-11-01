@@ -11,8 +11,6 @@ import { downloadText } from '../lib/download'
 import { toCsv } from '@shared/csv'
 import { IconClose, IconRefresh } from './Icons'
 
-const LIMIT = 300
-
 function fullCode(row: Array<string | number>, columns: string[]): string | null {
   const code = String(row[columns.indexOf('代码')] ?? '')
   if (!/^\d{6}$/.test(code)) return null
@@ -62,7 +60,6 @@ export function DragonPanel(props: {
             .includes(text)
         )
       })
-      .slice(0, LIMIT)
   })
 
   const visibleColumns = createMemo(() =>
@@ -130,7 +127,7 @@ export function DragonPanel(props: {
             value={query()}
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
-          <span class="dragon__hint">显示前 {LIMIT} 条 · 点击切股票</span>
+          <span class="dragon__hint">共 {rows().length} 条（全部显示）· 点击切股票</span>
         </div>
 
         <Show when={error()}>{(message) => <div class="dragon__error">{message()}</div>}</Show>

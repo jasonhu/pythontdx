@@ -16,7 +16,6 @@ import type {
   AuctionPoint,
   BlockKind,
   BlockList,
-  ClientBlockResult,
   CategoryQuote,
   F10Announcement,
   F10NewsItem,
@@ -35,6 +34,7 @@ import type {
   DataBackupCreateResult,
   DataBackupInspectResult,
   DataBackupRestoreResult,
+  DatasetArchiveResult,
   DataInventory,
   KLineCacheResult,
   FullKLineCacheResult,
@@ -183,6 +183,8 @@ export const IPC = {
   dataBackupInspect: 'data:backup-inspect',
   /** 从备份恢复离线数据（invoke） */
   dataBackupRestore: 'data:backup-restore',
+  /** 板块/财务/龙虎榜落盘到数据湖（invoke） */
+  dataArchiveDatasets: 'data:archive-datasets',
   /** 保存对话框：选备份文件路径（invoke） */
   dataChooseBackupPath: 'data:choose-backup-path',
   /** 打开对话框：选要恢复的备份文件（invoke） */
@@ -216,7 +218,6 @@ export const IPC = {
   /** 行业分类/成分（invoke） */
   blockIndustries: 'block:industries',
   /** 通达信客户端本地自定义板块（invoke） */
-  blockClient: 'block:client',
   /** 全市场条件选股（invoke） */
   screenRun: 'screen:run',
   /** 公式选股（invoke） */
@@ -439,6 +440,8 @@ export interface StockLensApi {
     backupInspect(path: string): Promise<DataBackupInspectResult>
     /** 从备份恢复；只补缺失文件，已存在的跳过 */
     backupRestore(path: string): Promise<DataBackupRestoreResult>
+    /** 板块/财务/龙虎榜全量落盘到数据湖（同一天不覆盖已有文件） */
+    archiveDatasets(codes: string[]): Promise<DatasetArchiveResult>
     /** 保存对话框；取消返回 null */
     chooseBackupPath(defaultName: string): Promise<string | null>
     /** 打开对话框；取消返回 null */
@@ -455,8 +458,6 @@ export interface StockLensApi {
     list(kind: BlockKind): Promise<BlockList>
     /** tdxhy.cfg + incon.dat 行业分类 */
     industries(): Promise<IndustryList>
-    /** 读本机通达信客户端 T0002/blocknew 的自定义板块；dir 省略时自动探测 */
-    client(dir?: string): Promise<ClientBlockResult>
   }
   screen: {
     /** 全市场扫描；结果最多 200 条 */

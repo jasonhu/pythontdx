@@ -2830,6 +2830,25 @@ def backup_restore(path: str) -> dict:
     }
 
 
+def _write_dataset_jsonl(target: Path, rows: list[dict]) -> dict:
+    """把一份数据集写成 jsonl.gz（原子写入；已存在则跳过，规则 12）。"""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        return {"file": str(target), "rows": 0, "skipped": True}
+    temporary = target.with_name(target.name + ".part")
+    with gzip.open(temporary, "wt", encoding="utf-8", compresslevel=6) as stream:
+        for row in rows:
+            stream.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+    os.replace(temporary, target)
+    return {
+        "file": str(target),
+        "rows": len(rows),
+        "bytes": target.stat().st_size,
+        "sha256": _sha256_of(target),
+        "skipped": False,
+    }
+
+
 def _kline_cache_path(code: str, period: str, count: int, adjust: str) -> Path:
     safe = f"{code.lower()}_{period}_{int(count)}_{adjust}.parquet"
     return kline_cache_dir() / safe
@@ -4235,6 +4254,117 @@ class Bridge:
             "boards": boards,
         }
 
+    def archive_datasets(self, codes: list[str]) -> dict:
+        """板块 / 财务 / 龙虎榜全量落盘到数据湖（jsonl.gz + manifest）。
+
+        规则 12：同一天重复执行只补缺的文件，已有文件不覆盖。
+        """
+        from tdx_f10 import fetch_dividend, fetch_finance, fetch_lhb_market
+
+        store = (
+            stocklens_data_dir() / "lake" / "datasets" / f"snapshot_date={time.strftime('%Y-%m-%d')}"
+        )
+        files: list[dict] = []
+        sector_rows = 0
+
+        for kind in ("gn", "fg", "zs", "general"):
+            data = self.blocks(kind)
+            rows = [
+                {
+                    "kind": kind,
+                    "boardId": block["id"],
+                    "board": block["name"],
+                    "indexCode": block.get("indexCode", ""),
+                    "code": code,
+                    "name": block["names"].get(code, ""),
+                }
+                for block in data["blocks"]
+                for code in block["codes"]
+            ]
+            sector_rows += len(rows)
+            files.append(_write_dataset_jsonl(store / "sectors" / f"{kind}.jsonl.gz", rows))
+
+        industries = self.industries()
+        for name, blocks in (
+            ("tdx_industry", industries["blocks"]),
+            ("rs_industry", industries.get("rsBlocks") or []),
+        ):
+            rows = [
+                {
+                    "kind": name,
+                    "boardId": block["id"],
+                    "board": block["name"],
+                    "indexCode": block.get("indexCode", ""),
+                    "code": code,
+                    "name": block["names"].get(code, ""),
+                }
+                for block in blocks
+                for code in block["codes"]
+            ]
+            sector_rows += len(rows)
+            files.append(_write_dataset_jsonl(store / "sectors" / f"{name}.jsonl.gz", rows))
+
+        mappings: list[dict] = []
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(self._zhb_bytes()[0]))
+            if "tdxzs.cfg" in archive.namelist():
+                mappings = [
+                    {"name": row["name"], "code": row["code"], "tdxCode": row["tdxCode"]}
+                    for row in parse_sector_indices(
+                        archive.read("tdxzs.cfg").decode("gbk", "replace")
+                    )
+                ]
+        except zipfile.BadZipFile:
+            mappings = []
+        files.append(_write_dataset_jsonl(store / "sector_indices.jsonl.gz", mappings))
+
+        lhb_rows = 0
+        try:
+            lhb = fetch_lhb_market()
+            rows = [dict(zip(lhb["columns"], row)) for row in lhb["rows"]]
+            lhb_rows = len(rows)
+            files.append(_write_dataset_jsonl(store / "lhb" / "lhb.jsonl.gz", rows))
+        except Exception as error:  # noqa: BLE001 - 龙虎榜失败不阻断其它数据集
+            files.append({"file": "lhb", "error": str(error)})
+
+        finance_codes = 0
+        for code in codes:
+            entry: dict = {"code": code}
+            try:
+                entry["finance"] = fetch_finance(code)
+            except Exception as error:  # noqa: BLE001
+                entry["financeError"] = str(error)
+            try:
+                entry["dividend"] = fetch_dividend(code)
+            except Exception as error:  # noqa: BLE001
+                entry["dividendError"] = str(error)
+            files.append(_write_dataset_jsonl(store / "finance" / f"{code}.jsonl.gz", [entry]))
+            finance_codes += 1
+
+        manifest = {
+            "format": 1,
+            "createdAt": int(time.time() * 1000),
+            "dataRoot": str(store),
+            "sectorRows": sector_rows,
+            "lhbRows": lhb_rows,
+            "financeCodes": finance_codes,
+            "files": files,
+        }
+        manifest_path = store / "manifest.json"
+        if not manifest_path.exists():
+            store.mkdir(parents=True, exist_ok=True)
+            temporary = manifest_path.with_name(manifest_path.name + ".part")
+            temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), "utf-8")
+            os.replace(temporary, manifest_path)
+        return {
+            "dir": str(store),
+            "sectorRows": sector_rows,
+            "lhbRows": lhb_rows,
+            "financeCodes": finance_codes,
+            "manifest": str(manifest_path),
+            "files": files,
+        }
+
     def industries(self) -> dict:
         """用 tdxhy.cfg + incon.dat 生成通达信行业分类与成分股。"""
         if self.industry_cache and self.industry_cache[0] > time.time():
@@ -4891,8 +5021,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.blocks(str(payload.get("kind") or "gn"))
     if cmd == "industries":
         return bridge.industries()
-    if cmd == "client_blocks":
-        return bridge.client_blocks(str(payload.get("dir") or ""))
+    if cmd == "archive_datasets":
+        return bridge.archive_datasets([str(code) for code in payload.get("codes") or []])
     if cmd == "screen":
         return bridge.screen(payload.get("filters") or {})
     if cmd == "local_day_read":

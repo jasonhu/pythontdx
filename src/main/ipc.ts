@@ -59,6 +59,7 @@ import {
   backupOfflineData,
   inspectOfflineBackup,
   restoreOfflineData,
+  archiveDatasets,
   fetchChartPatterns,
   limitReview,
   speedTestServers,
@@ -89,7 +90,6 @@ import {
   fetchF10Market,
   fetchFiveDayTrend,
   fetchIndustries,
-  fetchClientBlocks,
   fetchKline,
   fetchMinuteTrend,
   fetchMacMoneyFlow,
@@ -274,6 +274,8 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.dataBackupRestore, (_event, path: string) => restoreOfflineData(path))
 
+  ipcMain.handle(IPC.dataArchiveDatasets, (_event, codes: string[]) => archiveDatasets(codes))
+
   ipcMain.handle(IPC.dataChooseBackupPath, async (_event, defaultName: string) => {
     const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const options = {
@@ -331,8 +333,6 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.blockList, (_event, kind: BlockKind) => fetchBlocks(kind))
 
   ipcMain.handle(IPC.blockIndustries, () => fetchIndustries())
-
-  ipcMain.handle(IPC.blockClient, (_event, dir?: string) => fetchClientBlocks(dir))
 
   ipcMain.handle(IPC.screenRun, (_event, request: ScreenRequest) => fetchScreen(request))
 

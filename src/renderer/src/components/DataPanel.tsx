@@ -37,7 +37,15 @@ interface DataPanelProps {
 }
 
 type DownloadKey =
-  'kline' | 'kline1m' | 'ticks' | 'indexKline' | 'blocks' | 'snapshot' | 'stats' | 'archive'
+  | 'kline'
+  | 'kline1m'
+  | 'ticks'
+  | 'indexKline'
+  | 'blocks'
+  | 'snapshot'
+  | 'stats'
+  | 'archive'
+  | 'datasets'
 
 const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> = [
   { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，全历史自动探测' },
@@ -47,7 +55,12 @@ const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> =
   { key: 'blocks', label: '板块文件', hint: '概念/风格/指数/一般' },
   { key: 'snapshot', label: '全市场快照', hint: 'MAC 报价导出 CSV' },
   { key: 'stats', label: 'TDX 统计', hint: 'zhb.zip + 规范化 tdxstat' },
-  { key: 'archive', label: '数据湖归档', hint: '全市场快照按 trade_date 归档' }
+  { key: 'archive', label: '数据湖归档', hint: '全市场快照按 trade_date 归档' },
+  {
+    key: 'datasets',
+    label: '板块/财务/龙虎榜归档',
+    hint: '板块全量 + 自选财务 + 龙虎榜全量，写数据湖 datasets/'
+  }
 ]
 
 const BLOCK_KINDS: BlockKind[] = ['gn', 'fg', 'zs', 'general']
@@ -128,7 +141,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     blocks: true,
     snapshot: true,
     stats: true,
-    archive: true
+    archive: true,
+    datasets: true
   })
   const [downloadRunning, setDownloadRunning] = createSignal(false)
   const [downloadDone, setDownloadDone] = createSignal(0)
@@ -579,7 +593,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       blocks: value,
       snapshot: value,
       stats: value,
-      archive: value
+      archive: value,
+      datasets: value
     })
   }
 
@@ -612,7 +627,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
           for (const kind of BLOCK_KINDS) await api.block.list(kind)
         } else if (key === 'snapshot') await runSnapshotExport()
         else if (key === 'stats') await runExport()
-        else await runArchive()
+        else if (key === 'datasets') {
+          const result = await api.data.archiveDatasets(watchCodes())
+          setDownloadMessage(
+            `数据集已落盘：板块 ${result.sectorRows} 行 / 龙虎榜 ${result.lhbRows} 行 / 财务 ${result.financeCodes} 只`
+          )
+        } else await runArchive()
         done += 1
         setDownloadDone(done)
       }

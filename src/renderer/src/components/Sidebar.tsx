@@ -19,7 +19,6 @@ import {
   createGroup,
   defaultGroup,
   draggingCode,
-  moveGroup,
   moveWatchItem,
   removeGroup,
   renameGroup,
@@ -30,12 +29,13 @@ import {
 } from '../stores/app'
 import { applyQuotes, quoteOf } from '../stores/quotes'
 import { openStockMenu } from '../stores/stockMenu'
+import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
 import { api, errorMessage } from '../lib/ipc'
 import { toneOf } from '../lib/tone'
 import { SectorPicker, type SectorSelection } from './SectorPicker'
+import { Sparkline } from './Sparkline'
 import {
   IconChart,
-  IconClose,
   IconColumns,
   IconFilter,
   IconGrid,
@@ -46,8 +46,6 @@ import {
   IconStar
 } from './Icons'
 import { WatchRow } from './WatchRow'
-
-type DropSide = 'before' | 'after'
 
 interface SidebarProps {
   onOpenRanking: () => void
@@ -76,6 +74,13 @@ function SectorRow(props: { code: string; name: string; onPick: () => void }): J
       onContextMenu={(event) => openStockMenu(event, { code: props.code, name: props.name })}
     >
       <span class="sector-row__name">{props.name}</span>
+      <Show when={sparklineOf(props.code)}>
+        {(data) => (
+          <span class="sector-row__spark">
+            <Sparkline values={data().values} baseline={data().prevClose} width={42} height={16} />
+          </span>
+        )}
+      </Show>
       <span class="sector-row__nums">
         <span class="sector-row__price num">{quote() ? fixed(quote()!.price) : '—'}</span>
         <span class={`sector-row__chg num ${tone()}`}>
@@ -87,21 +92,10 @@ function SectorRow(props: { code: string; name: string; onPick: () => void }): J
 }
 
 export function Sidebar(props: SidebarProps): JSX.Element {
-  const [editingId, setEditingId] = createSignal<string | null>(null)
-  const [draft, setDraft] = createSignal('')
-
-  /** 股票拖到分组标签上时，高亮该标签 */
-  const [stockDropGroupId, setStockDropGroupId] = createSignal<string | null>(null)
-  /** 正在被拖动的分组（调整分组顺序） */
-  const [draggingGroup, setDraggingGroup] = createSignal<string | null>(null)
-  /** 分组排序时的落点：插到哪个标签的前面/后面 */
-  const [groupDrop, setGroupDrop] = createSignal<{ id: string; side: DropSide } | null>(null)
-
   /* ------------------------------------------- 自选股 / 板块 / 自定义 三种视图 */
   type SidebarView = 'watch' | 'sector' | 'custom'
   const [view, setView] = createSignal<SidebarView>('watch')
   const [pickerOpen, setPickerOpen] = createSignal(false)
-  const [pickerCustomOnly, setPickerCustomOnly] = createSignal(false)
   /** 板块视图当前选中的板块 */
   const [sector, setSector] = createSignal<SectorSelection | null>(null)
   /** 自定义视图当前选中的分组 */
@@ -145,14 +139,13 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     groupId: group.id
   })
 
-  const openPicker = (customOnly: boolean): void => {
-    setPickerCustomOnly(customOnly)
+  const openPicker = (): void => {
     setPickerOpen(true)
   }
 
   const openSectorView = (): void => {
     setView('sector')
-    if (!sector()) openPicker(false)
+    if (!sector()) openPicker()
   }
 
   const openCustomView = (): void => {
@@ -163,9 +156,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       if (group) {
         setCustomSector(groupSelection(group))
         setActiveGroup(group.id)
-        return
       }
-      openPicker(true)
     }
   }
 
@@ -200,6 +191,8 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   }
 
   const sectorRows = createMemo(() => rankRows(sector()))
+  // 板块成分股的迷你走势图：只给前 60 只拉分时，避免一个 400 只的板块打出几百个请求
+  createSparklineLoader(() => (sector()?.codes ?? []).slice(0, 60))
   /**
    * 自定义板块按 groupId 现算，而不是用选择时的快照：
    * 用户在这个分组里加/删股票后，排行要立刻跟着变。
@@ -216,27 +209,50 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     appState.groups.filter((group) => group.id !== defaultGroup()?.id)
   )
 
-  const startRename = (group: WatchGroup): void => {
-    setDraft(group.name)
-    setEditingId(group.id)
+  /** 自定义板块只有一层：一个下拉框 + 改名/删除；新建时弹输入框设名字 */
+  const [nameDialog, setNameDialog] = createSignal<{
+    mode: 'create' | 'rename'
+    value: string
+  } | null>(null)
+
+  const openCreateDialog = (): void => {
+    setNameDialog({ mode: 'create', value: '' })
   }
 
-  const commitRename = (): void => {
-    const id = editingId()
-    if (id) renameGroup(id, draft())
-    setEditingId(null)
+  const openRenameDialog = (): void => {
+    const current = customBoard()
+    if (!current?.groupId) return
+    setNameDialog({ mode: 'rename', value: current.name })
   }
 
-  /** 拖到分组标签上 → 移动到该分组末尾 */
-  const dropStockOnGroup = (event: DragEvent, groupId: string): void => {
-    event.preventDefault()
-    const code = draggingCode() ?? event.dataTransfer?.getData('text/plain')
-    setStockDropGroupId(null)
-    setDraggingCode(null)
-    if (!code) return
+  const confirmName = (): void => {
+    const dialog = nameDialog()
+    if (!dialog) return
+    const name = dialog.value.trim()
+    if (!name) return
+    if (dialog.mode === 'create') {
+      createGroup(name)
+      const created = appState.groups[appState.groups.length - 1]
+      if (created) {
+        setCustomSector(groupSelection(created))
+        setActiveGroup(created.id)
+        setView('custom')
+      }
+    } else {
+      const current = customBoard()
+      if (current?.groupId) {
+        renameGroup(current.groupId, name)
+        setCustomSector({ ...current, name })
+      }
+    }
+    setNameDialog(null)
+  }
 
-    const target = appState.groups.find((group) => group.id === groupId)
-    moveWatchItem(code, groupId, target?.items.length ?? 0)
+  const deleteCustomBoard = (): void => {
+    const current = customBoard()
+    if (!current?.groupId) return
+    removeGroup(current.groupId)
+    setCustomSector(null)
   }
 
   /** 拖到列表空白处 → 追加到自选股末尾（自选只有一层） */
@@ -248,42 +264,6 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     const groupId = defaultGroup()?.id
     if (!groupId) return
     moveWatchItem(code, groupId, watchItems().length)
-  }
-
-  /** 分组排序：按鼠标在标签内的水平位置决定插到前面还是后面 */
-  const onGroupDragOver = (event: DragEvent, groupId: string): void => {
-    if (draggingCode()) {
-      event.preventDefault()
-      setStockDropGroupId(groupId)
-      return
-    }
-    const source = draggingGroup()
-    if (!source || source === groupId) return
-
-    event.preventDefault()
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    const side: DropSide = event.clientX < rect.left + rect.width / 2 ? 'before' : 'after'
-    setGroupDrop({ id: groupId, side })
-  }
-
-  const onGroupDrop = (event: DragEvent, groupId: string): void => {
-    // 股票 → 分组：走跨组移动
-    if (draggingCode()) {
-      dropStockOnGroup(event, groupId)
-      return
-    }
-
-    // 分组 → 分组：调整顺序
-    event.preventDefault()
-    const source = draggingGroup()
-    const target = groupDrop()
-    setGroupDrop(null)
-    setDraggingGroup(null)
-    if (!source || source === groupId) return
-
-    const index = appState.groups.findIndex((group) => group.id === groupId)
-    if (index < 0) return
-    moveGroup(source, target?.side === 'after' ? index + 1 : index)
   }
 
   return (
@@ -356,18 +336,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         >
           <IconChart size={13} />
         </button>
-        <button
-          class="btn btn--icon btn--bare"
-          title="新建自定义板块"
-          onClick={() => {
-            createGroup()
-            // 新建后直接切到自定义板块视图并选中它
-            const created = appState.groups[appState.groups.length - 1]
-            if (!created) return
-            setView('custom')
-            setCustomSector(groupSelection(created))
-          }}
-        >
+        <button class="btn btn--icon btn--bare" title="新建自定义板块" onClick={openCreateDialog}>
           <IconPlus size={13} />
         </button>
       </div>
@@ -435,7 +404,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
 
       <Show when={view() === 'sector'}>
         <div class="sector-head">
-          <button class="sector-head__pick" title="选择板块" onClick={() => openPicker(false)}>
+          <button class="sector-head__pick" title="选择板块" onClick={() => openPicker()}>
             <span class="sector-head__name">{sector()?.name ?? '选择板块'}</span>
             <span class="sector-head__count num">{sector()?.codes.length ?? 0}</span>
           </button>
@@ -443,7 +412,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             class="btn btn--icon btn--bare"
             title="换一个板块"
             aria-label="换一个板块"
-            onClick={() => openPicker(false)}
+            onClick={() => openPicker()}
           >
             <IconGrid size={13} />
           </button>
@@ -473,101 +442,31 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       </Show>
 
       <Show when={view() === 'custom'}>
-        <div class="sector-head">
-          <button class="sector-head__pick" title="选择自定义板块" onClick={() => openPicker(true)}>
-            <span class="sector-head__name">{customBoard()?.name ?? '选择自定义板块'}</span>
-            <span class="sector-head__count num">{customBoard()?.codes.length ?? 0}</span>
-          </button>
-          <button
-            class="btn btn--icon btn--bare"
-            title="换一个自定义板块"
-            aria-label="换一个自定义板块"
-            onClick={() => openPicker(true)}
+        <div class="custom-bar">
+          <select
+            class="custom-select"
+            aria-label="选择自定义板块"
+            value={customBoard()?.groupId ?? ''}
+            onChange={(event) => {
+              const group = appState.groups.find((item) => item.id === event.currentTarget.value)
+              if (!group) return
+              setCustomSector(groupSelection(group))
+              setActiveGroup(group.id)
+            }}
           >
-            <IconGrid size={13} />
+            <option value="">选择自定义板块…</option>
+            <For each={customGroups()}>
+              {(group) => (
+                <option value={group.id}>{`${group.name}（${group.items.length}）`}</option>
+              )}
+            </For>
+          </select>
+          <button class="btn" disabled={!customBoard()?.groupId} onClick={openRenameDialog}>
+            改名
           </button>
-        </div>
-        <div class="group-tabs group-tabs--custom">
-          <For each={customGroups()}>
-            {(group) => (
-              <div
-                class="group-chip"
-                classList={{
-                  'group-chip--drop': stockDropGroupId() === group.id,
-                  'group-chip--dragging': draggingGroup() === group.id,
-                  'group-chip--drop-before':
-                    groupDrop()?.id === group.id && groupDrop()?.side === 'before',
-                  'group-chip--drop-after':
-                    groupDrop()?.id === group.id && groupDrop()?.side === 'after'
-                }}
-                data-active={customSector()?.groupId === group.id}
-                draggable={editingId() !== group.id}
-                onClick={() => {
-                  setCustomSector(groupSelection(group))
-                  setActiveGroup(group.id)
-                }}
-                onDblClick={() => startRename(group)}
-                onDragStart={(event) => {
-                  if (editingId() === group.id) {
-                    event.preventDefault()
-                    return
-                  }
-                  setDraggingGroup(group.id)
-                  event.dataTransfer?.setData('text/plain', group.id)
-                  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
-                }}
-                onDragEnd={() => {
-                  setDraggingGroup(null)
-                  setGroupDrop(null)
-                  setStockDropGroupId(null)
-                }}
-                onDragOver={(event) => onGroupDragOver(event, group.id)}
-                onDragLeave={() => {
-                  setStockDropGroupId((current) => (current === group.id ? null : current))
-                  setGroupDrop((current) => (current?.id === group.id ? null : current))
-                }}
-                onDrop={(event) => onGroupDrop(event, group.id)}
-                title={`${group.name} · ${group.items.length} 只（双击改名，拖拽可调整顺序或接收股票）`}
-              >
-                <Show
-                  when={editingId() === group.id}
-                  fallback={
-                    <>
-                      <span class="group-chip__name">{group.name}</span>
-                      <span class="group-chip__count num">{group.items.length}</span>
-                      <span
-                        class="group-chip__close"
-                        role="button"
-                        aria-label="删除自定义板块"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          removeGroup(group.id)
-                        }}
-                      >
-                        <IconClose size={9} />
-                      </span>
-                    </>
-                  }
-                >
-                  <input
-                    class="group-chip__input"
-                    value={draft()}
-                    autofocus
-                    onInput={(event) => setDraft(event.currentTarget.value)}
-                    onBlur={commitRename}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') commitRename()
-                      if (event.key === 'Escape') setEditingId(null)
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                  />
-                </Show>
-              </div>
-            )}
-          </For>
-          <Show when={customGroups().length === 0}>
-            <span class="group-tabs__hint">还没有自定义板块，点右上「+」新建</span>
-          </Show>
+          <button class="btn" disabled={!customBoard()?.groupId} onClick={deleteCustomBoard}>
+            删除
+          </button>
         </div>
         <div class="sidebar__list sector-list">
           <Show
@@ -590,11 +489,42 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       </Show>
 
       <Show when={pickerOpen()}>
-        <SectorPicker
-          customOnly={pickerCustomOnly()}
-          onClose={() => setPickerOpen(false)}
-          onPick={pickSector}
-        />
+        <SectorPicker onClose={() => setPickerOpen(false)} onPick={pickSector} />
+      </Show>
+
+      <Show when={nameDialog()}>
+        {(dialog) => (
+          <div class="name-dialog" onClick={() => setNameDialog(null)}>
+            <div class="name-dialog__panel" onClick={(event) => event.stopPropagation()}>
+              <div class="name-dialog__title">
+                {dialog().mode === 'create' ? '新建自定义板块' : '重命名自定义板块'}
+              </div>
+              <input
+                class="name-dialog__input"
+                value={dialog().value}
+                autofocus
+                placeholder="板块名称"
+                onInput={(event) =>
+                  setNameDialog((prev) =>
+                    prev ? { ...prev, value: event.currentTarget.value } : prev
+                  )
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') confirmName()
+                  if (event.key === 'Escape') setNameDialog(null)
+                }}
+              />
+              <div class="name-dialog__actions">
+                <button class="btn" onClick={() => setNameDialog(null)}>
+                  取消
+                </button>
+                <button class="btn btn--primary" onClick={confirmName}>
+                  确定
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Show>
 
       <div class="sidebar__foot">

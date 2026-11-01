@@ -6,15 +6,13 @@
  *
  * 数据来源：
  *   行业      → tdxhy.cfg（111 个通达信行业，带成分股）
+ *   一级/二级行业 → TDXRSHY（tdxhy.cfg rsCode，按 MAC 0x1231 名单分层）
  *   概念/风格/指数板块/一般 → block_*.dat（0x06b9 文件通道）
- *   自定义    → 自选分组（本应用里「自定义板块」就是分组）
  *
- * MAC 0x1231 的一级/二级行业只有板块点位与领涨股，**没有成分股通道**，
- * 所以这里不列它们——选了也变不出个股排行。
+ * 自定义板块不在这里：它只有一层，由左栏「自定义」页签里的下拉框直接选择。
  */
 import { createEffect, createMemo, createSignal, For, onMount, Show, type JSX } from 'solid-js'
 import type { BlockGroup, BlockKind, IndustryList } from '@shared/types'
-import { appState, defaultGroup } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
 import { IconClose } from './Icons'
 
@@ -30,7 +28,7 @@ export interface SectorSelection {
   groupId?: string
 }
 
-type CategoryKey = 'industry' | 'rs1' | 'rs2' | 'client' | BlockKind | 'custom'
+type CategoryKey = 'industry' | 'rs1' | 'rs2' | BlockKind
 
 const CATEGORIES: Array<{ key: CategoryKey; label: string }> = [
   // 一级/二级行业来自 TDXRSHY（通达信研发行业），名字与 MAC 0x1231 的分类一致
@@ -40,9 +38,7 @@ const CATEGORIES: Array<{ key: CategoryKey; label: string }> = [
   { key: 'gn', label: '概念' },
   { key: 'fg', label: '风格' },
   { key: 'zs', label: '指数板块' },
-  { key: 'general', label: '一般' },
-  { key: 'client', label: '客户端自定义' },
-  { key: 'custom', label: '应用内分组' }
+  { key: 'general', label: '一般' }
 ]
 
 type PickerBoard = {
@@ -56,17 +52,12 @@ type PickerBoard = {
 }
 
 interface SectorPickerProps {
-  /** true 时只显示自定义板块（从「自定义」页签进来） */
-  customOnly?: boolean
   onClose: () => void
   onPick: (selection: SectorSelection) => void
 }
 
 export function SectorPicker(props: SectorPickerProps): JSX.Element {
-  // 只有「自定义」页签会以 customOnly 打开，初始分类跟着它走；
-  // 包成函数是为了不在组件顶层直接读 props（Solid 的响应式规则）。
-  const initialCategory = (): CategoryKey => (props.customOnly ? 'custom' : 'industry')
-  const [category, setCategory] = createSignal<CategoryKey>(initialCategory())
+  const [category, setCategory] = createSignal<CategoryKey>('industry')
   const [query, setQuery] = createSignal('')
   const [lists, setLists] = createSignal<Partial<Record<CategoryKey, PickerBoard[]>>>({})
   const [loading, setLoading] = createSignal(false)
@@ -99,23 +90,8 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
     return (data.rsBlocks ?? []).filter((board) => allowed.has(board.name))
   }
 
-  /** 自定义板块来自应用内分组（自选那一组除外），随时间变化，单独算 */
-  const customBoards = createMemo<PickerBoard[]>(() =>
-    appState.groups
-      .filter((group) => group.id !== defaultGroup()?.id)
-      .map((group) => ({
-        id: group.id,
-        name: group.name,
-        kind: 'custom',
-        count: group.items.length,
-        codes: group.items.map((item) => item.code),
-        names: Object.fromEntries(group.items.map((item) => [item.code, item.name])),
-        indexCode: ''
-      }))
-  )
-
   const load = async (key: CategoryKey): Promise<void> => {
-    if (key === 'custom' || lists()[key]) return
+    if (lists()[key]) return
     const current = ++requestId
     setLoading(true)
     setError(null)
@@ -127,8 +103,6 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
         blocks = await loadResearch(0)
       } else if (key === 'rs2') {
         blocks = await loadResearch(1)
-      } else if (key === 'client') {
-        blocks = (await api.block.client()).boards
       } else {
         blocks = (await api.block.list(key)).blocks
       }
@@ -151,10 +125,7 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const boards = createMemo<PickerBoard[]>(() => {
-    if (category() === 'custom') return customBoards()
-    return lists()[category()] ?? []
-  })
+  const boards = createMemo<PickerBoard[]>(() => lists()[category()] ?? [])
 
   const filtered = createMemo(() => {
     const keyword = query().trim().toLowerCase()
@@ -167,13 +138,12 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
     const key = category()
     props.onPick({
       key: `${key}:${board.id}`,
-      // 一级/二级行业是成分股列表；客户端自定义板块对外也按自定义板块处理
-      kind: key === 'rs1' || key === 'rs2' ? 'industry' : key === 'client' ? 'custom' : key,
+      // 一级/二级行业在数据上都是成分股列表
+      kind: key === 'rs1' || key === 'rs2' ? 'industry' : key,
       name: board.name,
       codes: [...board.codes],
       names: { ...board.names },
-      indexCode: board.indexCode || undefined,
-      groupId: key === 'custom' ? board.id : undefined
+      indexCode: board.indexCode || undefined
     })
     props.onClose()
   }
@@ -199,11 +169,7 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
             分类方式有多种（行业/概念/风格/一般/客户端自定义…），平铺一行放不下，也不能并列。 */}
         <div class="sector-picker__layout">
           <nav class="sector-picker__rail" role="tablist" aria-orientation="vertical">
-            <For
-              each={CATEGORIES.filter(
-                (item) => !props.customOnly || item.key === 'custom' || item.key === 'client'
-              )}
-            >
+            <For each={CATEGORIES}>
               {(item) => (
                 <button
                   class={`sector-picker__tab sector-picker__tab--${item.key}`}
@@ -242,11 +208,7 @@ export function SectorPicker(props: SectorPickerProps): JSX.Element {
                   when={filtered().length > 0}
                   fallback={
                     <div class="sector-picker__hint">
-                      {query()
-                        ? '没有匹配的板块'
-                        : category() === 'custom'
-                          ? '还没有自定义板块：先在左栏「+」新建分组'
-                          : '没有板块数据'}
+                      {query() ? '没有匹配的板块' : '没有板块数据'}
                     </div>
                   }
                 >

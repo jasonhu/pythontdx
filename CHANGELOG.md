@@ -10,7 +10,7 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
-## [未发布] - 备份/恢复进度条（2026-11-01）
+## [0.14.0] - 2026-11-01
 
 ### 新增
 
@@ -22,18 +22,29 @@ StockLens 的所有重要变更都记录在这里。
     未完成且尚无字节时用不确定进度动画，不伪造百分比；
   - 进度行显示已完成/总字节、文件数、百分比和当前文件；
   - 备份路径从只读文本改为可输入，仍保留「选择路径」对话框。
+- **版本/许可证收口**：版本号升至 `0.14.0`（新增功能，minor）；
+  `package-lock.json` 根包 license 从错误的 `MIT` 更正为 `GPL-3.0-or-later`。
 
 ### 验证
 
 - `npm run check` exit 0：**296 TS（296 passed，29 文件）+ 158 Python（1 skipped）**；
-- `npm run build:web` 通过；
-- 1.6 GB / 86 文件临时数据实测：备份进行到 **59%（939 MB，50/86 文件）**、
-  恢复进行到 **78%（1253 MB，64/84 文件）**，截图 `screenshots/backup-progress.png`
-  与 `screenshots/restore-progress.png`；
-- 临时 Linux `--dir` 包（Nuitka sidecar）实测备份 **89%（SHA256 阶段，1423/1600 MB）**，
-  证明 `stderr → TdxBridge → IPC → 进度条` 在打包链路可用
-  （`screenshots/backup-progress-packaged.png`）；
+- `npm run audit:data`：**39/39**；
+- `npm run build:web` 通过，Web 版本为 `0.14.0-web`；
+- 1.6 GB / 86 文件临时数据实测：开发构建备份 **59%**、恢复 **78%**；
+- 最终 AppImage 实测备份 **38%**（600/1600 MB，31/82 文件），
+  截图 `screenshots/backup-progress-0.14.0.png`；
+- 最终 AppImage 和 deb 解包运行均为 `v0.14.0`，默认自选 4 个宽基指数；
+- 两个包的 `app.asar` 均含 35,149 字节 GPL 文本和 `data:backup-progress` 通道；
 - 备份/恢复的 Python 用例断言首尾进度事件、全部阶段和完成字节数。
+
+### Linux 产物（2026-11-01 重出）
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `StockLens-0.14.0.AppImage` | 154,527,950 B | `cfdb83d72cf80b06d2a462abb78ba294409e592e396f82883160c8f69f030eb0` |
+| `stocklens_0.14.0_amd64.deb` | 128,643,080 B | `da30dcf5889f3f8fa33d94d1bbd217b9c407f6d71812b9a631a6f98a9d3bcb02` |
+| `linux-unpacked/resources/app.asar` | 3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
+| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,461,264 B | `2f5386ea8ba06834c66d087f659777c9c06fdd7c00d6d41d29b0159d9f90da5a` |
 
 ## [0.13.2] - 2026-11-01
 

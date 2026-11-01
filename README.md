@@ -6,14 +6,14 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：0.13.2（release candidate）** · **许可证：GPL-3.0-or-later** ·
+**版本：0.14.0（release candidate）** · **许可证：GPL-3.0-or-later** ·
 `npm run check`：296 个 TS 测试 + 158 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
-> 0.13 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
+> 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验，
 > macOS 也还没有实机打包验收。这两项完成后再发 1.0。
-> Windows x64 的安装包 / 绿色包 / zip 已于 2026-11-01 实机打包并验收；
-> Linux 0.13.2 AppImage/deb 也已实机打包、启动并做界面回归（见 `docs/07` 第二十九节）。
+> Windows x64 的 0.13.2 安装包 / 绿色包 / zip 已于 2026-11-01 实机打包并验收；
+> Linux 0.14.0 AppImage/deb 包含备份/恢复进度条与 GPL 文本，已实机启动（见 `docs/07` 第三十节）。
 
 ---
 
@@ -178,9 +178,9 @@ npm run build:linux   # AppImage + deb
 npm run build:mac     # macOS（需在 macOS 上构建）
 ```
 
-产物在 `release/<version>/`。Linux 0.13.2 与 Windows x64 0.13.2 均已实机打包并启动验收；macOS 需在对应系统本机验收。
+产物在 `release/<version>/`。Linux 0.14.0 已实机打包并启动验收；Windows x64 当前仍是 0.13.2 包，未含本轮的进度条与 LICENSE 修正；macOS 需在对应系统本机验收。
 
-> 注意：0.13.2 的 Windows 三件套生成于本次 Linux 回归之前，未包含 `LICENSE` 打包修正；重新分发前建议在 Windows 重打。Linux 包已包含。
+> 注意：Windows 0.13.2 三件套生成于本次 Linux 改动之前，不含备份/恢复进度条，也不含项目 GPL 文本；重新分发前必须在 Windows 上重打。Linux 0.14.0 已包含两者。
 
 ---
 

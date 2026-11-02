@@ -95,6 +95,20 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 | `linux-unpacked/resources/app.asar` | 3,607,099 B | `71462c02bde14649a6f21d15609499890de43774e88ab0211b3498ee27fb74e1` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,461,264 B | `0f01f15092ed2c8b1718257eb3df537f75b2e58c2bcc4d90e663e40cb47bf084` |
 
+### 0x0547 盘中验证（2026-11-02 09:30–09:35）
+
+- cron 自动运行 `scripts/probe_0547.py --code sh600519 --seconds 300`：
+  158 条记录；zero/one 各 3 帧均 1 条、稳定同哈希；max/timestamp 各 3 帧均 1 条、
+  稳定同哈希（差异对应 09:30:04 价格变化）；silent 段 5 秒收到 **0 字节**；
+  loop-zero 145 次全部 1 条，无未经请求的帧；
+- 判定：当前主站为**快照语义**，无服务端主动推送；客户端继续传游标 0，
+  `PushHub` 的主进程轮询模型保持不变，不需要 per-code cursor 改造；
+- 修复探针分析误报：首个 `CURSOR_HASH_DIFF` 是因为把不同时间的价格变化当成游标差异；
+  分析器改为「四类游标均 1 条 + silent 0 字节 → SNAPSHOT_CANDIDATE」；
+- 证据：`lake/probes/0x0547-20261102-093002.jsonl`、
+  `0x0547-analysis-20261102-094040.json`（`docs/03` 3.8、`docs/08` 第 3 项）。
+- 边界：仅当前主站/连接/09:30–09:35 窗口；不宣称所有主站/时段永不主动推送。
+
 ## [0.14.3] - 2026-11-02
 
 ### 修复

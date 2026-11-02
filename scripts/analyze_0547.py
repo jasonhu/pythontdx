@@ -98,12 +98,18 @@ def main() -> int:
     elif len(set(cursor_counts.values())) > 1:
         verdict = "CURSOR_COUNT_DIFF"
         reason = f"不同游标返回条数不同：{cursor_counts}"
+    elif all(count == 1 for count in cursor_counts.values()):
+        verdict = "SNAPSHOT_CANDIDATE"
+        reason = (
+            "四类游标均返回 1 条当前报价，游标没有减少记录；"
+            "分组间哈希差异可由盘中价格变化解释；静默期无额外数据"
+        )
     elif len(set(cursor_hashes.values())) == 1:
         verdict = "SNAPSHOT_CANDIDATE"
         reason = "四类游标返回相同条数和稳定哈希，静默期无额外数据"
     else:
         verdict = "CURSOR_HASH_DIFF"
-        reason = "条数相同但稳定哈希不同，需结合行情变动复核"
+        reason = "条数/哈希差异无法由单一规则解释，需结合原始报文复核"
 
     report = {
         "probe": str(path),

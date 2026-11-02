@@ -19,6 +19,7 @@ StockLens 的所有重要变更都记录在这里。
   GitHub Release；Windows 使用免费自签名（不购买付费证书），macOS 使用 ad-hoc 签名。
 - 功能矩阵：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**；6 项 ⛔ 为明确范围/授权边界。
 - 验证：315 TS + 168 Python（1 skipped）；`audit:data` 39/39。
+- GitHub Release：[v1.0.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.0.0)。
 
 ## [1.0.0-rc.1] - 2026-11-02
 

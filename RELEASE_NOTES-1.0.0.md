@@ -4,21 +4,21 @@
 - 日期：2026-11-02
 - 许可证：GPL-3.0-or-later
 - 平台：Linux x64 / Windows x64 / macOS arm64
-- 构建与发布：全部由 GitHub Actions 完成，产物附加到 GitHub Release
-- 签名：**不购买付费证书**；Windows 使用免费自签名（CI 失败则保持未签名），macOS 使用 ad-hoc 签名
+- 发布：GitHub Actions 三平台构建，已上传 [GitHub Release v1.0.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.0.0)
+- 签名：不购买付费证书；Windows 使用 CI 生成的自签名证书，macOS 使用 ad-hoc 签名
 
 ## 本版重点
 
 ### 0x0547 增量行情
 
-- `0x0547` 已确认是按代码 `updateTime` 游标的增量刷新；
-- `cursor=0` 建立基线，无新成交返回 0 条，有新成交返回 1 条并推进；
+- `0x0547` 确认为按代码 `updateTime` 游标的增量刷新；
+- `cursor=0` 建立基线，无新成交返回 0 条，有新成交返回 1 条并推进游标；
 - 客户端保存 per-code cursor、缓存上一帧，0 条响应不清空；
 - 部分返回按记录内「市场 + 代码」映射；
 - 每 60 秒强制一次 cursor=0 基线，防游标失步；
-- 未配对推送帧仍会入队/合并，但真实免费 7709 主站不做可靠主动推送：
+- 未配对推送帧仍会入队/合并；真实免费 7709 主站不做可靠主动推送：
   本项目 48 个配置主站各 5 秒、75 秒单代码、45 秒 80 代码均 0 帧；
-  独立 eltdx issue #21 四层实测与维护者复验同样 0 帧，增量刷新可用。
+  独立 eltdx issue #21 四层实测与维护者复验同为 0 帧，增量刷新可用。
 
 ### 实时鲁棒性
 
@@ -30,25 +30,28 @@
 ## 验证
 
 ```text
-npm run check     315 TS + 168 Python（1 skipped）
+npm run check      315 TS + 168 Python（1 skipped）
 npm run audit:data 39/39
 build:linux / build:web / build:python 通过
 ```
 
-三平台产物由 `.github/workflows/release.yml` 在 `v1.0.0` tag 上构建，构建完成后
-自动创建 GitHub Release 并上传。
+GitHub Actions `release-1.0.0` 在 `v1.0.0` tag 上构建三平台并创建 Release。
+
+## 产物
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `StockLens-1.0.0.AppImage` | 165,206,214 B | `9b4188313c6144aac57aa9357a1a9fc5cb4ea1a454bfec0da1be0e63da524e49` |
+| `stocklens_1.0.0_amd64.deb` | 138,739,784 B | `4beed0857b370c958234fb6eccf7321552555b2a14d1f1d4059a85940f8d9204` |
+| `stocklens-1.0.0-setup.exe` | 133,361,160 B | `f142186e4175a16684a338d96d98207cf61bca82ac31a057a7d8392cfa2e35a6` |
+| `stocklens-1.0.0-portable.exe` | 133,107,024 B | `df15a0d3a2cd590d06326659e2647d8a3807d1fa5445f90ae015db62963183c1` |
+| `stocklens-1.0.0-arm64.dmg` | 166,829,697 B | `b659c2b2cff342d7a047beae1161fedd420fa07aba998eddb075ca7e271c4cfa` |
+| `stocklens-selfsigned.cer` | 822 B | `f5c623d2ca0a7d05f5e16f778a4725adbd51c67797e7b6772971197c40681d61` |
 
 ## 边界
 
-- Windows 无付费证书：CI 尝试免费自签名；失败时发布未签名产物；
+- Windows 为免费自签名，SmartScreen 仍会提示未知发布者；
 - macOS 为 ad-hoc 签名，未做 Developer ID 公证；
 - 6 项 ⛔：研报正文、交易/下单、Level-2/付费、7727/EX、港股美股、登录/账户；
 - `0x06b9` 无服务器完整目录枚举命令；
 - 本地文件 API 已接，主行情 UI 仍以 7709 为主。
-
-## 安装
-
-- Linux：AppImage / deb
-- Windows：setup.exe / portable.exe
-- macOS：arm64 dmg
-- 详细哈希见 GitHub Release 附件中的 `.sha256`

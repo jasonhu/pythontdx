@@ -380,20 +380,21 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 > Linux 0.14.4 AppImage/deb 已在本机启动验收：`v0.14.4`、GPL 文本、
 > 备份/恢复进度条均回读通过。
 
-> **1.0.0-rc.1 三平台候选**：Linux AppImage/deb、Windows setup/portable、
-> macOS arm64 dmg 均已产出；包内版本 `1.0.0-rc.1`，GPL 与 `data:backup-progress`
-> 均在；sidecar 含 0x0547 增量游标、未配对推送帧读取、60 秒基线看门狗与 30 秒心跳。
-> Windows CI 产物未签名；macOS 为 ad-hoc 签名。
+> **1.0.0 三平台正式发布**：Linux AppImage/deb、Windows setup/portable、
+> macOS arm64 dmg 均由 GitHub Actions 构建，并上传到
+> [GitHub Release v1.0.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.0.0)。
+> 包内版本 `1.0.0`，GPL 与 `data:backup-progress` 均在；sidecar 含 0x0547
+> 增量游标、60 秒基线看门狗与 30 秒心跳。
+> Windows 使用免费自签名；macOS 使用 ad-hoc 签名，均未购买付费证书。
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
-| `StockLens-1.0.0-rc.1.AppImage` | 154,565,463 B | `1fa658304edba0e0d1a97849004801f195ce14acf024beda2034e54d8c2261c5` |
-| `stocklens_1.0.0-rc.1_amd64.deb` | 128,680,352 B | `d7af62ba9d8477fa73909737af6eda29ee5abe9e2f624342c5828ef87bdb4d7a` |
-| `stocklens-1.0.0-rc.1-setup.exe` | 133,360,582 B | `253d1a478aaf72764d94d71c30c79530c1f8338c010294af46e444b5eaf4d08e` |
-| `stocklens-1.0.0-rc.1-portable.exe` | 133,106,426 B | `678366d939e7783a3df8121d2abf3cbfc0a5f823f5aa9cda50360f8fa9a890cb` |
-| `stocklens-1.0.0-rc.1-arm64.dmg` | 166,103,849 B | `73bb8040ff552df67d514acbf827c4dd082ca4d1f6c300f678bf634fc64e59a4` |
-| `linux-unpacked/resources/app.asar` | 3,614,550 B | `cc6293a222616e7a861623937d4fec3eef441b310a9ea883e10203b588087a76` |
-| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,489,936 B | `58439ebf68768ce5285c47bf31ddd1c21b3a5219473e21543ebdbc2713285cc4` |
+| `StockLens-1.0.0.AppImage` | 165,206,214 B | `9b4188313c6144aac57aa9357a1a9fc5cb4ea1a454bfec0da1be0e63da524e49` |
+| `stocklens_1.0.0_amd64.deb` | 138,739,784 B | `4beed0857b370c958234fb6eccf7321552555b2a14d1f1d4059a85940f8d9204` |
+| `stocklens-1.0.0-setup.exe` | 133,361,160 B | `f142186e4175a16684a338d96d98207cf61bca82ac31a057a7d8392cfa2e35a6` |
+| `stocklens-1.0.0-portable.exe` | 133,107,024 B | `df15a0d3a2cd590d06326659e2647d8a3807d1fa5445f90ae015db62963183c1` |
+| `stocklens-1.0.0-arm64.dmg` | 166,829,697 B | `b659c2b2cff342d7a047beae1161fedd420fa07aba998eddb075ca7e271c4cfa` |
+| `stocklens-selfsigned.cer` | 822 B | `f5c623d2ca0a7d05f5e16f778a4725adbd51c67797e7b6772971197c40681d61` |
 
 ---
 

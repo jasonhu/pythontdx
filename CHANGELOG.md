@@ -29,7 +29,7 @@ StockLens 的所有重要变更都记录在这里。
 - **测试**：新增部分返回映射、游标缓存、推送帧入队/合并、响应头解析用例；
   `npm run check`：**315 TS + 168 Python（1 skipped）**；`npm run audit:data` **39/39**。
 - **Linux / Windows 1.0.0-rc.1**：Linux AppImage `1fa65830…`、deb `d7af62ba…`；
-  Windows CI setup `07a88750…`、portable `156a6737…`（未签名）；
+  Windows CI setup `253d1a47…`、portable `678366d9…`（未签名）；
   macOS 仍待构建；已打 `v1.0.0-rc.1` tag，暂未打 `v1.0.0`。
 
 ### 边界

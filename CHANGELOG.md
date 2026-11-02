@@ -76,6 +76,25 @@ StockLens 的所有重要变更都记录在这里。
 `StockLens-0.14.4-win-x64` 后 7-Zip 压缩）；`build:win` 本身只产出 setup /
 portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 
+### Linux 0.14.4 回归（2026-11-02）
+
+- **README Linux 编译手册修正**：Ubuntu 26.04 系统 Python 受 PEP 668 管理，
+  改为项目内 `.venv`；补 `python3-venv`、`libfuse2t64`、无 FUSE 的
+  `--appimage-extract-and-run` 和 `apt install ./...deb`；Linux 实测版本改为
+  Python 3.14.4 / Nuitka 4.3.3。
+- `npm run check` exit 0：**315 TS（32 文件）+ 164 Python（1 skipped）**；
+  `npm run audit:data` **39/39**；`npm run build:linux` exit 0；
+- AppImage/deb 均启动 `v0.14.4`，默认自选 4 个宽基指数；
+- AppImage 完成一次 1.6 GB 备份，进度条 **100%**（82/82 文件）；
+- 两个包内 `app.asar` 均含 `data:backup-progress` 与 35,149 字节 GPL 文本。
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `StockLens-0.14.4.AppImage` | 154,528,884 B | `a7567031faae1ff6bb2b333a64f79dc17d8a77a78bef8ea100e309aeea50762d` |
+| `stocklens_0.14.4_amd64.deb` | 128,641,832 B | `2a8add0af11951180a021221a5e9e65e191cb60a333e9b7a55097657698c3ba5` |
+| `linux-unpacked/resources/app.asar` | 3,607,099 B | `71462c02bde14649a6f21d15609499890de43774e88ab0211b3498ee27fb74e1` |
+| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,461,264 B | `0f01f15092ed2c8b1718257eb3df537f75b2e58c2bcc4d90e663e40cb47bf084` |
+
 ## [0.14.3] - 2026-11-02
 
 ### 修复

@@ -11,8 +11,8 @@
 `npm run audit:data`：39/39。
 
 > 0.14 而不是 1.0：`0x0547` 的盘中增量/推送语义仍需在交易时段复验。
-> Windows x64 0.14.4 与 macOS arm64 0.14.4 已完成本机打包验证（macOS 仅散装 app + dmg，
-> 不发布 Release）；Linux 0.14.0 已发布验收。Windows/Linux 0.14.4 的对外发布另行决定。
+> Windows x64 0.14.4、macOS arm64 0.14.4 与 Linux 0.14.4 均已完成本机打包验证
+> （macOS 仅散装 app + dmg；Linux 产物随本轮发布）。
 > macOS 只支持 Apple Silicon，不维护 Intel 版。
 > 0.14.4 Windows 安装版 K 线首图约 0.35 秒、逐笔首行约 0.21 秒（本机实测），
 > 并已用本机自签名证书做完整性签名（不改变 SmartScreen 提示）。
@@ -153,15 +153,28 @@ StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 | 依赖                     | 版本                                          | 用途                                           |
 | ------------------------ | --------------------------------------------- | ---------------------------------------------- |
 | Node.js                  | ≥ 20.19（实测 24.22.2）                       | 前端与 Electron                                |
-| Python                   | ≥ 3.10（实测 3.14.10）                        | 开发/Python 后端；打包后的桌面版不需要用户安装 |
+| Python                   | ≥ 3.10（Linux 实测 3.14.4）                   | 开发/Python 后端；打包后的桌面版不需要用户安装 |
 | duckdb                   | ≥ 2                                           | Parquet 读写与查询                             |
 | pyarrow / pandas / numpy | 最新稳定版                                    | 数据挖掘/ML，sidecar 不打包                    |
-| Nuitka                   | 4.x（实测 4.3.4）                             | 构建 Python sidecar                            |
+| Nuitka                   | 4.x（Linux 实测 4.3.3）                       | 构建 Python sidecar                            |
 | OS / 工具链              | Windows 10 22H2 / macOS 27.2 / Ubuntu 26.04.1 | 原生编译，不做交叉编译                         |
 
+Ubuntu 26.04 的系统 Python 受 PEP 668 管理，**不要直接往系统 Python 装包**；在项目内建 venv：
+
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 npm install
-python3 -m pip install -r requirements.txt
+```
+
+Windows PowerShell 对应：
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+npm.cmd install
 ```
 
 ### 开发
@@ -188,17 +201,20 @@ python3 python/tdx_server.py --web-dir out/web --port 8765
 
 ### 0. 通用准备
 
-三平台都需要 **Node.js ≥ 20.19（实测 24.22.2）**、**Python ≥ 3.10（实测 3.14.10）**
-和 **Nuitka 4.x（实测 4.3.4）**。先拉代码并安装依赖：
+三平台都需要 **Node.js ≥ 20.19（实测 24.22.2）**、**Python ≥ 3.10（Linux 实测 3.14.4）**
+和 **Nuitka 4.x（Linux 实测 4.3.3）**。先拉代码并在项目内建 venv：
 
 ```bash
 git clone https://github.com/riverzhou/pythontdx.git
 cd pythontdx
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 npm install
-python3 -m pip install -r requirements.txt
 ```
 
-Windows 上 `python3` 换成 `py -3`，`npm` 换成 `npm.cmd`（PowerShell 执行策略限制时）。
+Windows 上 `python3` 换成 `py -3`，激活命令换成 `.\.venv\Scripts\Activate.ps1`，
+`npm` 换成 `npm.cmd`（PowerShell 执行策略限制时）。
 打包脚本会自动先跑 `npm run build:python`，把 Python sidecar 编成单个可执行文件；
 不需要用户机器安装 Python。
 
@@ -220,7 +236,9 @@ npm run audit:data   # 39 项数据覆盖/完整性审计
 
 ```powershell
 npm.cmd install
-py -3 -m pip install -r requirements.txt
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 npm.cmd run check
 
 npm.cmd run build:win            # NSIS 安装包 + 单文件便携版
@@ -268,7 +286,9 @@ Compress-Archive -Path "$out\StockLens-$v-win-x64" `
 
 ```bash
 npm install
-python3 -m pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 npm run check
 
 npm run build:mac:app   # 只出散装 .app，最快验证
@@ -303,20 +323,36 @@ macOS 首次启动会触发 Gatekeeper 对 sidecar 的安全扫描，**首屏约
 
 ### 3. Ubuntu 26.04.1（x64）
 
-前置：`build-essential`、`python3-dev`、`patchelf`；AppImage 运行还需要 FUSE
-（deb 不需要）。
+前置：`build-essential`、`python3-dev`、`python3-venv`、`patchelf`；AppImage 运行还需要 FUSE
+（Ubuntu 26.04 包名 `libfuse2t64`，deb 不需要）。
 
 ```bash
-sudo apt install build-essential python3-dev patchelf
-python3 -m pip install -r requirements.txt
+sudo apt install build-essential python3-dev python3-venv patchelf libfuse2t64
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+npm install
 npm run check
 
 npm run build:linux   # AppImage + deb
 ```
 
+如果 `.venv` 已存在，只需 `source .venv/bin/activate`；不想激活时也可以用
+`STOCKLENS_PYTHON=.venv/bin/python npm run build:linux`。
+
 产物在 `release/<version>/`：`StockLens-<version>.AppImage`、
-`stocklens_<version>_amd64.deb`。AppImage 需要 `chmod +x` 后运行；
-deb 可 `sudo dpkg -i` 或 `dpkg-deb -x` 解包直接运行。
+`stocklens_<version>_amd64.deb`。AppImage 需要 `chmod +x` 后运行；没有 FUSE 时用
+`--appimage-extract-and-run`：
+
+```bash
+chmod +x release/<version>/StockLens-<version>.AppImage
+./release/<version>/StockLens-<version>.AppImage
+# FUSE 不可用：
+./release/<version>/StockLens-<version>.AppImage --appimage-extract-and-run
+```
+
+deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
+（自动解析依赖），或 `dpkg-deb -x` 解包直接运行。
 
 ### 4. 产物速查
 
@@ -334,6 +370,8 @@ deb 可 `sudo dpkg -i` 或 `dpkg-deb -x` 解包直接运行。
 > 公钥在 `release/0.14.4/stocklens-selfsigned.cer`，SmartScreen 仍会提示未知发布者）；
 > `release/0.14.4/mac-arm64/StockLens.app` 与 `release/0.14.4/stocklens-0.14.4-arm64.dmg`
 > 也已构建、签名和 GPL 校验通过；dmg 只做本地验证，不发布 GitHub Release。
+> Linux 0.14.4 AppImage/deb 已在本机启动验收：`v0.14.4`、GPL 文本、
+> 备份/恢复进度条均回读通过。
 
 ---
 

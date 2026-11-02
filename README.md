@@ -378,14 +378,17 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 > Linux 0.14.4 AppImage/deb 已在本机启动验收：`v0.14.4`、GPL 文本、
 > 备份/恢复进度条均回读通过。
 
-> **1.0.0-rc.1 Linux 候选**：AppImage/deb 已打包，包内版本 `1.0.0-rc.1`，
-> GPL 文本与 `data:backup-progress` 均在；sidecar 已含 0x0547 增量游标、
-> 未配对推送帧读取与 30 秒心跳。Windows/macOS 仍需在对应机器重打后再决定发版。
+> **1.0.0-rc.1 Linux / Windows 候选**：Linux AppImage/deb 与 Windows setup/portable
+> 已打包；包内版本 `1.0.0-rc.1`，GPL 与 `data:backup-progress` 均在；sidecar 已含
+> 0x0547 增量游标、未配对推送帧读取与 30 秒心跳。Windows CI 产物未签名，
+> macOS 仍需在对应机器重打后再决定发版。
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
 | `StockLens-1.0.0-rc.1.AppImage` | 154,565,422 B | `bf542ba00478c42c0adc5b302bc559f016f74482aa15d6c8a533fe1230d0919b` |
 | `stocklens_1.0.0-rc.1_amd64.deb` | 128,682,692 B | `6061fbd92bdf8d2e3da311260374c2fc4f33e57302db5dea327d30bc0cdbc57f` |
+| `stocklens-1.0.0-rc.1-setup.exe` | 133,371,710 B | `07a88750b32336ed441062819f48ec993fc9f298c52ed8cbbc9da7a1b14f2888` |
+| `stocklens-1.0.0-rc.1-portable.exe` | 133,117,517 B | `156a6737c9ce97c21d6f7e86eeb26976a578a9c617632d2991eb6d65927709c5` |
 | `linux-unpacked/resources/app.asar` | 3,613,001 B | `e9c97e6e7f014b0b258927b8a6c28e02a7f2ba602707d4bf5574989dbc4cf9a3` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,489,936 B | `381a0050917cc9d2da4f9db7994986e943aa7b4ce583e5f96f27bfa41341b581` |
 

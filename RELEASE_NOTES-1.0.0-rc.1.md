@@ -3,7 +3,8 @@
 - 版本：`1.0.0-rc.1`
 - 日期：2026-11-02
 - 许可证：GPL-3.0-or-later
-- 状态：**release candidate / Linux x64 已打包；Windows x64、macOS arm64 待原生重打**
+- 状态：**release candidate / Linux x64 + Windows x64 已打包；macOS arm64 待构建**
+- Windows 产物由 GitHub Actions 生成，**未签名**（CI 的 Cert provider 不可用）
 - 未创建 `v1.0.0` tag；已创建并推送 `v1.0.0-rc.1` tag（commit `b519d8a`）；
   `v0.14.4` tag 仍指向 `dc2bcb4`
 
@@ -49,6 +50,8 @@ build:web         exit 0
 | --- | ---: | --- |
 | `StockLens-1.0.0-rc.1.AppImage` | 154,565,422 B | `bf542ba00478c42c0adc5b302bc559f016f74482aa15d6c8a533fe1230d0919b` |
 | `stocklens_1.0.0-rc.1_amd64.deb` | 128,682,692 B | `6061fbd92bdf8d2e3da311260374c2fc4f33e57302db5dea327d30bc0cdbc57f` |
+| `stocklens-1.0.0-rc.1-setup.exe` | 133,371,710 B | `07a88750b32336ed441062819f48ec993fc9f298c52ed8cbbc9da7a1b14f2888` |
+| `stocklens-1.0.0-rc.1-portable.exe` | 133,117,517 B | `156a6737c9ce97c21d6f7e86eeb26976a578a9c617632d2991eb6d65927709c5` |
 | `app.asar` | 3,613,001 B | `e9c97e6e7f014b0b258927b8a6c28e02a7f2ba602707d4bf5574989dbc4cf9a3` |
 | `tdx-bridge` | 28,489,936 B | `381a0050917cc9d2da4f9db7994986e943aa7b4ce583e5f96f27bfa41341b581` |
 
@@ -63,6 +66,10 @@ chmod +x release/1.0.0-rc.1/StockLens-1.0.0-rc.1.AppImage
 
 # deb
 sudo apt install ./release/1.0.0-rc.1/stocklens_1.0.0-rc.1_amd64.deb
+
+# Windows setup / portable（CI 未签名）
+release/1.0.0-rc.1/stocklens-1.0.0-rc.1-setup.exe
+release/1.0.0-rc.1/stocklens-1.0.0-rc.1-portable.exe
 ```
 
 AppImage 无 FUSE 时：

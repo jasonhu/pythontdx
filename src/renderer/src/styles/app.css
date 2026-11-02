@@ -684,11 +684,11 @@
   gap: var(--sp-2);
 }
 
-/* 头部下方的一排关键指标 */
+/* 头部下方的一排关键指标：固定 12 列，保证 1440×900 下不换行 */
 .quote-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
-  gap: var(--sp-2) var(--sp-2);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 4px 6px;
   padding-top: var(--sp-3);
   border-top: 1px solid var(--border);
 }
@@ -697,18 +697,39 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .metric__label {
   font-size: var(--fs-2xs);
   color: var(--text-3);
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .metric__value {
   font-size: var(--fs-sm);
   font-weight: 550;
   color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1360px) {
+  .quote-metrics {
+    gap: 2px 4px;
+  }
+
+  .metric__label {
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+
+  .metric__value {
+    font-size: 10px;
+  }
 }
 
 /* ================================================================ 图表卡 */

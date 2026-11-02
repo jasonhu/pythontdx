@@ -316,30 +316,16 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                   >
                     <table class="block__table">
                       <colgroup>
-                        <col style="width: 68px" />
-                        <col style="width: 100px" />
-                        <col style="width: 66px" />
-                        <col style="width: 68px" />
-                        <col style="width: 78px" />
-                        <col style="width: 56px" />
-                        <col style="width: 48px" />
-                        <col style="width: 54px" />
+                        <col style="width: 64px" />
+                        <col style="width: 88px" />
+                        <col style="width: 64px" />
+                        <col style="width: 64px" />
+                        <col style="width: 70px" />
+                        <col style="width: 52px" />
+                        <col style="width: 46px" />
+                        <col style="width: 50px" />
                         <For each={EXTRA_COLUMNS}>
-                          {(column) => (
-                            <col
-                              style={{
-                                width: `${
-                                  column.key === 'totalCap'
-                                    ? 70
-                                    : column.key === 'floatCap'
-                                      ? 72
-                                      : column.key === 'volume'
-                                        ? 70
-                                        : column.width - 2
-                                }px`
-                              }}
-                            />
-                          )}
+                          {(column) => <col style={{ width: `${column.width - 2}px` }} />}
                         </For>
                         <col style="width: 36px" />
                       </colgroup>

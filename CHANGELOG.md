@@ -17,6 +17,8 @@ pythontdx 的所有重要变更都记录在这里。
 - **正式名称统一为 `pythontdx`**：窗口/标题/托盘/设置/安装包/快捷方式/产物文件名、
   `appId`、包名、Python sidecar 的缓存路径、数据 schema、备份 manifest、
   localStorage key 与文档全部改名。
+- **默认窗口改为 1440×900**：旧 1600×900/1280×820 默认尺寸启动时升级；
+  主行情指标固定 12 列单行，全市场/板块/排行榜压缩列宽，1440 下无横向滚动。
 - **旧数据迁移**（不删除旧目录/旧键）：
   - 主进程把 `%APPDATA%/StockLens`（或旧 userData 目录）复制到 `pythontdx`，
     `stocklens.json` 复制为 `pythontdx.json`；便携版 `StockLens-data` → `pythontdx-data`；

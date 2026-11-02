@@ -15,17 +15,17 @@ export interface ExtraColumn {
 }
 
 export const EXTRA_COLUMNS: ExtraColumn[] = [
-  { key: 'open', label: '今开', width: 62 },
-  { key: 'high', label: '最高', width: 62 },
-  { key: 'low', label: '最低', width: 62 },
-  { key: 'prevClose', label: '昨收', width: 62 },
-  { key: 'volume', label: '成交量', width: 72 },
-  { key: 'avgPrice', label: '均价', width: 62 },
-  { key: 'amplitude', label: '振幅', width: 58 },
-  { key: 'limitUp', label: '涨停', width: 62 },
-  { key: 'limitDown', label: '跌停', width: 62 },
-  { key: 'totalCap', label: '总市值', width: 68 },
-  { key: 'floatCap', label: '流通市值', width: 70 }
+  { key: 'open', label: '今开', width: 58 },
+  { key: 'high', label: '最高', width: 58 },
+  { key: 'low', label: '最低', width: 58 },
+  { key: 'prevClose', label: '昨收', width: 58 },
+  { key: 'volume', label: '成交量', width: 64 },
+  { key: 'avgPrice', label: '均价', width: 58 },
+  { key: 'amplitude', label: '振幅', width: 54 },
+  { key: 'limitUp', label: '涨停', width: 58 },
+  { key: 'limitDown', label: '跌停', width: 58 },
+  { key: 'totalCap', label: '总市值', width: 64 },
+  { key: 'floatCap', label: '流通市值', width: 66 }
 ]
 
 const percent = (value: number | undefined): string =>

@@ -2172,7 +2172,7 @@
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 184px minmax(0, 1fr);
+  grid-template-columns: 164px minmax(0, 1fr);
 }
 
 .block__side {

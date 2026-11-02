@@ -6,7 +6,7 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：0.14.4（release candidate）** · **许可证：GPL-3.0-or-later** ·
+**版本：1.0.0-rc.1（release candidate）** · **许可证：GPL-3.0-or-later** ·
 `npm run check`：315 个 TS 测试 + 168 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
@@ -14,8 +14,8 @@
 > 用返回的 updateTime 再请求返回 0 条（无变化）；客户端已缓存上一帧并推进 cursor。
 > 未配对推送帧也已入队/合并，但当前免费主站 75 秒单代码、45 秒 80 代码实测未主动下发，
 > 实时链路以 1 秒增量刷新为主。1.0 仍待剩余边界项决策与发布流程。
-> Windows x64 0.14.4、macOS arm64 0.14.4 与 Linux 0.14.4 均已完成本机打包验证
-> （macOS 仅散装 app + dmg；Linux 产物随本轮发布）。
+> Linux x64 1.0.0-rc.1 AppImage/deb 已打包；Windows x64 / macOS arm64 的
+> 1.0.0-rc.1 需在对应机器重打（0.14.4 产物为上一版验证记录）。
 > macOS 只支持 Apple Silicon，不维护 Intel 版。
 > 0.14.4 Windows 安装版 K 线首图约 0.35 秒、逐笔首行约 0.21 秒（本机实测），
 > 并已用本机自签名证书做完整性签名（不改变 SmartScreen 提示）。
@@ -375,6 +375,17 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 > 也已构建、签名和 GPL 校验通过；dmg 只做本地验证，不发布 GitHub Release。
 > Linux 0.14.4 AppImage/deb 已在本机启动验收：`v0.14.4`、GPL 文本、
 > 备份/恢复进度条均回读通过。
+
+> **1.0.0-rc.1 Linux 候选**：AppImage/deb 已打包，包内版本 `1.0.0-rc.1`，
+> GPL 文本与 `data:backup-progress` 均在；sidecar 已含 0x0547 增量游标、
+> 未配对推送帧读取与 30 秒心跳。Windows/macOS 仍需在对应机器重打后再决定发版。
+
+| 产物 | 大小 | SHA256 |
+| --- | ---: | --- |
+| `StockLens-1.0.0-rc.1.AppImage` | 154,565,470 B | `d4d44e56bf21f9d723b55d4e2745352e7f1043d88efaa02c37ea32bd6c80cf4d` |
+| `stocklens_1.0.0-rc.1_amd64.deb` | 128,681,012 B | `3712d953f7c9ea43d655f95edba8137aff6d0ecf28382d4f114fdbe3fbf9b545` |
+| `linux-unpacked/resources/app.asar` | 3,609,696 B | `62b390cdbcdbccc4aea56b2eb9fb3019c20551ea526a1fcefbe0f4dd0b653bc3` |
+| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,489,936 B | `381a0050917cc9d2da4f9db7994986e943aa7b4ce583e5f96f27bfa41341b581` |
 
 ---
 

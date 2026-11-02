@@ -113,9 +113,10 @@ npm run dev:web             # Web 前端（行情只读/本地状态可写；需
 npm run build:web           # 构建 Web 产物到 out/web/
 npm run icon                # 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）
 npm run build               # 生产构建（产物在 out/）
-npm run build:win           # Windows 打包：安装包 + 单文件便携版
+npm run build:win           # Windows 打包：安装包 + 单文件便携版（自动自签名）
 npm run build:win:portable  # 只要单文件便携版 exe
 npm run build:win:setup     # 只要 NSIS 安装包
+npm run sign:win            # 单独补签：本机自签名证书，只保证完整性，不消除 SmartScreen
 npm run build:linux         # Linux 打包：AppImage + deb
 npm run build:mac           # macOS dmg（仅 Apple Silicon / arm64）
 npm run build:mac:app       # 只出散装 .app（本地快速验证）
@@ -133,7 +134,7 @@ npm run build:mac:all       # 散装 .app + dmg（每次版本更新后的验证
 > 构建/测试环境：**Windows 10 22H2 x64、macOS 27.2 arm64、Ubuntu 26.04.1 x64**。
 > 自动化主要在 Linux 上跑；Windows x64 已于 2026-11-01/02、macOS arm64 已于 2026-11-02
 > 实机打包验收（0.9.0 ~ 0.14.4 见 `docs/07` 第十一至二十八、三十一至三十八节；
-> 0.14.4 的 Windows 四件套与 macOS 散装 app + dmg 均为本地验证，不发 Release）。
+> 0.14.4 的 Windows 四件套（自签名）与 macOS 散装 app + dmg 均为本地验证，不发 Release）。
 > macOS 只支持 Apple Silicon，不维护 Intel 版（2026-11-02 用户决定）。
 
 **Windows 提示**：若 PowerShell 报 `npm.ps1 cannot be loaded`，用 `npm.cmd` 代替 `npm`。
@@ -189,7 +190,7 @@ thin Mach-O 误判、arm64 目标错配与 7615 系统代理超时（见 `docs/0
 见 `docs/07` 第三十六节与 `docs/06` 第 41 条）；
 0.14.4 加分时/五日本地快照（首屏 404ms）、macOS sidecar 固定路径避免重复
 Gatekeeper 扫描（二次启动 0.28s）
-与涨跌家数分页；Windows 0.14.4 四件套本机回归（安装版 K 线 344ms / 逐笔 209ms，
+与涨跌家数分页；Windows 0.14.4 四件套本机回归并自签名（安装版 K 线 353ms / 逐笔 209ms，
 见 `docs/07` 第三十八节）；macOS 散装 app + dmg 本地验证（第三十七节）；
 2026-11-01 新增左栏「自选股 / 板块 / 自定义」三视图、板块选择大窗口、
 离线数据单文件备份/恢复、数据集归档（板块/财务含三大报表/龙虎榜），并修复指数除权

@@ -14,7 +14,8 @@
 > Windows x64 0.14.4 与 macOS arm64 0.14.4 已完成本机打包验证（macOS 仅散装 app + dmg，
 > 不发布 Release）；Linux 0.14.0 已发布验收。Windows/Linux 0.14.4 的对外发布另行决定。
 > macOS 只支持 Apple Silicon，不维护 Intel 版。
-> 0.14.4 Windows 安装版 K 线首图约 0.34 秒、逐笔首行约 0.21 秒（本机实测）。
+> 0.14.4 Windows 安装版 K 线首图约 0.35 秒、逐笔首行约 0.21 秒（本机实测），
+> 并已用本机自签名证书做完整性签名（不改变 SmartScreen 提示）。
 
 ## 跨平台与验证环境
 
@@ -244,8 +245,21 @@ Compress-Archive -Path "$out\StockLens-$v-win-x64" `
 #       "$out\StockLens-$v-win-x64.zip" "$out\StockLens-$v-win-x64"
 ```
 
-> Windows 包未做代码签名（`NotSigned`），SmartScreen 会提示「未知发布者」；
-> 内部使用可忽略，公开分发见 `docs/07` 第六节。
+> Windows 包使用**本机自签名证书**做完整性签名（`build:win` 会自动调用
+> `npm run sign:win`）。首次构建会创建一张 10 年有效的代码签名证书，公钥导出到
+> `release/<version>/stocklens-selfsigned.cer`。
+>
+> 它只保证文件签名后没有被改过，**不会消除 SmartScreen 的「未知发布者」**。
+> 校验：
+>
+> ```powershell
+> Get-AuthenticodeSignature release\<version>\stocklens-<version>-setup.exe |
+>   Format-List Status, SignerCertificate
+> ```
+>
+> `Status` 为 `UnknownError` 是正常的（自签名根未被系统信任）；`NotSigned` /
+> `HashMismatch` 才说明文件没有有效签名或被改过。安装公钥后系统才会把发布者显示为
+> `StockLens Self-Signed`。
 
 ### 2. macOS 27.2（Apple Silicon / arm64）
 
@@ -315,8 +329,9 @@ deb 可 `sudo dpkg -i` 或 `dpkg-deb -x` 解包直接运行。
 三平台都**在本机原生构建，不做交叉编译**。每次版本更新后建议至少跑一次
 `npm run build:mac:all`（macOS）或对应的 `build:win` / `build:linux`，并实际启动产物验证。
 
-> **0.14.4 本地验证**：Windows setup / portable / 绿色包 / zip 已打包并逐个启动
-> （安装版 K 线 344ms、逐笔 209ms；绿色包 335ms / 184ms）；
+> **0.14.4 本地验证**：Windows setup / portable / 绿色包 / zip 已打包、逐个启动，
+> 并用本机自签名证书签名（安装版 K 线 353ms、逐笔 209ms；绿色包 335ms / 184ms；
+> 公钥在 `release/0.14.4/stocklens-selfsigned.cer`，SmartScreen 仍会提示未知发布者）；
 > `release/0.14.4/mac-arm64/StockLens.app` 与 `release/0.14.4/stocklens-0.14.4-arm64.dmg`
 > 也已构建、签名和 GPL 校验通过；dmg 只做本地验证，不发布 GitHub Release。
 

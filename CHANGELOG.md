@@ -48,9 +48,12 @@ StockLens 的所有重要变更都记录在这里。
 `npm run build:win`，并逐个启动安装版/绿色包/便携版/zip：
 
 - `npm run check` exit 0：**315 TS（32 文件）+ 164 Python（1 skipped）**；
+- 新增 `scripts/sign-win.ps1` / `npm run sign:win`，`build:win*` 自动用本机 10 年
+  自签名证书给 setup、portable、绿色包内 exe 做完整性签名；公钥导出为
+  `release/<version>/stocklens-selfsigned.cer`。**它不消除 SmartScreen**；
 - 全量数据下 `data_integrity` 超过默认 30 秒：自检脚本把该项超时放宽到 300 秒
   （`data_coverage` 120 秒），审计仍 **39/39**；
-- 安装版 `v0.14.4`：日 K 首图 **344ms**、逐笔首行 **209ms**；
+- 安装版 `v0.14.4`：日 K 首图 **353ms**、逐笔首行 **209ms**；
 - 绿色包：日 K **335ms**、逐笔 **184ms**；便携版/zip 均启动 `v0.14.4`；
 - 静默卸载干净；`app.asar` 含 35,149 字节 GPL 文本与 `data:backup-progress`。
 
@@ -58,12 +61,16 @@ StockLens 的所有重要变更都记录在这里。
 
 | 产物                                          |                    大小 | SHA256                                                             |
 | --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
-| `stocklens-0.14.4-setup.exe`                  |           133,624,455 B | `9bb47abab8143c6d1fae8da5e0d5eab245cfd38c332a3115e16885318bf6f9a8` |
-| `stocklens-0.14.4-portable.exe`               |           133,370,798 B | `028cc5efe0a257894879dfa1cc7667966bbfe02e523dfeba8760d899f0263fc6` |
-| `StockLens-0.14.4-win-x64/`                   | 410,627,561 B / 76 文件 | —                                                                  |
-| `StockLens-0.14.4-win-x64.zip`                |           175,229,697 B | `bd63e6615e991241ce5f65f95f76c1403bcb6c1edeb12cbc089e1f830c32fb13` |
-| `win-x64/resources/app.asar`                  |             3,609,351 B | `d582c404eb5331e6b04d4259e87e3029cd238446484132bb8e28b9d7162efb5c` |
-| `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,526,016 B | `a2ca7f446f24205308cfbaaa9fa354c29fb47d4d9d0dae8e5dfa96ccce734f34` |
+| `stocklens-0.14.4-setup.exe`                  |           133,627,048 B | `a6d29b9f76fa7831678216bf767d08cd04bce0f8cf40a3422692ef5e515d3457` |
+| `stocklens-0.14.4-portable.exe`               |           133,373,408 B | `63e003a64fbe2ba0f3457e45780d8999ea2af4afd800e833b6d08f23c5aec2e1` |
+| `StockLens-0.14.4-win-x64/`                   | 410,633,012 B / 76 文件 | —                                                                  |
+| `StockLens-0.14.4-win-x64.zip`                |           175,233,347 B | `38d2114b59f730c39bf08d13ede78e72206b0fb372a80a6019e566da27e0d4fa` |
+| `win-x64/resources/app.asar`                  |             3,611,842 B | `6dda60b01b4180c3318a031fee9f6cf3a309293d0c9c1b5acb7ece4de1f26231` |
+| `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,527,496 B | `8e20031126e534814636ca003c7964dbedced5338b64b121547b3c2aa8bb7e17` |
+| `stocklens-selfsigned.cer`                    |                   822 B | `32d7a672d3cbce39173d8187b9b9c4a6fdd6463332b02c76d17af79270212a8c` |
+
+自签名证书指纹 `566C43464A1F482C02081344823AB247163B913B`；`Get-AuthenticodeSignature`
+正常显示 `UnknownError`（根未受信任），`NotSigned` / `HashMismatch` 表示签名无效或被改过。
 
 绿色 zip 按 README 的手工步骤生成（`win-unpacked` 复制为
 `StockLens-0.14.4-win-x64` 后 7-Zip 压缩）；`build:win` 本身只产出 setup /

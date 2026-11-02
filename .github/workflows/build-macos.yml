@@ -85,7 +85,7 @@ jobs:
       - name: Verify GPL text is packaged
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          ASAR="release/$VERSION/mac-arm64/StockLens.app/Contents/Resources/app.asar"
+          ASAR="$GITHUB_WORKSPACE/release/$VERSION/mac-arm64/StockLens.app/Contents/Resources/app.asar"
           TMP=$(mktemp -d)
           (cd "$TMP" && "$GITHUB_WORKSPACE/node_modules/.bin/asar" extract-file "$ASAR" LICENSE)
           test "$(wc -c < "$TMP/LICENSE" | tr -d ' ')" = "35149"

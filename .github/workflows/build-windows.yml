@@ -3,7 +3,6 @@ name: build-windows-x64
 on:
   workflow_dispatch:
   push:
-    branches: [master]
     tags: ['v1.*']
 
 permissions:

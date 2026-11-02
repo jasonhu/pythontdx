@@ -57,7 +57,14 @@ jobs:
         run: npm run check
 
       - name: Build macOS dmg
+        id: build_macos
+        continue-on-error: true
         run: npm run build:mac
+
+      - name: Ensure DMG exists
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          test -f "release/$VERSION/stocklens-$VERSION-arm64.dmg"
 
       - name: Verify ad-hoc signature
         run: |

@@ -4078,6 +4078,14 @@ class Bridge:
                 )
             except Exception as error:  # noqa: BLE001 - 归档失败不影响查询
                 print(f"[tdx] 竞价自动归档失败：{error}", file=sys.stderr)
+        if selector == 0 and not points and trading_date:
+            # 服务器只保留近期竞价；历史查询为空时回退到永久本地归档。
+            try:
+                archived = self.auction_archive_read(code, trading_date)
+                if archived.get("found") and archived.get("points"):
+                    return archived["points"]
+            except TdxError:
+                pass
         return points
 
     def auction_archive_save(

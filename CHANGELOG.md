@@ -21,6 +21,10 @@ StockLens 的所有重要变更都记录在这里。
   `StockLens-<version>-win-x64.zip` 绿色包（含自签名 exe 与公钥证书），
   并作为 Actions artifact / GitHub Release 资产上传；已有 Release 可用
   `release-windows-zip` 只补 zip，不重打其他平台。
+- 2026-11-02 实际补发：`release-windows-zip` run `41418995799` 成功，
+  `v1.0.0` Release 新增 `StockLens-1.0.0-win-x64.zip`（180,319,847 B，
+  SHA256 `8b38a7ae578af49dbf61ff32f60d0bc6513589406ac4dbde03bb736e65a7b4ce`），
+  setup/portable/dmg/AppImage 与旧证书均未改动。
 - 功能矩阵：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**；6 项 ⛔ 为明确范围/授权边界。
 - 验证：315 TS + 168 Python（1 skipped）；`audit:data` 39/39。
 - GitHub Release：[v1.0.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.0.0)。

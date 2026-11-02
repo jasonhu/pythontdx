@@ -46,7 +46,12 @@ GitHub Actions `release-1.0.0` 在 `v1.0.0` tag 上构建三平台并创建 Rele
 | `stocklens-1.0.0-setup.exe` | 133,361,160 B | `f142186e4175a16684a338d96d98207cf61bca82ac31a057a7d8392cfa2e35a6` |
 | `stocklens-1.0.0-portable.exe` | 133,107,024 B | `df15a0d3a2cd590d06326659e2647d8a3807d1fa5445f90ae015db62963183c1` |
 | `stocklens-1.0.0-arm64.dmg` | 166,829,697 B | `b659c2b2cff342d7a047beae1161fedd420fa07aba998eddb075ca7e271c4cfa` |
+| `StockLens-1.0.0-win-x64.zip` | 180,319,847 B | `8b38a7ae578af49dbf61ff32f60d0bc6513589406ac4dbde03bb736e65a7b4ce` |
 | `stocklens-selfsigned.cer` | 822 B | `f5c623d2ca0a7d05f5e16f778a4725adbd51c67797e7b6772971197c40681d61` |
+
+Windows 绿色 zip 由 `release-windows-zip` 单独补发（CI run `41418995799`），
+内含该次构建的签名 exe 与自签名公钥（指纹
+`25FD4194C69DB7DCA892249C4A44CE36AD33AB3B`）；不影响 setup/portable 及其旧证书。
 
 ## 边界
 

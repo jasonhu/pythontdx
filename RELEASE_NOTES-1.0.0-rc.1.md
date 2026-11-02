@@ -4,7 +4,8 @@
 - 日期：2026-11-02
 - 许可证：GPL-3.0-or-later
 - 状态：**release candidate / Linux x64 已打包；Windows x64、macOS arm64 待原生重打**
-- 未创建 `v1.0.0` tag；`v0.14.4` tag 仍指向 `dc2bcb4`
+- 未创建 `v1.0.0` tag；已创建并推送 `v1.0.0-rc.1` tag（commit `b519d8a`）；
+  `v0.14.4` tag 仍指向 `dc2bcb4`
 
 ## 本版重点
 

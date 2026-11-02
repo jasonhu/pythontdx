@@ -16,8 +16,13 @@ if (-not (Test-Path $release)) {
 }
 
 $subject = 'CN=StockLens Self-Signed (integrity only)'
-$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
-  Where-Object { $_.Subject -eq $subject } |
+# PowerShell 7 不支持 Get-ChildItem 的 -CodeSigningCert 动态参数；按 EKU 过滤。
+$cert = Get-ChildItem Cert:\CurrentUser\My |
+  Where-Object {
+    $_.Subject -eq $subject -and
+    $_.HasPrivateKey -and
+    ($_.EnhancedKeyUsageList.ObjectId -contains '1.3.6.1.5.5.7.3.3')
+  } |
   Sort-Object NotAfter -Descending |
   Select-Object -First 1
 if (-not $cert) {

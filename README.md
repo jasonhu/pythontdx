@@ -13,7 +13,8 @@
 > 0x0547 已于 2026-11-02 盘中确认是**按代码游标的增量刷新**：cursor=0 建立基线，
 > 用返回的 updateTime 再请求返回 0 条（无变化）；客户端已缓存上一帧并推进 cursor。
 > 未配对推送帧也已入队/合并，但当前免费主站 48 个配置主站各 5 秒、75 秒单代码、
-> 45 秒 80 代码实测未主动下发，
+> 45 秒 80 代码实测未主动下发；独立 eltdx 项目在 2026-10-12 的四层实测同样为 0 帧
+> （[issue #21](https://github.com/electkismet/eltdx/issues/21)），并指出增量刷新可用。
 > 实时链路以 1 秒增量刷新为主。1.0 仍待剩余边界项决策与发布流程。
 > Linux x64 1.0.0-rc.1 AppImage/deb 已打包；Windows x64 / macOS arm64 的
 > 1.0.0-rc.1 需在对应机器重打（0.14.4 产物为上一版验证记录）。
@@ -385,12 +386,12 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
-| `StockLens-1.0.0-rc.1.AppImage` | 154,565,422 B | `bf542ba00478c42c0adc5b302bc559f016f74482aa15d6c8a533fe1230d0919b` |
-| `stocklens_1.0.0-rc.1_amd64.deb` | 128,682,692 B | `6061fbd92bdf8d2e3da311260374c2fc4f33e57302db5dea327d30bc0cdbc57f` |
+| `StockLens-1.0.0-rc.1.AppImage` | 154,565,463 B | `1fa658304edba0e0d1a97849004801f195ce14acf024beda2034e54d8c2261c5` |
+| `stocklens_1.0.0-rc.1_amd64.deb` | 128,680,352 B | `d7af62ba9d8477fa73909737af6eda29ee5abe9e2f624342c5828ef87bdb4d7a` |
 | `stocklens-1.0.0-rc.1-setup.exe` | 133,371,710 B | `07a88750b32336ed441062819f48ec993fc9f298c52ed8cbbc9da7a1b14f2888` |
 | `stocklens-1.0.0-rc.1-portable.exe` | 133,117,517 B | `156a6737c9ce97c21d6f7e86eeb26976a578a9c617632d2991eb6d65927709c5` |
-| `linux-unpacked/resources/app.asar` | 3,613,001 B | `e9c97e6e7f014b0b258927b8a6c28e02a7f2ba602707d4bf5574989dbc4cf9a3` |
-| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,489,936 B | `381a0050917cc9d2da4f9db7994986e943aa7b4ce583e5f96f27bfa41341b581` |
+| `linux-unpacked/resources/app.asar` | 3,614,550 B | `cc6293a222616e7a861623937d4fec3eef441b310a9ea883e10203b588087a76` |
+| `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,489,936 B | `58439ebf68768ce5285c47bf31ddd1c21b3a5219473e21543ebdbc2713285cc4` |
 
 ---
 

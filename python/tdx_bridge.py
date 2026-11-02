@@ -314,6 +314,7 @@ MONEY_FLOW_HOSTS = [
 CONNECT_TIMEOUT = 5.0
 REQUEST_TIMEOUT = 8.0
 HEARTBEAT_INTERVAL = 30.0
+QUOTE_BASELINE_INTERVAL = 60.0
 QUOTE_BATCH = 80
 FINANCE_BATCH = 80
 CODE_PAGE = 1600
@@ -3190,6 +3191,7 @@ class Bridge:
         self.quote_cache: dict[str, dict] = {}
         self.quote_watch: set[str] = set()
         self.quote_day = ""
+        self.quote_baseline_at = 0.0
 
     def close(self) -> None:
         self.conn.close()
@@ -3218,6 +3220,7 @@ class Bridge:
         self.quote_cache.clear()
         self.quote_watch.clear()
         self.quote_day = ""
+        self.quote_baseline_at = 0.0
         return {"preferred": selected}
 
     # -- 代码表 ---------------------------------------------------------
@@ -3424,6 +3427,7 @@ class Bridge:
             self.quote_cache.clear()
             self.quote_watch.clear()
             self.quote_day = today
+            self.quote_baseline_at = 0.0
 
         received_at = int(time.time() * 1000)
         unique, items = self._prepare_items(codes)
@@ -3433,6 +3437,9 @@ class Bridge:
             str(code).strip().lower(): int(cursor)
             for code, cursor in (cursors or {}).items()
         }
+        force_baseline = not explicit and (
+            time.monotonic() - self.quote_baseline_at >= QUOTE_BASELINE_INTERVAL
+        )
         by_code: dict[str, dict] = {}
 
         def fetch(batch: list[tuple[int, str]], cursor_for: dict[str, int]) -> None:
@@ -3449,13 +3456,17 @@ class Bridge:
         for start in range(0, len(items), REFRESH_BATCH):
             batch = items[start : start + REFRESH_BATCH]
             cursor_for = {
-                full_code(market, symbol): explicit.get(
+                full_code(market, symbol): 0
+                if force_baseline
+                else explicit.get(
                     full_code(market, symbol),
                     self.quote_cursors.get(full_code(market, symbol), 0),
                 )
                 for market, symbol in batch
             }
             fetch(batch, cursor_for)
+        if force_baseline:
+            self.quote_baseline_at = time.monotonic()
 
         # 没有任何缓存的代码（首次请求/新加自选）必须补一次游标 0 基线。
         retry = [

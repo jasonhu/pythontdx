@@ -20,7 +20,7 @@
 | 健康度        | `npm run check` 全绿（315 TS，32 个测试文件；168 Python，1 skipped）；`audit:data` 39/39；2026-11-02 Linux 1.0.0-rc.1 打包通过 |
 | 目标          | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`）                                                                                                                                                                                                                                                      |
 | 数据源        | 通达信 7709 + MAC + 7615 + 文件下载/本地文件；7727/EX 不做                                                                                                                                                                                                                                                                          |
-| 分发          | Linux 1.0.0-rc.1 AppImage/deb 与 Windows setup/portable 已打包（`bf542ba0…` / `6061fbd9…` / `07a88750…` / `156a6737…`），已打 `v1.0.0-rc.1` tag；Windows CI 产物未签名；macOS 1.0.0-rc.1 待构建。未打 `v1.0.0` tag/Release |
+| 分发          | Linux 1.0.0-rc.1 AppImage/deb 与 Windows setup/portable 已打包（`1fa65830…` / `d7af62ba…` / `07a88750…` / `156a6737…`），已打 `v1.0.0-rc.1` tag；Windows CI 产物未签名；macOS 1.0.0-rc.1 待构建。未打 `v1.0.0` tag/Release |
 | 平台验证      | 代码跨 Windows/Linux/macOS；Linux、Windows x64、macOS arm64 已实机打包验收；macOS 仅支持 Apple Silicon（2026-11-02 决定不支持 Intel）                                                                                                                                                                                               |
 | 构建/测试环境 | Windows 10 22H2 x64 · macOS 27.2 arm64 · Ubuntu 26.04.1 x64；原生编译，不做交叉编译；0.14.4 Windows 安装版 K 线 353ms / 逐笔 209ms（自签名），macOS 真首次 10,333ms、二次 365ms                                                                                                                                                     |
 
@@ -35,7 +35,8 @@
 **当前边界**：功能矩阵无 🟡；**6 项 ⛔**（研报正文、交易、Level-2/付费、7727/EX、港股美股、登录等非目标/需授权）。不能写成「官方功能全部实现」或「与官方逐像素完全对等」：
 `0x0547` 已确认是**按代码 updateTime 的增量刷新**：cursor=0 建立基线，下一轮用
 updateTime 作游标，无变化返回 0 条；客户端已缓存上一帧、按实际代码映射并推进 cursor。
-未配对推送帧已入队合并；当前免费主站 48 站各 5 秒、75s 单代码、45s 80 代码窗口未主动下发。
+未配对推送帧已入队合并；当前免费主站 48 站各 5 秒、75s 单代码、45s 80 代码窗口未主动下发；
+独立 eltdx issue #21 四层实测同样 0 帧、非零游标 refresh 正常，确认真实免费主站不做持续主动推送。
 `PushHub` 继续 1 秒增量刷新；研报正文按授权边界不做；
 `0x06b9` 完整目录枚举无协议命令（已实现按文件名/zhb 已知清单，不能称完整服务器目录）；本地
 `.day/.lc1/.lc5/.5` 读/写 API 与测试已接（真实 `.day` 实测，主行情 UI 仍以 7709 为主）；

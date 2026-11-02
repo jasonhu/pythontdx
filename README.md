@@ -6,7 +6,7 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：1.0.0-rc.1（release candidate）** · **许可证：GPL-3.0-or-later** ·
+**版本：1.0.0** · **许可证：GPL-3.0-or-later** ·
 `npm run check`：315 个 TS 测试 + 168 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
@@ -15,11 +15,11 @@
 > 未配对推送帧也已入队/合并，但当前免费主站 48 个配置主站各 5 秒、75 秒单代码、
 > 45 秒 80 代码实测未主动下发；独立 eltdx 项目在 2026-10-12 的四层实测同样为 0 帧
 > （[issue #21](https://github.com/electkismet/eltdx/issues/21)），并指出增量刷新可用。
-> 实时链路以 1 秒增量刷新为主。1.0 仍待剩余边界项决策与发布流程。
-> Linux x64、Windows x64、macOS arm64 的 1.0.0-rc.1 均已产出：
-> Linux AppImage/deb、Windows setup/portable（CI 未签名）、macOS dmg（CI ad-hoc 签名）。
-> 发布前仍建议在真实 Windows 上补签，并完成最终发版决策。
-> 发布说明：[RELEASE_NOTES-1.0.0-rc.1.md](RELEASE_NOTES-1.0.0-rc.1.md)。
+> 实时链路以 1 秒增量刷新为主。
+> 1.0.0 三平台（Linux x64 / Windows x64 / macOS arm64）由 GitHub Actions 构建，
+> 通过 GitHub Release 发布；Windows 使用免费自签名（不购买付费证书），
+> macOS 使用 ad-hoc 签名。
+> 发布说明：[RELEASE_NOTES-1.0.0.md](RELEASE_NOTES-1.0.0.md)。
 > macOS 只支持 Apple Silicon，不维护 Intel 版。
 > 0.14.4 Windows 安装版 K 线首图约 0.35 秒、逐笔首行约 0.21 秒（本机实测），
 > 并已用本机自签名证书做完整性签名（不改变 SmartScreen 提示）。

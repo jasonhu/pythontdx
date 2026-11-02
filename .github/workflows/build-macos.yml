@@ -11,10 +11,6 @@ name: build-macos-arm64
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      # 0.14.x 只打 tag、不出 dmg；1.0 起才自动构建。
-      - 'v1.*'
 
 permissions:
   contents: read

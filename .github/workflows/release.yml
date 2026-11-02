@@ -1,0 +1,174 @@
+name: release-1.0.0
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v1.0.0']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Quality gate
+        run: npm run check
+      - name: Build Linux
+        run: npm run build:linux
+      - name: Checksums
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          cd "release/$VERSION"
+          sha256sum *.AppImage *.deb > SHA256SUMS-linux.txt
+          cat SHA256SUMS-linux.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stocklens-linux
+          path: |
+            release/*/*.AppImage
+            release/*/*.deb
+            release/*/SHA256SUMS-linux.txt
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Quality gate
+        run: npm run check
+      - name: Build Windows
+        run: |
+          npm run build:python
+          npm run build
+          npx electron-builder --win --publish never
+      - name: Sign Windows (free self-signed, best effort)
+        continue-on-error: true
+        shell: cmd
+        run: |
+          "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File scripts\sign-win.ps1
+      - name: Checksums
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./package.json').version"
+          $release = Join-Path $PWD "release/$version"
+          Get-ChildItem $release -Filter '*.exe' -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stocklens-windows
+          path: |
+            release/*/*.exe
+            release/*/*.sha256
+            release/*/stocklens-selfsigned.cer
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Verify arm64 runner
+        run: test "$(uname -m)" = "arm64"
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Install Node dependencies
+        run: npm ci
+      - name: Quality gate
+        run: npm run check
+      - name: Build macOS app
+        continue-on-error: true
+        run: |
+          npm run build:python
+          npm run build
+          npx electron-builder --mac --dir --publish never
+      - name: Create DMG
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          APP="release/$VERSION/mac-arm64/StockLens.app"
+          DMG="release/$VERSION/stocklens-$VERSION-arm64.dmg"
+          test -d "$APP"
+          hdiutil create -volname "StockLens" -srcfolder "$APP" -ov -format UDZO "$DMG"
+      - name: Verify ad-hoc signature and GPL
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          APP="release/$VERSION/mac-arm64/StockLens.app"
+          codesign --verify --deep "$APP"
+          ASAR="$GITHUB_WORKSPACE/release/$VERSION/mac-arm64/StockLens.app/Contents/Resources/app.asar"
+          TMP=$(mktemp -d)
+          (cd "$TMP" && "$GITHUB_WORKSPACE/node_modules/.bin/asar" extract-file "$ASAR" LICENSE)
+          test "$(wc -c < "$TMP/LICENSE" | tr -d ' ')" = "35149"
+          shasum -a 256 "release/$VERSION/stocklens-$VERSION-arm64.dmg" > "release/$VERSION/SHA256SUMS-macos.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stocklens-macos
+          path: |
+            release/*/stocklens-*-arm64.dmg
+            release/*/SHA256SUMS-macos.txt
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v1.0.0')
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+      - name: List release assets
+        run: find assets -type f -printf '%p %s\n' | sort
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: StockLens 1.0.0
+          body_path: RELEASE_NOTES-1.0.0.md
+          files: assets/**/*
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false

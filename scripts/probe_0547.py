@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import select
 import sys
 import time
 from datetime import datetime
@@ -19,9 +20,27 @@ sys.path.insert(0, str(ROOT / "python"))
 import tdx_bridge as tdx  # noqa: E402
 
 
+def _stable(value: object) -> object:
+    """去掉每次接收都会变化的字段，便于比较游标响应本身。"""
+    if isinstance(value, dict):
+        return {
+            key: _stable(item)
+            for key, item in value.items()
+            if key not in {"time", "receivedAt"}
+        }
+    if isinstance(value, list):
+        return [_stable(item) for item in value]
+    return value
+
+
 def digest(value: object) -> str:
     return hashlib.sha256(
-        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(
+            _stable(value),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
     ).hexdigest()
 
 
@@ -30,9 +49,28 @@ def main() -> int:
     parser.add_argument("--code", default="sh600519")
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--interval", type=float, default=2.0)
+    parser.add_argument("--silent-seconds", type=float, default=5.0)
     args = parser.parse_args()
     code = args.code
     bridge = tdx.Bridge()
+    bridge.index.ensure(bridge.conn)
+    item = tdx.parse_code(code)
+
+    def request(cursor: int) -> tuple[list[dict], float]:
+        """直接走 0x0547，避免 Bridge 的 MAC 兜底或财务补字段干扰探针。"""
+        received = time.time()
+        body = bridge.conn.request(
+            tdx.CMD_REFRESH,
+            tdx.refresh_data([item], {code: cursor}),
+        )
+        result = tdx.parse_refresh(
+            body,
+            [item],
+            int(received * 1000),
+            bridge.index.by_code,
+        )
+        return result, received
+
     target = tdx.stocklens_data_dir() / "lake" / "probes"
     target.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
@@ -50,7 +88,7 @@ def main() -> int:
                 for round_index in range(3):
                     received = time.time()
                     try:
-                        result = bridge.refresh_quotes([code], {code: cursor})
+                        result, received = request(cursor)
                         record = {
                             "at": datetime.now().astimezone().isoformat(timespec="seconds"),
                             "elapsed": round(received - started, 3),
@@ -73,10 +111,53 @@ def main() -> int:
                     stream.flush()
                     records += 1
                     time.sleep(0.25)
+            # 一次请求后静默观察，检查服务器是否主动下发未请求的帧。
+            silent_started = time.time()
+            try:
+                result, received = request(0)
+                sock = bridge.conn.sock
+                chunks: list[bytes] = []
+                if sock is not None:
+                    deadline = time.time() + max(0.0, args.silent_seconds)
+                    while True:
+                        remaining = deadline - time.time()
+                        if remaining <= 0:
+                            break
+                        ready, _, _ = select.select([sock], [], [], remaining)
+                        if not ready:
+                            break
+                        chunk = sock.recv(65536)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                payload = b"".join(chunks)
+                record = {
+                    "at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "elapsed": round(received - started, 3),
+                    "mode": "silent",
+                    "cursor": 0,
+                    "silentSeconds": args.silent_seconds,
+                    "count": len(result),
+                    "hash": digest(result),
+                    "sample": result[0] if result else None,
+                    "unsolicitedBytes": len(payload),
+                    "unsolicitedHex": payload[:512].hex(),
+                }
+            except Exception as error:  # noqa: BLE001
+                record = {
+                    "at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "mode": "silent",
+                    "cursor": 0,
+                    "silentSeconds": args.silent_seconds,
+                    "error": str(error),
+                }
+            stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+            stream.flush()
+            records += 1
             while time.time() - started < args.seconds:
                 received = time.time()
                 try:
-                    result = bridge.refresh_quotes([code], {code: 0})
+                    result, received = request(0)
                     record = {
                         "at": datetime.now().astimezone().isoformat(timespec="seconds"),
                         "elapsed": round(received - started, 3),

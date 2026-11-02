@@ -45,7 +45,7 @@ import time
 import traceback
 import zipfile
 import zlib
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -313,6 +313,7 @@ MONEY_FLOW_HOSTS = [
 
 CONNECT_TIMEOUT = 5.0
 REQUEST_TIMEOUT = 8.0
+HEARTBEAT_INTERVAL = 30.0
 QUOTE_BATCH = 80
 FINANCE_BATCH = 80
 CODE_PAGE = 1600
@@ -523,6 +524,10 @@ class TdxConnection:
         self.sock: socket.socket | None = None
         self.msg_id = 0
         self.cursor = 0
+        self.last_activity = time.monotonic()
+        # 0x0547 的主站主动推送：不匹配当前请求 msg_id 的帧先入队，
+        # 由 Bridge 在下一轮刷新时按代码合并。
+        self.push_frames: deque[tuple[int, int, bytes]] = deque(maxlen=1024)
 
     def close(self) -> None:
         if self.sock is not None:
@@ -547,6 +552,7 @@ class TdxConnection:
                 # 只发 0x000d；不要 setup2/setup3
                 self._transact(CMD_HANDSHAKE, b"\x01")
                 self.cursor = index
+                self.last_activity = time.monotonic()
                 return
             except Exception as error:  # noqa: BLE001 - 主站失败要继续试下一个
                 last_error = error
@@ -573,6 +579,25 @@ class TdxConnection:
             remaining -= len(data)
         return b"".join(chunks)
 
+    def _read_frame(self) -> tuple[int, int, bytes]:
+        header = self._recv_exact(16)
+        if header[:4] != b"\xb1\xcbt\x00":
+            raise TdxError("行情报文头不合法")
+
+        # 响应头：4 前缀 + 1 control + u32 msg_id + 1 reserved + u16 msg_type
+        #        + u16 zip_length + u16 length。
+        msg_id = struct.unpack_from("<I", header, 5)[0]
+        msg_type = struct.unpack_from("<H", header, 10)[0]
+        zip_length, length = struct.unpack_from("<HH", header, 12)
+        raw = self._recv_exact(zip_length) if zip_length > 0 else b""
+        if zip_length == length:
+            return msg_id, msg_type, raw
+
+        try:
+            return msg_id, msg_type, zlib.decompress(raw)
+        except zlib.error as error:
+            raise TdxError("行情报文解压失败") from error
+
     def _transact(
         self, msg_type: int, data: bytes, wire_prefix: int | None = None
     ) -> bytes:
@@ -589,19 +614,12 @@ class TdxConnection:
             else ((self.msg_id & 0xFF) | wire_prefix)
         )
         self.sock.sendall(encode_frame(wire_msg_id, msg_type, data))
-        header = self._recv_exact(16)
-        if header[:4] != b"\xb1\xcbt\x00":
-            raise TdxError("行情报文头不合法")
-
-        zip_length, length = struct.unpack_from("<HH", header, 12)
-        raw = self._recv_exact(zip_length) if zip_length > 0 else b""
-        if zip_length == length:
-            return raw
-
-        try:
-            return zlib.decompress(raw)
-        except zlib.error as error:
-            raise TdxError("行情报文解压失败") from error
+        while True:
+            received_id, received_type, body = self._read_frame()
+            self.last_activity = time.monotonic()
+            if received_id == wire_msg_id:
+                return body
+            self.push_frames.append((received_id, received_type, body))
 
     def request(
         self,
@@ -613,6 +631,9 @@ class TdxConnection:
         try:
             if self.sock is None:
                 self._connect()
+            if time.monotonic() - self.last_activity >= HEARTBEAT_INTERVAL:
+                # 空闲长连接保活；不匹配的推送帧会在 _transact 里入队。
+                self._transact(CMD_HEARTBEAT, b"")
             return self._transact(msg_type, data, wire_prefix)
         except (OSError, TdxError) as error:
             self.close()
@@ -1216,7 +1237,42 @@ def _parse_refresh_record(
     )
     quote["innerVolume"] = inside
     quote["outerVolume"] = outside
+    quote["updateTime"] = _update_time
     return quote
+
+
+def _split_refresh_records(
+    data: bytes, items: list[tuple[int, str]], count: int
+) -> list[tuple[tuple[int, str], bytes]]:
+    """按实际返回的记录头切 0x0547，不能按请求顺序硬配。
+
+    增量刷新只返回有变化的代码，条数可能少于请求数；若按 ``items[:count]``
+    顺序解析，会把“只更新了 sz000001”的帧误标成 sh600519。
+    """
+    starts: list[tuple[int, tuple[int, str]]] = []
+    for market, symbol in items:
+        marker = struct.pack("<B", market) + code_bytes(symbol)
+        search_from = 0
+        while True:
+            position = data.find(marker, search_from)
+            if position < 0:
+                break
+            starts.append((position, (market, symbol)))
+            search_from = position + len(marker)
+    starts.sort(key=lambda item: item[0])
+    if not starts or starts[0][0] != 0:
+        raise TdxError("0x0547 记录缺少代码标记")
+    if len(starts) < count:
+        raise TdxError("0x0547 记录数量与报文不符")
+
+    chosen = starts[:count]
+    records: list[tuple[tuple[int, str], bytes]] = []
+    for index, (start, identity) in enumerate(chosen):
+        end = chosen[index + 1][0] if index + 1 < count else len(data)
+        if end <= start:
+            raise TdxError("0x0547 记录边界异常")
+        records.append((identity, data[start:end]))
+    return records
 
 
 def parse_refresh(
@@ -1235,9 +1291,10 @@ def parse_refresh(
     if count > len(items):
         raise TdxError("0x0547 返回数量超过请求数量")
 
-    records = _split_quote_records(decoded[2:], items[:count])
     quotes: list[dict] = []
-    for (market, symbol), record in zip(items[:count], records):
+    for (market, symbol), record in _split_refresh_records(
+        decoded[2:], items, count
+    ):
         quotes.append(
             _parse_refresh_record(record, market, symbol, received_at, securities)
         )
@@ -3127,6 +3184,12 @@ class Bridge:
         self.industry_cache: tuple[float, dict] | None = None
         self.zhb_cache: tuple[float, bytes, dict, int] | None = None
         self.screen_cache: tuple[float, list[dict]] | None = None
+        # 0x0547 增量刷新：每只代码的下一游标，以及最后一次完整报价。
+        # 服务端对“没有新成交”的代码返回 0 条；调用方仍需拿到上一帧。
+        self.quote_cursors: dict[str, int] = {}
+        self.quote_cache: dict[str, dict] = {}
+        self.quote_watch: set[str] = set()
+        self.quote_day = ""
 
     def close(self) -> None:
         self.conn.close()
@@ -3151,6 +3214,10 @@ class Bridge:
         self.conn.close()
         self.preferred_host = selected
         self.conn = TdxConnection(_ordered_endpoints(selected))
+        self.quote_cursors.clear()
+        self.quote_cache.clear()
+        self.quote_watch.clear()
+        self.quote_day = ""
         return {"preferred": selected}
 
     # -- 代码表 ---------------------------------------------------------
@@ -3314,22 +3381,102 @@ class Bridge:
         by_code = {quote["code"]: quote for quote in quotes}
         return [by_code[code] for code in unique if code in by_code]
 
+    def _drain_quote_pushes(self) -> None:
+        """读取 0x0547 未配对帧；主站不推送时这里是空操作。"""
+        frames = getattr(self.conn, "push_frames", None)
+        if not frames:
+            return
+        items: list[tuple[int, str]] = []
+        for code in self.quote_watch:
+            try:
+                items.append(parse_code(code))
+            except TdxError:
+                continue
+        if not items:
+            return
+        received_at = int(time.time() * 1000)
+        while frames:
+            _msg_id, msg_type, body = frames.popleft()
+            if msg_type != CMD_REFRESH:
+                continue
+            try:
+                page = parse_refresh(body, items, received_at, self.index.by_code)
+            except TdxError:
+                continue
+            for quote in page:
+                updated = quote.get("updateTime")
+                if isinstance(updated, int) and updated > 0:
+                    self.quote_cursors[quote["code"]] = updated
+                self.quote_cache[quote["code"]] = quote
+
     def _refresh_quotes_7709(
         self, codes: list[str], cursors: dict[str, int] | None = None
     ) -> list[dict]:
-        """0x0547 增量刷新：首次游标 0 返回五档基线；单次最多 100 只。"""
+        """0x0547 增量刷新：首次游标 0 返回五档基线；单次最多 100 只。
+
+        服务端只为“有更新的代码”返回记录，未变化的代码返回 0 条。这里保留
+        每只代码的 updateTime 作为下一次游标，并用上一帧补齐空响应；否则
+        增量刷新会被误判为行情失败，UI 会退回 MAC 或清空。
+        """
+        today = time.strftime("%Y-%m-%d")
+        if self.quote_day != today:
+            self.quote_cursors.clear()
+            self.quote_cache.clear()
+            self.quote_watch.clear()
+            self.quote_day = today
+
         received_at = int(time.time() * 1000)
         unique, items = self._prepare_items(codes)
-        quotes: list[dict] = []
+        self.quote_watch.update(unique)
+        self._drain_quote_pushes()
+        explicit = {
+            str(code).strip().lower(): int(cursor)
+            for code, cursor in (cursors or {}).items()
+        }
+        by_code: dict[str, dict] = {}
+
+        def fetch(batch: list[tuple[int, str]], cursor_for: dict[str, int]) -> None:
+            body = self.conn.request(CMD_REFRESH, refresh_data(batch, cursor_for))
+            for quote in parse_refresh(
+                body, batch, received_at, self.index.by_code
+            ):
+                code = quote["code"]
+                updated = quote.get("updateTime")
+                if isinstance(updated, int) and updated > 0:
+                    self.quote_cursors[code] = updated
+                by_code[code] = quote
+
         for start in range(0, len(items), REFRESH_BATCH):
             batch = items[start : start + REFRESH_BATCH]
-            body = self.conn.request(
-                CMD_REFRESH, refresh_data(batch, cursors or {})
-            )
-            quotes.extend(parse_refresh(body, batch, received_at, self.index.by_code))
-        self._attach_finance(quotes)
-        by_code = {quote["code"]: quote for quote in quotes}
-        return [by_code[code] for code in unique if code in by_code]
+            cursor_for = {
+                full_code(market, symbol): explicit.get(
+                    full_code(market, symbol),
+                    self.quote_cursors.get(full_code(market, symbol), 0),
+                )
+                for market, symbol in batch
+            }
+            fetch(batch, cursor_for)
+
+        # 没有任何缓存的代码（首次请求/新加自选）必须补一次游标 0 基线。
+        retry = [
+            code for code in unique if code not in by_code and code not in self.quote_cache
+        ]
+        if retry:
+            _, retry_items = self._prepare_items(retry)
+            for start in range(0, len(retry_items), REFRESH_BATCH):
+                batch = retry_items[start : start + REFRESH_BATCH]
+                fetch(batch, {full_code(market, symbol): 0 for market, symbol in batch})
+
+        result: list[dict] = []
+        for code in unique:
+            quote = by_code.get(code) or self.quote_cache.get(code)
+            if quote is not None:
+                result.append(quote)
+        self._attach_finance(result)
+        for quote in result:
+            self.quote_cache[quote["code"]] = quote
+        self._drain_quote_pushes()
+        return result
 
     def category_quotes(
         self,

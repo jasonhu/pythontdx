@@ -134,8 +134,9 @@ function normalizeCodes(codes: readonly string[]): string[] {
 /**
  * 批量拉取实时行情。
  *
- * 主链路用 0x0547：首次游标 0 返回五档基线；0x053e 保留兼容/差分。
- * 港股/美股由 Python 侧过滤：整批都不支持会抛错；混合列表只返回 A 股部分。
+ * 主链路 0x0547：Python 侧首次游标 0 建基线，后续用每只代码的 updateTime 推进；
+ * 没有新成交时服务端返回 0 条，Python 会复用上一帧，所以不会触发 MAC 兜底。
+ * 0x053e 保留兼容/差分；港股/美股由 Python 侧过滤。
  */
 export async function fetchQuotes(codes: string[], signal?: AbortSignal): Promise<Quote[]> {
   const unique = normalizeCodes(codes)

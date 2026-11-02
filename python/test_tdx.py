@@ -9,6 +9,7 @@ import io
 import json
 import os
 import sqlite3
+import struct
 import tempfile
 import unittest
 import zipfile
@@ -58,6 +59,38 @@ class TestCodec(unittest.TestCase):
         self.assertEqual(frame[5], 0x01)
         self.assertEqual(int.from_bytes(frame[6:8], "little"), 5)
         self.assertEqual(int.from_bytes(frame[10:12], "little"), 0x053E)
+
+    def test_unmatched_push_frame_is_queued(self):
+        def response(msg_id, msg_type, payload):
+            header = bytearray(16)
+            header[:4] = b"\xb1\xcbt\x00"
+            header[5:9] = msg_id.to_bytes(4, "little")
+            header[10:12] = msg_type.to_bytes(2, "little")
+            header[12:14] = len(payload).to_bytes(2, "little")
+            header[14:16] = len(payload).to_bytes(2, "little")
+            return bytes(header) + payload
+
+        class FakeSocket:
+            def __init__(self, data):
+                self.data = data
+                self.sent = b""
+
+            def sendall(self, data):
+                self.sent += data
+
+            def recv(self, size):
+                chunk, self.data = self.data[:size], self.data[size:]
+                return chunk
+
+        push = response(0xFFFFFFFF, tdx.CMD_REFRESH, b"\x93\x93")
+        matched = response(1, tdx.CMD_REFRESH, b"\x93\x93")
+        conn = tdx.TdxConnection([])
+        conn.sock = FakeSocket(push + matched)
+        self.assertEqual(conn._transact(tdx.CMD_REFRESH, b""), b"\x93\x93")
+        self.assertEqual(
+            list(conn.push_frames),
+            [(0xFFFFFFFF, tdx.CMD_REFRESH, b"\x93\x93")],
+        )
 
     def test_market_code(self):
         self.assertEqual(tdx.parse_code("sh600519"), (1, "600519"))
@@ -153,6 +186,71 @@ class TestSnapshotAndRefresh(unittest.TestCase):
         self.assertEqual(maotai["bids"][0], {"price": 1371.18, "volume": 1})
         self.assertEqual(maotai["bids"][4], {"price": 1370.3, "volume": 1})
         self.assertEqual(maotai["asks"][0], {"price": 1372.27, "volume": 58})
+        self.assertIsInstance(maotai["updateTime"], int)
+        self.assertGreater(maotai["updateTime"], 0)
+
+    def test_refresh_parser_maps_partial_response_by_code(self):
+        decoded = bytes(byte ^ 0x93 for byte in fixture("refresh2"))
+        # 只保留第二只 sz000858 的记录，模拟增量刷新只返回有变化的代码。
+        second = decoded[130:]
+        body = bytes(byte ^ 0x93 for byte in b"\x01\x00" + second)
+        quotes = tdx.parse_refresh(body, self.ITEMS, 1, SECURITIES)
+        self.assertEqual([quote["code"] for quote in quotes], ["sz000858"])
+        self.assertAlmostEqual(quotes[0]["price"], 73.91, places=2)
+
+    def test_bridge_refresh_uses_cursor_and_reuses_cache(self):
+        class FakeConn:
+            def __init__(self):
+                self.calls = []
+
+            def request(self, _msg_type, data):
+                self.calls.append(data)
+                return fixture("refresh2") if len(self.calls) == 1 else b"\x93\x93"
+
+            def close(self):
+                pass
+
+        bridge = tdx.Bridge()
+        fake = FakeConn()
+        bridge.conn = fake
+        bridge.index.by_code = SECURITIES
+        bridge._prepare_items = lambda codes: (
+            list(codes),
+            [(1, "600519"), (0, "000858")],
+        )
+        bridge._attach_finance = lambda _quotes: None
+        try:
+            first = bridge._refresh_quotes_7709(["sh600519", "sz000858"])
+            self.assertEqual([q["code"] for q in first], ["sh600519", "sz000858"])
+            self.assertGreater(bridge.quote_cursors["sh600519"], 0)
+            second = bridge._refresh_quotes_7709(["sh600519", "sz000858"])
+            self.assertEqual([q["code"] for q in second], ["sh600519", "sz000858"])
+            self.assertEqual(
+                [q["price"] for q in second], [q["price"] for q in first]
+            )
+        finally:
+            bridge.close()
+
+    def test_bridge_drains_unmatched_push_frames(self):
+        from collections import deque
+
+        class FakeConn:
+            def __init__(self):
+                self.push_frames = deque(
+                    [(0xFFFFFFFF, tdx.CMD_REFRESH, fixture("refresh2"))]
+                )
+
+            def close(self):
+                pass
+
+        bridge = tdx.Bridge()
+        bridge.conn = FakeConn()
+        bridge.index.by_code = SECURITIES
+        bridge.quote_watch = {"sh600519", "sz000858"}
+        bridge._attach_finance = lambda _quotes: None
+        bridge._drain_quote_pushes()
+        self.assertEqual(set(bridge.quote_cache), {"sh600519", "sz000858"})
+        self.assertGreater(bridge.quote_cursors["sh600519"], 0)
 
 
 class TestCategoryQuotes(unittest.TestCase):

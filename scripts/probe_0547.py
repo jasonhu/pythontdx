@@ -56,20 +56,27 @@ def main() -> int:
     bridge.index.ensure(bridge.conn)
     item = tdx.parse_code(code)
 
-    def request(cursor: int) -> tuple[list[dict], float]:
-        """直接走 0x0547，避免 Bridge 的 MAC 兜底或财务补字段干扰探针。"""
+    def request(cursor: int) -> tuple[list[dict], float, int | None]:
+        """直接走 0x0547，返回解析结果、接收时刻和记录内 update 游标。"""
         received = time.time()
         body = bridge.conn.request(
             tdx.CMD_REFRESH,
             tdx.refresh_data([item], {code: cursor}),
         )
+        decoded = bytes(byte ^ 0x93 for byte in body)
+        count = int.from_bytes(decoded[0:2], "little")
+        update_time = None
+        if count > 0:
+            record = decoded[2:]
+            _, position = tdx._read_k_prices(record, 9)
+            update_time = tdx._u32(record, position)
         result = tdx.parse_refresh(
             body,
             [item],
             int(received * 1000),
             bridge.index.by_code,
         )
-        return result, received
+        return result, received, update_time
 
     target = tdx.stocklens_data_dir() / "lake" / "probes"
     target.mkdir(parents=True, exist_ok=True)
@@ -79,16 +86,27 @@ def main() -> int:
     records = 0
     try:
         with path.open("w", encoding="utf-8") as stream:
-            for mode, cursor in (
-                ("zero", 0),
-                ("one", 1),
-                ("max", 0xFFFFFFFF),
-                ("timestamp", int(time.time() * 1000) & 0xFFFFFFFF),
-            ):
+            last_update: int | None = None
+            for mode in ("zero", "one", "max", "timestamp"):
                 for round_index in range(3):
+                    cursor = (
+                        0
+                        if mode == "zero"
+                        else (
+                            last_update
+                            if mode == "one" and last_update is not None
+                            else 1
+                            if mode == "one"
+                            else 0xFFFFFFFF
+                            if mode == "max"
+                            else int(time.time() * 1000) & 0xFFFFFFFF
+                        )
+                    )
                     received = time.time()
                     try:
-                        result, received = request(cursor)
+                        result, received, update_time = request(cursor)
+                        if update_time is not None:
+                            last_update = update_time
                         record = {
                             "at": datetime.now().astimezone().isoformat(timespec="seconds"),
                             "elapsed": round(received - started, 3),
@@ -97,6 +115,7 @@ def main() -> int:
                             "round": round_index,
                             "count": len(result),
                             "hash": digest(result),
+                            "updateTime": update_time,
                             "sample": result[0] if result else None,
                         }
                     except Exception as error:  # noqa: BLE001
@@ -113,8 +132,9 @@ def main() -> int:
                     time.sleep(0.25)
             # 一次请求后静默观察，检查服务器是否主动下发未请求的帧。
             silent_started = time.time()
+            silent_cursor = last_update or 0
             try:
-                result, received = request(0)
+                result, received, update_time = request(silent_cursor)
                 sock = bridge.conn.sock
                 chunks: list[bytes] = []
                 if sock is not None:
@@ -131,23 +151,26 @@ def main() -> int:
                             break
                         chunks.append(chunk)
                 payload = b"".join(chunks)
+                queued = list(getattr(bridge.conn, "push_frames", ()))
                 record = {
                     "at": datetime.now().astimezone().isoformat(timespec="seconds"),
                     "elapsed": round(received - started, 3),
                     "mode": "silent",
-                    "cursor": 0,
+                    "cursor": silent_cursor,
                     "silentSeconds": args.silent_seconds,
                     "count": len(result),
                     "hash": digest(result),
+                    "updateTime": update_time,
                     "sample": result[0] if result else None,
                     "unsolicitedBytes": len(payload),
                     "unsolicitedHex": payload[:512].hex(),
+                    "queuedPushFrames": len(queued),
                 }
             except Exception as error:  # noqa: BLE001
                 record = {
                     "at": datetime.now().astimezone().isoformat(timespec="seconds"),
                     "mode": "silent",
-                    "cursor": 0,
+                    "cursor": silent_cursor,
                     "silentSeconds": args.silent_seconds,
                     "error": str(error),
                 }
@@ -156,21 +179,26 @@ def main() -> int:
             records += 1
             while time.time() - started < args.seconds:
                 received = time.time()
+                cursor = last_update or 0
                 try:
-                    result, received = request(0)
+                    result, received, update_time = request(cursor)
+                    if update_time is not None:
+                        last_update = update_time
                     record = {
                         "at": datetime.now().astimezone().isoformat(timespec="seconds"),
                         "elapsed": round(received - started, 3),
-                        "mode": "loop-zero",
-                        "cursor": 0,
+                        "mode": "loop-incremental",
+                        "cursor": cursor,
                         "count": len(result),
                         "hash": digest(result),
+                        "updateTime": update_time,
                         "sample": result[0] if result else None,
                     }
                 except Exception as error:  # noqa: BLE001
                     record = {
                         "at": datetime.now().astimezone().isoformat(timespec="seconds"),
-                        "mode": "loop-zero",
+                        "mode": "loop-incremental",
+                        "cursor": cursor,
                         "error": str(error),
                     }
                 stream.write(json.dumps(record, ensure_ascii=False) + "\n")

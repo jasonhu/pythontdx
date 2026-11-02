@@ -60,7 +60,7 @@ def main() -> int:
 
     cursor_modes = ["zero", "one", "max", "timestamp"]
     summary: dict[str, dict] = {}
-    for mode in cursor_modes + ["silent", "loop-zero"]:
+    for mode in cursor_modes + ["silent", "loop-incremental", "loop-zero"]:
         rows = by_mode.get(mode, [])
         valid = [row for row in rows if not row.get("error")]
         summary[mode] = {
@@ -72,7 +72,6 @@ def main() -> int:
 
     silent = by_mode.get("silent", [])
     unsolicited_bytes = sum(int(row.get("unsolicitedBytes") or 0) for row in silent)
-    silent_valid = [row for row in silent if not row.get("error")]
     cursor_hashes = {
         mode: summary[mode]["hashes"][0]
         for mode in cursor_modes
@@ -83,30 +82,38 @@ def main() -> int:
         for mode in cursor_modes
         if summary[mode]["counts"]
     }
+    zero_valid = summary["zero"]["valid"] > 0
+    one_valid = summary["one"]["valid"] > 0
 
     if errors:
         verdict = "INCONCLUSIVE_ERRORS"
         reason = f"{len(errors)} 条请求失败"
-    elif not all(mode in cursor_hashes for mode in cursor_modes):
-        verdict = "INCOMPLETE"
-        reason = "缺少 zero/one/max/timestamp 至少一类有效响应"
     elif unsolicited_bytes > 0 or any(
         row.get("unsolicitedBytes", 0) > 0 for row in silent
     ):
         verdict = "UNSOLICITED_DATA"
         reason = f"静默期收到 {unsolicited_bytes} 字节未请求数据"
-    elif len(set(cursor_counts.values())) > 1:
-        verdict = "CURSOR_COUNT_DIFF"
-        reason = f"不同游标返回条数不同：{cursor_counts}"
+    elif not zero_valid or not one_valid:
+        verdict = "INCOMPLETE"
+        reason = "缺少 zero 或 update 游标有效响应"
+    elif (
+        1 in summary["zero"]["counts"]
+        and 0 in summary["one"]["counts"]
+    ):
+        verdict = "INCREMENTAL_CURSOR_CONFIRMED"
+        reason = (
+            "cursor=0 返回当前记录；用返回的 updateTime 作游标再请求返回 0 条，"
+            "证明服务端按游标过滤，客户端必须缓存上一帧并推进 cursor"
+        )
     elif all(count == 1 for count in cursor_counts.values()):
         verdict = "SNAPSHOT_CANDIDATE"
         reason = (
-            "四类游标均返回 1 条当前报价，游标没有减少记录；"
-            "分组间哈希差异可由盘中价格变化解释；静默期无额外数据"
+            "zero/update/max/timestamp 均返回 1 条，未观察到游标过滤；"
+            "静默期无额外数据"
         )
     elif len(set(cursor_hashes.values())) == 1:
         verdict = "SNAPSHOT_CANDIDATE"
-        reason = "四类游标返回相同条数和稳定哈希，静默期无额外数据"
+        reason = "各游标返回相同条数和稳定哈希，静默期无额外数据"
     else:
         verdict = "CURSOR_HASH_DIFF"
         reason = "条数/哈希差异无法由单一规则解释，需结合原始报文复核"

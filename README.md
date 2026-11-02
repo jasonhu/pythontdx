@@ -7,12 +7,13 @@
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
 **版本：0.14.4（release candidate）** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：315 个 TS 测试 + 164 个 Python 测试（1 skipped）·
+`npm run check`：315 个 TS 测试 + 168 个 Python 测试（1 skipped）·
 `npm run audit:data`：39/39。
 
-> 0x0547 已于 2026-11-02 09:30–09:35 盘中验证：四类游标均返回 1 条当前报价，
-> 5 秒静默期未收到主动数据，当前主站表现为快照语义；应用内 PushHub 的轮询推送模型
-> 不需要改成服务端推送。1.0 仍待剩余边界项决策与发布流程。
+> 0x0547 已于 2026-11-02 盘中确认是**按代码游标的增量刷新**：cursor=0 建立基线，
+> 用返回的 updateTime 再请求返回 0 条（无变化）；客户端已缓存上一帧并推进 cursor。
+> 未配对推送帧也已入队/合并，但当前免费主站 75 秒单代码、45 秒 80 代码实测未主动下发，
+> 实时链路以 1 秒增量刷新为主。1.0 仍待剩余边界项决策与发布流程。
 > Windows x64 0.14.4、macOS arm64 0.14.4 与 Linux 0.14.4 均已完成本机打包验证
 > （macOS 仅散装 app + dmg；Linux 产物随本轮发布）。
 > macOS 只支持 Apple Silicon，不维护 Intel 版。
@@ -227,7 +228,7 @@ Windows 上 `python3` 换成 `py -3`，激活命令换成 `.\.venv\Scripts\Activ
 提交/发版前先跑质量门禁：
 
 ```bash
-npm run check        # 类型 + Lint + 315 TS + 164 Python
+npm run check        # 类型 + Lint + 315 TS + 168 Python
 npm run audit:data   # 39 项数据覆盖/完整性审计
 ```
 
@@ -409,7 +410,7 @@ Electron 壳 ─┐
 | 历史五档 / Level-2 / 逐笔委托 | ⛔ 协议/授权边界                 |
 | 研报正文                      | ⛔ 授权边界                      |
 | 7727 / EX                     | ⛔ 非 A 股范围                   |
-| `0x0547` 盘中增量/推送        | ✅ 2026-11-02 盘中验证为快照语义，无主动推送 |
+| `0x0547` 盘中增量/推送        | ✅ 增量 cursor 已确认；推送帧队列已接入，当前主站未主动下发 |
 
 不伪造数据；缺失数据在 UI 显示 `—`，并保留边界说明。
 

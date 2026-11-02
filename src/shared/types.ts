@@ -93,6 +93,8 @@ export interface Quote {
 
   /** 交易所行情时间（epoch ms） */
   time: number
+  /** 0x0547 记录内的更新时间原始值；作为下一次增量刷新的游标 */
+  updateTime?: number
   /** 买一 ~ 买五 */
   bids: OrderLevel[]
   /** 卖一 ~ 卖五 */

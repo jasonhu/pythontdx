@@ -82,7 +82,7 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
   改为项目内 `.venv`；补 `python3-venv`、`libfuse2t64`、无 FUSE 的
   `--appimage-extract-and-run` 和 `apt install ./...deb`；Linux 实测版本改为
   Python 3.14.4 / Nuitka 4.3.3。
-- `npm run check` exit 0：**315 TS（32 文件）+ 164 Python（1 skipped）**；
+- `npm run check` exit 0：**315 TS（32 文件）+ 168 Python（1 skipped）**；
   `npm run audit:data` **39/39**；`npm run build:linux` exit 0；
 - AppImage/deb 均启动 `v0.14.4`，默认自选 4 个宽基指数；
 - AppImage 完成一次 1.6 GB 备份，进度条 **100%**（82/82 文件）；
@@ -95,19 +95,21 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 | `linux-unpacked/resources/app.asar` | 3,607,099 B | `71462c02bde14649a6f21d15609499890de43774e88ab0211b3498ee27fb74e1` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,461,264 B | `0f01f15092ed2c8b1718257eb3df537f75b2e58c2bcc4d90e663e40cb47bf084` |
 
-### 0x0547 盘中验证（2026-11-02 09:30–09:35）
+### 0x0547 增量刷新与推送队列（2026-11-02 盘中）
 
-- cron 自动运行 `scripts/probe_0547.py --code sh600519 --seconds 300`：
-  158 条记录；zero/one 各 3 帧均 1 条、稳定同哈希；max/timestamp 各 3 帧均 1 条、
-  稳定同哈希（差异对应 09:30:04 价格变化）；silent 段 5 秒收到 **0 字节**；
-  loop-zero 145 次全部 1 条，无未经请求的帧；
-- 判定：当前主站为**快照语义**，无服务端主动推送；客户端继续传游标 0，
-  `PushHub` 的主进程轮询模型保持不变，不需要 per-code cursor 改造；
-- 修复探针分析误报：首个 `CURSOR_HASH_DIFF` 是因为把不同时间的价格变化当成游标差异；
-  分析器改为「四类游标均 1 条 + silent 0 字节 → SNAPSHOT_CANDIDATE」；
-- 证据：`lake/probes/0x0547-20261102-093002.jsonl`、
-  `0x0547-analysis-20261102-094040.json`（`docs/03` 3.8、`docs/08` 第 3 项）。
-- 边界：仅当前主站/连接/09:30–09:35 窗口；不宣称所有主站/时段永不主动推送。
+- 修正探针：首次 `cursor=0` 取基线并解析记录内 `updateTime`；下一次用该
+  `updateTime` 作游标，实测返回 **0 条**（无新成交）；有新成交时返回 1 条并推进。
+  自动分析：`INCREMENTAL_CURSOR_CONFIRMED`；
+- 客户端修复：per-code 游标缓存、空响应复用上一帧、按记录内「市场 + 代码」映射
+  （增量页可能只返回部分代码，旧实现会错配代码）；
+- `TdxConnection` 现在区分请求响应与未配对 0x0547 推送帧：非匹配帧入队，
+  `Bridge` 合并并推进游标；当前免费主站 75 秒单代码、45 秒 80 代码未主动下发，
+  实时链路仍以 1 秒增量刷新为主；
+- 增加空闲 30 秒自动 `0x0004` 心跳、8 秒请求超时、断线一次重连；
+- 新增 Python 测试：部分返回按代码映射、游标缓存、推送帧入队/合并、响应头解析；
+- 证据：`lake/probes/0x0547-20261102-103316.jsonl`、
+  `0x0547-analysis-20261102-103329.json`（`docs/03` 3.8、`docs/08` 第 3 项）。
+- 边界：未观察到当前主站主动推送，不能宣称所有主站/时段永不推送。
 
 ## [0.14.3] - 2026-11-02
 

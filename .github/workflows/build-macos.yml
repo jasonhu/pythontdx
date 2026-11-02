@@ -56,10 +56,16 @@ jobs:
       - name: Quality gate
         run: npm run check
 
-      - name: Build macOS dmg
-        id: build_macos
-        continue-on-error: true
-        run: npm run build:mac
+      - name: Build macOS app
+        run: npm run build:mac:app
+
+      - name: Create DMG
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          APP="release/$VERSION/mac-arm64/StockLens.app"
+          DMG="release/$VERSION/stocklens-$VERSION-arm64.dmg"
+          test -d "$APP"
+          hdiutil create -volname "StockLens" -srcfolder "$APP" -ov -format UDZO "$DMG"
 
       - name: Ensure DMG exists
         run: |

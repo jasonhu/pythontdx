@@ -39,6 +39,14 @@ pythontdx 的所有重要变更都记录在这里。
 - Python 数据迁移测试：旧目录 → 新目录、已有新目录不覆盖、旧环境变量别名；
 - 主进程迁移测试：旧 userData/本地存储复制、新配置不覆盖、便携目录迁移。
 
+### 发布
+
+- tag `v1.1.0` 已推送 GitHub，Actions run `41449933914` 四 job 全 success；
+  [GitHub Release v1.1.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.1.0)
+  共 12 个资产：Linux AppImage/deb、Windows setup/portable/绿色 zip、
+  macOS arm64 dmg，以及 SHA256/公钥文件。
+- 本地 `npm run build:win` 同步恢复绿色 zip 体系（`build:win:zip`）。
+
 ## [1.0.0] - 2026-11-02
 
 ### 发布

@@ -392,29 +392,25 @@ deb 可用 `sudo apt install ./release/<version>/pythontdx_<version>_amd64.deb`
 > Linux 0.14.4 AppImage/deb 已在本机启动验收：`v0.14.4`、GPL 文本、
 > 备份/恢复进度条均回读通过。
 
-> **1.0.0 三平台正式发布**：Linux AppImage/deb、Windows setup/portable、
+> **1.1.0 三平台正式发布**：Linux AppImage/deb、Windows setup/portable/绿色 zip、
 > macOS arm64 dmg 均由 GitHub Actions 构建，并上传到
-> [GitHub Release v1.0.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.0.0)。
-> 包内版本 `1.0.0`，GPL 与 `data:backup-progress` 均在；sidecar 含 0x0547
-> 增量游标、60 秒基线看门狗与 30 秒心跳。
+> [GitHub Release v1.1.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.1.0)
+> （run `41449933914`，四个 job 全部 success）。
+> 包内版本 `1.1.0`；含 pythontdx 改名/迁移、1440×900 默认窗口与宽表适配。
 > Windows 使用免费自签名；macOS 使用 ad-hoc 签名，均未购买付费证书。
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
-| `pythontdx-1.0.0.AppImage` | 165,206,214 B | `9b4188313c6144aac57aa9357a1a9fc5cb4ea1a454bfec0da1be0e63da524e49` |
-| `pythontdx_1.0.0_amd64.deb` | 138,739,784 B | `4beed0857b370c958234fb6eccf7321552555b2a14d1f1d4059a85940f8d9204` |
-| `pythontdx-1.0.0-setup.exe` | 133,361,160 B | `f142186e4175a16684a338d96d98207cf61bca82ac31a057a7d8392cfa2e35a6` |
-| `pythontdx-1.0.0-portable.exe` | 133,107,024 B | `df15a0d3a2cd590d06326659e2647d8a3807d1fa5445f90ae015db62963183c1` |
-| `pythontdx-1.0.0-arm64.dmg` | 166,829,697 B | `b659c2b2cff342d7a047beae1161fedd420fa07aba998eddb075ca7e271c4cfa` |
-| `pythontdx-1.0.0-win-x64.zip` | 180,319,847 B | `8b38a7ae578af49dbf61ff32f60d0bc6513589406ac4dbde03bb736e65a7b4ce` |
-| `pythontdx-selfsigned.cer` | 822 B | `f5c623d2ca0a7d05f5e16f778a4725adbd51c67797e7b6772971197c40681d61` |
+| `pythontdx-1.1.0.AppImage` | 165,172,596 B | `e74894e4c97bfaa94a89ff8965d3c5aabae33826664305132f2631a6d3681d0d` |
+| `pythontdx_1.1.0_amd64.deb` | 138,700,728 B | `e01d84e9a9f2e4fad0070c68434a627f8fe222f57d2c70cba180c218d7257c0a` |
+| `pythontdx-1.1.0-setup.exe` | 133,377,656 B | `3f96a6a701120a46ed92e1ed6d21379768ab02c49a8b943c9092b8a9f7695c31` |
+| `pythontdx-1.1.0-portable.exe` | 133,123,520 B | `9d7d2e473d6156cb3dda9212dc61ab3a48129272325f31263fd90c77c71f48bc` |
+| `pythontdx-1.1.0-arm64.dmg` | 166,977,703 B | `aeb66ed0ed0993b259ba9d1f7b583e97f99cb89dda886adea2fb84fe15bcde34` |
+| `pythontdx-1.1.0-win-x64.zip` | 180,395,724 B | `74e4b9df72d376321c07d637cbb61ca3d85e88da5057a1d05af720c553efc864` |
+| `pythontdx-selfsigned.cer` | 822 B | `769d56c46507487c97ce9d087c4fdc2bdd7497695c76b5a060a7548c170d350c` |
 
-Windows zip 由 `release-windows-zip` 单独补发，内含该次 CI 构建的自签名证书
-（指纹 `25FD4194C69DB7DCA892249C4A44CE36AD33AB3B`）；它不替代 Release 里
-setup/portable 使用的旧证书。
-
-> 1.0.0 的 Release 资产是改名前的历史文件名；上表按新名称展示，实际下载文件名
-> 以 GitHub Release 页面为准。
+Windows 绿色 zip 内含签名后的 exe 与本次 CI 的自签名公钥；`.sha256` 同目录提供。
+1.0.0 的 Release 仍保留在旧 tag 上，本表只列 1.1.0 产物。
 
 ---
 

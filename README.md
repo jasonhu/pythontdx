@@ -14,6 +14,7 @@
 > 便携目录、localStorage key 与备份清单会在首次启动时自动复制/迁移，旧目录保留。
 > 旧的 `STOCKLENS_*` 环境变量仍作为别名兼容。
 > 桌面窗口默认 **1440×900**；主行情指标固定单行，全市场/板块/排行榜在 1440 下无横向滚动。
+> 发布说明：[RELEASE_NOTES-1.1.0.md](RELEASE_NOTES-1.1.0.md)。
 
 > 0x0547 已于 2026-11-02 盘中确认是**按代码游标的增量刷新**：cursor=0 建立基线，
 > 用返回的 updateTime 再请求返回 0 条（无变化）；客户端已缓存上一帧并推进 cursor。
@@ -254,31 +255,32 @@ py -3 -m venv .venv
 python -m pip install -r requirements.txt
 npm.cmd run check
 
-npm.cmd run build:win            # NSIS 安装包 + 单文件便携版
+npm.cmd run build:win            # NSIS 安装包 + 单文件便携版 + 绿色 zip
 npm.cmd run build:win:setup      # 只出安装包
 npm.cmd run build:win:portable   # 只出便携版
+npm.cmd run build:win:zip        # 从 win-unpacked 单独补绿色 zip
 ```
 
 `build:win` 在 `release/<version>/` 留下：
 
 - `pythontdx-<version>-setup.exe`：NSIS 安装包；
 - `pythontdx-<version>-portable.exe`：单文件便携版；
-- `win-unpacked/`：Electron 解包目录，**绿色版原料**。`build:win` 不会自动改名，
-  也不会自动压 zip；要交付散装绿色包/zip，复制后压缩：
+- `pythontdx-<version>-win-x64/`：签名后的散装绿色包；
+- `pythontdx-<version>-win-x64.zip` + `.sha256`：可直接分发的绿色 zip；
+- `win-unpacked/`：Electron 解包目录。
+
+`build:win` 最后会自动调用 `npm run build:win:zip`：从 `win-unpacked` 生成绿色目录，
+复制 `pythontdx-selfsigned.cer`，压缩为 zip，并校验 `pythontdx.exe` /
+`tdx-bridge.exe` 存在。只补 zip 时运行：
 
 ```powershell
-$v = node -p "require('./package.json').version"
-$out = "release\$v"
-Copy-Item "$out\win-unpacked" "$out\pythontdx-$v-win-x64" -Recurse
-Compress-Archive -Path "$out\pythontdx-$v-win-x64" `
-  -DestinationPath "$out\pythontdx-$v-win-x64.zip"
-# 或：& 'C:\Program Files\7-Zip\7z.exe' a -tzip -mx=9 `
-#       "$out\pythontdx-$v-win-x64.zip" "$out\pythontdx-$v-win-x64"
+npm.cmd run build:win:zip
 ```
 
-> GitHub Actions 的 `build-windows-x64` 也会生成并上传同名绿色 zip（签名后的
-> `win-unpacked` + 公钥证书）；`release-windows-zip` 可只给已有 Release 补这个
-> zip（选择 tag，默认 `v1.0.0`），不会重打 Linux/macOS，也不会改动其他资产。
+> GitHub Actions 的 `build-windows-x64`、`release-windows-zip` 和完整 `release`
+> 现在都调用同一个 `scripts/build-win-zip.ps1`，本地与 CI 的 zip 结构一致。
+> `release-windows-zip` 可只给已有 Release 补 zip（选择 tag，默认 `v1.1.0`），
+> 不会重打 Linux/macOS，也不会改动其他资产。
 
 > Windows 包使用**本机自签名证书**做完整性签名（`build:win` 会自动调用
 > `npm run sign:win`）。首次构建会创建一张 10 年有效的代码签名证书，公钥导出到

@@ -113,7 +113,8 @@ npm run dev:web             # Web 前端（行情只读/本地状态可写；需
 npm run build:web           # 构建 Web 产物到 out/web/
 npm run icon                # 重新生成应用图标（纯 Node 手写 PNG/ICO 编码）
 npm run build               # 生产构建（产物在 out/）
-npm run build:win           # Windows 打包：安装包 + 单文件便携版（自动自签名）
+npm run build:win           # Windows 打包：安装包 + 便携版 + 绿色 zip（自动自签名）
+npm run build:win:zip       # 只从 win-unpacked 补绿色 zip + sha256
 npm run build:win:portable  # 只要单文件便携版 exe
 npm run build:win:setup     # 只要 NSIS 安装包
 npm run sign:win            # 单独补签：本机自签名证书，只保证完整性，不消除 SmartScreen

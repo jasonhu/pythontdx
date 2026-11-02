@@ -1,9 +1,9 @@
-name: release-1.0.0
+name: release
 
 on:
   workflow_dispatch:
   push:
-    tags: ['v1.0.0']
+    tags: ['v1.*']
 
 permissions:
   contents: write
@@ -80,23 +80,9 @@ jobs:
         shell: cmd
         run: |
           "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File scripts\sign-win.ps1
-      - name: Create green zip
+      - name: Create and verify green zip
         shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $version = node -p "require('./package.json').version"
-          $release = Join-Path $PWD "release/$version"
-          $green = Join-Path $release "pythontdx-$version-win-x64"
-          if (Test-Path $green) { Remove-Item $green -Recurse -Force }
-          Copy-Item (Join-Path $release 'win-unpacked') $green -Recurse
-          if (Test-Path "$release/pythontdx-selfsigned.cer") {
-            Copy-Item "$release/pythontdx-selfsigned.cer" (Join-Path $green 'pythontdx-selfsigned.cer')
-          }
-          $zip = Join-Path $release "pythontdx-$version-win-x64.zip"
-          Compress-Archive -Path $green -DestinationPath $zip -CompressionLevel Optimal
-          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  $(Split-Path $zip -Leaf)" | Out-File -FilePath "$zip.sha256" -Encoding ascii
-          Get-Item $zip | Select-Object Name, Length
+        run: npm run build:win:zip
       - name: Checksums
         shell: powershell
         run: |
@@ -171,21 +157,34 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v1.0.0')
+    if: startsWith(github.ref, 'refs/tags/v1.')
     needs: [linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - uses: actions/download-artifact@v4
         with:
           path: assets
+      - name: Check tag and select release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          test "$VERSION" = "$PKG_VERSION"
+          if [ -f "RELEASE_NOTES-$VERSION.md" ]; then
+            cp "RELEASE_NOTES-$VERSION.md" .release-notes.md
+          else
+            printf '# pythontdx %s\n\nBinaries are attached below.\n' "$VERSION" > .release-notes.md
+          fi
       - name: List release assets
         run: find assets -type f -printf '%p %s\n' | sort
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: pythontdx 1.0.0
-          body_path: RELEASE_NOTES-1.0.0.md
+          name: pythontdx ${{ github.ref_name }}
+          body_path: .release-notes.md
           files: assets/**/*
           fail_on_unmatched_files: true
           draft: false

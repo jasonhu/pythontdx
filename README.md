@@ -271,8 +271,8 @@ Compress-Archive -Path "$out\StockLens-$v-win-x64" `
 ```
 
 > GitHub Actions 的 `build-windows-x64` 也会生成并上传同名绿色 zip（签名后的
-> `win-unpacked` + 公钥证书）；`release-1.0.0` 的 Windows job 在打 tag 或手动
-> dispatch 到 tag 时会把 zip 一并放到 GitHub Release。
+> `win-unpacked` + 公钥证书）；`release-windows-zip` 可只给已有 Release 补这个
+> zip（选择 tag，默认 `v1.0.0`），不会重打 Linux/macOS，也不会改动其他资产。
 
 > Windows 包使用**本机自签名证书**做完整性签名（`build:win` 会自动调用
 > `npm run sign:win`）。首次构建会创建一张 10 年有效的代码签名证书，公钥导出到

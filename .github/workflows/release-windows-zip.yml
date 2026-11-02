@@ -1,0 +1,109 @@
+# 只补 Windows 绿色 zip 到已有 Release，不重打 Linux/macOS。
+#
+# 触发：workflow_dispatch（选择 tag，默认 v1.0.0）
+# 产物：StockLens-<version>-win-x64.zip + .sha256 + stocklens-selfsigned.cer
+# 不会改动已有的 setup/portable/dmg/AppImage 资产。
+name: release-windows-zip
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the Windows zip to
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-windows-zip-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  windows-zip:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Quality gate
+        run: npm run check
+
+      - name: Build Windows unpacked
+        run: |
+          npm run build:python
+          npm run build
+          npx electron-builder --win dir --publish never
+
+      - name: Sign Windows (self-signed, best effort)
+        continue-on-error: true
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-win.ps1
+
+      - name: Create green zip
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./package.json').version"
+          $release = Join-Path $PWD "release/$version"
+          $green = Join-Path $release "StockLens-$version-win-x64"
+          $source = Join-Path $release 'win-unpacked'
+          if (-not (Test-Path $source)) { throw "missing $source" }
+          if (Test-Path $green) { Remove-Item $green -Recurse -Force }
+          Copy-Item $source $green -Recurse
+          if (Test-Path "$release/stocklens-selfsigned.cer") {
+            Copy-Item "$release/stocklens-selfsigned.cer" (Join-Path $green 'stocklens-selfsigned.cer')
+          }
+          $zip = Join-Path $release "StockLens-$version-win-x64.zip"
+          Compress-Archive -Path $green -DestinationPath $zip -CompressionLevel Optimal
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $(Split-Path $zip -Leaf)" | Out-File -FilePath "$zip.sha256" -Encoding ascii
+          Get-Item $zip | Select-Object Name, Length
+
+      - name: Verify zip contains StockLens.exe
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $version = node -p "require('./package.json').version"
+          $zip = "release/$version/StockLens-$version-win-x64.zip"
+          if (-not (Test-Path $zip)) { throw "missing $zip" }
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip).Path)
+          try {
+            $names = $archive.Entries | ForEach-Object FullName
+            if (-not ($names -match 'StockLens\.exe$')) { throw "StockLens.exe missing in zip" }
+            if (-not ($names -match 'tdx-bridge\.exe$')) { throw "tdx-bridge.exe missing in zip" }
+            Write-Host "zip entries: $($names.Count)"
+          } finally {
+            $archive.Dispose()
+          }
+
+      - name: Attach zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          files: |
+            release/*/StockLens-*-win-x64.zip
+            release/*/StockLens-*-win-x64.zip.sha256
+          fail_on_unmatched_files: true
+          overwrite_files: true

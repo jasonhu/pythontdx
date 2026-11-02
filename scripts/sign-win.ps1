@@ -15,7 +15,7 @@ if (-not (Test-Path $release)) {
   throw "release directory not found: $release. Run build:win first."
 }
 
-$subject = 'CN=StockLens Self-Signed (integrity only)'
+$subject = 'CN=pythontdx Self-Signed (integrity only)'
 # PowerShell 7 不支持 Get-ChildItem 的 -CodeSigningCert 动态参数；按 EKU 过滤。
 $cert = Get-ChildItem Cert:\CurrentUser\My |
   Where-Object {
@@ -36,7 +36,7 @@ if (-not $cert) {
     -NotAfter (Get-Date).AddYears(10)
 }
 
-$cerPath = Join-Path $release 'stocklens-selfsigned.cer'
+$cerPath = Join-Path $release 'pythontdx-selfsigned.cer'
 Export-Certificate -Cert $cert -FilePath $cerPath -Force | Out-Null
 Write-Host "Public certificate: $cerPath"
 Write-Host "Certificate thumbprint: $($cert.Thumbprint)"
@@ -44,10 +44,10 @@ Write-Host "Certificate thumbprint: $($cert.Thumbprint)"
 $candidates = @()
 $candidates += Get-ChildItem $release -Filter '*.exe' -File -ErrorAction SilentlyContinue |
   ForEach-Object { $_.FullName }
-$candidates += Join-Path $release 'win-unpacked\StockLens.exe'
+$candidates += Join-Path $release 'win-unpacked\pythontdx.exe'
 $candidates += Join-Path $release 'win-unpacked\resources\tdx-bridge\tdx-bridge.exe'
-$candidates += Join-Path $release "StockLens-$version-win-x64\StockLens.exe"
-$candidates += Join-Path $release "StockLens-$version-win-x64\resources\tdx-bridge\tdx-bridge.exe"
+$candidates += Join-Path $release "pythontdx-$version-win-x64\pythontdx.exe"
+$candidates += Join-Path $release "pythontdx-$version-win-x64\resources\tdx-bridge\tdx-bridge.exe"
 
 $signed = 0
 foreach ($item in $candidates | Where-Object { Test-Path $_ } | Select-Object -Unique) {

@@ -54,7 +54,7 @@ def write_kline_manifest(data_path: Path, metadata: dict | None = None) -> dict:
     meta.setdefault("firstDate", first_date)
     meta.setdefault("lastDate", last_date)
     payload = {
-        "schema": "stocklens.kline_cache.v1",
+        "schema": "pythontdx.kline_cache.v1",
         "file": data_path.name,
         "rows": rows,
         "bytes": data_path.stat().st_size,

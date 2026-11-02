@@ -105,7 +105,7 @@ def write_tick_archive(
         "sha256": digest,
         "bytes": data_path.stat().st_size,
         "file": data_path.name,
-        "schema": "stocklens.ticks.v1",
+        "schema": "pythontdx.ticks.v1",
         "format": "parquet-zstd",
     }
     manifest_tmp = target_dir / f".{normalized_code}.manifest.json.part"

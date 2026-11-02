@@ -406,15 +406,15 @@ class TestTdxStats(unittest.TestCase):
 
     def test_save_raw_file(self):
         with tempfile.TemporaryDirectory() as directory:
-            old = os.environ.get("STOCKLENS_DATA_DIR")
-            os.environ["STOCKLENS_DATA_DIR"] = directory
+            old = os.environ.get("PYTHONTDX_DATA_DIR")
+            os.environ["PYTHONTDX_DATA_DIR"] = directory
             try:
                 saved = tdx.save_raw_file("x.bin", b"abc")
             finally:
                 if old is None:
-                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                    os.environ.pop("PYTHONTDX_DATA_DIR", None)
                 else:
-                    os.environ["STOCKLENS_DATA_DIR"] = old
+                    os.environ["PYTHONTDX_DATA_DIR"] = old
             self.assertEqual(saved["bytes"], 3)
             # savedTo 是本地路径，Windows 用 `\`、Linux/macOS 用 `/`，断言不能写死分隔符
             self.assertEqual(Path(saved["savedTo"]).parts[-3:], ("raw", "tdx", "x.bin"))
@@ -422,15 +422,15 @@ class TestTdxStats(unittest.TestCase):
 
     def test_export_stats_normalized(self):
         with tempfile.TemporaryDirectory() as directory:
-            old = os.environ.get("STOCKLENS_DATA_DIR")
-            os.environ["STOCKLENS_DATA_DIR"] = directory
+            old = os.environ.get("PYTHONTDX_DATA_DIR")
+            os.environ["PYTHONTDX_DATA_DIR"] = directory
             try:
                 result = tdx.export_tdx_stats(self.make_zip())
             finally:
                 if old is None:
-                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                    os.environ.pop("PYTHONTDX_DATA_DIR", None)
                 else:
-                    os.environ["STOCKLENS_DATA_DIR"] = old
+                    os.environ["PYTHONTDX_DATA_DIR"] = old
             self.assertEqual(result["statCount"], 1)
             self.assertEqual(result["statSkipped"], 0)
             self.assertEqual(result["partitions"][0]["tradeDate"], "20261029")
@@ -466,8 +466,8 @@ class TestDataBackup(unittest.TestCase):
             (data / "cache" / "klines" / "sh600519_day_all_qfq.parquet").write_bytes(b"parquet")
             (data / "lake" / "sh600519.manifest.json").write_text("{}", encoding="utf-8")
 
-            old = os.environ.get("STOCKLENS_DATA_DIR")
-            os.environ["STOCKLENS_DATA_DIR"] = str(data)
+            old = os.environ.get("PYTHONTDX_DATA_DIR")
+            os.environ["PYTHONTDX_DATA_DIR"] = str(data)
             try:
                 archive = Path(directory) / "backup.zip"
                 backup_events: list[dict] = []
@@ -513,9 +513,26 @@ class TestDataBackup(unittest.TestCase):
                     tdx.backup_create(str(archive))
             finally:
                 if old is None:
-                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                    os.environ.pop("PYTHONTDX_DATA_DIR", None)
                 else:
-                    os.environ["STOCKLENS_DATA_DIR"] = old
+                    os.environ["PYTHONTDX_DATA_DIR"] = old
+
+    def test_backup_inspect_accepts_legacy_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "legacy.zip"
+            manifest = {
+                "format": tdx.BACKUP_FORMAT,
+                "app": "StockLens",
+                "fileCount": 1,
+                "totalBytes": 3,
+            }
+            with zipfile.ZipFile(archive, "w") as writer:
+                writer.writestr(tdx.LEGACY_BACKUP_MANIFEST, json.dumps(manifest))
+                writer.writestr("data/x.txt", "abc")
+            result = tdx.backup_inspect(str(archive))
+            self.assertEqual(result["fileCount"], 1)
+            self.assertEqual(result["totalBytes"], 3)
+            self.assertEqual(result["format"], tdx.BACKUP_FORMAT)
 
     def test_restore_rejects_path_traversal(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -524,17 +541,17 @@ class TestDataBackup(unittest.TestCase):
             archive = Path(directory) / "evil.zip"
             with zipfile.ZipFile(archive, "w") as writer:
                 writer.writestr("../escape.txt", b"x")
-            old = os.environ.get("STOCKLENS_DATA_DIR")
-            os.environ["STOCKLENS_DATA_DIR"] = str(data)
+            old = os.environ.get("PYTHONTDX_DATA_DIR")
+            os.environ["PYTHONTDX_DATA_DIR"] = str(data)
             try:
                 with self.assertRaises(tdx.TdxError):
                     tdx.backup_restore(str(archive))
                 self.assertFalse((Path(directory) / "escape.txt").exists())
             finally:
                 if old is None:
-                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                    os.environ.pop("PYTHONTDX_DATA_DIR", None)
                 else:
-                    os.environ["STOCKLENS_DATA_DIR"] = old
+                    os.environ["PYTHONTDX_DATA_DIR"] = old
 
 
 class TestBlocks(unittest.TestCase):
@@ -631,8 +648,8 @@ class TestScreenIndustry(unittest.TestCase):
 class TestStatsQuery(unittest.TestCase):
     def test_readonly_query(self):
         with tempfile.TemporaryDirectory() as directory:
-            old = os.environ.get("STOCKLENS_DATA_DIR")
-            os.environ["STOCKLENS_DATA_DIR"] = directory
+            old = os.environ.get("PYTHONTDX_DATA_DIR")
+            os.environ["PYTHONTDX_DATA_DIR"] = directory
             try:
                 folder = Path(directory) / "normalized" / "tdx" / "zhb_stats"
                 folder.mkdir(parents=True)
@@ -660,9 +677,9 @@ class TestStatsQuery(unittest.TestCase):
                     tdx.run_stats_query("SELECT 1; SELECT 2")
             finally:
                 if old is None:
-                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                    os.environ.pop("PYTHONTDX_DATA_DIR", None)
                 else:
-                    os.environ["STOCKLENS_DATA_DIR"] = old
+                    os.environ["PYTHONTDX_DATA_DIR"] = old
 
 
 class TestScreener(unittest.TestCase):

@@ -38,5 +38,5 @@ python/dist/
 __pycache__/
 *.pyc
 
-# 下载的原始行情文件（默认在 ~/.local/share/stocklens/data）
+# 下载的原始行情文件（默认在 ~/.local/share/pythontdx/data）
 data/

@@ -4,7 +4,7 @@
  *
  * 为什么不用 `python3` 直接写进 package.json：
  *   · Windows 上通常是 `python` 或 `py -3`，没有 `python3`；
- *   · 用户可能用 STOCKLENS_PYTHON 指定解释器；
+ *   · 用户可能用 PYTHONTDX_PYTHON 指定解释器；
  *   · 找不到时给一句能看懂的中文，而不是 ENOENT。
  */
 import { spawnSync } from 'node:child_process'
@@ -16,8 +16,8 @@ if (command !== 'test' && command !== 'build' && command !== 'audit') {
   process.exit(1)
 }
 
-const candidates = process.env.STOCKLENS_PYTHON
-  ? [[process.env.STOCKLENS_PYTHON, []]]
+const candidates = process.env.PYTHONTDX_PYTHON
+  ? [[process.env.PYTHONTDX_PYTHON, []]]
   : process.platform === 'win32'
     ? [
         ['python', []],
@@ -35,7 +35,7 @@ function usable(executable, prefix) {
 
 const found = candidates.find(([executable, prefix]) => usable(executable, prefix))
 if (!found) {
-  console.error('找不到 Python 3。请安装后重试，或设置 STOCKLENS_PYTHON 指向解释器。')
+  console.error('找不到 Python 3。请安装后重试，或设置 PYTHONTDX_PYTHON 指向解释器。')
   process.exit(1)
 }
 

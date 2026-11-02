@@ -135,7 +135,7 @@ function postWindow(message: unknown): void {
 
 export function initWindowSync(): void {
   if (windowChannel || typeof BroadcastChannel === 'undefined') return
-  windowChannel = new BroadcastChannel('stocklens-windows')
+  windowChannel = new BroadcastChannel('pythontdx-windows')
   windowChannel.onmessage = (event: MessageEvent) => {
     const message = event.data as
       { type: 'active'; code: string | null } | { type: 'settings'; settings: AppSettings }

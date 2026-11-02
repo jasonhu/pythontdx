@@ -107,7 +107,7 @@ export function PortfolioPanel(props: {
       fixed(row.pnlPct),
       fixed(row.weight)
     ])
-    downloadText('stocklens-positions.csv', toCsv(columns, rows))
+    downloadText('pythontdx-positions.csv', toCsv(columns, rows))
   }
 
   const startEditing = (): void => {

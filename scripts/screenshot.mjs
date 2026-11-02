@@ -18,7 +18,7 @@ const delay = process.argv[3] ?? '4000'
 
 mkdirSync(dirname(target), { recursive: true })
 
-const env = { ...process.env, STOCKLENS_CAPTURE: target, STOCKLENS_CAPTURE_DELAY: delay }
+const env = { ...process.env, PYTHONTDX_CAPTURE: target, PYTHONTDX_CAPTURE_DELAY: delay }
 // 当前终端可能带着这个变量（它会让 Electron 退化成纯 Node 模式，窗口根本不会出现）
 delete env.ELECTRON_RUN_AS_NODE
 

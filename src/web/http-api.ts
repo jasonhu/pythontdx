@@ -2,7 +2,7 @@
  * Web 端的 window.api 实现。
  *
  * 桌面走 preload + IPC；浏览器不能碰 IPC，所以这里用只读 HTTP API 实现同一份
- * StockLensApi 契约。组件仍然只依赖 window.api，不需要知道自己在哪一端。
+ * PythonTdxApi 契约。组件仍然只依赖 window.api，不需要知道自己在哪一端。
  */
 import type { ChartPatternsResult } from '@shared/patterns'
 import type {
@@ -65,14 +65,14 @@ import type {
   TdxStatsSummary,
   TradeTick
 } from '@shared/types'
-import type { CategoryRequest, KLineRequest, StockLensApi, TradesRequest } from '@shared/ipc'
+import type { CategoryRequest, KLineRequest, PythonTdxApi, TradesRequest } from '@shared/ipc'
 import type { SearchEntry, SearchSecurity } from '@shared/search'
 import { DEFAULT_GROUP_ID, DEFAULT_SETTINGS, SEED_GROUPS, STATE_VERSION } from '@shared/types'
 import { WEB_VERSION } from './version'
 
-const BASE = (import.meta.env.VITE_STOCKLENS_API ?? '').replace(/\/$/, '')
+const BASE = (import.meta.env.VITE_PYTHONTDX_API ?? '').replace(/\/$/, '')
 const FORCE_POLLING = new URLSearchParams(window.location.search).get('transport') === 'poll'
-const STORAGE_KEY = 'stocklens:web:state'
+const STORAGE_KEY = 'pythontdx:web:state'
 
 interface ApiEnvelope<T> {
   ok: boolean
@@ -142,7 +142,7 @@ function loadState(): AppState {
   }
 }
 
-export function createHttpApi(): StockLensApi {
+export function createHttpApi(): PythonTdxApi {
   let state = loadState()
   const listeners = new Set<(update: QuoteUpdate) => void>()
   let codes: string[] = []
@@ -354,7 +354,7 @@ export function createHttpApi(): StockLensApi {
     breadth: () => post<MarketBreadth>('/api/market_breadth', {})
   }
 
-  const api: StockLensApi = {
+  const api: PythonTdxApi = {
     quote: {
       snapshot: (list) => post<Quote[]>('/api/quotes', { codes: list }),
       subscribe: async (list, intervalMs) => {
@@ -568,7 +568,7 @@ export function createHttpApi(): StockLensApi {
         gpuFeatureStatus: {}
       }),
       info: async (): Promise<AppInfo> => ({
-        name: 'StockLens Web',
+        name: 'pythontdx Web',
         version: WEB_VERSION,
         electron: '—',
         chrome: navigator.userAgent,

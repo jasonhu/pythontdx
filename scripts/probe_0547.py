@@ -1,6 +1,6 @@
 """0x0547 盘中语义探针：记录不同游标/连续请求的响应差异。
 
-只在交易时段运行；结果写到 STOCKLENS_DATA_DIR/lake/probes/。
+只在交易时段运行；结果写到 PYTHONTDX_DATA_DIR/lake/probes/。
 不判断“有没有推送”，只记录可复核的 JSONL 证据。
 """
 from __future__ import annotations
@@ -78,7 +78,7 @@ def main() -> int:
         )
         return result, received, update_time
 
-    target = tdx.stocklens_data_dir() / "lake" / "probes"
+    target = tdx.pythontdx_data_dir() / "lake" / "probes"
     target.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
     path = target / f"0x0547-{stamp}.jsonl"

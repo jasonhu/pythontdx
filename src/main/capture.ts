@@ -5,24 +5,25 @@
  * 用法：`npm run shot` → 构建 → 启动应用 → 等首屏数据到位 → 截图存盘 → 退出。
  *
  * 实现要点：
- *   · 只在设置了 STOCKLENS_CAPTURE 环境变量时才生效，正常启动完全不受影响；
+ *   · 只在设置了 PYTHONTDX_CAPTURE 环境变量时才生效，正常启动完全不受影响；
  *   · 必须等页面显示出来再截图，隐藏窗口 capturePage() 会返回空图；
  *   · 延迟默认 4 秒，留给行情请求和 SVG 图表渲染的时间。
  *
  * 键盘交互（比如 K 线的上下键缩放）**没法用一张静态截图验证** ——
  * 必须真的把按键送进去，才看得到按下之后界面变成了什么样。所以额外有三个开关：
  *
- *   STOCKLENS_CAPTURE_CLICK   截图前依次点击的选择器，逗号分隔（切 tab 这类操作）
- *   STOCKLENS_CAPTURE_FOCUS   点击并等界面就绪之后，把焦点放到这个选择器上
- *   STOCKLENS_CAPTURE_KEYS    截图前依次发送的按键，逗号分隔，用 Electron 的键名（如 Up,Up）
- *   STOCKLENS_CAPTURE_TYPE    往焦点元素输入文本（搜索框验证用，走真实 insertText）
- *   STOCKLENS_CAPTURE_POINTER 真实指针操作：`move@选择器@比例` / `click@选择器@比例`
- *   STOCKLENS_CAPTURE_WHEEL   真实滚轮：`deltaY@选择器@比例`（如 -100@.chart-host@0.25）
- *   STOCKLENS_CAPTURE_SCROLL  把某个滚动容器定到指定位置：`选择器@像素`（F10 长页面截图用）
- *   STOCKLENS_CAPTURE_SERIES  F10 逐页截图：传目录路径，自动遍历左侧每个页签，各截「顶部/底部」两张
- *   STOCKLENS_CAPTURE_PROBE   等它出现并回读它的文本，打印到终端
- *   STOCKLENS_CAPTURE_EVAL    截图前求值一个只读表达式并打印（量尺寸用，别写有副作用的代码）
- *   STOCKLENS_CAPTURE_AFTER_MS 驱动结束后、截图前额外等待的毫秒数（等走势图等慢数据）
+ *   PYTHONTDX_CAPTURE_CLICK   截图前依次点击的选择器，逗号分隔（切 tab 这类操作）
+ *   PYTHONTDX_CAPTURE_FOCUS   点击并等界面就绪之后，把焦点放到这个选择器上
+ *   PYTHONTDX_CAPTURE_KEYS    截图前依次发送的按键，逗号分隔，用 Electron 的键名（如 Up,Up）
+ *   PYTHONTDX_CAPTURE_TYPE    往焦点元素输入文本（搜索框验证用，走真实 insertText）
+ *   PYTHONTDX_CAPTURE_POINTER 真实指针操作：`move@选择器@比例` / `click@选择器@比例`
+ *   PYTHONTDX_CAPTURE_WHEEL   真实滚轮：`deltaY@选择器@比例`（如 -100@.chart-host@0.25）
+ *   PYTHONTDX_CAPTURE_SCROLL  把某个滚动容器定到指定位置：`选择器@像素`（F10 长页面截图用）
+ *   PYTHONTDX_CAPTURE_SERIES  F10 逐页截图：传目录路径，自动遍历左侧每个页签，各截「顶部/底部」两张
+ *   PYTHONTDX_CAPTURE_PROBE   等它出现并回读它的文本，打印到终端
+ *   PYTHONTDX_CAPTURE_EVAL    截图前求值一个只读表达式并打印（量尺寸用，别写有副作用的代码）
+ *   PYTHONTDX_CAPTURE_SIZE    截图前调整内容尺寸，如 1440x900（验证笔记本分辨率）
+ *   PYTHONTDX_CAPTURE_AFTER_MS 驱动结束后、截图前额外等待的毫秒数（等走势图等慢数据）
  *
  * 最后一个开关是给**自动化验证**用的：截图是给眼睛看的，但程序断言需要文本；
  * 顺带它还是「等界面就绪」的信号 —— 切完 tab 数据是异步来的，不等就会和加载抢时间。
@@ -31,11 +32,11 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { app, type BrowserWindow } from 'electron'
 
 export function setupCapture(window: BrowserWindow, flushState?: () => Promise<void>): void {
-  const target = process.env.STOCKLENS_CAPTURE
-  const series = process.env.STOCKLENS_CAPTURE_SERIES
+  const target = process.env.PYTHONTDX_CAPTURE
+  const series = process.env.PYTHONTDX_CAPTURE_SERIES
   if (!target && !series) return
 
-  const delay = Number(process.env.STOCKLENS_CAPTURE_DELAY ?? 4000)
+  const delay = Number(process.env.PYTHONTDX_CAPTURE_DELAY ?? 4000)
 
   window.webContents.once('did-finish-load', () => {
     setTimeout(() => {
@@ -51,15 +52,24 @@ async function capture(
 ): Promise<void> {
   let code = 0
   try {
+    // 视觉回归要覆盖不同笔记本逻辑分辨率；默认沿用用户窗口尺寸。
+    const size = process.env.PYTHONTDX_CAPTURE_SIZE
+    if (size) {
+      const [width, height] = size.split('x').map(Number)
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        window.setContentSize(Math.round(width), Math.round(height))
+        await wait(500)
+      }
+    }
     await drive(window)
-    const series = process.env.STOCKLENS_CAPTURE_SERIES
+    const series = process.env.PYTHONTDX_CAPTURE_SERIES
     if (series) {
       await captureF10Series(window, series)
     } else {
       // 让最后一次异步渲染真正上屏；capturePage 可能拿到上一帧，
       // 板块/数据弹窗刚加载完就截图时尤其明显。
-      // STOCKLENS_CAPTURE_AFTER_MS 用于等迷你走势图这类「点完还在慢慢补」的数据。
-      const after = Number(process.env.STOCKLENS_CAPTURE_AFTER_MS ?? 0)
+      // PYTHONTDX_CAPTURE_AFTER_MS 用于等迷你走势图这类「点完还在慢慢补」的数据。
+      const after = Number(process.env.PYTHONTDX_CAPTURE_AFTER_MS ?? 0)
       if (Number.isFinite(after) && after > 0) await wait(after)
       await wait(350)
       const image = await window.webContents.capturePage()
@@ -79,7 +89,7 @@ async function capture(
         console.error('[capture] 退出前落盘失败：', error)
       }
     }
-    const hold = Number(process.env.STOCKLENS_CAPTURE_HOLD_MS ?? 0)
+    const hold = Number(process.env.PYTHONTDX_CAPTURE_HOLD_MS ?? 0)
     if (Number.isFinite(hold) && hold > 0) await wait(hold)
     app.exit(code)
   }
@@ -88,7 +98,7 @@ async function capture(
 /** 按需把界面点到想验证的状态、送按键、回读文本；环境变量都没配时什么都不做 */
 /**
  * F10 逐页截图：左侧每个页签各截「顶部 / 底部」两张。
- * 由 STOCKLENS_CAPTURE_SERIES 指定输出目录，文件名带序号和页签名，便于逐张审查。
+ * 由 PYTHONTDX_CAPTURE_SERIES 指定输出目录，文件名带序号和页签名，便于逐张审查。
  */
 async function captureF10Series(window: BrowserWindow, dir: string): Promise<void> {
   await mkdir(dir, { recursive: true })
@@ -136,12 +146,12 @@ async function drive(window: BrowserWindow): Promise<void> {
   // 顺序刻意和人的操作一致：点 tab → 等界面就绪 → 点住图表 → 按上下键。
   // 焦点必须放在**等就绪之后**：切 tab 会重建图表 DOM，提前聚焦的话，
   // 等数据回来时那个元素已经被换掉了，按键就没有落点。
-  for (const selector of split(process.env.STOCKLENS_CAPTURE_CLICK)) {
+  for (const selector of split(process.env.PYTHONTDX_CAPTURE_CLICK)) {
     await evaluate(window, `document.querySelector(${json(selector)})?.click()`)
     await wait(120)
   }
 
-  const probe = process.env.STOCKLENS_CAPTURE_PROBE
+  const probe = process.env.PYTHONTDX_CAPTURE_PROBE
   if (probe) await waitFor(window, probe, 8000)
 
   /**
@@ -152,7 +162,7 @@ async function drive(window: BrowserWindow): Promise<void> {
    * 于是「点了 tab 之后焦点留在那个按钮上，鼠标移到图上按 ↑ 什么也不发生」
    * 这类问题，只有真实鼠标事件才复现得出来（`docs/06` 第 26 条）。
    */
-  for (const spec of split(process.env.STOCKLENS_CAPTURE_POINTER)) {
+  for (const spec of split(process.env.PYTHONTDX_CAPTURE_POINTER)) {
     const [action, selector, rawRatio] = spec.split('@')
     if ((action !== 'move' && action !== 'click') || !selector) {
       console.warn(`[capture] 指针参数看不懂，跳过：${spec}（正确写法 click@.chart-host@0.5）`)
@@ -187,21 +197,21 @@ async function drive(window: BrowserWindow): Promise<void> {
     await wait(300)
   }
 
-  const focus = process.env.STOCKLENS_CAPTURE_FOCUS
+  const focus = process.env.PYTHONTDX_CAPTURE_FOCUS
   if (focus) {
     await evaluate(window, `document.querySelector(${json(focus)})?.focus()`)
     await wait(120)
   }
 
-  // STOCKLENS_CAPTURE_TYPE 往当前焦点输入文本：搜索框这类需要真实输入事件的场景，
+  // PYTHONTDX_CAPTURE_TYPE 往当前焦点输入文本：搜索框这类需要真实输入事件的场景，
   // 只发 keyDown 不会插入字符（要 char 事件），用 insertText 最接近粘贴/输入法。
-  const typed = process.env.STOCKLENS_CAPTURE_TYPE
+  const typed = process.env.PYTHONTDX_CAPTURE_TYPE
   if (typed) {
     window.webContents.insertText(typed)
     await wait(200)
   }
 
-  for (const key of split(process.env.STOCKLENS_CAPTURE_KEYS)) {
+  for (const key of split(process.env.PYTHONTDX_CAPTURE_KEYS)) {
     const keyCode = acceleratorName(key)
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode })
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode })
@@ -212,7 +222,7 @@ async function drive(window: BrowserWindow): Promise<void> {
   // 滚轮：`<deltaY>@<选择器>@<横向比例>`，比例可省（默认元素正中间）。
   // 为什么要注入滚轮而不是只单测那个累加器？因为有两件事只有真跑一遍才知道：
   // 「非 passive 监听有没有生效」和「Electron 的 deltaY 单位是不是 DOM 的那一套」。
-  const wheelSpecs = split(process.env.STOCKLENS_CAPTURE_WHEEL)
+  const wheelSpecs = split(process.env.PYTHONTDX_CAPTURE_WHEEL)
   if (wheelSpecs.length > 0) {
     // 先装一个记录器：只看「界面没反应」分不清是「事件没送到」还是「deltaY 太小」，
     // 把渲染层**实际收到**的 deltaY 读回来，一次就能判定。
@@ -276,7 +286,7 @@ async function drive(window: BrowserWindow): Promise<void> {
   }
 
   // 长页面（F10）要截下半部分：滚轮在部分容器上滚不动，直接设 scrollTop 更可靠
-  const scrollSpec = process.env.STOCKLENS_CAPTURE_SCROLL
+  const scrollSpec = process.env.PYTHONTDX_CAPTURE_SCROLL
   if (scrollSpec) {
     const [selector, rawTop] = scrollSpec.split('@')
     if (selector) {
@@ -305,7 +315,7 @@ async function drive(window: BrowserWindow): Promise<void> {
 
   // 只读表达式：布局有没有溢出、蜡烛实际画了多宽，这类问题没有文字可读，
   // 只能自己算出来。人眼能看出来的东西，这里尽量也能量出来。
-  const measure = process.env.STOCKLENS_CAPTURE_EVAL
+  const measure = process.env.PYTHONTDX_CAPTURE_EVAL
   if (measure) {
     console.log(
       `[capture] eval ${measure} → ${await evaluate(window, `Promise.resolve(${measure})`)}`

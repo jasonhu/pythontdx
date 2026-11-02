@@ -22,8 +22,8 @@ except ImportError:
 class TestDuckDbQuery(unittest.TestCase):
     def test_query_parquet_view(self):
         with tempfile.TemporaryDirectory() as directory:
-            old = os.environ.get("STOCKLENS_DATA_DIR")
-            os.environ["STOCKLENS_DATA_DIR"] = directory
+            old = os.environ.get("PYTHONTDX_DATA_DIR")
+            os.environ["PYTHONTDX_DATA_DIR"] = directory
             try:
                 root = Path(directory) / "normalized" / "tdx" / "zhb_stats"
                 root.mkdir(parents=True)
@@ -45,9 +45,9 @@ class TestDuckDbQuery(unittest.TestCase):
                     duckdb_query.run_duckdb_query("SELECT * FROM read_csv('/etc/passwd')")
             finally:
                 if old is None:
-                    os.environ.pop("STOCKLENS_DATA_DIR", None)
+                    os.environ.pop("PYTHONTDX_DATA_DIR", None)
                 else:
-                    os.environ["STOCKLENS_DATA_DIR"] = old
+                    os.environ["PYTHONTDX_DATA_DIR"] = old
 
 
 if __name__ == "__main__":

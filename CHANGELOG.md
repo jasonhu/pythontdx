@@ -1,6 +1,6 @@
 # 更新日志
 
-StockLens 的所有重要变更都记录在这里。
+pythontdx 的所有重要变更都记录在这里。
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
@@ -10,6 +10,32 @@ StockLens 的所有重要变更都记录在这里。
 
 ---
 
+## [1.1.0] - 2026-11-02
+
+### 变更
+
+- **正式名称统一为 `pythontdx`**：窗口/标题/托盘/设置/安装包/快捷方式/产物文件名、
+  `appId`、包名、Python sidecar 的缓存路径、数据 schema、备份 manifest、
+  localStorage key 与文档全部改名。
+- **旧数据迁移**（不删除旧目录/旧键）：
+  - 主进程把 `%APPDATA%/StockLens`（或旧 userData 目录）复制到 `pythontdx`，
+    `stocklens.json` 复制为 `pythontdx.json`；便携版 `StockLens-data` → `pythontdx-data`；
+  - Python 把 `~/.local/share/stocklens` 整体迁移到 `~/.local/share/pythontdx`，
+    保留 `STOCKLENS_DATA_DIR` 作为旧环境变量别名；
+  - 渲染层把 `stocklens.*` / `stocklens:web:state` 复制到 `pythontdx.*`；
+  - 旧备份的 `_stocklens_backup.json` 仍可读取/恢复。
+- 迁移逻辑单独放在 `src/main/services/legacy.ts`、`python/data_paths.py`、
+  `src/renderer/src/lib/legacy-storage.ts`，其余代码不再出现旧名。
+
+### 验证
+
+- `npm run check` exit 0：**319 TS（318 passed + 1 skipped，34 文件）+
+  172 Python（1 skipped）**；
+- 重命名后首次启动实测：读取旧用户目录成功，左侧自选 23 只、版本 `v1.1.0`，
+  1440×900 无横向溢出；
+- Python 数据迁移测试：旧目录 → 新目录、已有新目录不覆盖、旧环境变量别名；
+- 主进程迁移测试：旧 userData/本地存储复制、新配置不覆盖、便携目录迁移。
+
 ## [1.0.0] - 2026-11-02
 
 ### 发布
@@ -18,11 +44,11 @@ StockLens 的所有重要变更都记录在这里。
 - 三平台（Linux x64 / Windows x64 / macOS arm64）由 GitHub Actions 构建并发布到
   GitHub Release；Windows 使用免费自签名（不购买付费证书），macOS 使用 ad-hoc 签名。
 - Windows CI（`build-windows-x64` 与 `release-1.0.0`）现在同时产出
-  `StockLens-<version>-win-x64.zip` 绿色包（含自签名 exe 与公钥证书），
+  `pythontdx-<version>-win-x64.zip` 绿色包（含自签名 exe 与公钥证书），
   并作为 Actions artifact / GitHub Release 资产上传；已有 Release 可用
   `release-windows-zip` 只补 zip，不重打其他平台。
 - 2026-11-02 实际补发：`release-windows-zip` run `41418995799` 成功，
-  `v1.0.0` Release 新增 `StockLens-1.0.0-win-x64.zip`（180,319,847 B，
+  `v1.0.0` Release 新增 `pythontdx-1.0.0-win-x64.zip`（180,319,847 B，
   SHA256 `8b38a7ae578af49dbf61ff32f60d0bc6513589406ac4dbde03bb736e65a7b4ce`），
   setup/portable/dmg/AppImage 与旧证书均未改动。
 - 功能矩阵：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**；6 项 ⛔ 为明确范围/授权边界。
@@ -100,7 +126,7 @@ StockLens 的所有重要变更都记录在这里。
 - `npm run check` exit 0：**315 TS（32 文件）+ 164 Python（1 skipped）**；
 - 新增 `scripts/sign-win.ps1` / `npm run sign:win`，`build:win*` 自动用本机 10 年
   自签名证书给 setup、portable、绿色包内 exe 做完整性签名；公钥导出为
-  `release/<version>/stocklens-selfsigned.cer`。**它不消除 SmartScreen**；
+  `release/<version>/pythontdx-selfsigned.cer`。**它不消除 SmartScreen**；
 - 全量数据下 `data_integrity` 超过默认 30 秒：自检脚本把该项超时放宽到 300 秒
   （`data_coverage` 120 秒），审计仍 **39/39**；
 - 安装版 `v0.14.4`：日 K 首图 **353ms**、逐笔首行 **209ms**；
@@ -111,19 +137,19 @@ StockLens 的所有重要变更都记录在这里。
 
 | 产物                                          |                    大小 | SHA256                                                             |
 | --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
-| `stocklens-0.14.4-setup.exe`                  |           133,627,048 B | `a6d29b9f76fa7831678216bf767d08cd04bce0f8cf40a3422692ef5e515d3457` |
-| `stocklens-0.14.4-portable.exe`               |           133,373,408 B | `63e003a64fbe2ba0f3457e45780d8999ea2af4afd800e833b6d08f23c5aec2e1` |
-| `StockLens-0.14.4-win-x64/`                   | 410,633,012 B / 76 文件 | —                                                                  |
-| `StockLens-0.14.4-win-x64.zip`                |           175,233,347 B | `38d2114b59f730c39bf08d13ede78e72206b0fb372a80a6019e566da27e0d4fa` |
+| `pythontdx-0.14.4-setup.exe`                  |           133,627,048 B | `a6d29b9f76fa7831678216bf767d08cd04bce0f8cf40a3422692ef5e515d3457` |
+| `pythontdx-0.14.4-portable.exe`               |           133,373,408 B | `63e003a64fbe2ba0f3457e45780d8999ea2af4afd800e833b6d08f23c5aec2e1` |
+| `pythontdx-0.14.4-win-x64/`                   | 410,633,012 B / 76 文件 | —                                                                  |
+| `pythontdx-0.14.4-win-x64.zip`                |           175,233,347 B | `38d2114b59f730c39bf08d13ede78e72206b0fb372a80a6019e566da27e0d4fa` |
 | `win-x64/resources/app.asar`                  |             3,611,842 B | `6dda60b01b4180c3318a031fee9f6cf3a309293d0c9c1b5acb7ece4de1f26231` |
 | `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,527,496 B | `8e20031126e534814636ca003c7964dbedced5338b64b121547b3c2aa8bb7e17` |
-| `stocklens-selfsigned.cer`                    |                   822 B | `32d7a672d3cbce39173d8187b9b9c4a6fdd6463332b02c76d17af79270212a8c` |
+| `pythontdx-selfsigned.cer`                    |                   822 B | `32d7a672d3cbce39173d8187b9b9c4a6fdd6463332b02c76d17af79270212a8c` |
 
 自签名证书指纹 `566C43464A1F482C02081344823AB247163B913B`；`Get-AuthenticodeSignature`
 正常显示 `UnknownError`（根未受信任），`NotSigned` / `HashMismatch` 表示签名无效或被改过。
 
 绿色 zip 按 README 的手工步骤生成（`win-unpacked` 复制为
-`StockLens-0.14.4-win-x64` 后 7-Zip 压缩）；`build:win` 本身只产出 setup /
+`pythontdx-0.14.4-win-x64` 后 7-Zip 压缩）；`build:win` 本身只产出 setup /
 portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 
 ### Linux 0.14.4 回归（2026-11-02）
@@ -140,8 +166,8 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
-| `StockLens-0.14.4.AppImage` | 154,528,884 B | `a7567031faae1ff6bb2b333a64f79dc17d8a77a78bef8ea100e309aeea50762d` |
-| `stocklens_0.14.4_amd64.deb` | 128,641,832 B | `2a8add0af11951180a021221a5e9e65e191cb60a333e9b7a55097657698c3ba5` |
+| `pythontdx-0.14.4.AppImage` | 154,528,884 B | `a7567031faae1ff6bb2b333a64f79dc17d8a77a78bef8ea100e309aeea50762d` |
+| `pythontdx_0.14.4_amd64.deb` | 128,641,832 B | `2a8add0af11951180a021221a5e9e65e191cb60a333e9b7a55097657698c3ba5` |
 | `linux-unpacked/resources/app.asar` | 3,607,099 B | `71462c02bde14649a6f21d15609499890de43774e88ab0211b3498ee27fb74e1` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,461,264 B | `0f01f15092ed2c8b1718257eb3df537f75b2e58c2bcc4d90e663e40cb47bf084` |
 
@@ -216,10 +242,10 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 
 | 产物                                          |                    大小 | SHA256                                                             |
 | --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
-| `stocklens-0.14.2-setup.exe`                  |           133,616,877 B | `c2c8c5c2100c17c09941ebac19f0c80cf455e34e53aa42f237ea2fe45d328a49` |
-| `stocklens-0.14.2-portable.exe`               |           133,363,219 B | `e0df0f1249fcb7da522127e3215dbb6dca32beb22e5105a5db1811ed509b68c1` |
-| `StockLens-0.14.2-win-x64/`                   | 410,618,986 B / 76 文件 | —                                                                  |
-| `StockLens-0.14.2-win-x64.zip`                |           175,226,043 B | `957de83cb94c8d471b83c6b8cf45ec77948ccc1b4b3d997804670a0252d6a61a` |
+| `pythontdx-0.14.2-setup.exe`                  |           133,616,877 B | `c2c8c5c2100c17c09941ebac19f0c80cf455e34e53aa42f237ea2fe45d328a49` |
+| `pythontdx-0.14.2-portable.exe`               |           133,363,219 B | `e0df0f1249fcb7da522127e3215dbb6dca32beb22e5105a5db1811ed509b68c1` |
+| `pythontdx-0.14.2-win-x64/`                   | 410,618,986 B / 76 文件 | —                                                                  |
+| `pythontdx-0.14.2-win-x64.zip`                |           175,226,043 B | `957de83cb94c8d471b83c6b8cf45ec77948ccc1b4b3d997804670a0252d6a61a` |
 | `win-x64/resources/app.asar`                  |             3,603,848 B | `34b952032e4b8a44e32b9fbe9e01065d28a443a0ad252d87d912c797dd4c0433` |
 | `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,522,944 B | `cd79fbc93731f2d2d9fa9517fc7af95a352b0209fb9f02f30e4f3a635b53ace3` |
 
@@ -243,8 +269,8 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 
 | 产物                                            |              大小 | SHA256                                                             |
 | ----------------------------------------------- | ----------------: | ------------------------------------------------------------------ |
-| `stocklens-0.14.2-arm64.dmg`                    |     150,207,843 B | `c307ddad0868278aaeb0c3b1bbfd9e4ae3932cf9e7506f52f071e2698717a8cd` |
-| `mac-arm64/StockLens.app`                       | 312 MB / 269 文件 | —                                                                  |
+| `pythontdx-0.14.2-arm64.dmg`                    |     150,207,843 B | `c307ddad0868278aaeb0c3b1bbfd9e4ae3932cf9e7506f52f071e2698717a8cd` |
+| `mac-arm64/pythontdx.app`                       | 312 MB / 269 文件 | —                                                                  |
 | `mac-arm64/.../Resources/app.asar`              |       3,601,698 B | `3e5d003bc74cc27fddf82285db51a0632155120a6d14a8001673bdea273a8751` |
 | `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` |      22,809,456 B | `3246bca1879607efc3244577c138e0eb3753f58cdb7133c7a2bf3bb6ce6868e6` |
 
@@ -281,10 +307,10 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 
 | 产物                                          |                    大小 | SHA256                                                             |
 | --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
-| `stocklens-0.14.1-setup.exe`                  |           133,616,783 B | `4cb57f756a50afe4caf70fd01b27206394f42d115b577eaae6b6c8cd3b07225d` |
-| `stocklens-0.14.1-portable.exe`               |           133,363,138 B | `a5c60bd7f609ca895ba6b28ef7f81d2d2be5dde78408d6ee06fed5e31d24ca30` |
-| `StockLens-0.14.1-win-x64/`                   | 410,618,773 B / 76 文件 | —                                                                  |
-| `StockLens-0.14.1-win-x64.zip`                |           175,226,221 B | `1c8e24f1e99debb1b4ca6572824a9c9c5ce9767bf088e161923cf49cb3b0f1fc` |
+| `pythontdx-0.14.1-setup.exe`                  |           133,616,783 B | `4cb57f756a50afe4caf70fd01b27206394f42d115b577eaae6b6c8cd3b07225d` |
+| `pythontdx-0.14.1-portable.exe`               |           133,363,138 B | `a5c60bd7f609ca895ba6b28ef7f81d2d2be5dde78408d6ee06fed5e31d24ca30` |
+| `pythontdx-0.14.1-win-x64/`                   | 410,618,773 B / 76 文件 | —                                                                  |
+| `pythontdx-0.14.1-win-x64.zip`                |           175,226,221 B | `1c8e24f1e99debb1b4ca6572824a9c9c5ce9767bf088e161923cf49cb3b0f1fc` |
 | `win-x64/resources/app.asar`                  |             3,603,635 B | `bd809f67dbc6f2b929f413ecc7b0151f0ed82381e317d6b98d403b8ec71f976e` |
 | `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,522,944 B | `2bc8973583956da653a45edbbb26a83d457938bb26530bc17f86c15d8aea5d24` |
 
@@ -323,8 +349,8 @@ portable / `win-unpacked`，不会自动生成绿色目录或 zip。
 
 | 产物                                             |          大小 | SHA256                                                             |
 | ------------------------------------------------ | ------------: | ------------------------------------------------------------------ |
-| `StockLens-0.14.0.AppImage`                      | 154,527,950 B | `cfdb83d72cf80b06d2a462abb78ba294409e592e396f82883160c8f69f030eb0` |
-| `stocklens_0.14.0_amd64.deb`                     | 128,643,080 B | `da30dcf5889f3f8fa33d94d1bbd217b9c407f6d71812b9a631a6f98a9d3bcb02` |
+| `pythontdx-0.14.0.AppImage`                      | 154,527,950 B | `cfdb83d72cf80b06d2a462abb78ba294409e592e396f82883160c8f69f030eb0` |
+| `pythontdx_0.14.0_amd64.deb`                     | 128,643,080 B | `da30dcf5889f3f8fa33d94d1bbd217b9c407f6d71812b9a631a6f98a9d3bcb02` |
 | `linux-unpacked/resources/app.asar`              |   3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` |  28,461,264 B | `2f5386ea8ba06834c66d087f659777c9c06fdd7c00d6d41d29b0159d9f90da5a` |
 
@@ -335,10 +361,10 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                                          |                    大小 | SHA256                                                             |
 | --------------------------------------------- | ----------------------: | ------------------------------------------------------------------ |
-| `stocklens-0.14.0-setup.exe`                  |           133,618,790 B | `d9038bc0149b5bf8c6fe4419715bec908ce3ecfd26b9bb2f9c7c746ff656abd1` |
-| `stocklens-0.14.0-portable.exe`               |           133,365,164 B | `35806a2723ec4fce03b596748daa85e146b9690f56aeb748203d897675d539c5` |
-| `StockLens-0.14.0-win-x64/`                   | 410,613,669 B / 76 文件 | —                                                                  |
-| `StockLens-0.14.0-win-x64.zip`                |           175,224,319 B | `e76171a6f1a83f06269cd63c4921a761f03ad56fbbb0233fe833f0a3eca241db` |
+| `pythontdx-0.14.0-setup.exe`                  |           133,618,790 B | `d9038bc0149b5bf8c6fe4419715bec908ce3ecfd26b9bb2f9c7c746ff656abd1` |
+| `pythontdx-0.14.0-portable.exe`               |           133,365,164 B | `35806a2723ec4fce03b596748daa85e146b9690f56aeb748203d897675d539c5` |
+| `pythontdx-0.14.0-win-x64/`                   | 410,613,669 B / 76 文件 | —                                                                  |
+| `pythontdx-0.14.0-win-x64.zip`                |           175,224,319 B | `e76171a6f1a83f06269cd63c4921a761f03ad56fbbb0233fe833f0a3eca241db` |
 | `win-x64/resources/app.asar`                  |             3,600,067 B | `4e1ceb7c6675a46360e076d08384f2add542dd370e9a821ee1b567892e7ab3d1` |
 | `win-x64/resources/tdx-bridge/tdx-bridge.exe` |            21,521,408 B | `e394848216ed9a4f91548b6b0eb8d98150a8a9cda9cd6d5a192cdedabe01f439` |
 
@@ -390,8 +416,8 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                                            |              大小 | SHA256                                                             |
 | ----------------------------------------------- | ----------------: | ------------------------------------------------------------------ |
-| `stocklens-0.14.0-arm64.dmg`                    |     150,201,054 B | `e06cad6ca3d798abd31b54e953de21eb6537921b8ad2fa0ed0fee0602722ce64` |
-| `mac-arm64/StockLens.app`                       | 312 MB / 269 文件 | —                                                                  |
+| `pythontdx-0.14.0-arm64.dmg`                    |     150,201,054 B | `e06cad6ca3d798abd31b54e953de21eb6537921b8ad2fa0ed0fee0602722ce64` |
+| `mac-arm64/pythontdx.app`                       | 312 MB / 269 文件 | —                                                                  |
 | `mac-arm64/.../Resources/app.asar`              |       3,600,781 B | `75348116140c45c0641fe18c8e2eb669623af93497c18b8a54a01133e5629c8e` |
 | `mac-arm64/.../Resources/tdx-bridge/tdx-bridge` |      22,809,456 B | `0821cbbd2c537426921d1a7d01d33826829a4e940b26c4ce3091905cda0de94d` |
 
@@ -400,7 +426,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 - `npm run check` exit 0：**304 TS + 159 Python（1 skipped）**；`audit:data` 39/39；
   `build:web` 为 `0.14.0-web`；
 - **ad-hoc 整包签名**：`codesign --verify --deep --strict` exit 0，
-  `Identifier=com.stocklens.app`、`Sealed Resources version=2`；`spctl -a` 仍拒绝；
+  `Identifier=com.pythontdx.app`、`Sealed Resources version=2`；`spctl -a` 仍拒绝；
 - 从挂载的只读 dmg 启动：状态栏「实时」、4 个宽基指数有真实价格、版本 `v0.14.0`；
   截图 `screenshots/v0140-macos-dmg.png`；
 - 7615 公告面板在系统代理开启时加载 100 条，截图
@@ -419,8 +445,8 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 - **80 三道时间线**：分时只保留 **10:30 / 11:30 / 14:00** 三条淡色虚线，
   去掉 15:00；安装包内 9 格 × 3 条 = 27 条。
 - **81 README 截图重拍**：
-  - 主界面等待 25 秒，右下「明细」已刷出逐笔成交（`stocklens-overview.png`）；
-  - 多股同列换成 3 条时间线 + 紧凑刻度版本（`stocklens-multi.png`）。
+  - 主界面等待 25 秒，右下「明细」已刷出逐笔成交（`pythontdx-overview.png`）；
+  - 多股同列换成 3 条时间线 + 紧凑刻度版本（`pythontdx-multi.png`）。
 
 ### 验证
 
@@ -445,8 +471,8 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                                             |          大小 | SHA256                                                             |
 | ------------------------------------------------ | ------------: | ------------------------------------------------------------------ |
-| `StockLens-0.13.2.AppImage`                      | 154,495,808 B | `948326b1d6949ccf40b445f3849fdfe4e248913511db293f4b64f9a4f491e6ff` |
-| `stocklens_0.13.2_amd64.deb`                     | 128,615,816 B | `cc25801541488c8b5417d31d0e5e3e1071e2a5e86da46edadc3d39679bc46a23` |
+| `pythontdx-0.13.2.AppImage`                      | 154,495,808 B | `948326b1d6949ccf40b445f3849fdfe4e248913511db293f4b64f9a4f491e6ff` |
+| `pythontdx_0.13.2_amd64.deb`                     | 128,615,816 B | `cc25801541488c8b5417d31d0e5e3e1071e2a5e86da46edadc3d39679bc46a23` |
 | `linux-unpacked/resources/app.asar`              |   3,590,783 B | `6ce39af8d9b1caeeae0e39e1b269b3c762d6eff98b67ad8938585ef7412eb5fa` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` |  28,436,688 B | `36fd04f21046705cc102f02e1ec4d106d2d42c07875eee98a64cfda802732e3e` |
 
@@ -459,9 +485,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.13.2-setup.exe`   | 133,584,157 B           | `213ad8df929b3e71531a3538c2fa13a1f2904e0358938ae6a4b34a7591d1f3c8` |
-| `StockLens-0.13.2-win-x64/`    | 410,558,397 B / 76 文件 | —                                                                  |
-| `StockLens-0.13.2-win-x64.zip` | 175,550,129 B           | `0f2004515fd4b25b4953ea295f7d6f0ea69ce400cf604062738591e7e0e56d42` |
+| `pythontdx-0.13.2-setup.exe`   | 133,584,157 B           | `213ad8df929b3e71531a3538c2fa13a1f2904e0358938ae6a4b34a7591d1f3c8` |
+| `pythontdx-0.13.2-win-x64/`    | 410,558,397 B / 76 文件 | —                                                                  |
+| `pythontdx-0.13.2-win-x64.zip` | 175,550,129 B           | `0f2004515fd4b25b4953ea295f7d6f0ea69ce400cf604062738591e7e0e56d42` |
 
 ## [0.13.1] - 2026-11-01
 
@@ -487,9 +513,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.13.1-setup.exe`   | 133,577,501 B           | `e81f536be5f3a1522ac2698b1498a57797db11e6fbdc40067542fcf754acea12` |
-| `StockLens-0.13.1-win-x64/`    | 410,557,595 B / 76 文件 | —                                                                  |
-| `StockLens-0.13.1-win-x64.zip` | 175,550,392 B           | `63b96b27fa3105480144368636923670208ad540d13bf1742789ff7a6bd9625a` |
+| `pythontdx-0.13.1-setup.exe`   | 133,577,501 B           | `e81f536be5f3a1522ac2698b1498a57797db11e6fbdc40067542fcf754acea12` |
+| `pythontdx-0.13.1-win-x64/`    | 410,557,595 B / 76 文件 | —                                                                  |
+| `pythontdx-0.13.1-win-x64.zip` | 175,550,392 B           | `63b96b27fa3105480144368636923670208ad540d13bf1742789ff7a6bd9625a` |
 
 ## [0.13.0] - 2026-11-01
 
@@ -497,7 +523,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 - **74 清理死代码**：
   - 删除已不再使用的 `BoardsPanel.tsx`、`createServerWindow()`、`window:servers` IPC、
-    `openServers()` 预加载桥、`STOCKLENS_CAPTURE_SERVERS` 截图分支；
+    `openServers()` 预加载桥、`PYTHONTDX_CAPTURE_SERVERS` 截图分支；
   - 删除 `.boards-*`、`.market__pager`、`.dragon__pager`、`.watch-full__pager`、
     `.market__kind` 等无引用 CSS；
   - `ServerWindow` 收敛为主窗口弹层组件，`onClose` 必填，支持 Esc 关闭；
@@ -526,9 +552,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.13.0-setup.exe`   | 133,575,964 B           | `90096e7f9c38e153c478ee52475cc19ff7c1b1d1a6dcb49f7956af57694f24b1` |
-| `StockLens-0.13.0-win-x64/`    | 410,548,134 B / 76 文件 | —                                                                  |
-| `StockLens-0.13.0-win-x64.zip` | 175,546,126 B           | `50ee5fbe1a4a3d463e26e9e3eea7e438c53f9a2664d7018399b914ff61e28c5b` |
+| `pythontdx-0.13.0-setup.exe`   | 133,575,964 B           | `90096e7f9c38e153c478ee52475cc19ff7c1b1d1a6dcb49f7956af57694f24b1` |
+| `pythontdx-0.13.0-win-x64/`    | 410,548,134 B / 76 文件 | —                                                                  |
+| `pythontdx-0.13.0-win-x64.zip` | 175,546,126 B           | `50ee5fbe1a4a3d463e26e9e3eea7e438c53f9a2664d7018399b914ff61e28c5b` |
 
 ## [0.12.0] - 2026-11-01
 
@@ -555,9 +581,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.12.0-setup.exe`   | 133,582,065 B           | `42ce0dabf74158159f60e776f2f4c8c6e0e3bbadc17aa41be2bd6174458b9150` |
-| `StockLens-0.12.0-win-x64/`    | 410,556,436 B / 76 文件 | —                                                                  |
-| `StockLens-0.12.0-win-x64.zip` | 175,549,217 B           | `1cf7163684c2be6ed24e18c42df7cda62198287f0b340cca2fb9654820e901fb` |
+| `pythontdx-0.12.0-setup.exe`   | 133,582,065 B           | `42ce0dabf74158159f60e776f2f4c8c6e0e3bbadc17aa41be2bd6174458b9150` |
+| `pythontdx-0.12.0-win-x64/`    | 410,556,436 B / 76 文件 | —                                                                  |
+| `pythontdx-0.12.0-win-x64.zip` | 175,549,217 B           | `1cf7163684c2be6ed24e18c42df7cda62198287f0b340cca2fb9654820e901fb` |
 
 ## [0.11.2] - 2026-11-01
 
@@ -589,9 +615,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.11.2-setup.exe`   | 133,581,496 B           | `f77bbddd7e8cc860a236892486a255f8c6410f3c53edb13211c7137c21bb082b` |
-| `StockLens-0.11.2-win-x64/`    | 410,548,762 B / 76 文件 | —                                                                  |
-| `StockLens-0.11.2-win-x64.zip` | 175,547,024 B           | `ca15e225d9dccdc5e2a006df7f001eb0a8168f31b0ae00257999282521dff055` |
+| `pythontdx-0.11.2-setup.exe`   | 133,581,496 B           | `f77bbddd7e8cc860a236892486a255f8c6410f3c53edb13211c7137c21bb082b` |
+| `pythontdx-0.11.2-win-x64/`    | 410,548,762 B / 76 文件 | —                                                                  |
+| `pythontdx-0.11.2-win-x64.zip` | 175,547,024 B           | `ca15e225d9dccdc5e2a006df7f001eb0a8168f31b0ae00257999282521dff055` |
 
 ## [0.11.0] - 2026-11-01
 
@@ -628,9 +654,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.11.0-setup.exe`   | 133,584,233 B           | `5322c8ba0fba03fd7172d69d01439e156710fbbe16981bc79aba7eb3598337e9` |
-| `StockLens-0.11.0-win-x64/`    | 410,549,293 B / 76 文件 | —                                                                  |
-| `StockLens-0.11.0-win-x64.zip` | 175,547,010 B           | `d84bd5923c256c205e3b869637c567d85610159690f90347de23d48abc7df6c5` |
+| `pythontdx-0.11.0-setup.exe`   | 133,584,233 B           | `5322c8ba0fba03fd7172d69d01439e156710fbbe16981bc79aba7eb3598337e9` |
+| `pythontdx-0.11.0-win-x64/`    | 410,549,293 B / 76 文件 | —                                                                  |
+| `pythontdx-0.11.0-win-x64.zip` | 175,547,010 B           | `d84bd5923c256c205e3b869637c567d85610159690f90347de23d48abc7df6c5` |
 
 ## [0.10.2] - 2026-11-01
 
@@ -653,9 +679,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.10.2-setup.exe`   | 133,578,435 B           | `ce4cf72c502964c6aaec14a9b367dafb9e5a00a4b10d874afe9832c427d90219` |
-| `StockLens-0.10.2-win-x64/`    | 410,546,610 B / 76 文件 | —                                                                  |
-| `StockLens-0.10.2-win-x64.zip` | 175,548,540 B           | `c5802f3cb50d829dcca135113729257ad4a814eac86542a259ce840f50b1e5d2` |
+| `pythontdx-0.10.2-setup.exe`   | 133,578,435 B           | `ce4cf72c502964c6aaec14a9b367dafb9e5a00a4b10d874afe9832c427d90219` |
+| `pythontdx-0.10.2-win-x64/`    | 410,546,610 B / 76 文件 | —                                                                  |
+| `pythontdx-0.10.2-win-x64.zip` | 175,548,540 B           | `c5802f3cb50d829dcca135113729257ad4a814eac86542a259ce840f50b1e5d2` |
 
 ## [0.10.1] - 2026-11-01
 
@@ -681,9 +707,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.10.1-setup.exe`   | 133,584,360 B           | `e6e55f46d3ee5d49d37d67a39c484d62566cb29d98cda865c6556dbf87d59b7e` |
-| `StockLens-0.10.1-win-x64/`    | 410,544,611 B / 76 文件 | —                                                                  |
-| `StockLens-0.10.1-win-x64.zip` | 175,548,032 B           | `4a53a9cb9ea5aeb674f77adb6d93767ccdf5aada71c7b5677937878ea5ad587e` |
+| `pythontdx-0.10.1-setup.exe`   | 133,584,360 B           | `e6e55f46d3ee5d49d37d67a39c484d62566cb29d98cda865c6556dbf87d59b7e` |
+| `pythontdx-0.10.1-win-x64/`    | 410,544,611 B / 76 文件 | —                                                                  |
+| `pythontdx-0.10.1-win-x64.zip` | 175,548,032 B           | `4a53a9cb9ea5aeb674f77adb6d93767ccdf5aada71c7b5677937878ea5ad587e` |
 
 安装/绿色/zip 均启动 `v0.10.1`。
 
@@ -709,9 +735,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 大小                    | SHA256                                                             |
 | ------------------------------ | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.10.0-setup.exe`   | 133,583,052 B           | `58c9d294cc5715bdc77ba85ac3ea136fc68c3c8003f466ae008aa77dc0b138a2` |
-| `StockLens-0.10.0-win-x64/`    | 410,543,022 B / 76 文件 | —                                                                  |
-| `StockLens-0.10.0-win-x64.zip` | 175,549,062 B           | `c372cf3420ee4a11ced574e0fbfa5b0eb592ae851bf947e99b9e026d7e45ba89` |
+| `pythontdx-0.10.0-setup.exe`   | 133,583,052 B           | `58c9d294cc5715bdc77ba85ac3ea136fc68c3c8003f466ae008aa77dc0b138a2` |
+| `pythontdx-0.10.0-win-x64/`    | 410,543,022 B / 76 文件 | —                                                                  |
+| `pythontdx-0.10.0-win-x64.zip` | 175,549,062 B           | `c372cf3420ee4a11ced574e0fbfa5b0eb592ae851bf947e99b9e026d7e45ba89` |
 
 安装/绿色/zip 均启动 `v0.10.0`。
 
@@ -741,9 +767,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                          | 大小                    | SHA256                                                             |
 | ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.9-setup.exe`   | 133,584,090 B           | `40f7511705b4bad635be7cd497e38410cf003a86f312b111f76871dd9ffc5f82` |
-| `StockLens-0.9.9-win-x64/`    | 410,542,891 B / 76 文件 | —                                                                  |
-| `StockLens-0.9.9-win-x64.zip` | 175,548,910 B           | `d1c56436be9d184cf9642c7b5feb0686d6afd5d404bba179987bd78abdf29440` |
+| `pythontdx-0.9.9-setup.exe`   | 133,584,090 B           | `40f7511705b4bad635be7cd497e38410cf003a86f312b111f76871dd9ffc5f82` |
+| `pythontdx-0.9.9-win-x64/`    | 410,542,891 B / 76 文件 | —                                                                  |
+| `pythontdx-0.9.9-win-x64.zip` | 175,548,910 B           | `d1c56436be9d184cf9642c7b5feb0686d6afd5d404bba179987bd78abdf29440` |
 
 安装/绿色/zip 均启动 `v0.9.9`。
 
@@ -783,9 +809,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                          | 大小                    | SHA256                                                             |
 | ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.8-setup.exe`   | 133,577,401 B           | `bb2bc8807bc9c892e233cea78dd933a0e25dc62ff7648ddfd8bf7dc50c65651b` |
-| `StockLens-0.9.8-win-x64/`    | 410,544,141 B / 76 文件 | —                                                                  |
-| `StockLens-0.9.8-win-x64.zip` | 175,549,950 B           | `83dc220a82f7584f86bb827becdd2d5395eb6ce35d5d51be63469d7f2dc92233` |
+| `pythontdx-0.9.8-setup.exe`   | 133,577,401 B           | `bb2bc8807bc9c892e233cea78dd933a0e25dc62ff7648ddfd8bf7dc50c65651b` |
+| `pythontdx-0.9.8-win-x64/`    | 410,544,141 B / 76 文件 | —                                                                  |
+| `pythontdx-0.9.8-win-x64.zip` | 175,549,950 B           | `83dc220a82f7584f86bb827becdd2d5395eb6ce35d5d51be63469d7f2dc92233` |
 
 安装/绿色/zip 均启动 `v0.9.8`；`npm run check` exit 0：294 个 TS（293 passed + 1 skipped）+ 158 Python。
 
@@ -817,9 +843,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                          | 大小                    | SHA256                                                             |
 | ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.6-setup.exe`   | 133,573,567 B           | `459fe50bd660c654f6544b6dbf0d29f371f2ca2d742f80d62291e168666ff990` |
-| `StockLens-0.9.6-win-x64/`    | 410,518,089 B / 76 文件 | —                                                                  |
-| `StockLens-0.9.6-win-x64.zip` | 175,544,168 B           | `5ccdf0d9f6d93cb85f4c2e2922372e50d9a62b3032bf36fe9f649739b4a7d4cc` |
+| `pythontdx-0.9.6-setup.exe`   | 133,573,567 B           | `459fe50bd660c654f6544b6dbf0d29f371f2ca2d742f80d62291e168666ff990` |
+| `pythontdx-0.9.6-win-x64/`    | 410,518,089 B / 76 文件 | —                                                                  |
+| `pythontdx-0.9.6-win-x64.zip` | 175,544,168 B           | `5ccdf0d9f6d93cb85f4c2e2922372e50d9a62b3032bf36fe9f649739b4a7d4cc` |
 
 安装/绿色/zip 均启动 `v0.9.6`；安装包内多股同列 3×3 验证通过。
 
@@ -844,9 +870,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                          | 大小                    | SHA256                                                             |
 | ----------------------------- | ----------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.5-setup.exe`   | 133,576,232 B           | `3dc5824876ab439a96928c3cc10ae1f58d4b0027cacb8dee0fe0a8e5b317457d` |
-| `StockLens-0.9.5-win-x64/`    | 410,495,551 B / 76 文件 | —                                                                  |
-| `StockLens-0.9.5-win-x64.zip` | 175,539,117 B           | `f42417b4b19544de4dd587ee466d16f358c83af0e3b72b69bd78d95b31116d1d` |
+| `pythontdx-0.9.5-setup.exe`   | 133,576,232 B           | `3dc5824876ab439a96928c3cc10ae1f58d4b0027cacb8dee0fe0a8e5b317457d` |
+| `pythontdx-0.9.5-win-x64/`    | 410,495,551 B / 76 文件 | —                                                                  |
+| `pythontdx-0.9.5-win-x64.zip` | 175,539,117 B           | `f42417b4b19544de4dd587ee466d16f358c83af0e3b72b69bd78d95b31116d1d` |
 
 安装包内市场列表 100 行完整（`v095-market.png`）；安装/绿色/zip 均显示 `v0.9.5`。
 
@@ -870,7 +896,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 ### F10（38）
 
-- 新增 `STOCKLENS_CAPTURE_SERIES`：一次启动遍历 16 个页签、各截顶部/底部（32 张），
+- 新增 `PYTHONTDX_CAPTURE_SERIES`：一次启动遍历 16 个页签、各截顶部/底部（32 张），
   用于逐页审计。
 - 修复假章节标题：`★本栏包括…` 折行里的【5.xxx】【9.xxx】不再当标题（6 个页面受影响）。
 - 框线表折行：名称跨行、经营范围/控股关系按列续字、多单位表头并回对应列。
@@ -893,9 +919,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                          | 大小                      | SHA256                                                             |
 | ----------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.4-setup.exe`   | 133.6 MB（133,576,539 B） | `06c8e9e338f558dd1fcf17f2668aeeb60d043b6e58605c976dde7fafe9d25106` |
-| `StockLens-0.9.4-win-x64/`    | 410.5 MB / 76 文件        | —                                                                  |
-| `StockLens-0.9.4-win-x64.zip` | 175.5 MB（175,539,157 B） | `d62e11fcb6e6237d0db59a56ead75aabbdca990b06c584f19bfbced58da9d17c` |
+| `pythontdx-0.9.4-setup.exe`   | 133.6 MB（133,576,539 B） | `06c8e9e338f558dd1fcf17f2668aeeb60d043b6e58605c976dde7fafe9d25106` |
+| `pythontdx-0.9.4-win-x64/`    | 410.5 MB / 76 文件        | —                                                                  |
+| `pythontdx-0.9.4-win-x64.zip` | 175.5 MB（175,539,157 B） | `d62e11fcb6e6237d0db59a56ead75aabbdca990b06c584f19bfbced58da9d17c` |
 
 - 安装包静默安装 → 启动 `v0.9.4`，F10 公司概况 24 行键值正常 → 静默卸载干净；
 - 绿色包 / zip 均启动并显示 `v0.9.4`（`v094-green.png`、`v094-zip.png`）。
@@ -934,9 +960,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                               | 大小                      | SHA256                                                             |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.3-setup.exe`        | 133.6 MB（133,570,841 B） | `af1c2d4559acd8c49f961422b8fd301d94239e74d81f27cdaa2ea6c262c56870` |
-| `StockLens-0.9.3-win-x64/`（散装） | 410.5 MB（410,474,379 B） | —                                                                  |
-| `StockLens-0.9.3-win-x64.zip`      | 175.5 MB（175,531,800 B） | `f6f89778fb04c7c104f7c85d95b3e7fb5466b7cc5eb543d4154eac4bef688cc2` |
+| `pythontdx-0.9.3-setup.exe`        | 133.6 MB（133,570,841 B） | `af1c2d4559acd8c49f961422b8fd301d94239e74d81f27cdaa2ea6c262c56870` |
+| `pythontdx-0.9.3-win-x64/`（散装） | 410.5 MB（410,474,379 B） | —                                                                  |
+| `pythontdx-0.9.3-win-x64.zip`      | 175.5 MB（175,531,800 B） | `f6f89778fb04c7c104f7c85d95b3e7fb5466b7cc5eb543d4154eac4bef688cc2` |
 
 - 安装包静默安装 → 启动显示 `v0.9.3`（`screenshots/v093-installed.png`）→ 静默卸载干净；
 - 绿色包 / zip 解压均启动并显示 `v0.9.3`（`v093-green.png`、`v093-zip.png`）；
@@ -976,9 +1002,9 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                               | 大小                      | SHA256                                                             |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.2-setup.exe`        | 133.6 MB（133,569,020 B） | `218403d9909bc60e52649105c40bea06f6b0483758c89d1015ce397e4e62ce09` |
-| `StockLens-0.9.2-win-x64/`（散装） | 410.5 MB（410,462,471 B） | —                                                                  |
-| `StockLens-0.9.2-win-x64.zip`      | 175.5 MB（175,530,798 B） | `6120dc34d51a42634c41bf6eb758376eda70aa4bced1b024a140f25a844d2bb7` |
+| `pythontdx-0.9.2-setup.exe`        | 133.6 MB（133,569,020 B） | `218403d9909bc60e52649105c40bea06f6b0483758c89d1015ce397e4e62ce09` |
+| `pythontdx-0.9.2-win-x64/`（散装） | 410.5 MB（410,462,471 B） | —                                                                  |
+| `pythontdx-0.9.2-win-x64.zip`      | 175.5 MB（175,530,798 B） | `6120dc34d51a42634c41bf6eb758376eda70aa4bced1b024a140f25a844d2bb7` |
 
 - 安装包静默安装 → 启动显示 `v0.9.2`、F10 排版正常（`screenshots/v092-installed-f10.png`）
   → 静默卸载后目录/快捷方式/注册表项全部清除；
@@ -1003,7 +1029,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 - **离线数据备份 / 恢复**：数据工具页新增「备份到…」，用保存对话框选路径
   （同名文件直接报错，不覆盖），把 raw / cache / lake / exports / normalized / local
   打成单个 zip；行情数据本身已压缩，zip 用 STORED 只做单文件封装，另存
-  `_stocklens_backup.json` 清单并返回 SHA256。「校验」读回文件数/字节数/打包时间；
+  `_pythontdx_backup.json` 清单并返回 SHA256。「校验」读回文件数/字节数/打包时间；
   「恢复」只补本机缺失文件、已存在的跳过（规则 12），并拒绝 `../` 路径穿越。
   备份/恢复在 Python sidecar 里做，超时给到 2 小时，适合直接写 NAS。
 - **板块行情补二级行业**：MAC 0x1231 的 `boardType=1`（345 个细分行业）之前没接，
@@ -1090,14 +1116,14 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                               | 大小                      | SHA256                                                             |
 | ---------------------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `stocklens-0.9.1-setup.exe`        | 133.6 MB（133,567,285 B） | `c87de55f31d0f4df6cd7abdc716b2f6f9301f264c316838bad2661db3a391f8a` |
-| `StockLens-0.9.1-win-x64/`（散装） | 410.5 MB（410,455,359 B） | —                                                                  |
-| `StockLens-0.9.1-win-x64.zip`      | 175.5 MB（175,528,404 B） | `5174289b77904e4d3f13d162417a22c746f0023b55711e4a4640efa7ef0520cc` |
+| `pythontdx-0.9.1-setup.exe`        | 133.6 MB（133,567,285 B） | `c87de55f31d0f4df6cd7abdc716b2f6f9301f264c316838bad2661db3a391f8a` |
+| `pythontdx-0.9.1-win-x64/`（散装） | 410.5 MB（410,455,359 B） | —                                                                  |
+| `pythontdx-0.9.1-win-x64.zip`      | 175.5 MB（175,528,404 B） | `5174289b77904e4d3f13d162417a22c746f0023b55711e4a4640efa7ef0520cc` |
 
 - 安装包：`MSYS2_ARG_CONV_EXCL='*' setup.exe /S '/D=<目录>'` 真静默（无窗口，
   Git Bash 直写 `/S` 会被 MSYS 转成 `S:/` 进而弹图形向导）→ 快捷方式、HKCU 卸载项齐全 →
   安装版启动取到实时行情、状态栏 `v0.9.1`（`screenshots/v091-installed.png`）→
-  `MSYS2_ARG_CONV_EXCL='*' "Uninstall StockLens.exe" /S` 后目录、快捷方式、注册表项全部清除；
+  `MSYS2_ARG_CONV_EXCL='*' "Uninstall pythontdx.exe" /S` 后目录、快捷方式、注册表项全部清除；
 - 绿色包：整目录拷到 `.tmp/green091` 直接运行，状态栏 `v0.9.1`
   （`screenshots/v091-green.png`）；
 - zip：解压出 76 个文件（410,455,359 B）后运行同样正常、`v0.9.1`
@@ -1302,7 +1328,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 - **Nuitka 成为唯一 Python 打包后端**：移除 PyInstaller 回退；onefile 9,590,992 字节，不含 Python 源码；
 - Linux 图形后端默认 `wayland`；Chromium 当前不允许 Wayland 表面 + Vulkan，
-  `STOCKLENS_GRAPHICS=vulkan` 走 XWayland + ANGLE Vulkan（需真实驱动，失败要回退）。
+  `PYTHONTDX_GRAPHICS=vulkan` 走 XWayland + ANGLE Vulkan（需真实驱动，失败要回退）。
 
 ### 验证
 
@@ -1463,7 +1489,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 - **MAC 资金流**：`0x1218` 今日主力/散户 + 5 日大单/中单；资金流页签补充卡；92 Python。
 - **公式函数扩充**：SUM/HHV/LLV/STD/IF，前后端同子集；183 TS + 91 Python。
 - **全表排序**：MAC 分批 400 只拉全 A 5,615 只报价，按涨幅/跌幅/成交额/现价重排；榜单首屏 *ST航图 +20.04%。
-- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `cc85c037…`、deb 105 MB `a40525f6…`，AppImage 实机启动截图；包内全表排序、MAC 资金流、组合预警（且/或）、垂直线/文字、多周期、F10 18 页签、条件预设、多预设自动池、浏览器通知、数据湖归档历史均已验证；Linux 桌面关联改为 stocklens。
+- **Linux 包重建**：PyInstaller 6.22.3 重建 sidecar（MAC/F10/本地写回）；AppImage 130 MB `cc85c037…`、deb 105 MB `a40525f6…`，AppImage 实机启动截图；包内全表排序、MAC 资金流、组合预警（且/或）、垂直线/文字、多周期、F10 18 页签、条件预设、多预设自动池、浏览器通知、数据湖归档历史均已验证；Linux 桌面关联改为 pythontdx。
 - **MAC 报价兜底**：`0x122B` 三步握手 + 字段 0~7 + 五档；7709 报价失败时自动切 MAC，89 Python。
 - **REITs 分栏**：基金内按 508/180 前缀单列，101 条。
 - **F10 交易数据扩充**：涨停/跌停/可转债/主力盘口四个分区；涨停 30 行实测。
@@ -1748,18 +1774,18 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
   以及「每一档的蜡烛实体宽度都落在可读区间」「相邻档位比例 ≤ 1.25」——
   把**视觉指标**和用户提的手感要求都写成回归测试。
 - 截图工具（`src/main/capture.ts`）新增五个环境变量：
-  `STOCKLENS_CAPTURE_CLICK` / `_FOCUS` / `_KEYS` / `_PROBE` / `_EVAL`。
+  `PYTHONTDX_CAPTURE_CLICK` / `_FOCUS` / `_KEYS` / `_PROBE` / `_EVAL`。
   可以先把界面点到某个状态、注入**真实按键**、再把结果读回终端，
   **键盘交互从此也能自动验证**，不必只靠手按。三个真实缺陷就是这么查出来的
   （见 `docs/06` 第 22 条）。
-- `STOCKLENS_CAPTURE_KEYS` 现在同时接受 DOM 键名与 Electron 加速器键名
+- `PYTHONTDX_CAPTURE_KEYS` 现在同时接受 DOM 键名与 Electron 加速器键名
   （`ArrowLeft` 与 `Left` 等价）。写成 DOM 键名时 `sendInputEvent` 不报错、
   只是**按键毫无反应**，静默失败过一次，索性两种都收（`docs/06` 第 24 条）。
-- 截图工具新增 `STOCKLENS_CAPTURE_WHEEL`，可以注入滚轮（写法 `-100@.chart-host@0.25`）。
+- 截图工具新增 `PYTHONTDX_CAPTURE_WHEEL`，可以注入滚轮（写法 `-100@.chart-host@0.25`）。
   它内部会把 deltaY 换算成 DOM 的单位（**符号相反、数值还要除以 `devicePixelRatio`**），
   并在每次注入后把「请求值 vs 实收值」打出来自检 —— 这段换算本身就是先量出来再写的
   （`docs/06` 第 25 条）。
-- 截图工具新增 `STOCKLENS_CAPTURE_POINTER`（真实指针：`move@选择器@比例`、
+- 截图工具新增 `PYTHONTDX_CAPTURE_POINTER`（真实指针：`move@选择器@比例`、
   `click@选择器@比例`）。它的存在本身就是一条教训：程序化 `element.click()`
   **不会移动焦点**（焦点是 mousedown 的默认行为），所以「点完 tab 后焦点留在按钮上」
   这类问题用它复现不出来（`docs/06` 第 26 条）。
@@ -1836,10 +1862,10 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 - `npm run check` 全绿（typecheck 0 错 / lint 0 问题 / 147 测试通过）
 - 分时图与 K 线图在重构前后**截图比对无差异**
 - 迷你图颜色修正后用真实接口数据核对：6 只自选股的涨跌方向与线色全部一致
-- 发布时重新构建并实测 Windows 产物：`stocklens-0.4.0-portable.exe` **106.13 MB**、
-  `stocklens-0.4.0-setup.exe` **106.37 MB**（解包后 367.9 MB）；
+- 发布时重新构建并实测 Windows 产物：`pythontdx-0.4.0-portable.exe` **106.13 MB**、
+  `pythontdx-0.4.0-setup.exe` **106.37 MB**（解包后 367.9 MB）；
   便携版从双击到页面加载完成**约 2 秒**（三次实测 2.03s / 1.96s / 2.01s），
-  正常退出后 `%TEMP%\StockLensPortable` 无残留。
+  正常退出后 `%TEMP%\pythontdxPortable` 无残留。
 
 ---
 
@@ -1850,10 +1876,10 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 ### 新增
 
 - **Windows 单文件便携版**：`npm run build:win:portable` 产出
-  `stocklens-0.3.0-portable.exe`（106 MB），双击即用，
+  `pythontdx-0.3.0-portable.exe`（106 MB），双击即用，
   不安装、不写注册表、不需要管理员权限。
 - **便携版数据就近存放**：检测到 `PORTABLE_EXECUTABLE_DIR` 时，
-  自选股与设置写在 exe 旁边的 `StockLens-data/` 里 ——
+  自选股与设置写在 exe 旁边的 `pythontdx-data/` 里 ——
   拷走 exe + 这个目录，换台电脑接着用。
   目录不可写（只读介质 / Program Files）时自动回退到系统默认目录。
 - 新增命令 `build:win:portable`（只出便携版）与 `build:win:setup`（只出安装包）。
@@ -1881,7 +1907,7 @@ Windows 10 x64 本机重打 0.14.0，补上备份/恢复进度条与项目 GPL �
 
 | 产物                           | 从双击到界面就绪 | 磁盘占用        | 说明                                                |
 | ------------------------------ | ---------------- | --------------- | --------------------------------------------------- |
-| `stocklens-0.3.0-portable.exe` | **约 2 秒**      | 单文件 106 MB   | 每次启动解压约 368 MB 到 `%TEMP%\StockLensPortable` |
+| `pythontdx-0.3.0-portable.exe` | **约 2 秒**      | 单文件 106 MB   | 每次启动解压约 368 MB 到 `%TEMP%\pythontdxPortable` |
 | NSIS 安装版                    | **约 1 秒**      | 安装后约 368 MB | 无解压开销                                          |
 
 > 单文件免安装只比安装版慢约 1 秒，代价比想象中小。

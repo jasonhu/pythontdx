@@ -106,9 +106,9 @@ def build_nuitka() -> None:
         # 只要 0.28 秒。缓存键由源码/Nuitka 版本决定，升级 sidecar 时自然失效。
         cache_tag = sidecar_cache_tag()
         command.append(
-            f"--onefile-tempdir-spec={{CACHE_DIR}}/stocklens/tdx-bridge/{cache_tag}"
+            f"--onefile-tempdir-spec={{CACHE_DIR}}/pythontdx/tdx-bridge/{cache_tag}"
         )
-        print(f"[build] macOS onefile cache: {{CACHE_DIR}}/stocklens/tdx-bridge/{cache_tag}")
+        print(f"[build] macOS onefile cache: {{CACHE_DIR}}/pythontdx/tdx-bridge/{cache_tag}")
 
     command.append(str(ROOT / "tdx_bridge.py"))
     print("[build] Nuitka:", " ".join(command), flush=True)

@@ -38,7 +38,7 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
     <header class="titlebar">
       <div class="titlebar__brand">
         <div class="titlebar__logo" />
-        <span class="titlebar__title">StockLens</span>
+        <span class="titlebar__title">pythontdx</span>
       </div>
 
       {/* 左右两个弹性空白，让搜索框大致居中 */}

@@ -1,4 +1,4 @@
-# StockLens 1.0.0-rc.1 发布说明（Linux 候选）
+# pythontdx 1.0.0-rc.1 发布说明（Linux 候选）
 
 - 版本：`1.0.0-rc.1`
 - 日期：2026-11-02
@@ -49,11 +49,11 @@ build:web         exit 0
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
-| `StockLens-1.0.0-rc.1.AppImage` | 154,565,463 B | `1fa658304edba0e0d1a97849004801f195ce14acf024beda2034e54d8c2261c5` |
-| `stocklens_1.0.0-rc.1_amd64.deb` | 128,680,352 B | `d7af62ba9d8477fa73909737af6eda29ee5abe9e2f624342c5828ef87bdb4d7a` |
-| `stocklens-1.0.0-rc.1-setup.exe` | 133,360,582 B | `253d1a478aaf72764d94d71c30c79530c1f8338c010294af46e444b5eaf4d08e` |
-| `stocklens-1.0.0-rc.1-portable.exe` | 133,106,426 B | `678366d939e7783a3df8121d2abf3cbfc0a5f823f5aa9cda50360f8fa9a890cb` |
-| `stocklens-1.0.0-rc.1-arm64.dmg` | 166,103,849 B | `73bb8040ff552df67d514acbf827c4dd082ca4d1f6c300f678bf634fc64e59a4` |
+| `pythontdx-1.0.0-rc.1.AppImage` | 154,565,463 B | `1fa658304edba0e0d1a97849004801f195ce14acf024beda2034e54d8c2261c5` |
+| `pythontdx_1.0.0-rc.1_amd64.deb` | 128,680,352 B | `d7af62ba9d8477fa73909737af6eda29ee5abe9e2f624342c5828ef87bdb4d7a` |
+| `pythontdx-1.0.0-rc.1-setup.exe` | 133,360,582 B | `253d1a478aaf72764d94d71c30c79530c1f8338c010294af46e444b5eaf4d08e` |
+| `pythontdx-1.0.0-rc.1-portable.exe` | 133,106,426 B | `678366d939e7783a3df8121d2abf3cbfc0a5f823f5aa9cda50360f8fa9a890cb` |
+| `pythontdx-1.0.0-rc.1-arm64.dmg` | 166,103,849 B | `73bb8040ff552df67d514acbf827c4dd082ca4d1f6c300f678bf634fc64e59a4` |
 | `app.asar` | 3,614,550 B | `cc6293a222616e7a861623937d4fec3eef441b310a9ea883e10203b588087a76` |
 | `tdx-bridge` | 28,489,936 B | `58439ebf68768ce5285c47bf31ddd1c21b3a5219473e21543ebdbc2713285cc4` |
 
@@ -63,21 +63,21 @@ build:web         exit 0
 
 ```bash
 # AppImage
-chmod +x release/1.0.0-rc.1/StockLens-1.0.0-rc.1.AppImage
-./release/1.0.0-rc.1/StockLens-1.0.0-rc.1.AppImage
+chmod +x release/1.0.0-rc.1/pythontdx-1.0.0-rc.1.AppImage
+./release/1.0.0-rc.1/pythontdx-1.0.0-rc.1.AppImage
 
 # deb
-sudo apt install ./release/1.0.0-rc.1/stocklens_1.0.0-rc.1_amd64.deb
+sudo apt install ./release/1.0.0-rc.1/pythontdx_1.0.0-rc.1_amd64.deb
 
 # Windows setup / portable（CI 未签名）
-release/1.0.0-rc.1/stocklens-1.0.0-rc.1-setup.exe
-release/1.0.0-rc.1/stocklens-1.0.0-rc.1-portable.exe
+release/1.0.0-rc.1/pythontdx-1.0.0-rc.1-setup.exe
+release/1.0.0-rc.1/pythontdx-1.0.0-rc.1-portable.exe
 ```
 
 AppImage 无 FUSE 时：
 
 ```bash
-./release/1.0.0-rc.1/StockLens-1.0.0-rc.1.AppImage --appimage-extract-and-run
+./release/1.0.0-rc.1/pythontdx-1.0.0-rc.1.AppImage --appimage-extract-and-run
 ```
 
 ## 未完成 / 边界

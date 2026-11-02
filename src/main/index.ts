@@ -16,14 +16,15 @@ import { PushHub } from './services/push'
 import { fetchPushTask } from './services/push-fetch'
 import { closeTdx, warmTdxBridge } from './services/tdx'
 import { AppStore } from './services/store'
+import { migrateLegacyPortableData, migrateLegacyUserData } from './services/legacy'
 import { createMainWindow } from './window'
 import { destroyTray, setupTray } from './tray'
 
-const APP_ID = 'com.stocklens.app'
-const APP_NAME = 'StockLens'
-const STATE_FILE = 'stocklens.json'
+const APP_ID = 'com.pythontdx.app'
+const APP_NAME = 'pythontdx'
+const STATE_FILE = 'pythontdx.json'
 /** 便携版放在 exe 旁边的数据目录名 */
-const PORTABLE_DATA_DIR = 'StockLens-data'
+const PORTABLE_DATA_DIR = 'pythontdx-data'
 
 let mainWindow: BrowserWindow | null = null
 let store: AppStore | undefined
@@ -35,7 +36,7 @@ let quitting = false
 /**
  * 便携版（electron-builder 的 portable 目标）会把 exe 所在目录注入到
  * 环境变量 `PORTABLE_EXECUTABLE_DIR`。这时把配置写在 exe 旁边的
- * `StockLens-data/` 里，「拷走 exe + 这个目录」就等于换台电脑继续用，
+ * `pythontdx-data/` 里，「拷走 exe + 这个目录」就等于换台电脑继续用，
  * 系统里不留任何痕迹（不写注册表、不碰 %APPDATA%）。
  *
  * 如果目录不可写（放在只读介质、Program Files、网络盘等），
@@ -46,6 +47,8 @@ function resolvePortableUserData(): string | undefined {
   if (!portableDir) return undefined
 
   const candidate = join(portableDir, PORTABLE_DATA_DIR)
+  // 旧版便携目录先复制到新目录，再检查可写；旧目录保留，不删除用户数据。
+  migrateLegacyPortableData(portableDir)
   try {
     mkdirSync(candidate, { recursive: true })
     // 真正写一次才能确认可写：mkdir 成功但目录只读的情况是存在的
@@ -64,10 +67,10 @@ function resolvePortableUserData(): string | undefined {
  * - 默认 wayland：原生 Wayland，OpenGL/EGL；最稳；
  * - x11：XWayland/X11 + OpenGL；
  * - vulkan：XWayland/X11 + ANGLE Vulkan（需要真实 Vulkan 驱动）；
- * 可用 STOCKLENS_GRAPHICS=wayland|x11|vulkan 覆盖。
+ * 可用 PYTHONTDX_GRAPHICS=wayland|x11|vulkan 覆盖。
  */
 function requestedGraphicsMode(): 'wayland' | 'x11' | 'vulkan' {
-  const requested = (process.env.STOCKLENS_GRAPHICS ?? 'wayland').toLowerCase()
+  const requested = (process.env.PYTHONTDX_GRAPHICS ?? 'wayland').toLowerCase()
   return requested === 'x11' || requested === 'vulkan' ? requested : 'wayland'
 }
 
@@ -99,7 +102,7 @@ function fallbackVulkanIfUnavailable(): boolean {
   if (
     process.platform !== 'linux' ||
     requestedGraphicsMode() !== 'vulkan' ||
-    process.env.STOCKLENS_GPU_FALLBACK === '1'
+    process.env.PYTHONTDX_GPU_FALLBACK === '1'
   ) {
     return false
   }
@@ -108,8 +111,8 @@ function fallbackVulkanIfUnavailable(): boolean {
   if (!vulkan.startsWith('disabled')) return false
 
   console.warn(`[runtime] Vulkan unavailable (${vulkan}); fallback to wayland and relaunch once`)
-  process.env.STOCKLENS_GRAPHICS = 'wayland'
-  process.env.STOCKLENS_GPU_FALLBACK = '1'
+  process.env.PYTHONTDX_GRAPHICS = 'wayland'
+  process.env.PYTHONTDX_GPU_FALLBACK = '1'
   app.relaunch({ args: process.argv.slice(1) })
   app.exit(0)
   return true
@@ -131,7 +134,15 @@ function bootstrap(): void {
 
   // 便携版优先：把数据放在 exe 旁边（必须在 ready 之前设置）
   const portableUserData = resolvePortableUserData()
-  if (portableUserData) app.setPath('userData', portableUserData)
+  if (portableUserData) {
+    app.setPath('userData', portableUserData)
+  } else {
+    // 系统安装版：旧 StockLens 的 userData（设置/窗口/localStorage）复制到 pythontdx。
+    const migrated = migrateLegacyUserData(app.getPath('appData'), app.getPath('userData'))
+    if (migrated.length > 0) {
+      console.log('[migrate] 已迁移旧用户目录：', migrated.join(', '))
+    }
+  }
 
   app.on('second-instance', () => {
     if (!mainWindow) return

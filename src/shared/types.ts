@@ -785,7 +785,7 @@ export interface DataIntegrityResult {
 
 /* --------------------------------------------------- 离线数据备份 / 恢复 */
 
-/** 备份文件内的清单（`_stocklens_backup.json`） */
+/** 备份文件内的清单（`_pythontdx_backup.json`） */
 export interface DataBackupManifest {
   format: number
   app: string

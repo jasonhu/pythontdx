@@ -12,6 +12,8 @@ import re
 from decimal import Decimal
 from pathlib import Path
 
+from data_paths import data_dir
+
 FORBIDDEN = re.compile(
     r"(?is)\b(attach|detach|copy|create|insert|update|delete|drop|alter|export|import|"
     r"install|load|pragma|call|read_csv|read_json|read_parquet|parquet_scan|csv_scan|"
@@ -34,12 +36,7 @@ def _duckdb():
 
 
 def _data_dir() -> Path:
-    configured = os.environ.get("STOCKLENS_DATA_DIR")
-    if configured:
-        return Path(configured)
-    xdg = os.environ.get("XDG_DATA_HOME")
-    base = Path(xdg) if xdg else Path.home() / ".local" / "share"
-    return base / "stocklens" / "data"
+    return data_dir()
 
 
 def _serialize(value):

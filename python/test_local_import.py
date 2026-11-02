@@ -47,7 +47,7 @@ class TestLocalQuery(unittest.TestCase):
             side.execute("INSERT INTO tdxstat VALUES('sh600519', 20.1)")
             side.commit()
             side.close()
-            with patch.dict(os.environ, {"STOCKLENS_DATA_DIR": directory}):
+            with patch.dict(os.environ, {"PYTHONTDX_DATA_DIR": directory}):
                 result = tdx_bridge.run_local_query("SELECT code, close FROM bars")
                 self.assertEqual(result["rowCount"], 1)
                 joined = tdx_bridge.run_local_query(

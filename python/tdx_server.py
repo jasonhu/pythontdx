@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StockLens 的只读 HTTP 行情 API。
+"""pythontdx 的只读 HTTP 行情 API。
 
 为什么还要这一层：
   · Electron 桌面用 stdio sidecar；浏览器/Web 端需要一个普通的 HTTP 入口；
@@ -509,11 +509,11 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/f10_pit_list":
                 with self.server.lock:
                     from f10_pit import list_f10_snapshots
-                    from tdx_bridge import stocklens_data_dir
+                    from tdx_bridge import pythontdx_data_dir
 
                     self._ok(
                         list_f10_snapshots(
-                            stocklens_data_dir() / "lake" / "f10_pit",
+                            pythontdx_data_dir() / "lake" / "f10_pit",
                             int(payload.get("limit", 50)),
                         )
                     )
@@ -521,11 +521,11 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/f10_pit_read":
                 with self.server.lock:
                     from f10_pit import read_f10_snapshot
-                    from tdx_bridge import stocklens_data_dir
+                    from tdx_bridge import pythontdx_data_dir
 
                     self._ok(
                         read_f10_snapshot(
-                            stocklens_data_dir() / "lake" / "f10_pit",
+                            pythontdx_data_dir() / "lake" / "f10_pit",
                             str(payload.get("code") or ""),
                             str(payload.get("table") or ""),
                             str(payload.get("date") or ""),
@@ -651,11 +651,11 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/flow_archive_list":
                 with self.server.lock:
                     from flow_archive import list_flow_archives
-                    from tdx_bridge import stocklens_data_dir
+                    from tdx_bridge import pythontdx_data_dir
 
                     self._ok(
                         list_flow_archives(
-                            stocklens_data_dir() / "lake" / "money_flow",
+                            pythontdx_data_dir() / "lake" / "money_flow",
                             int(payload.get("limit", 50)),
                         )
                     )
@@ -663,11 +663,11 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/flow_archive_read":
                 with self.server.lock:
                     from flow_archive import read_flow_archive
-                    from tdx_bridge import stocklens_data_dir
+                    from tdx_bridge import pythontdx_data_dir
 
                     self._ok(
                         read_flow_archive(
-                            stocklens_data_dir() / "lake" / "money_flow",
+                            pythontdx_data_dir() / "lake" / "money_flow",
                             str(payload.get("code") or ""),
                             str(payload.get("date") or ""),
                         )
@@ -917,7 +917,7 @@ def create_server(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="StockLens 只读 HTTP 行情 API")
+    parser = argparse.ArgumentParser(description="pythontdx 只读 HTTP 行情 API")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--web-dir", default=None, help="可选：托管 out/web 静态产物")

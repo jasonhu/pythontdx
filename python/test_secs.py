@@ -64,7 +64,7 @@ class TestConnectCfg(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "connect.cfg"
             path.write_bytes(content.encode("gb18030"))
-            with mock.patch.dict("os.environ", {"STOCKLENS_CONNECT_CFG": str(path)}):
+            with mock.patch.dict("os.environ", {"PYTHONTDX_CONNECT_CFG": str(path)}):
                 hosts, source = active_endpoints()
         self.assertEqual(hosts, [("3.3.3.3", 7709)])
         self.assertEqual(source, str(path))

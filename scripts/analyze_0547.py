@@ -18,10 +18,10 @@ from pathlib import Path
 def data_root() -> Path:
     import os
 
-    configured = os.environ.get("STOCKLENS_DATA_DIR")
+    configured = os.environ.get("PYTHONTDX_DATA_DIR")
     if configured:
         return Path(configured).expanduser()
-    return Path.home() / ".local" / "share" / "stocklens" / "data"
+    return Path.home() / ".local" / "share" / "pythontdx" / "data"
 
 
 def latest_probe(directory: Path) -> Path:

@@ -87,7 +87,7 @@ class TestAuctionArchive(unittest.TestCase):
         bridge.minute = lambda code: {"date": "2026-10-30"}
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.object(
-                tdx_bridge, "stocklens_data_dir", return_value=Path(directory)
+                tdx_bridge, "pythontdx_data_dir", return_value=Path(directory)
             ):
                 saved = bridge.auction_archive_save("sh600519")
                 self.assertEqual(saved["tradeDate"], "2026-10-30")
@@ -101,7 +101,7 @@ class TestAuctionArchive(unittest.TestCase):
         bridge.minute = lambda code: {"date": "2026-10-30"}
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.object(
-                tdx_bridge, "stocklens_data_dir", return_value=Path(directory)
+                tdx_bridge, "pythontdx_data_dir", return_value=Path(directory)
             ):
                 result = bridge.auction_archive_batch(
                     ["sh600519", "bad", "sz000001", "sh600519"]

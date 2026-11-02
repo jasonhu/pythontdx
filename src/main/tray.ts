@@ -20,11 +20,11 @@ export function setupTray(window: BrowserWindow): void {
   if (!icon) return
   tray = new Tray(nativeImage.createFromPath(icon))
   console.log('[tray] 托盘已创建')
-  tray.setToolTip('StockLens 行情')
+  tray.setToolTip('pythontdx 行情')
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: '显示 StockLens',
+        label: '显示 pythontdx',
         click: () => {
           window.show()
           window.focus()

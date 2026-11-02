@@ -172,7 +172,7 @@ export function createSecondaryWindow(
     bounds: options.bounds,
     onBoundsChange: options.onBoundsChange
   })
-  const capturePath = process.env.STOCKLENS_CAPTURE_SECONDARY
+  const capturePath = process.env.PYTHONTDX_CAPTURE_SECONDARY
   if (capturePath) {
     window.webContents.once('did-finish-load', () => {
       setTimeout(() => {
@@ -202,7 +202,7 @@ export function createChartWindow(
     y: options.bounds?.y,
     minWidth: 760,
     minHeight: 480,
-    title: `StockLens · ${code.toUpperCase()}`,
+    title: `pythontdx · ${code.toUpperCase()}`,
     backgroundColor: BACKGROUND_COLOR,
     autoHideMenuBar: true,
     ...(icon ? { icon } : {}),
@@ -237,7 +237,7 @@ export function createChartWindow(
     })
   }
 
-  const capturePath = process.env.STOCKLENS_CAPTURE_CHILD
+  const capturePath = process.env.PYTHONTDX_CAPTURE_CHILD
   if (capturePath) {
     child.webContents.once('did-finish-load', () => {
       setTimeout(() => {

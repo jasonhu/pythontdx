@@ -318,7 +318,7 @@ export interface TradesRequest {
  * preload 通过 contextBridge 暴露给渲染进程的完整 API。
  * 渲染进程的 window.api 就是这个类型（见 src/preload/index.d.ts）。
  */
-export interface StockLensApi {
+export interface PythonTdxApi {
   quote: {
     /** 一次性拉取给定代码的行情快照 */
     snapshot(codes: string[]): Promise<Quote[]>

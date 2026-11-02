@@ -7,10 +7,14 @@
 import { render } from 'solid-js/web'
 import App from './App'
 import { DetachedChart } from './components/DetachedChart'
+import { migrateLegacyLocalStorage } from './lib/legacy-storage'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
 import './styles/app.css'
+
+// 旧 StockLens 的报价/分时快照 key 先复制到 pythontdx 前缀。
+migrateLegacyLocalStorage()
 
 const container = document.getElementById('root')
 if (!container) {

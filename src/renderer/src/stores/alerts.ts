@@ -28,7 +28,7 @@ export function scanAlerts(quotes: readonly Quote[], now = Date.now()): void {
     appendAlertEvents(scan.events)
     setLatest(scan.events[scan.events.length - 1] ?? null)
     for (const event of scan.events) {
-      void api.app.notify('StockLens 预警', event.message).catch(() => undefined)
+      void api.app.notify('pythontdx 预警', event.message).catch(() => undefined)
     }
   }
 }

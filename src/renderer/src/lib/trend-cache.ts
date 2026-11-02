@@ -16,8 +16,8 @@ export type TrendData = MinuteTrend | MultiDayTrend
 const VERSION = 1
 const LIMITS: Record<TrendKind, number> = { minute: 12, five: 6 }
 const KEYS: Record<TrendKind, string> = {
-  minute: 'stocklens.trend-cache-v1-minute',
-  five: 'stocklens.trend-cache-v1-five'
+  minute: 'pythontdx.trend-cache-v1-minute',
+  five: 'pythontdx.trend-cache-v1-five'
 }
 const WRITE_THROTTLE_MS = 2000
 

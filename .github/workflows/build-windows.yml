@@ -55,13 +55,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $version = node -p "require('./package.json').version"
           $release = Join-Path $PWD "release/$version"
-          $green = Join-Path $release "StockLens-$version-win-x64"
+          $green = Join-Path $release "pythontdx-$version-win-x64"
           if (Test-Path $green) { Remove-Item $green -Recurse -Force }
           Copy-Item (Join-Path $release 'win-unpacked') $green -Recurse
-          if (Test-Path "$release/stocklens-selfsigned.cer") {
-            Copy-Item "$release/stocklens-selfsigned.cer" (Join-Path $green 'stocklens-selfsigned.cer')
+          if (Test-Path "$release/pythontdx-selfsigned.cer") {
+            Copy-Item "$release/pythontdx-selfsigned.cer" (Join-Path $green 'pythontdx-selfsigned.cer')
           }
-          $zip = Join-Path $release "StockLens-$version-win-x64.zip"
+          $zip = Join-Path $release "pythontdx-$version-win-x64.zip"
           Compress-Archive -Path $green -DestinationPath $zip -CompressionLevel Optimal
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
           "$hash  $(Split-Path $zip -Leaf)" | Out-File -FilePath "$zip.sha256" -Encoding ascii
@@ -78,8 +78,8 @@ jobs:
             "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
             Write-Host "$($_.Name) $hash"
           }
-          if (Test-Path "$release/stocklens-selfsigned.cer") {
-            Copy-Item "$release/stocklens-selfsigned.cer" "$release/stocklens-selfsigned.cer.txt"
+          if (Test-Path "$release/pythontdx-selfsigned.cer") {
+            Copy-Item "$release/pythontdx-selfsigned.cer" "$release/pythontdx-selfsigned.cer.txt"
           }
 
       - name: Check tag matches package version
@@ -91,12 +91,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stocklens-windows-x64-${{ github.run_id }}
+          name: pythontdx-windows-x64-${{ github.run_id }}
           path: |
-            release/*/stocklens-*-setup.exe
-            release/*/stocklens-*-portable.exe
-            release/*/StockLens-*-win-x64.zip
+            release/*/pythontdx-*-setup.exe
+            release/*/pythontdx-*-portable.exe
+            release/*/pythontdx-*-win-x64.zip
             release/*/*.sha256
-            release/*/stocklens-selfsigned.cer
+            release/*/pythontdx-selfsigned.cer
           if-no-files-found: error
           retention-days: 14

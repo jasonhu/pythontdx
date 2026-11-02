@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-StockLens 的通达信行情桥接进程。
+pythontdx 的通达信行情桥接进程。
 
 职责：
   · 持有 7709 TCP 连接，完成握手、请求、超时、重连、主站 failover；
@@ -51,6 +51,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from duckdb_query import run_duckdb_query
+from data_paths import data_dir
 from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
 from tdx_local import read_local_file, write_day_file, write_min_file
@@ -139,7 +140,7 @@ SERVER_HOSTS = [
     ("60.12.136.250", 7709),
     ("60.191.117.167", 7709),
     ("61.152.249.56", 7709),
-    # 原 StockLens 主站与资金流节点中仍可用的地址，保留作最新列表的补充。
+    # 原 pythontdx 主站与资金流节点中仍可用的地址，保留作最新列表的补充。
     ("124.71.187.122", 7709),
     ("116.205.183.150", 7709),
     ("111.230.186.52", 7709),
@@ -168,7 +169,7 @@ CONNECT_CFG_CANDIDATES = [
 
 
 def _connect_cfg_candidates() -> list[Path]:
-    configured = os.environ.get("STOCKLENS_CONNECT_CFG")
+    configured = os.environ.get("PYTHONTDX_CONNECT_CFG")
     candidates: list[Path] = [Path(configured).expanduser()] if configured else []
     candidates.extend(CONNECT_CFG_CANDIDATES)
     for pattern in (
@@ -245,7 +246,7 @@ def active_endpoints() -> tuple[list[tuple[str, int]], str]:
 
 
 def _server_config_path() -> Path:
-    return stocklens_data_dir() / "server.json"
+    return pythontdx_data_dir() / "server.json"
 
 
 def _preferred_host() -> str | None:
@@ -1649,19 +1650,16 @@ def parse_f10_content(body: bytes) -> str:
     ].decode("gbk", "replace")
 
 
-def stocklens_data_dir() -> Path:
-    """原始数据目录；开发/测试可用 STOCKLENS_DATA_DIR 覆盖。"""
-    configured = os.environ.get("STOCKLENS_DATA_DIR")
-    if configured:
-        return Path(configured).expanduser()
-    return Path.home() / ".local" / "share" / "stocklens" / "data"
+def pythontdx_data_dir() -> Path:
+    """原始数据目录；开发/测试可用 PYTHONTDX_DATA_DIR 覆盖（兼容旧 STOCKLENS_DATA_DIR）。"""
+    return data_dir()
 
 
 def save_raw_file(name: str, data: bytes) -> dict:
     safe_name = Path(name).name
     if not safe_name:
         raise TdxError("服务器文件名为空")
-    target_dir = stocklens_data_dir() / "raw" / "tdx"
+    target_dir = pythontdx_data_dir() / "raw" / "tdx"
     target_dir.mkdir(parents=True, exist_ok=True)
     target = target_dir / safe_name
     temporary = target.with_name(f"{target.name}.part")
@@ -1865,20 +1863,20 @@ def _run_readonly_query(
 
 def run_stats_query(sql: str, limit: int = 200) -> dict:
     """在 stats.db 上执行只读 SELECT/WITH，最多返回 500 行。"""
-    database = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+    database = pythontdx_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
     return _run_readonly_query(database, sql, limit)
 
 
 def run_local_query(sql: str, limit: int = 200) -> dict:
     """在 local_bars.db 上查询；stats.db 存在时以 stats.* 附加为只读库。"""
-    database = stocklens_data_dir() / "local" / "normalized" / "local" / "local_bars.db"
-    stats = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+    database = pythontdx_data_dir() / "local" / "normalized" / "local" / "local_bars.db"
+    stats = pythontdx_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
     return _run_readonly_query(database, sql, limit, [("stats", stats)])
 
 
 def export_stats_csv() -> dict:
     """把 stats.db 的 tdxstat / tdxstat2 全量导出为 UTF-8 BOM CSV。"""
-    database = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
+    database = pythontdx_data_dir() / "normalized" / "tdx" / "zhb_stats" / "stats.db"
     if not database.exists():
         raise TdxError("stats.db 不存在，请先在数据工具里执行「规范化导出」")
     target = database.parent / "csv"
@@ -2031,7 +2029,7 @@ def export_tdx_stats(zip_bytes: bytes, source_sha256: str = "") -> dict:
     if not dates:
         raise TdxError("tdxstat 没有有效日期")
 
-    root = stocklens_data_dir() / "normalized" / "tdx" / "zhb_stats"
+    root = pythontdx_data_dir() / "normalized" / "tdx" / "zhb_stats"
     root.mkdir(parents=True, exist_ok=True)
     sha = source_sha256 or hashlib.sha256(zip_bytes).hexdigest()
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -2256,11 +2254,11 @@ def parse_client_block(text: str) -> list[str]:
 
 
 def client_roots(explicit: str = "") -> list[Path]:
-    """候选客户端目录：显式参数 > STOCKLENS_TDX_DIR > 常见安装位置。"""
+    """候选客户端目录：显式参数 > PYTHONTDX_TDX_DIR > 常见安装位置。"""
     roots: list[Path] = []
     if explicit.strip():
         roots.append(Path(explicit.strip().strip('"')))
-    env = os.environ.get("STOCKLENS_TDX_DIR")
+    env = os.environ.get("PYTHONTDX_TDX_DIR")
     if env:
         roots.append(Path(env))
     for base in ("D:/tdx", "C:/tdx", "D:/new_tdx", "C:/new_tdx", "E:/tdx"):
@@ -2647,7 +2645,7 @@ class CodeIndex:
 # ---------------------------------------------------------------- K 线本地缓存
 
 def kline_cache_dir() -> Path:
-    target = stocklens_data_dir() / "cache" / "klines"
+    target = pythontdx_data_dir() / "cache" / "klines"
     target.mkdir(parents=True, exist_ok=True)
     return target
 
@@ -2668,7 +2666,7 @@ def _dir_stats(target: Path) -> tuple[int, int]:
 
 def data_inventory() -> dict:
     """离线数据目录清单：只读扫描，不做删除或迁移。"""
-    root = stocklens_data_dir()
+    root = pythontdx_data_dir()
     sections = {}
     for name, relative in {
         "raw": "raw",
@@ -2709,9 +2707,11 @@ def data_inventory() -> dict:
 # ------------------------------------------------------------ 离线数据备份/恢复
 
 BACKUP_FORMAT = 1
-BACKUP_MANIFEST = "_stocklens_backup.json"
+BACKUP_MANIFEST = "_pythontdx_backup.json"
+# 1.1 之前生成的备份带旧清单名；读取时兼容，恢复时不要把清单当数据文件写回去。
+LEGACY_BACKUP_MANIFEST = "_stocklens_backup.json"
 BACKUP_CHUNK = 1024 * 1024
-PROGRESS_PREFIX = "__STOCKLENS_PROGRESS__ "
+PROGRESS_PREFIX = "__PYTHONTDX_PROGRESS__ "
 
 
 class _BackupProgressReporter:
@@ -2766,7 +2766,7 @@ def _bridge_progress(event: dict) -> None:
 
 
 def _backup_root() -> Path:
-    root = stocklens_data_dir()
+    root = pythontdx_data_dir()
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -2877,7 +2877,7 @@ def backup_create(
                 json.dumps(
                     {
                         "format": BACKUP_FORMAT,
-                        "app": "StockLens",
+                        "app": "pythontdx",
                         "createdAt": started,
                         "dataRoot": str(root),
                         "fileCount": len(files),
@@ -2936,15 +2936,21 @@ def backup_inspect(path: str) -> dict:
     try:
         with zipfile.ZipFile(source) as archive:
             manifest: dict = {}
-            if BACKUP_MANIFEST in archive.namelist():
+            names = archive.namelist()
+            manifest_name = next(
+                (name for name in (BACKUP_MANIFEST, LEGACY_BACKUP_MANIFEST) if name in names),
+                BACKUP_MANIFEST,
+            )
+            if manifest_name in names:
                 try:
-                    manifest = json.loads(archive.read(BACKUP_MANIFEST).decode("utf-8"))
+                    manifest = json.loads(archive.read(manifest_name).decode("utf-8"))
                 except (ValueError, UnicodeDecodeError):
                     manifest = {}
             files = [
                 item
                 for item in archive.infolist()
-                if not item.is_dir() and item.filename != BACKUP_MANIFEST
+                if not item.is_dir()
+                and item.filename not in (BACKUP_MANIFEST, LEGACY_BACKUP_MANIFEST)
             ]
     except zipfile.BadZipFile as error:
         raise TdxError("不是合法的 ZIP 备份文件") from error
@@ -2984,7 +2990,8 @@ def backup_restore(
         entries = [
             info
             for info in archive.infolist()
-            if not info.is_dir() and info.filename != BACKUP_MANIFEST
+            if not info.is_dir()
+            and info.filename not in (BACKUP_MANIFEST, LEGACY_BACKUP_MANIFEST)
         ]
         total_bytes = sum(info.file_size for info in entries)
         report.report(
@@ -3301,7 +3308,7 @@ class Bridge:
         """MAC 0x1218 今日/5 日资金流；成功结果自动按交易日归档。"""
         result = fetch_capital_flow(code)
         try:
-            write_flow_archive(stocklens_data_dir() / "lake" / "money_flow", code, result)
+            write_flow_archive(pythontdx_data_dir() / "lake" / "money_flow", code, result)
         except Exception as error:  # noqa: BLE001 - 归档失败不影响查询
             print(f"[tdx] 资金流归档失败：{error}", file=sys.stderr)
         return result
@@ -3572,13 +3579,13 @@ class Bridge:
         return write_min_file(path, bars)
 
     def lake_archives(self, limit: int = 20) -> list[dict]:
-        return list_snapshot_archives(stocklens_data_dir() / "lake" / "quotes", limit)
+        return list_snapshot_archives(pythontdx_data_dir() / "lake" / "quotes", limit)
 
     def archive_snapshot(self) -> dict:
         """把全市场 A 股快照归档到数据湖 lake/quotes/trade_date=/。"""
         now = datetime.now().astimezone()
         trade_date = now.strftime("%Y-%m-%d")
-        target = stocklens_data_dir() / "lake" / "quotes" / f"trade_date={trade_date}"
+        target = pythontdx_data_dir() / "lake" / "quotes" / f"trade_date={trade_date}"
         manifest_path = target / "manifest.json"
         if manifest_path.is_file():
             try:
@@ -3646,7 +3653,7 @@ class Bridge:
         stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
         generated_at = datetime.now().astimezone().isoformat(timespec="seconds")
         result = write_kline_export(
-            stocklens_data_dir() / "exports" / "klines" / stamp,
+            pythontdx_data_dir() / "exports" / "klines" / stamp,
             bars_by_code,
             period,
             adjust,
@@ -3657,7 +3664,7 @@ class Bridge:
 
     def local_import(self, path: str) -> dict:
         """把本地行情文件导入数据湖（原始 + JSONL.gz + SQLite + manifest）。"""
-        return import_local_file(path, stocklens_data_dir() / "local")
+        return import_local_file(path, pythontdx_data_dir() / "local")
 
     def _breadth_limits(self, quotes: list[dict]) -> tuple[int, int]:
         up = down = 0
@@ -3858,7 +3865,7 @@ class Bridge:
         if trading_date:
             try:
                 archive = read_tick_archive(
-                    stocklens_data_dir() / "lake" / "ticks",
+                    pythontdx_data_dir() / "lake" / "ticks",
                     code,
                     trading_date,
                 )
@@ -3872,7 +3879,7 @@ class Bridge:
             # 周末/收盘后实时接口只能重复返回上一交易日；直接读归档，首屏不用等网络。
             try:
                 latest = latest_tick_archive(
-                    stocklens_data_dir() / "lake" / "ticks", code
+                    pythontdx_data_dir() / "lake" / "ticks", code
                 )
                 if prefer_tick_archive(datetime.now(), latest["tradeDate"]):
                     return latest["ticks"][start : start + count]
@@ -3929,7 +3936,7 @@ class Bridge:
             target_date = normalize_tick_date(trading_date)
         except TickArchiveError as error:
             raise TdxError(str(error)) from error
-        root = stocklens_data_dir() / "lake" / "ticks"
+        root = pythontdx_data_dir() / "lake" / "ticks"
         try:
             existing = read_tick_archive(root, normalized_code, target_date)
             return {
@@ -4017,7 +4024,7 @@ class Bridge:
     ) -> dict:
         try:
             archive = read_tick_archive(
-                stocklens_data_dir() / "lake" / "ticks", code, trading_date
+                pythontdx_data_dir() / "lake" / "ticks", code, trading_date
             )
         except FileNotFoundError as error:
             raise TdxError(str(error)) from error
@@ -4031,7 +4038,7 @@ class Bridge:
         }
 
     def tick_archive_list(self, limit: int = 20) -> list[dict]:
-        return list_tick_archives(stocklens_data_dir() / "lake" / "ticks", limit)
+        return list_tick_archives(pythontdx_data_dir() / "lake" / "ticks", limit)
 
     def tick_archive_batch(self, codes: list[str], trading_date: str) -> dict:
         """批量归档；单只失败不阻断其他股票，返回 saved/failed。"""
@@ -4082,7 +4089,7 @@ class Bridge:
             target_date = trading_date or datetime.now().astimezone().strftime("%Y-%m-%d")
             try:
                 write_auction_archive(
-                    stocklens_data_dir() / "lake" / "auction",
+                    pythontdx_data_dir() / "lake" / "auction",
                     code,
                     target_date,
                     points,
@@ -4118,7 +4125,7 @@ class Bridge:
             target_date = datetime.now().astimezone().strftime("%Y-%m-%d")
         try:
             result = write_auction_archive(
-                stocklens_data_dir() / "lake" / "auction",
+                pythontdx_data_dir() / "lake" / "auction",
                 code,
                 target_date,
                 points,
@@ -4136,7 +4143,7 @@ class Bridge:
             raise TdxError(str(error)) from error
         try:
             return read_auction_archive(
-                stocklens_data_dir() / "lake" / "auction",
+                pythontdx_data_dir() / "lake" / "auction",
                 normalized_code,
                 normalized_date,
             )
@@ -4154,7 +4161,7 @@ class Bridge:
 
     def auction_archive_list(self, limit: int = 50) -> list[dict]:
         return list_auction_archives(
-            stocklens_data_dir() / "lake" / "auction", limit
+            pythontdx_data_dir() / "lake" / "auction", limit
         )
 
     def auction_archive_batch(
@@ -4256,7 +4263,7 @@ class Bridge:
         result = parse_f10_catalog(body)
         try:
             write_f10_snapshot(
-                stocklens_data_dir() / "lake" / "f10_pit", code, "f10_catalog", result
+                pythontdx_data_dir() / "lake" / "f10_pit", code, "f10_catalog", result
             )
         except Exception as error:  # noqa: BLE001 - 快照失败不影响查询
             print(f"[tdx] F10 目录快照失败：{error}", file=sys.stderr)
@@ -4274,7 +4281,7 @@ class Bridge:
         text = parse_f10_content(body)
         try:
             write_f10_snapshot(
-                stocklens_data_dir() / "lake" / "f10_pit",
+                pythontdx_data_dir() / "lake" / "f10_pit",
                 code,
                 f"f10_content_{filename}",
                 text,
@@ -4446,7 +4453,7 @@ class Bridge:
         """zhb.zip 已知服务器文件清单 + 与上一版差分；不是完整目录枚举。"""
         data, saved, chunks = self._zhb_bytes()
         result = write_server_catalog(
-            stocklens_data_dir() / "lake" / "server_files",
+            pythontdx_data_dir() / "lake" / "server_files",
             data,
             str(saved.get("sha256") or ""),
             str(saved.get("savedTo") or ""),
@@ -4455,7 +4462,7 @@ class Bridge:
         return result
 
     def server_catalog_list(self, limit: int = 20) -> list[dict]:
-        return list_server_catalogs(stocklens_data_dir() / "lake" / "server_files", limit)
+        return list_server_catalogs(pythontdx_data_dir() / "lake" / "server_files", limit)
 
     def tdx_stats(self) -> dict:
         """下载 zhb.zip，保存原始 ZIP，并解析两份 tdxstat CFG 摘要。"""
@@ -4603,7 +4610,7 @@ class Bridge:
         if root is None:
             raise TdxError(
                 "找不到通达信客户端的 T0002/blocknew/blocknew.cfg；"
-                "请把客户端目录放到 D:/tdx，或设置 STOCKLENS_TDX_DIR"
+                "请把客户端目录放到 D:/tdx，或设置 PYTHONTDX_TDX_DIR"
             )
         base = root / "T0002" / "blocknew"
         cfg_file = base / "blocknew.cfg"
@@ -4679,7 +4686,7 @@ class Bridge:
         from tdx_f10 import fetch_dividend, fetch_finance, fetch_lhb_market
 
         store = (
-            stocklens_data_dir() / "lake" / "datasets" / f"snapshot_date={time.strftime('%Y-%m-%d')}"
+            pythontdx_data_dir() / "lake" / "datasets" / f"snapshot_date={time.strftime('%Y-%m-%d')}"
         )
         files: list[dict] = []
         sector_rows = 0
@@ -5470,11 +5477,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.server_catalog()
     if cmd == "flow_archive_list":
         return list_flow_archives(
-            stocklens_data_dir() / "lake" / "money_flow", int(payload.get("limit", 50))
+            pythontdx_data_dir() / "lake" / "money_flow", int(payload.get("limit", 50))
         )
     if cmd == "flow_archive_read":
         return read_flow_archive(
-            stocklens_data_dir() / "lake" / "money_flow",
+            pythontdx_data_dir() / "lake" / "money_flow",
             str(payload.get("code") or ""),
             str(payload.get("date") or ""),
         )
@@ -5584,11 +5591,11 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_profile(payload.get("code", ""))
     if cmd == "f10_pit_list":
         return list_f10_snapshots(
-            stocklens_data_dir() / "lake" / "f10_pit", int(payload.get("limit", 50))
+            pythontdx_data_dir() / "lake" / "f10_pit", int(payload.get("limit", 50))
         )
     if cmd == "f10_pit_read":
         return read_f10_snapshot(
-            stocklens_data_dir() / "lake" / "f10_pit",
+            pythontdx_data_dir() / "lake" / "f10_pit",
             str(payload.get("code") or ""),
             str(payload.get("table") or ""),
             str(payload.get("date") or ""),
@@ -5646,9 +5653,9 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             bool(payload.get("cacheOnly")),
         )
     if cmd == "data_integrity":
-        return verify_data_integrity(stocklens_data_dir())
+        return verify_data_integrity(pythontdx_data_dir())
     if cmd == "data_coverage":
-        return collect_data_coverage(stocklens_data_dir())
+        return collect_data_coverage(pythontdx_data_dir())
     if cmd == "data_inventory":
         return data_inventory()
     if cmd == "backup_create":

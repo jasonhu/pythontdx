@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 from parquet_store import ParquetStoreError, file_sha256
+from data_paths import data_dir
 
 CODE_RE = re.compile(r"^(sh|sz|bj)\d{6}$")
 TABLE_RE = re.compile(r"[^a-zA-Z0-9_]+")
@@ -25,12 +26,7 @@ SOURCE = "TDX 7709/7615 F10 snapshot"
 
 
 def default_root() -> Path:
-    configured = os.environ.get("STOCKLENS_DATA_DIR")
-    if configured:
-        return Path(configured).expanduser() / "lake" / "f10_pit"
-    xdg = os.environ.get("XDG_DATA_HOME")
-    base = Path(xdg) if xdg else Path.home() / ".local" / "share"
-    return base / "stocklens" / "data" / "lake" / "f10_pit"
+    return data_dir() / "lake" / "f10_pit"
 
 
 class F10SnapshotError(ValueError):
@@ -153,7 +149,7 @@ def write_f10_snapshot(
     temporary.replace(data_path)
     digest = file_sha256(data_path)
     manifest = {
-        "schema": "stocklens.f10.pit.v1",
+        "schema": "pythontdx.f10.pit.v1",
         "schemaVersion": SCHEMA_VERSION,
         "source": SOURCE,
         "code": normalized_code,

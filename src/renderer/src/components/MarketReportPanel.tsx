@@ -67,7 +67,7 @@ export function MarketReportPanel(props: { onClose: () => void }): JSX.Element {
                 const current = table()
                 if (!current) return
                 downloadText(
-                  `stocklens-market-${current.section}.csv`,
+                  `pythontdx-market-${current.section}.csv`,
                   toCsv(current.columns, current.rows as Array<Array<string | number>>)
                 )
               }}

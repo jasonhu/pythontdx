@@ -26,8 +26,8 @@ python3 python/tdx_bridge.py
 可以用环境变量覆盖：
 
 ```bash
-STOCKLENS_PYTHON=/usr/bin/python3 npm run dev
-STOCKLENS_TDX_BRIDGE=/path/to/tdx-bridge npm run dev
+PYTHONTDX_PYTHON=/usr/bin/python3 npm run dev
+PYTHONTDX_TDX_BRIDGE=/path/to/tdx-bridge npm run dev
 ```
 
 ## 协议

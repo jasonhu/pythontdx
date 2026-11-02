@@ -114,7 +114,7 @@ def write_auction_archive(
         "sha256": digest,
         "bytes": len(payload.encode("utf-8")),
         "file": data_path.name,
-        "schema": "stocklens.auction.points.v1",
+        "schema": "pythontdx.auction.points.v1",
     }
     manifest_tmp.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"

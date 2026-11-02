@@ -463,7 +463,7 @@ class TestStaticWeb(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         root = Path(self.directory.name)
         (root / "assets").mkdir()
-        (root / "index.html").write_text("<h1>StockLens Web</h1>", encoding="utf-8")
+        (root / "index.html").write_text("<h1>pythontdx Web</h1>", encoding="utf-8")
         (root / "assets" / "app.js").write_text("console.log(1)", encoding="utf-8")
         self.server = create_server("127.0.0.1", 0, FakeBridge(), root)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -489,7 +489,7 @@ class TestStaticWeb(unittest.TestCase):
     def test_static_and_spa_fallback(self):
         status, body, content_type = self.get("/")
         self.assertEqual(status, 200)
-        self.assertIn("StockLens Web", body.decode())
+        self.assertIn("pythontdx Web", body.decode())
         self.assertIn("text/html", content_type)
         status, body, content_type = self.get("/assets/app.js")
         self.assertEqual(status, 200)
@@ -500,7 +500,7 @@ class TestStaticWeb(unittest.TestCase):
         self.assertEqual(body, b"")
         status, body, _ = self.get("/some/spa/route")
         self.assertEqual(status, 200)
-        self.assertIn("StockLens Web", body.decode())
+        self.assertIn("pythontdx Web", body.decode())
         status, _, _ = self.get("/%2e%2e/%2e%2e/etc/passwd")
         self.assertEqual(status, 403)
 

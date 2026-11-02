@@ -10,15 +10,15 @@ import tdx_bridge
 
 class TestKlineCache(unittest.TestCase):
     def setUp(self):
-        self.previous = os.environ.get("STOCKLENS_DATA_DIR")
+        self.previous = os.environ.get("PYTHONTDX_DATA_DIR")
         self.temp = tempfile.TemporaryDirectory()
-        os.environ["STOCKLENS_DATA_DIR"] = self.temp.name
+        os.environ["PYTHONTDX_DATA_DIR"] = self.temp.name
 
     def tearDown(self):
         if self.previous is None:
-            os.environ.pop("STOCKLENS_DATA_DIR", None)
+            os.environ.pop("PYTHONTDX_DATA_DIR", None)
         else:
-            os.environ["STOCKLENS_DATA_DIR"] = self.previous
+            os.environ["PYTHONTDX_DATA_DIR"] = self.previous
         self.temp.cleanup()
 
     def test_write_and_read_cache(self):

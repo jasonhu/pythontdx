@@ -1,4 +1,4 @@
-# StockLens · A 股行情终端
+# pythontdx · A 股行情终端
 
 > **只做 A 股、只接通达信行情源**的跨平台行情终端。
 > Electron 桌面端与浏览器 Web 端共用一套 SolidJS 界面；Python 负责通达信协议、
@@ -6,9 +6,13 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：1.0.0** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：315 个 TS 测试 + 168 个 Python 测试（1 skipped）·
+**版本：1.1.0** · **许可证：GPL-3.0-or-later** ·
+`npm run check`：319 个 TS 测试 + 172 个 Python 测试（各 1 skipped）·
 `npm run audit:data`：39/39。
+
+> 1.1.0 正式统一名称为 **pythontdx**；旧 StockLens 的 userData、Python 数据目录、
+> 便携目录、localStorage key 与备份清单会在首次启动时自动复制/迁移，旧目录保留。
+> 旧的 `STOCKLENS_*` 环境变量仍作为别名兼容。
 
 > 0x0547 已于 2026-11-02 盘中确认是**按代码游标的增量刷新**：cursor=0 建立基线，
 > 用返回的 updateTime 再请求返回 0 条（无变化）；客户端已缓存上一帧并推进 cursor。
@@ -26,7 +30,7 @@
 
 ## 跨平台与验证环境
 
-StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，构建和测试在对应
+pythontdx 是 **Windows / macOS / Linux 三平台**项目，代码同一套，构建和测试在对应
 系统上原生进行，**不做交叉编译**。
 
 | 平台    | 编译 / 测试环境     | 架构                  | 主要产物                                                       |
@@ -45,7 +49,7 @@ StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 
 ### 主界面：K 线、盘口与自选
 
-![StockLens 主界面](docs/assets/stocklens-overview.png)
+![pythontdx 主界面](docs/assets/pythontdx-overview.png)
 
 主图上方集中显示今开/最高/最低/昨收、换手、量比、振幅、均价、涨停/跌停；
 右侧是五档盘口、逐笔/分价/竞价/资金流/指标页签；左栏自选股按添加顺序排列，
@@ -53,7 +57,7 @@ StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 
 ### 多股同列：九宫格分时 / K 线，可翻页、可拖动排序
 
-![StockLens 多股同列](docs/assets/stocklens-multi.png)
+![pythontdx 多股同列](docs/assets/pythontdx-multi.png)
 
 - 固定 3×3 九宫格，默认**分时全天**（240 个交易分钟固定横轴），也可切日/周/月/60/30/15/5/1 分；
 - 每一格都有价格线、均价线、昨收基准、分钟量；
@@ -65,30 +69,30 @@ StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 
 ### 全市场列表：20 列 + 滚动加载
 
-![StockLens 全市场列表](docs/assets/stocklens-market.png)
+![pythontdx 全市场列表](docs/assets/pythontdx-market.png)
 
 代码/名称/现价/涨跌幅/成交额/换手/量比/涨速 + 今开/最高/最低/昨收/成交量/均价/
 振幅/涨停/跌停/总市值/流通市值/迷你走势。默认窗口无横向滚动条，向下滚动自动加载。
 
 ### 排行榜与板块
 
-![StockLens 排行榜](docs/assets/stocklens-ranking.png)
+![pythontdx 排行榜](docs/assets/pythontdx-ranking.png)
 
-![StockLens 板块/概念](docs/assets/stocklens-block.png)
+![pythontdx 板块/概念](docs/assets/pythontdx-block.png)
 
 排行榜复用同一套指标列；板块/概念左侧板块栏 + 成分股表，均支持迷你走势图按可见行懒加载。
 垂直浏览已全部改为滚动，不再有上一页/下一页。
 
 ### F10：16 段目录、19 个在线页签
 
-![StockLens F10](docs/assets/stocklens-f10.png)
+![pythontdx F10](docs/assets/pythontdx-f10.png)
 
 固定 1056px 阅读宽度，正文、表格、公告链接、GBK 原文按段落渲染；
 最新提示里的单列框线段落保留换行，不再和表格最后一行混排。
 
 ### 数据工具：离线统计 + 全量校验报告
 
-![StockLens 数据工具](docs/assets/stocklens-data.png)
+![pythontdx 数据工具](docs/assets/pythontdx-data.png)
 
 - 统计：9 类数据集文件数、大小、日期覆盖，六个目录合计；
 - 校验：逐份校验 manifest + SHA256，当前数据 **1 万余份 / 0 失败**；
@@ -255,19 +259,19 @@ npm.cmd run build:win:portable   # 只出便携版
 
 `build:win` 在 `release/<version>/` 留下：
 
-- `stocklens-<version>-setup.exe`：NSIS 安装包；
-- `stocklens-<version>-portable.exe`：单文件便携版；
+- `pythontdx-<version>-setup.exe`：NSIS 安装包；
+- `pythontdx-<version>-portable.exe`：单文件便携版；
 - `win-unpacked/`：Electron 解包目录，**绿色版原料**。`build:win` 不会自动改名，
   也不会自动压 zip；要交付散装绿色包/zip，复制后压缩：
 
 ```powershell
 $v = node -p "require('./package.json').version"
 $out = "release\$v"
-Copy-Item "$out\win-unpacked" "$out\StockLens-$v-win-x64" -Recurse
-Compress-Archive -Path "$out\StockLens-$v-win-x64" `
-  -DestinationPath "$out\StockLens-$v-win-x64.zip"
+Copy-Item "$out\win-unpacked" "$out\pythontdx-$v-win-x64" -Recurse
+Compress-Archive -Path "$out\pythontdx-$v-win-x64" `
+  -DestinationPath "$out\pythontdx-$v-win-x64.zip"
 # 或：& 'C:\Program Files\7-Zip\7z.exe' a -tzip -mx=9 `
-#       "$out\StockLens-$v-win-x64.zip" "$out\StockLens-$v-win-x64"
+#       "$out\pythontdx-$v-win-x64.zip" "$out\pythontdx-$v-win-x64"
 ```
 
 > GitHub Actions 的 `build-windows-x64` 也会生成并上传同名绿色 zip（签名后的
@@ -276,19 +280,19 @@ Compress-Archive -Path "$out\StockLens-$v-win-x64" `
 
 > Windows 包使用**本机自签名证书**做完整性签名（`build:win` 会自动调用
 > `npm run sign:win`）。首次构建会创建一张 10 年有效的代码签名证书，公钥导出到
-> `release/<version>/stocklens-selfsigned.cer`。
+> `release/<version>/pythontdx-selfsigned.cer`。
 >
 > 它只保证文件签名后没有被改过，**不会消除 SmartScreen 的「未知发布者」**。
 > 校验：
 >
 > ```powershell
-> Get-AuthenticodeSignature release\<version>\stocklens-<version>-setup.exe |
+> Get-AuthenticodeSignature release\<version>\pythontdx-<version>-setup.exe |
 >   Format-List Status, SignerCertificate
 > ```
 >
 > `Status` 为 `UnknownError` 是正常的（自签名根未被系统信任）；`NotSigned` /
 > `HashMismatch` 才说明文件没有有效签名或被改过。安装公钥后系统才会把发布者显示为
-> `StockLens Self-Signed`。
+> `pythontdx Self-Signed`。
 
 ### 2. macOS 27.2（Apple Silicon / arm64）
 
@@ -310,8 +314,8 @@ npm run build:mac       # 只出 dmg
 产物：
 
 ```text
-release/<version>/mac-arm64/StockLens.app
-release/<version>/stocklens-<version>-arm64.dmg
+release/<version>/mac-arm64/pythontdx.app
+release/<version>/pythontdx-<version>-arm64.dmg
 ```
 
 macOS 首次启动会触发 Gatekeeper 对 sidecar 的安全扫描，**首屏约 10 秒**；之后同一
@@ -328,7 +332,7 @@ macOS 首次启动会触发 Gatekeeper 对 sidecar 的安全扫描，**首屏约
 
 > **macOS 安装（ad-hoc 签名、未公证）**：从浏览器下载后首次打开会被 Gatekeeper
 > 拦截——点「完成」，到 系统设置 → 隐私与安全性 → 仍要打开；或在核对 SHA256 后执行
-> `xattr -dr com.apple.quarantine /Applications/StockLens.app`。
+> `xattr -dr com.apple.quarantine /Applications/pythontdx.app`。
 > ad-hoc 不是可信任签名（`spctl -a` 仍拒绝），但整包签名完整
 > （`codesign --verify --deep --strict` 通过）；详见 `docs/07` 第三十五节。
 
@@ -349,20 +353,20 @@ npm run build:linux   # AppImage + deb
 ```
 
 如果 `.venv` 已存在，只需 `source .venv/bin/activate`；不想激活时也可以用
-`STOCKLENS_PYTHON=.venv/bin/python npm run build:linux`。
+`PYTHONTDX_PYTHON=.venv/bin/python npm run build:linux`。
 
-产物在 `release/<version>/`：`StockLens-<version>.AppImage`、
-`stocklens_<version>_amd64.deb`。AppImage 需要 `chmod +x` 后运行；没有 FUSE 时用
+产物在 `release/<version>/`：`pythontdx-<version>.AppImage`、
+`pythontdx_<version>_amd64.deb`。AppImage 需要 `chmod +x` 后运行；没有 FUSE 时用
 `--appimage-extract-and-run`：
 
 ```bash
-chmod +x release/<version>/StockLens-<version>.AppImage
-./release/<version>/StockLens-<version>.AppImage
+chmod +x release/<version>/pythontdx-<version>.AppImage
+./release/<version>/pythontdx-<version>.AppImage
 # FUSE 不可用：
-./release/<version>/StockLens-<version>.AppImage --appimage-extract-and-run
+./release/<version>/pythontdx-<version>.AppImage --appimage-extract-and-run
 ```
 
-deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
+deb 可用 `sudo apt install ./release/<version>/pythontdx_<version>_amd64.deb`
 （自动解析依赖），或 `dpkg-deb -x` 解包直接运行。
 
 ### 4. 产物速查
@@ -371,15 +375,15 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 | ----------- | ----------------------- | ---------------------------------------------------------------- |
 | Windows x64 | `npm run build:win`     | setup.exe / portable.exe / win-unpacked（绿色原料）              |
 | macOS arm64 | `npm run build:mac:all` | `.app` + dmg                                                     |
-| Linux x64   | `npm run build:linux`   | `StockLens-<version>.AppImage` + `stocklens_<version>_amd64.deb` |
+| Linux x64   | `npm run build:linux`   | `pythontdx-<version>.AppImage` + `pythontdx_<version>_amd64.deb` |
 
 三平台都**在本机原生构建，不做交叉编译**。每次版本更新后建议至少跑一次
 `npm run build:mac:all`（macOS）或对应的 `build:win` / `build:linux`，并实际启动产物验证。
 
 > **0.14.4 本地验证**：Windows setup / portable / 绿色包 / zip 已打包、逐个启动，
 > 并用本机自签名证书签名（安装版 K 线 353ms、逐笔 209ms；绿色包 335ms / 184ms；
-> 公钥在 `release/0.14.4/stocklens-selfsigned.cer`，SmartScreen 仍会提示未知发布者）；
-> `release/0.14.4/mac-arm64/StockLens.app` 与 `release/0.14.4/stocklens-0.14.4-arm64.dmg`
+> 公钥在 `release/0.14.4/pythontdx-selfsigned.cer`，SmartScreen 仍会提示未知发布者）；
+> `release/0.14.4/mac-arm64/pythontdx.app` 与 `release/0.14.4/pythontdx-0.14.4-arm64.dmg`
 > 也已构建、签名和 GPL 校验通过；dmg 只做本地验证，不发布 GitHub Release。
 > Linux 0.14.4 AppImage/deb 已在本机启动验收：`v0.14.4`、GPL 文本、
 > 备份/恢复进度条均回读通过。
@@ -393,17 +397,20 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
-| `StockLens-1.0.0.AppImage` | 165,206,214 B | `9b4188313c6144aac57aa9357a1a9fc5cb4ea1a454bfec0da1be0e63da524e49` |
-| `stocklens_1.0.0_amd64.deb` | 138,739,784 B | `4beed0857b370c958234fb6eccf7321552555b2a14d1f1d4059a85940f8d9204` |
-| `stocklens-1.0.0-setup.exe` | 133,361,160 B | `f142186e4175a16684a338d96d98207cf61bca82ac31a057a7d8392cfa2e35a6` |
-| `stocklens-1.0.0-portable.exe` | 133,107,024 B | `df15a0d3a2cd590d06326659e2647d8a3807d1fa5445f90ae015db62963183c1` |
-| `stocklens-1.0.0-arm64.dmg` | 166,829,697 B | `b659c2b2cff342d7a047beae1161fedd420fa07aba998eddb075ca7e271c4cfa` |
-| `StockLens-1.0.0-win-x64.zip` | 180,319,847 B | `8b38a7ae578af49dbf61ff32f60d0bc6513589406ac4dbde03bb736e65a7b4ce` |
-| `stocklens-selfsigned.cer` | 822 B | `f5c623d2ca0a7d05f5e16f778a4725adbd51c67797e7b6772971197c40681d61` |
+| `pythontdx-1.0.0.AppImage` | 165,206,214 B | `9b4188313c6144aac57aa9357a1a9fc5cb4ea1a454bfec0da1be0e63da524e49` |
+| `pythontdx_1.0.0_amd64.deb` | 138,739,784 B | `4beed0857b370c958234fb6eccf7321552555b2a14d1f1d4059a85940f8d9204` |
+| `pythontdx-1.0.0-setup.exe` | 133,361,160 B | `f142186e4175a16684a338d96d98207cf61bca82ac31a057a7d8392cfa2e35a6` |
+| `pythontdx-1.0.0-portable.exe` | 133,107,024 B | `df15a0d3a2cd590d06326659e2647d8a3807d1fa5445f90ae015db62963183c1` |
+| `pythontdx-1.0.0-arm64.dmg` | 166,829,697 B | `b659c2b2cff342d7a047beae1161fedd420fa07aba998eddb075ca7e271c4cfa` |
+| `pythontdx-1.0.0-win-x64.zip` | 180,319,847 B | `8b38a7ae578af49dbf61ff32f60d0bc6513589406ac4dbde03bb736e65a7b4ce` |
+| `pythontdx-selfsigned.cer` | 822 B | `f5c623d2ca0a7d05f5e16f778a4725adbd51c67797e7b6772971197c40681d61` |
 
 Windows zip 由 `release-windows-zip` 单独补发，内含该次 CI 构建的自签名证书
 （指纹 `25FD4194C69DB7DCA892249C4A44CE36AD33AB3B`）；它不替代 Release 里
 setup/portable 使用的旧证书。
+
+> 1.0.0 的 Release 资产是改名前的历史文件名；上表按新名称展示，实际下载文件名
+> 以 GitHub Release 页面为准。
 
 ---
 

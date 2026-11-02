@@ -116,7 +116,7 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
   let importInput: HTMLInputElement | undefined
 
   const exportSettings = (): void => {
-    downloadText('stocklens-settings.json', JSON.stringify(appState.settings, null, 2))
+    downloadText('pythontdx-settings.json', JSON.stringify(appState.settings, null, 2))
   }
 
   const importSettings = async (file: File): Promise<void> => {
@@ -161,7 +161,7 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
       >
         <header class="settings__head">
           <div>
-            <div class="settings__eyebrow">StockLens 设置</div>
+            <div class="settings__eyebrow">pythontdx 设置</div>
             <h2 class="settings__title">行情与界面</h2>
           </div>
           <button class="btn btn--icon btn--bare" title="关闭设置" onClick={() => props.onClose()}>

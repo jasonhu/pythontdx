@@ -1,4 +1,4 @@
-# StockLens Python 依赖
+# pythontdx Python 依赖
 #
 # 安装：
 #   python3 -m pip install -r requirements.txt

@@ -293,7 +293,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const options = {
       title: '保存离线数据备份',
-      defaultPath: defaultName || 'stocklens-offline.zip',
+      defaultPath: defaultName || 'pythontdx-offline.zip',
       filters: [{ name: 'ZIP 备份', extensions: ['zip'] }]
     }
     const result = owner
@@ -489,7 +489,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.appGraphics, () => ({
     session: process.env.XDG_SESSION_TYPE ?? 'unknown',
     wayland: Boolean(process.env.WAYLAND_DISPLAY),
-    requested: process.env.STOCKLENS_GRAPHICS ?? 'wayland',
+    requested: process.env.PYTHONTDX_GRAPHICS ?? 'wayland',
     platform: process.platform,
     gpuFeatureStatus: app.getGPUFeatureStatus()
   }))

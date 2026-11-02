@@ -78,7 +78,7 @@ export function StatusBar(props: {
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `stocklens-watchlist-${new Date().toISOString().slice(0, 10)}.${
+      anchor.download = `pythontdx-watchlist-${new Date().toISOString().slice(0, 10)}.${
         csv ? 'csv' : 'json'
       }`
       anchor.click()

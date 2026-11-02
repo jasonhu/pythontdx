@@ -87,7 +87,7 @@ def write_flow_archive(
     manifest_path.write_text(
         json.dumps(
             {
-                "schema": "stocklens.money_flow.v1",
+                "schema": "pythontdx.money_flow.v1",
                 "code": normalized,
                 "tradeDate": day,
                 "fetchedAt": stamp,

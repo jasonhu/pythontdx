@@ -1,6 +1,6 @@
 # AGENTS.md
 
-**StockLens** —— **只做 A 股**的跨平台行情终端，练习项目，从 0 开始手写。
+**pythontdx** —— **只做 A 股**的跨平台行情终端，练习项目，从 0 开始手写。
 技术栈：`Electron + Vite + SolidJS`（桌面）与 `Web + Vite + SolidJS`（浏览器）**双前端**，
 共用一套渲染层；`Python` 后端负责通达信协议、实时行情、离线数据与数据湖。
 
@@ -104,8 +104,8 @@
 ```bash
 npm run dev                 # 开发模式（主进程重启 + 渲染层热更新 + Python 桥接）
 npm run check               # 类型 + Lint + TS 测试 + Python 测试，一条命令
-npm run test                # 只跑 TS 测试（315 个用例）
-npm run test:python         # 只跑 Python 协议/HTTP 测试（168 个用例）
+npm run test                # 只跑 TS 测试（319 个用例）
+npm run test:python         # 只跑 Python 协议/HTTP 测试（172 个用例）
 npm run audit:data          # 数据覆盖自检（39 项，会触发自动归档；清单见 docs/12）
 npm run build:python        # Nuitka 打行情桥接单文件（打包前必跑）
 npm run shot                # 构建并截图到 screenshots/，用来肉眼验收界面
@@ -124,7 +124,7 @@ npm run build:mac:all       # 散装 .app + dmg（每次版本更新后的验证
 ```
 
 **Python 提示**：开发机需要 Python 3.10+（`python3` 或 `python` 在 PATH 上；
-也可用 `STOCKLENS_PYTHON` 指定）。打包后的 exe 自带桥接程序，用户不需要 Python。
+也可用 `PYTHONTDX_PYTHON` 指定）。打包后的 exe 自带桥接程序，用户不需要 Python。
 打包前先 `python3 -m pip install -r requirements.txt`（含 pyarrow/duckdb/Nuitka/patchelf；Linux）。
 
 **v0.7 基本可用**：只读 HTTP API + Web 前端（`python3 python/tdx_server.py`、`npm run dev:web`）；
@@ -180,7 +180,9 @@ docs/            说明文档（是什么、为什么）
 **v0.6 已收口；v0.7 双前端 + Python 服务化——HTTP API/SSE/WebSocket/单端口托管与 Web 前端已可用；Web 本地状态可写，行情 HTTP 仍只读。**
 
 v0.6 已把 A 股行情切到通达信 7709（Python sidecar），腾讯 web 接口与解析模块已删除。
-健康度 `npm run check` 全绿（315 个 TS 测试 + 168 个 Python 测试），
+健康度 `npm run check` 全绿（319 个 TS 测试 + 172 个 Python 测试），
+2026-11-02 正式改名 pythontdx：旧 userData/Python 数据目录/便携目录/localStorage
+自动迁移，旧目录保留；Windows/Linux/macOS 安装包需按新名重打；
 2026-10-31 复核过构建、实机启动、包内资金流与公式多输出；
 2026-11-01/02 复核过 Windows x64 安装包 / 绿色包 / zip / 便携版（0.9.0 ~ 0.14.4 见
 `docs/07` 第十一至二十八、三十一至三十八节）；

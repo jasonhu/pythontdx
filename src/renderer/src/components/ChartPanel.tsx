@@ -397,7 +397,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     const series = klineSeries()
     if (series) {
       downloadText(
-        `stocklens-${props.code}-${series.period}.csv`,
+        `pythontdx-${props.code}-${series.period}.csv`,
         toCsv(
           ['日期', '开盘', '最高', '最低', '收盘', '成交量(手)'],
           series.bars.map((bar) => [bar.date, bar.open, bar.high, bar.low, bar.close, bar.volume])
@@ -411,7 +411,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
       day.points.map((point) => [day.date, point.time, point.price, point.avg, point.volume])
     )
     downloadText(
-      `stocklens-${props.code}-${tab()}.csv`,
+      `pythontdx-${props.code}-${tab()}.csv`,
       toCsv(['日期', '时间', '价格', '均价', '成交量(手)'], rows)
     )
   }

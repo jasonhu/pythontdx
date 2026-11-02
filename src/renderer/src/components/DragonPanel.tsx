@@ -92,7 +92,7 @@ export function DragonPanel(props: {
                 if (!current) return
                 const indexes = visibleColumns().map((column) => column.index)
                 downloadText(
-                  'stocklens-dragon.csv',
+                  'pythontdx-dragon.csv',
                   toCsv(
                     visibleColumns().map((column) => column.name),
                     rows().map((row) => indexes.map((index) => row[index] as string | number))

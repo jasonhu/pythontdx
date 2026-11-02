@@ -1,8 +1,8 @@
 {
-  "name": "stocklens",
-  "version": "1.0.0",
+  "name": "pythontdx",
+  "version": "1.1.0",
   "private": true,
-  "description": "StockLens · 高颜值跨平台股票行情终端（Electron + Vite + SolidJS）",
+  "description": "pythontdx · 高颜值跨平台股票行情终端（Electron + Vite + SolidJS）",
   "author": "River",
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/riverzhou/pythontdx",
@@ -66,7 +66,7 @@
     "vite-plugin-solid": "^2.11.14",
     "vitest": "^5.0.1"
   },
-  "desktopName": "stocklens",
+  "desktopName": "pythontdx",
   "linux": {
     "syncDesktopName": true
   }

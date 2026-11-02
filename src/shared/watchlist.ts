@@ -55,7 +55,7 @@ export function parseWatchlist(text: string): WatchGroup[] {
   }
   const data = raw as Partial<WatchlistBackup>
   if (!data || data.version !== 1 || !Array.isArray(data.groups)) {
-    throw new Error('不是 StockLens 自选备份（version=1）')
+    throw new Error('不是 pythontdx 自选备份（version=1）')
   }
   const groups = data.groups.map(cleanGroup).filter((group): group is WatchGroup => group !== null)
   if (groups.length === 0) throw new Error('备份里没有有效分组')

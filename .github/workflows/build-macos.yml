@@ -59,20 +59,20 @@ jobs:
       - name: Create DMG
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          APP="release/$VERSION/mac-arm64/StockLens.app"
-          DMG="release/$VERSION/stocklens-$VERSION-arm64.dmg"
+          APP="release/$VERSION/mac-arm64/pythontdx.app"
+          DMG="release/$VERSION/pythontdx-$VERSION-arm64.dmg"
           test -d "$APP"
-          hdiutil create -volname "StockLens" -srcfolder "$APP" -ov -format UDZO "$DMG"
+          hdiutil create -volname "pythontdx" -srcfolder "$APP" -ov -format UDZO "$DMG"
 
       - name: Ensure DMG exists
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          test -f "release/$VERSION/stocklens-$VERSION-arm64.dmg"
+          test -f "release/$VERSION/pythontdx-$VERSION-arm64.dmg"
 
       - name: Verify ad-hoc signature
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          APP="release/$VERSION/mac-arm64/StockLens.app"
+          APP="release/$VERSION/mac-arm64/pythontdx.app"
           codesign --verify --deep "$APP"
           codesign -dv --verbose=4 "$APP" 2>&1 | grep "Sealed Resources"
           # ad-hoc 仍然会被 spctl 拒绝；这里只确认整包签名完整，不是「已损坏」。
@@ -81,7 +81,7 @@ jobs:
       - name: Verify GPL text is packaged
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          ASAR="$GITHUB_WORKSPACE/release/$VERSION/mac-arm64/StockLens.app/Contents/Resources/app.asar"
+          ASAR="$GITHUB_WORKSPACE/release/$VERSION/mac-arm64/pythontdx.app/Contents/Resources/app.asar"
           TMP=$(mktemp -d)
           (cd "$TMP" && "$GITHUB_WORKSPACE/node_modules/.bin/asar" extract-file "$ASAR" LICENSE)
           test "$(wc -c < "$TMP/LICENSE" | tr -d ' ')" = "35149"
@@ -90,9 +90,9 @@ jobs:
       - name: Checksum
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          DMG="release/$VERSION/stocklens-$VERSION-arm64.dmg"
+          DMG="release/$VERSION/pythontdx-$VERSION-arm64.dmg"
           test -f "$DMG"
-          shasum -a 256 "$DMG" | tee "release/$VERSION/stocklens-$VERSION-arm64.dmg.sha256"
+          shasum -a 256 "$DMG" | tee "release/$VERSION/pythontdx-$VERSION-arm64.dmg.sha256"
 
       - name: Check tag matches package version
         if: startsWith(github.ref, 'refs/tags/')
@@ -102,9 +102,9 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stocklens-macos-arm64-${{ github.run_id }}
+          name: pythontdx-macos-arm64-${{ github.run_id }}
           path: |
-            release/*/stocklens-*-arm64.dmg
-            release/*/stocklens-*-arm64.dmg.sha256
+            release/*/pythontdx-*-arm64.dmg
+            release/*/pythontdx-*-arm64.dmg.sha256
           if-no-files-found: error
           retention-days: 14

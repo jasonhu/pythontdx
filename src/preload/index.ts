@@ -10,7 +10,7 @@
  * 否则页面就能给任意通道发消息，等同于关掉了整个隔离层。
  */
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { IPC, type StockLensApi } from '@shared/ipc'
+import { IPC, type PythonTdxApi } from '@shared/ipc'
 import type { WindowState } from '@shared/types'
 
 /** 订阅主进程推送，返回取消订阅的函数（供渲染层 onCleanup 调用） */
@@ -22,7 +22,7 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
   }
 }
 
-const api: StockLensApi = {
+const api: PythonTdxApi = {
   quote: {
     snapshot: (codes) => ipcRenderer.invoke(IPC.quoteSnapshot, codes),
     subscribe: (codes, intervalMs) => ipcRenderer.invoke(IPC.quoteSubscribe, codes, intervalMs),

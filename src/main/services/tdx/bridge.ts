@@ -9,8 +9,8 @@
  * 打包环境：
  *   resources/tdx-bridge/tdx-bridge(.exe) —— 由 Nuitka 编译
  * 覆盖路径：
- *   STOCKLENS_TDX_BRIDGE=/path/to/tdx-bridge
- *   STOCKLENS_PYTHON=python3      （开发环境）
+ *   PYTHONTDX_TDX_BRIDGE=/path/to/tdx-bridge
+ *   PYTHONTDX_PYTHON=python3      （开发环境）
  */
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -19,7 +19,7 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import type { DataBackupProgress } from '@shared/types'
 
-const PROGRESS_PREFIX = '__STOCKLENS_PROGRESS__ '
+const PROGRESS_PREFIX = '__PYTHONTDX_PROGRESS__ '
 
 function parseProgressLine(line: string): DataBackupProgress | null {
   if (!line.startsWith(PROGRESS_PREFIX)) return null
@@ -303,7 +303,7 @@ export class TdxBridge {
 }
 
 function resolveBridgeCommand(): { command: string; args: string[]; cwd: string } {
-  const override = process.env.STOCKLENS_TDX_BRIDGE
+  const override = process.env.PYTHONTDX_TDX_BRIDGE
   if (override) {
     if (!existsSync(override)) throw new TdxError(`找不到行情桥接程序：${override}`)
     return { command: override, args: [], cwd: process.cwd() }
@@ -324,7 +324,7 @@ function resolveBridgeCommand(): { command: string; args: string[]; cwd: string 
   if (!existsSync(script)) throw new TdxError(`找不到行情桥接脚本：${script}`)
 
   const python =
-    process.env.STOCKLENS_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3')
+    process.env.PYTHONTDX_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3')
   return { command: python, args: [script], cwd }
 }
 

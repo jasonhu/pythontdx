@@ -480,7 +480,7 @@ export function MarketListPanel(props: {
                 ]
               })
               downloadText(
-                `stocklens-market-${visibleItems().length}.csv`,
+                `pythontdx-market-${visibleItems().length}.csv`,
                 toCsv(
                   [
                     '代码',

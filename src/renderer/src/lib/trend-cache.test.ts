@@ -74,7 +74,7 @@ describe('trend-cache', () => {
     writeTrendCache('minute', 'sh000001', minute('sh000001'))
     expect(readTrendCache('minute', 'sz399001')).toBeNull()
 
-    localStorage.setItem('stocklens.trend-cache-v1-minute', '{bad json')
+    localStorage.setItem('pythontdx.trend-cache-v1-minute', '{bad json')
     expect(readTrendCache('minute', 'sh000001')).toBeNull()
   })
 

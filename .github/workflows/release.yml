@@ -43,7 +43,7 @@ jobs:
           cat SHA256SUMS-linux.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: stocklens-linux
+          name: pythontdx-linux
           path: |
             release/*/*.AppImage
             release/*/*.deb
@@ -86,13 +86,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $version = node -p "require('./package.json').version"
           $release = Join-Path $PWD "release/$version"
-          $green = Join-Path $release "StockLens-$version-win-x64"
+          $green = Join-Path $release "pythontdx-$version-win-x64"
           if (Test-Path $green) { Remove-Item $green -Recurse -Force }
           Copy-Item (Join-Path $release 'win-unpacked') $green -Recurse
-          if (Test-Path "$release/stocklens-selfsigned.cer") {
-            Copy-Item "$release/stocklens-selfsigned.cer" (Join-Path $green 'stocklens-selfsigned.cer')
+          if (Test-Path "$release/pythontdx-selfsigned.cer") {
+            Copy-Item "$release/pythontdx-selfsigned.cer" (Join-Path $green 'pythontdx-selfsigned.cer')
           }
-          $zip = Join-Path $release "StockLens-$version-win-x64.zip"
+          $zip = Join-Path $release "pythontdx-$version-win-x64.zip"
           Compress-Archive -Path $green -DestinationPath $zip -CompressionLevel Optimal
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
           "$hash  $(Split-Path $zip -Leaf)" | Out-File -FilePath "$zip.sha256" -Encoding ascii
@@ -109,12 +109,12 @@ jobs:
           }
       - uses: actions/upload-artifact@v4
         with:
-          name: stocklens-windows
+          name: pythontdx-windows
           path: |
             release/*/*.exe
-            release/*/StockLens-*-win-x64.zip
+            release/*/pythontdx-*-win-x64.zip
             release/*/*.sha256
-            release/*/stocklens-selfsigned.cer
+            release/*/pythontdx-selfsigned.cer
           if-no-files-found: error
 
   macos:
@@ -148,25 +148,25 @@ jobs:
       - name: Create DMG
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          APP="release/$VERSION/mac-arm64/StockLens.app"
-          DMG="release/$VERSION/stocklens-$VERSION-arm64.dmg"
+          APP="release/$VERSION/mac-arm64/pythontdx.app"
+          DMG="release/$VERSION/pythontdx-$VERSION-arm64.dmg"
           test -d "$APP"
-          hdiutil create -volname "StockLens" -srcfolder "$APP" -ov -format UDZO "$DMG"
+          hdiutil create -volname "pythontdx" -srcfolder "$APP" -ov -format UDZO "$DMG"
       - name: Verify ad-hoc signature and GPL
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          APP="release/$VERSION/mac-arm64/StockLens.app"
+          APP="release/$VERSION/mac-arm64/pythontdx.app"
           codesign --verify --deep "$APP"
-          ASAR="$GITHUB_WORKSPACE/release/$VERSION/mac-arm64/StockLens.app/Contents/Resources/app.asar"
+          ASAR="$GITHUB_WORKSPACE/release/$VERSION/mac-arm64/pythontdx.app/Contents/Resources/app.asar"
           TMP=$(mktemp -d)
           (cd "$TMP" && "$GITHUB_WORKSPACE/node_modules/.bin/asar" extract-file "$ASAR" LICENSE)
           test "$(wc -c < "$TMP/LICENSE" | tr -d ' ')" = "35149"
-          shasum -a 256 "release/$VERSION/stocklens-$VERSION-arm64.dmg" > "release/$VERSION/SHA256SUMS-macos.txt"
+          shasum -a 256 "release/$VERSION/pythontdx-$VERSION-arm64.dmg" > "release/$VERSION/SHA256SUMS-macos.txt"
       - uses: actions/upload-artifact@v4
         with:
-          name: stocklens-macos
+          name: pythontdx-macos
           path: |
-            release/*/stocklens-*-arm64.dmg
+            release/*/pythontdx-*-arm64.dmg
             release/*/SHA256SUMS-macos.txt
           if-no-files-found: error
 
@@ -184,7 +184,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: StockLens 1.0.0
+          name: pythontdx 1.0.0
           body_path: RELEASE_NOTES-1.0.0.md
           files: assets/**/*
           fail_on_unmatched_files: true

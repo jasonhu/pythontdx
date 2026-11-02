@@ -6,10 +6,10 @@ const { app, BrowserWindow } = require('electron')
 const { writeFile } = require('node:fs/promises')
 const { join } = require('node:path')
 
-const url = process.env.STOCKLENS_WEB_URL || 'http://127.0.0.1:8765'
-const output = process.env.STOCKLENS_WEB_SHOT || join(process.cwd(), 'screenshots/web-latest.png')
-const width = Number(process.env.STOCKLENS_WEB_WIDTH || 1440)
-const height = Number(process.env.STOCKLENS_WEB_HEIGHT || 900)
+const url = process.env.PYTHONTDX_WEB_URL || 'http://127.0.0.1:8765'
+const output = process.env.PYTHONTDX_WEB_SHOT || join(process.cwd(), 'screenshots/web-latest.png')
+const width = Number(process.env.PYTHONTDX_WEB_WIDTH || 1440)
+const height = Number(process.env.PYTHONTDX_WEB_HEIGHT || 900)
 
 app.whenReady().then(async () => {
   const window = new BrowserWindow({

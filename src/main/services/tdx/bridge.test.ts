@@ -18,19 +18,19 @@ vi.mock('electron', () => ({
 }))
 
 const script = join(process.cwd(), 'python', 'tdx_bridge.py')
-const wrapper = join(tmpdir(), `stocklens-tdx-bridge-${process.pid}.sh`)
+const wrapper = join(tmpdir(), `pythontdx-tdx-bridge-${process.pid}.sh`)
 
 describe.skipIf(process.platform === 'win32')('TdxBridge', () => {
   afterAll(() => {
     if (existsSync(wrapper)) unlinkSync(wrapper)
-    delete process.env.STOCKLENS_TDX_BRIDGE
+    delete process.env.PYTHONTDX_TDX_BRIDGE
   })
 
   it('拉起 Python 子进程并完成 ping', async () => {
-    const python = process.env.STOCKLENS_PYTHON ?? 'python3'
+    const python = process.env.PYTHONTDX_PYTHON ?? 'python3'
     writeFileSync(wrapper, `#!/bin/sh\nexec "${python}" "${script}"\n`)
     chmodSync(wrapper, 0o755)
-    process.env.STOCKLENS_TDX_BRIDGE = wrapper
+    process.env.PYTHONTDX_TDX_BRIDGE = wrapper
 
     const { TdxBridge } = await import('./bridge')
     const bridge = new TdxBridge()

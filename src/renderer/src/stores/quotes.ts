@@ -18,7 +18,7 @@ const [lastUpdateAt, setLastUpdateAt] = createSignal(0)
 const [streamError, setStreamError] = createSignal<string | null>(null)
 
 /** 上次行情快照：让重启后的首屏先显示上次数据，网络回来再覆盖。 */
-const QUOTE_CACHE_KEY = 'stocklens.quote-cache-v1'
+const QUOTE_CACHE_KEY = 'pythontdx.quote-cache-v1'
 let cacheSavedAt = 0
 
 function readQuoteCache(): Quote[] {

@@ -230,7 +230,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     if (!report) return
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     downloadText(
-      `stocklens-integrity-${stamp}.json`,
+      `pythontdx-integrity-${stamp}.json`,
       JSON.stringify(
         {
           generatedAt: new Date().toISOString(),
@@ -337,7 +337,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     const now = new Date()
     const pad = (value: number): string => String(value).padStart(2, '0')
     return (
-      `stocklens-offline-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+      `pythontdx-offline-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
       `-${pad(now.getHours())}${pad(now.getMinutes())}.zip`
     )
   }
@@ -539,7 +539,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         quotes.push(...(await api.quote.macQuotes(codes.slice(start, start + 500))))
       }
       downloadText(
-        `stocklens-market-snapshot-${new Date().toISOString().slice(0, 10)}.csv`,
+        `pythontdx-market-snapshot-${new Date().toISOString().slice(0, 10)}.csv`,
         toCsv(
           ['代码', '名称', '现价', '昨收', '涨跌幅', '成交额', '换手率', '量比', '涨速'],
           quotes.map((quote) => [

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """收盘后归档全市场 A 股快照；可挂 cron：
 
-    5 15 * * 1-5  cd /path/to/stocklens && python3 scripts/archive-snapshot.py
+    5 15 * * 1-5  cd /path/to/pythontdx && python3 scripts/archive-snapshot.py
 
 只写本地数据湖，不交易、不访问付费数据。
 """

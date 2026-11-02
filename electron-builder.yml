@@ -1,5 +1,5 @@
-appId: com.stocklens.app
-productName: StockLens
+appId: com.pythontdx.app
+productName: pythontdx
 copyright: Copyright © 2026 River
 
 directories:
@@ -34,7 +34,7 @@ extraResources:
 npmRebuild: false
 
 win:
-  executableName: StockLens
+  executableName: pythontdx
   icon: build/icon.ico
   target:
     # nsis     → 传统安装包（可以选择安装目录、生成快捷方式）
@@ -55,14 +55,14 @@ nsis:
 
 portable:
   artifactName: ${name}-${version}-portable.${ext}
-  # 固定解压目录名，好处是路径可预期（%TEMP%\StockLensPortable），
+  # 固定解压目录名，好处是路径可预期（%TEMP%\pythontdxPortable），
   # 排查问题和手工清理都方便。
   #
   # 实测（electron-builder 26 / 2026-09）：**它不会带来跨次启动的复用加速** ——
   # 单文件 exe 每次启动都要把约 368MB 解压到该目录，正常退出时清理，
   # 被强杀时会残留。实测从双击到界面就绪约 2 秒，安装版约 1 秒
   # （连续多次测量，见 CHANGELOG 的实测数据表）。
-  unpackDirName: StockLensPortable
+  unpackDirName: pythontdxPortable
   # 不需要管理员权限：便携版不应该触发 UAC
   requestExecutionLevel: user
 

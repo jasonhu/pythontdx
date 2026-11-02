@@ -78,7 +78,7 @@ def write_server_catalog(
         ),
     }
     catalog = {
-        "schema": "stocklens.server_files.v1",
+        "schema": "pythontdx.server_files.v1",
         "source": "TDX 7709 0x06b9 zhb.zip",
         "sourceSha256": source_sha256,
         "sourcePath": source_path,

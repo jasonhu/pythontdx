@@ -230,7 +230,7 @@ def _post_tqlex(entry: str, body: dict) -> dict:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "StockLens/1.0",
+            "User-Agent": "pythontdx/1.0",
         },
         method="POST",
     )
@@ -698,7 +698,7 @@ def fetch_finance(code: str) -> dict:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "StockLens/1.0",
+            "User-Agent": "pythontdx/1.0",
         },
         method="POST",
     )
@@ -733,7 +733,7 @@ def fetch_valuation(code: str) -> dict:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "StockLens/1.0",
+            "User-Agent": "pythontdx/1.0",
         },
         method="POST",
     )
@@ -759,7 +759,7 @@ def fetch_profile(code: str) -> dict:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "StockLens/1.0",
+            "User-Agent": "pythontdx/1.0",
         },
         method="POST",
     )
@@ -1037,7 +1037,7 @@ def fetch_news(code: str) -> list[dict]:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "StockLens/1.0",
+            "User-Agent": "pythontdx/1.0",
         },
         method="POST",
     )
@@ -1069,7 +1069,7 @@ def fetch_announcements(code: str) -> list[dict]:
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "StockLens/1.0",
+            "User-Agent": "pythontdx/1.0",
         },
         method="POST",
     )

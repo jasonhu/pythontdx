@@ -46,7 +46,7 @@ class TestTickArchive(unittest.TestCase):
             loaded = read_tick_archive(root, "sh600519", "20261030")
             self.assertEqual(loaded["rows"], 3)
             self.assertEqual(loaded["ticks"][1]["price"], 10.01)
-            self.assertEqual(loaded["manifest"]["schema"], "stocklens.ticks.v1")
+            self.assertEqual(loaded["manifest"]["schema"], "pythontdx.ticks.v1")
             items = list_tick_archives(root)
             self.assertEqual(len(items), 1)
             self.assertEqual(items[0]["code"], "sh600519")
@@ -89,7 +89,7 @@ class TestTickArchive(unittest.TestCase):
         bridge.index = None
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.object(
-                tdx_bridge, "stocklens_data_dir", return_value=Path(directory)
+                tdx_bridge, "pythontdx_data_dir", return_value=Path(directory)
             ):
                 write_tick_archive(
                     Path(directory) / "lake" / "ticks", "sh600519", "2026-10-30", ticks(5)
@@ -137,7 +137,7 @@ class TestTickArchive(unittest.TestCase):
         bridge.index = None
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.object(
-                tdx_bridge, "stocklens_data_dir", return_value=Path(directory)
+                tdx_bridge, "pythontdx_data_dir", return_value=Path(directory)
             ):
                 write_tick_archive(
                     Path(directory) / "lake" / "ticks", "sh600519", "2026-10-30", ticks(5)
@@ -166,7 +166,7 @@ class TestTickArchive(unittest.TestCase):
         bridge.trades = fake_trades
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.object(
-                tdx_bridge, "stocklens_data_dir", return_value=Path(directory)
+                tdx_bridge, "pythontdx_data_dir", return_value=Path(directory)
             ):
                 saved = bridge.tick_archive_save("sh600519", "2026-10-30")
                 again = bridge.tick_archive_save("sh600519", "2026-10-30")

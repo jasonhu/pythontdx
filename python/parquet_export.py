@@ -16,6 +16,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from data_paths import data_dir
+
 
 class ParquetUnavailable(Exception):
     pass
@@ -33,12 +35,7 @@ def _pyarrow():
 
 
 def _data_dir() -> Path:
-    configured = os.environ.get("STOCKLENS_DATA_DIR")
-    if configured:
-        return Path(configured)
-    xdg = os.environ.get("XDG_DATA_HOME")
-    base = Path(xdg) if xdg else Path.home() / ".local" / "share"
-    return base / "stocklens" / "data"
+    return data_dir()
 
 
 def export_stats_parquet(

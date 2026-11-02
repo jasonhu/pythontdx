@@ -4,9 +4,9 @@
  * window.api 的类型由 src/preload/index.d.ts 提供，这里只是给它一个本地别名，
  * 好处是将来要加「统一的错误处理 / 打点」时，只改这一个文件。
  */
-import type { StockLensApi } from '@shared/ipc'
+import type { PythonTdxApi } from '@shared/ipc'
 
-export const api: StockLensApi = window.api
+export const api: PythonTdxApi = window.api
 
 /**
  * 把主进程抛出的异常洗成人话。

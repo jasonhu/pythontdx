@@ -31,7 +31,7 @@ StockLens 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 
 | 平台    | 编译 / 测试环境     | 架构                  | 主要产物                                                       |
 | ------- | ------------------- | --------------------- | -------------------------------------------------------------- |
-| Windows | **Windows 10 22H2** | x64                   | NSIS 安装包、单文件便携版、win-unpacked（绿色 zip 需手工打包） |
+| Windows | **Windows 10 22H2** | x64                   | NSIS 安装包、单文件便携版、win-unpacked（绿色 zip 本地手工 / CI 自动） |
 | macOS   | **macOS 27.2**      | Apple Silicon / arm64 | 散装 `.app`、dmg                                               |
 | Linux   | **Ubuntu 26.04.1**  | x64                   | AppImage、deb                                                  |
 
@@ -269,6 +269,10 @@ Compress-Archive -Path "$out\StockLens-$v-win-x64" `
 # 或：& 'C:\Program Files\7-Zip\7z.exe' a -tzip -mx=9 `
 #       "$out\StockLens-$v-win-x64.zip" "$out\StockLens-$v-win-x64"
 ```
+
+> GitHub Actions 的 `build-windows-x64` 也会生成并上传同名绿色 zip（签名后的
+> `win-unpacked` + 公钥证书）；`release-1.0.0` 的 Windows job 在打 tag 或手动
+> dispatch 到 tag 时会把 zip 一并放到 GitHub Release。
 
 > Windows 包使用**本机自签名证书**做完整性签名（`build:win` 会自动调用
 > `npm run sign:win`）。首次构建会创建一张 10 年有效的代码签名证书，公钥导出到

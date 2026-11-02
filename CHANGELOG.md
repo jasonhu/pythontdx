@@ -17,6 +17,9 @@ StockLens 的所有重要变更都记录在这里。
 - 0x0547 增量游标、60 秒基线看门狗、30 秒心跳、重连与缓存全部进入正式版。
 - 三平台（Linux x64 / Windows x64 / macOS arm64）由 GitHub Actions 构建并发布到
   GitHub Release；Windows 使用免费自签名（不购买付费证书），macOS 使用 ad-hoc 签名。
+- Windows CI（`build-windows-x64` 与 `release-1.0.0`）现在同时产出
+  `StockLens-<version>-win-x64.zip` 绿色包（含自签名 exe 与公钥证书），
+  并作为 Actions artifact / GitHub Release 资产上传。
 - 功能矩阵：**334 ✅ / 0 🟡 / 0 ⬜ / 6 ⛔**；6 项 ⛔ 为明确范围/授权边界。
 - 验证：315 TS + 168 Python（1 skipped）；`audit:data` 39/39。
 - GitHub Release：[v1.0.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.0.0)。

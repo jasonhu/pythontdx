@@ -37,11 +37,35 @@ jobs:
       - name: Quality gate
         run: npm run check
 
-      - name: Build Windows setup + portable (unsigned CI artifact)
+      - name: Build Windows setup + portable
         run: |
           npm run build:python
           npm run build
           npx electron-builder --win --publish never
+
+      - name: Sign Windows (self-signed, best effort)
+        continue-on-error: true
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-win.ps1
+
+      - name: Create green zip
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./package.json').version"
+          $release = Join-Path $PWD "release/$version"
+          $green = Join-Path $release "StockLens-$version-win-x64"
+          if (Test-Path $green) { Remove-Item $green -Recurse -Force }
+          Copy-Item (Join-Path $release 'win-unpacked') $green -Recurse
+          if (Test-Path "$release/stocklens-selfsigned.cer") {
+            Copy-Item "$release/stocklens-selfsigned.cer" (Join-Path $green 'stocklens-selfsigned.cer')
+          }
+          $zip = Join-Path $release "StockLens-$version-win-x64.zip"
+          Compress-Archive -Path $green -DestinationPath $zip -CompressionLevel Optimal
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $(Split-Path $zip -Leaf)" | Out-File -FilePath "$zip.sha256" -Encoding ascii
+          Get-Item $zip | Select-Object Name, Length
 
       - name: Checksums and certificate
         shell: powershell
@@ -71,6 +95,7 @@ jobs:
           path: |
             release/*/stocklens-*-setup.exe
             release/*/stocklens-*-portable.exe
+            release/*/StockLens-*-win-x64.zip
             release/*/*.sha256
             release/*/stocklens-selfsigned.cer
           if-no-files-found: error

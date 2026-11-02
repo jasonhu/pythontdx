@@ -3,8 +3,9 @@
 - 版本：`1.0.0-rc.1`
 - 日期：2026-11-02
 - 许可证：GPL-3.0-or-later
-- 状态：**release candidate / Linux x64 + Windows x64 已打包；macOS arm64 待构建**
+- 状态：**release candidate / Linux x64 + Windows x64 + macOS arm64 均已打包**
 - Windows 产物由 GitHub Actions 生成，**未签名**（CI 的 Cert provider 不可用）
+- macOS dmg 由 GitHub Actions 生成，ad-hoc 签名，GPL 校验通过
 - 未创建 `v1.0.0` tag；已创建并推送 `v1.0.0-rc.1` tag（commit `b519d8a`）；
   `v0.14.4` tag 仍指向 `dc2bcb4`
 
@@ -52,6 +53,7 @@ build:web         exit 0
 | `stocklens_1.0.0-rc.1_amd64.deb` | 128,680,352 B | `d7af62ba9d8477fa73909737af6eda29ee5abe9e2f624342c5828ef87bdb4d7a` |
 | `stocklens-1.0.0-rc.1-setup.exe` | 133,360,582 B | `253d1a478aaf72764d94d71c30c79530c1f8338c010294af46e444b5eaf4d08e` |
 | `stocklens-1.0.0-rc.1-portable.exe` | 133,106,426 B | `678366d939e7783a3df8121d2abf3cbfc0a5f823f5aa9cda50360f8fa9a890cb` |
+| `stocklens-1.0.0-rc.1-arm64.dmg` | 166,103,849 B | `73bb8040ff552df67d514acbf827c4dd082ca4d1f6c300f678bf634fc64e59a4` |
 | `app.asar` | 3,614,550 B | `cc6293a222616e7a861623937d4fec3eef441b310a9ea883e10203b588087a76` |
 | `tdx-bridge` | 28,489,936 B | `58439ebf68768ce5285c47bf31ddd1c21b3a5219473e21543ebdbc2713285cc4` |
 
@@ -80,7 +82,7 @@ AppImage 无 FUSE 时：
 
 ## 未完成 / 边界
 
-- Windows x64 / macOS arm64 的 1.0.0-rc.1 需在对应机器重打，不能从 Linux 交叉编译；
+- Windows x64 CI 产物未签名，需在真实 Windows 上补签；macOS 为 ad-hoc 签名；
 - `0x06b9` 有按文件名/zhb 已知清单，但无服务器完整目录枚举命令；
 - 本地文件 API 已接，主行情 UI 仍以 7709 为主；
 - 6 项 ⛔：研报正文、交易/下单、Level-2/付费、7727/EX、港股美股、登录/账户；

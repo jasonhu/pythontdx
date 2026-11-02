@@ -16,8 +16,9 @@
 > 45 秒 80 代码实测未主动下发；独立 eltdx 项目在 2026-10-12 的四层实测同样为 0 帧
 > （[issue #21](https://github.com/electkismet/eltdx/issues/21)），并指出增量刷新可用。
 > 实时链路以 1 秒增量刷新为主。1.0 仍待剩余边界项决策与发布流程。
-> Linux x64 1.0.0-rc.1 AppImage/deb 已打包；Windows x64 / macOS arm64 的
-> 1.0.0-rc.1 需在对应机器重打（0.14.4 产物为上一版验证记录）。
+> Linux x64、Windows x64、macOS arm64 的 1.0.0-rc.1 均已产出：
+> Linux AppImage/deb、Windows setup/portable（CI 未签名）、macOS dmg（CI ad-hoc 签名）。
+> 发布前仍建议在真实 Windows 上补签，并完成最终发版决策。
 > 发布说明：[RELEASE_NOTES-1.0.0-rc.1.md](RELEASE_NOTES-1.0.0-rc.1.md)。
 > macOS 只支持 Apple Silicon，不维护 Intel 版。
 > 0.14.4 Windows 安装版 K 线首图约 0.35 秒、逐笔首行约 0.21 秒（本机实测），
@@ -379,10 +380,10 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 > Linux 0.14.4 AppImage/deb 已在本机启动验收：`v0.14.4`、GPL 文本、
 > 备份/恢复进度条均回读通过。
 
-> **1.0.0-rc.1 Linux / Windows 候选**：Linux AppImage/deb 与 Windows setup/portable
-> 已打包；包内版本 `1.0.0-rc.1`，GPL 与 `data:backup-progress` 均在；sidecar 已含
-> 0x0547 增量游标、未配对推送帧读取与 30 秒心跳。Windows CI 产物未签名，
-> macOS 仍需在对应机器重打后再决定发版。
+> **1.0.0-rc.1 三平台候选**：Linux AppImage/deb、Windows setup/portable、
+> macOS arm64 dmg 均已产出；包内版本 `1.0.0-rc.1`，GPL 与 `data:backup-progress`
+> 均在；sidecar 含 0x0547 增量游标、未配对推送帧读取、60 秒基线看门狗与 30 秒心跳。
+> Windows CI 产物未签名；macOS 为 ad-hoc 签名。
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
@@ -390,6 +391,7 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 | `stocklens_1.0.0-rc.1_amd64.deb` | 128,680,352 B | `d7af62ba9d8477fa73909737af6eda29ee5abe9e2f624342c5828ef87bdb4d7a` |
 | `stocklens-1.0.0-rc.1-setup.exe` | 133,360,582 B | `253d1a478aaf72764d94d71c30c79530c1f8338c010294af46e444b5eaf4d08e` |
 | `stocklens-1.0.0-rc.1-portable.exe` | 133,106,426 B | `678366d939e7783a3df8121d2abf3cbfc0a5f823f5aa9cda50360f8fa9a890cb` |
+| `stocklens-1.0.0-rc.1-arm64.dmg` | 166,103,849 B | `73bb8040ff552df67d514acbf827c4dd082ca4d1f6c300f678bf634fc64e59a4` |
 | `linux-unpacked/resources/app.asar` | 3,614,550 B | `cc6293a222616e7a861623937d4fec3eef441b310a9ea883e10203b588087a76` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,489,936 B | `58439ebf68768ce5285c47bf31ddd1c21b3a5219473e21543ebdbc2713285cc4` |
 

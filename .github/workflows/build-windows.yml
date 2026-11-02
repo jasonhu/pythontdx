@@ -1,0 +1,77 @@
+name: build-windows-x64
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    tags: ['v1.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install Python build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Quality gate
+        run: npm run check
+
+      - name: Build Windows setup + portable
+        run: npm run build:win
+
+      - name: Checksums and certificate
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./package.json').version"
+          $release = Join-Path $PWD "release/$version"
+          Get-ChildItem $release -Filter '*.exe' -File | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
+            Write-Host "$($_.Name) $hash"
+          }
+          if (Test-Path "$release/stocklens-selfsigned.cer") {
+            Copy-Item "$release/stocklens-selfsigned.cer" "$release/stocklens-selfsigned.cer.txt"
+          }
+
+      - name: Check tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: powershell
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ("v$version" -ne "$env:GITHUB_REF_NAME") { throw "tag/package version mismatch" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stocklens-windows-x64-${{ github.run_id }}
+          path: |
+            release/*/stocklens-*-setup.exe
+            release/*/stocklens-*-portable.exe
+            release/*/*.sha256
+            release/*/stocklens-selfsigned.cer
+          if-no-files-found: error
+          retention-days: 14

@@ -40,8 +40,11 @@ jobs:
       - name: Quality gate
         run: npm run check
 
-      - name: Build Windows setup + portable
-        run: npm run build:win
+      - name: Build Windows setup + portable (unsigned CI artifact)
+        run: |
+          npm run build:python
+          npm run build
+          npx electron-builder --win --publish never
 
       - name: Checksums and certificate
         shell: powershell

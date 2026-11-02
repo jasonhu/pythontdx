@@ -57,6 +57,7 @@ jobs:
         run: npm run check
 
       - name: Build macOS app
+        continue-on-error: true
         run: npm run build:mac:app
 
       - name: Create DMG

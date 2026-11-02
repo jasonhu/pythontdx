@@ -436,7 +436,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
             <colgroup>
               <col style="width: 36px" />
               <col style="width: 70px" />
-              <col style="width: 90px" />
+              <col style="width: 78px" />
               <col style="width: 72px" />
               <col style="width: 74px" />
               <col style="width: 84px" />
@@ -449,7 +449,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
               <Show when={flowMode()}>
                 <col style="width: 86px" />
               </Show>
-              <col style="width: 50px" />
+              <col style="width: 58px" />
             </colgroup>
             <thead>
               <tr>

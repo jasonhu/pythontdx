@@ -108,7 +108,7 @@ export function createSparklineLoader(codes: Accessor<string[]>): void {
 /** 表格滚动时调用：只给当前视口内的行补走势图 */
 export function requestVisibleSparklines(container: HTMLElement): void {
   const box = container.getBoundingClientRect()
-  for (const row of container.querySelectorAll<HTMLElement>('tbody tr[data-code]')) {
+  for (const row of container.querySelectorAll<HTMLElement>('[data-code]')) {
     const rect = row.getBoundingClientRect()
     if (rect.bottom < box.top || rect.top > box.bottom) continue
     const code = row.dataset.code

@@ -29,7 +29,11 @@ import {
 } from '../stores/app'
 import { applyQuotes, quoteOf } from '../stores/quotes'
 import { openStockMenu } from '../stores/stockMenu'
-import { createSparklineLoader, sparklineOf } from '../stores/sparklines'
+import {
+  createSparklineLoader,
+  requestVisibleSparklines,
+  sparklineOf
+} from '../stores/sparklines'
 import { api, errorMessage } from '../lib/ipc'
 import { toneOf } from '../lib/tone'
 import { SectorPicker, type SectorSelection } from './SectorPicker'
@@ -82,6 +86,7 @@ function SectorRow(props: {
         'sector-row--drop-after': dropSide() === 'after'
       }}
       data-active={appState.activeCode === props.code}
+      data-code={props.code}
       title={`${props.name} ${props.code.toUpperCase()}${canDrag() ? '（可拖拽排序）' : ''}`}
       draggable={canDrag()}
       onDragStart={(event) => {
@@ -240,8 +245,8 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   }
 
   const sectorRows = createMemo(() => rankRows(sector()))
-  // 板块成分股的迷你走势图：全部代码排队加载（加载器限 3 并发，边可见边出现）
-  createSparklineLoader(() => sector()?.codes ?? [])
+  // 按「显示顺序」预热，而不是按板块原始代码顺序；否则涨跌幅排序后首屏可能没有走势图。
+  createSparklineLoader(() => sectorRows().map((row) => row.code))
   /**
    * 自定义板块按 groupId 现算，而不是用选择时的快照：
    * 用户在这个分组里加/删股票后，排行要立刻跟着变。
@@ -262,6 +267,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       quote: quoteOf(code)
     }))
   })
+  createSparklineLoader(() => customRows().map((row) => row.code))
   /** 「自定义板块」= 除自选之外的所有分组；自选那一组不再以分组形式出现 */
   const customGroups = createMemo(() =>
     appState.groups.filter((group) => group.id !== defaultGroup()?.id)
@@ -476,7 +482,10 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           </button>
         </div>
         <Show when={sectorError()}>{(message) => <div class="sector-error">{message()}</div>}</Show>
-        <div class="sidebar__list sector-list">
+        <div
+          class="sidebar__list sector-list"
+          onScroll={(event) => requestVisibleSparklines(event.currentTarget)}
+        >
           <Show
             when={sector()}
             fallback={
@@ -528,7 +537,10 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             删除
           </button>
         </div>
-        <div class="sidebar__list sector-list">
+        <div
+          class="sidebar__list sector-list"
+          onScroll={(event) => requestVisibleSparklines(event.currentTarget)}
+        >
           <Show
             when={customSector()}
             fallback={

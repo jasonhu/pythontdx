@@ -349,7 +349,7 @@ export function MarketListPanel(props: {
           <table class="market__table">
             <colgroup>
               <col style="width: 78px" />
-              <col style="width: 110px" />
+              <col style="width: 88px" />
               <col style="width: 74px" />
               <col style="width: 76px" />
               <col style="width: 86px" />
@@ -359,7 +359,7 @@ export function MarketListPanel(props: {
               <For each={EXTRA_COLUMNS}>
                 {(column) => <col style={{ width: `${column.width}px` }} />}
               </For>
-              <col style="width: 56px" />
+              <col style="width: 58px" />
             </colgroup>
             <thead>
               <tr>

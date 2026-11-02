@@ -17,6 +17,7 @@
 > 实时链路以 1 秒增量刷新为主。1.0 仍待剩余边界项决策与发布流程。
 > Linux x64 1.0.0-rc.1 AppImage/deb 已打包；Windows x64 / macOS arm64 的
 > 1.0.0-rc.1 需在对应机器重打（0.14.4 产物为上一版验证记录）。
+> 发布说明：[RELEASE_NOTES-1.0.0-rc.1.md](RELEASE_NOTES-1.0.0-rc.1.md)。
 > macOS 只支持 Apple Silicon，不维护 Intel 版。
 > 0.14.4 Windows 安装版 K 线首图约 0.35 秒、逐笔首行约 0.21 秒（本机实测），
 > 并已用本机自签名证书做完整性签名（不改变 SmartScreen 提示）。

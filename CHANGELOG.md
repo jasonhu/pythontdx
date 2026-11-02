@@ -27,7 +27,7 @@ StockLens 的所有重要变更都记录在这里。
   跨交易日清空游标；历史竞价服务器为空时回退永久本地归档。
 - **测试**：新增部分返回映射、游标缓存、推送帧入队/合并、响应头解析用例；
   `npm run check`：**315 TS + 168 Python（1 skipped）**；`npm run audit:data` **39/39**。
-- **Linux 1.0.0-rc.1**：AppImage `d4d44e56…`、deb `3712d953…` 已打包；
+- **Linux 1.0.0-rc.1**：AppImage `bf542ba0…`、deb `6061fbd9…` 已打包；
   Windows/macOS 1.0.0-rc.1 需在对应机器重打，暂未打 1.0 tag。
 
 ### 边界

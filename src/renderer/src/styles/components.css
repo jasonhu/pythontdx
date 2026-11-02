@@ -2230,6 +2230,7 @@
 
 .block__name {
   min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2238,6 +2239,19 @@
 .block__item-count {
   color: var(--text-3);
   font-size: var(--fs-2xs);
+}
+
+.block__item-pct {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.block__leader {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
 }
 
 .block__members {

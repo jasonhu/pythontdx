@@ -38,6 +38,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
   const [selected, setSelected] = createSignal<BlockGroup | null>(null)
   const [quotes, setQuotes] = createSignal<Quote[]>([])
   const [indexQuote, setIndexQuote] = createSignal<Quote | null>(null)
+  const [boardQuotes, setBoardQuotes] = createSignal<Record<string, Quote>>({})
   const [filter, setFilter] = createSignal('')
   const [loading, setLoading] = createSignal(true)
   const [loadingQuotes, setLoadingQuotes] = createSignal(false)
@@ -53,6 +54,15 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
   })
 
   const quoteMap = createMemo(() => new Map(quotes().map((quote) => [quote.code, quote])))
+  const boardQuote = (block: BlockGroup): Quote | undefined =>
+    block.indexCode ? boardQuotes()[block.indexCode] : undefined
+  const leader = createMemo(() => {
+    const rows = quotes().filter((quote) => quote.code !== selected()?.indexCode)
+    if (rows.length === 0) return null
+    return rows.reduce((best, quote) =>
+      quote.changePct > best.changePct ? quote : best
+    )
+  })
   /**
    * 走势图必须等成分股报价先拉完：sidecar 是单连接，
    * 一上来就排几百个分时请求会把快照请求压到后面（界面长时间全是「—」）。
@@ -98,10 +108,19 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
     setSelected(null)
     setQuotes([])
     setIndexQuote(null)
+    setBoardQuotes({})
     try {
       const data = await loadBoardCategory(nextKind)
       if (current !== requestId) return
       setBlocks(data)
+      const indexCodes = [
+        ...new Set(
+          data
+            .map((block) => block.indexCode)
+            .filter((code): code is string => Boolean(code))
+        )
+      ]
+      void loadBoardQuotes(indexCodes, current)
       const first = data[0]
       if (first) void selectBlock(first)
     } catch (cause) {
@@ -109,6 +128,22 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
       setError(errorMessage(cause))
     } finally {
       if (current === requestId) setLoading(false)
+    }
+  }
+
+  const loadBoardQuotes = async (codes: string[], current: number): Promise<void> => {
+    const result: Quote[] = []
+    try {
+      for (let start = 0; start < codes.length; start += QUOTE_CHUNK) {
+        const chunk = codes.slice(start, start + QUOTE_CHUNK)
+        result.push(...(await api.quote.macQuotes(chunk)))
+        if (current !== requestId) return
+      }
+      const byCode: Record<string, Quote> = {}
+      for (const quote of result) byCode[quote.code] = quote
+      setBoardQuotes(byCode)
+    } catch {
+      // 板块指数报价是增强信息；失败不影响板块/成分股本身。
     }
   }
 
@@ -184,17 +219,37 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                 <div class="block__empty">没有匹配的板块</div>
               </Show>
               <For each={filtered()}>
-                {(block) => (
-                  <button
-                    class="block__item"
-                    classList={{ 'block__item--active': selected()?.id === block.id }}
-                    title={`${block.name} · ${block.count} 只`}
-                    onClick={() => void selectBlock(block)}
-                  >
-                    <span class="block__name">{block.name || '（未命名）'}</span>
-                    <span class="block__item-count num">{block.count}</span>
-                  </button>
-                )}
+                {(block) => {
+                  const stat = (): Quote | undefined => boardQuote(block)
+                  return (
+                    <button
+                      class="block__item"
+                      classList={{ 'block__item--active': selected()?.id === block.id }}
+                      title={`${block.name} · ${block.count} 只${
+                        stat()
+                          ? ` · 指数 ${fixed(stat()!.price)} ${signedPct(stat()!.changePct)}`
+                          : ''
+                      }`}
+                      onClick={() => void selectBlock(block)}
+                    >
+                      <span class="block__name">{block.name || '（未命名）'}</span>
+                      <Show when={stat()}>
+                        {(quote) => (
+                          <span
+                            class="block__item-pct num"
+                            classList={{
+                              'tone-up': quote().changePct > 0,
+                              'tone-down': quote().changePct < 0
+                            }}
+                          >
+                            {signedPct(quote().changePct)}
+                          </span>
+                        )}
+                      </Show>
+                      <span class="block__item-count num">{block.count}</span>
+                    </button>
+                  )
+                }}
               </For>
             </div>
           </aside>
@@ -226,6 +281,21 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
                               {signedPct(index().changePct)}
                             </span>
                           </button>
+                        )}
+                      </Show>
+                      <Show when={leader()}>
+                        {(quote) => (
+                          <span class="block__leader">
+                            领涨 {quote().name}{' '}
+                            <span
+                              classList={{
+                                'tone-up': quote().changePct > 0,
+                                'tone-down': quote().changePct < 0
+                              }}
+                            >
+                              {signedPct(quote().changePct)}
+                            </span>
+                          </span>
                         )}
                       </Show>
                     </div>
@@ -372,7 +442,7 @@ export function BlockPanel(props: BlockPanelProps): JSX.Element {
             {blocks().length} 个板块 · {thousands(blocks().reduce((sum, b) => sum + b.codes.length, 0))}{' '}
             个代码
           </span>
-          <span>点击成分股查看行情；行情最多 400 只；板块指数/K线暂未接</span>
+          <span>点击成分股查看行情；行情最多 400 只；板块指数点位/涨跌幅/领涨股已接入</span>
         </footer>
       </section>
     </div>

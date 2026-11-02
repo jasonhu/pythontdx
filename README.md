@@ -383,9 +383,9 @@ deb 可用 `sudo apt install ./release/<version>/stocklens_<version>_amd64.deb`
 
 | 产物 | 大小 | SHA256 |
 | --- | ---: | --- |
-| `StockLens-1.0.0-rc.1.AppImage` | 154,565,470 B | `d4d44e56bf21f9d723b55d4e2745352e7f1043d88efaa02c37ea32bd6c80cf4d` |
-| `stocklens_1.0.0-rc.1_amd64.deb` | 128,681,012 B | `3712d953f7c9ea43d655f95edba8137aff6d0ecf28382d4f114fdbe3fbf9b545` |
-| `linux-unpacked/resources/app.asar` | 3,609,696 B | `62b390cdbcdbccc4aea56b2eb9fb3019c20551ea526a1fcefbe0f4dd0b653bc3` |
+| `StockLens-1.0.0-rc.1.AppImage` | 154,565,422 B | `bf542ba00478c42c0adc5b302bc559f016f74482aa15d6c8a533fe1230d0919b` |
+| `stocklens_1.0.0-rc.1_amd64.deb` | 128,682,692 B | `6061fbd92bdf8d2e3da311260374c2fc4f33e57302db5dea327d30bc0cdbc57f` |
+| `linux-unpacked/resources/app.asar` | 3,613,001 B | `e9c97e6e7f014b0b258927b8a6c28e02a7f2ba602707d4bf5574989dbc4cf9a3` |
 | `linux-unpacked/resources/tdx-bridge/tdx-bridge` | 28,489,936 B | `381a0050917cc9d2da4f9db7994986e943aa7b4ce583e5f96f27bfa41341b581` |
 
 ---

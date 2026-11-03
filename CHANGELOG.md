@@ -62,6 +62,16 @@ pythontdx 的所有重要变更都记录在这里。
 - 搜索慢点击回归：350 / 500 / 3000 / 6000ms 按住后松开均能选中个股；
 - 竞价兜底与开盘第一秒仍需下一交易日 09:15–09:31 实盘复核。
 
+### 发布
+
+- tag `v1.2.0` 已推送 GitHub，Actions run `41595573695` 四 job 全 success；
+  [GitHub Release v1.2.0](https://github.com/riverzhou/pythontdx/releases/tag/v1.2.0)
+  共 12 个资产：Linux AppImage/deb、Windows setup/portable/zip、macOS arm64 dmg，
+  以及 SHA256/公钥文件；
+- Linux：`pythontdx-1.2.0.AppImage` `895105d70534ed2ffe3ce592b1896ed284efd83ba67db8ab775a863a668d5805`；
+  `pythontdx_1.2.0_amd64.deb` `2b4024c3ec3487281afd7e13ec16e0cac6b91c8ed176e44b26ae5b9f0ae8fcbd`；
+- Windows setup/portable/zip 与 macOS dmg 的 SHA256 见 Release 附件。
+
 ## [1.1.0] - 2026-11-02
 
 ### 变更

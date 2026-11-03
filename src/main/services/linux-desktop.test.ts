@@ -109,7 +109,8 @@ describe('mergeMimeDefault', () => {
   })
 })
 
-describe('installLinuxDesktopIntegration', () => {
+// Linux 专属安装流程：Windows 没有 XDG 目录、chmod 语义也不同，跳过即可。
+describe.skipIf(process.platform === 'win32')('installLinuxDesktopIntegration', () => {
   it('安装桌面入口、启动器，并把 AppImage 默认处理指向启动器', async () => {
     const root = await mkdtemp(join(tmpdir(), 'pythontdx-desktop-'))
     const home = join(root, 'home')

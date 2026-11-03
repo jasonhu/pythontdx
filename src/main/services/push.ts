@@ -30,8 +30,11 @@ interface Subscription {
   fetched: boolean
 }
 
-/** 只负责调度；具体拉取由调用方注入，便于单测不碰网络/Electron。 */
-export type PushFetcher = (task: PushTask) => Promise<unknown>
+/**
+ * 只负责调度；具体拉取由调用方注入，便于单测不碰网络/Electron。
+ * first=true 表示该订阅的首帧：K 线首帧必须给全量，后续才允许只发 tail。
+ */
+export type PushFetcher = (task: PushTask, first: boolean) => Promise<unknown>
 
 export class PushHub {
   private nextId = 1
@@ -98,9 +101,10 @@ export class PushHub {
       return
     }
     subscription.inFlight = true
+    const first = !subscription.fetched
     subscription.fetched = true
     try {
-      const data = await this.fetchTask(subscription.task)
+      const data = await this.fetchTask(subscription.task, first)
       if (subscription.stopped) return
       this.emit({
         id: subscription.id,

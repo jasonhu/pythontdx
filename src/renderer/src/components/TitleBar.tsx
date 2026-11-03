@@ -10,6 +10,7 @@ import { createSignal, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type { WindowAction } from '@shared/types'
 import { api } from '../lib/ipc'
 import { appInfo, toggleTheme, appState } from '../stores/app'
+import { currentClock } from '../stores/clock'
 import {
   IconBell,
   IconClose,
@@ -45,6 +46,8 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
       <div class="titlebar__drag" />
       <SearchBox />
       <div class="titlebar__drag" />
+
+      <MarketClock />
 
       <div class="titlebar__actions">
         <button
@@ -107,6 +110,35 @@ export function TitleBar(props: TitleBarProps): JSX.Element {
         <WindowControls />
       </div>
     </header>
+  )
+}
+
+/**
+ * 主界面时钟。
+ *
+ * 行情软件里「现在几点」直接决定能不能交易、离收盘还有多久；放在标题栏
+ * 比塞进状态栏更容易一眼看到。固定显示北京时间，不跟随系统时区。
+ */
+function MarketClock(): JSX.Element {
+  const clock = () => currentClock()
+  return (
+    <div
+      class="market-clock"
+      data-testid="market-clock"
+      title={`北京时间 ${clock().date} ${clock().weekday} ${clock().time} · ${clock().sessionLabel}`}
+    >
+      <div class="market-clock__time num">
+        <Show when={clock().trading}>
+          <span class="market-clock__pulse" aria-hidden="true" />
+        </Show>
+        {clock().time}
+      </div>
+      <div class="market-clock__meta">
+        <span>{clock().date}</span>
+        <span>{clock().weekday}</span>
+        <span class="market-clock__session">{clock().sessionLabel}</span>
+      </div>
+    </div>
   )
 }
 

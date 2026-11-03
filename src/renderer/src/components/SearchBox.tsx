@@ -165,6 +165,12 @@ export function SearchBox(): JSX.Element {
                     class="search-pop__item"
                     data-cursor={index() === cursor()}
                     onMouseEnter={() => setCursor(index())}
+                    /*
+                     * 不要在 mousedown 时让输入框失焦：失焦 140ms 后弹层会被移除，
+                     * 用户点得稍慢（mousedown→mouseup 超过 140ms）时 click 落在
+                     * 已移除的节点上，就出现「点了没反应、偶尔成功」。
+                     */
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => commit(item)}
                   >
                     <span class="tag">{MARKET_LABEL[item.market]}</span>
@@ -185,6 +191,7 @@ export function SearchBox(): JSX.Element {
                 <span>最近搜索</span>
                 <button
                   class="search-pop__clear"
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
                     updateSettings({ recentSearches: [] })
                     setCursor(0)
@@ -199,6 +206,12 @@ export function SearchBox(): JSX.Element {
                     class="search-pop__item"
                     data-cursor={index() === cursor()}
                     onMouseEnter={() => setCursor(index())}
+                    /*
+                     * 不要在 mousedown 时让输入框失焦：失焦 140ms 后弹层会被移除，
+                     * 用户点得稍慢（mousedown→mouseup 超过 140ms）时 click 落在
+                     * 已移除的节点上，就出现「点了没反应、偶尔成功」。
+                     */
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => commit(item)}
                   >
                     <span class="tag">{MARKET_LABEL[item.market]}</span>

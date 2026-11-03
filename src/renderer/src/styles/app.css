@@ -94,6 +94,75 @@
   height: 100%;
 }
 
+/*
+ * 主界面时钟：行情软件里「现在几点」比很多指标都关键。
+ * 固定显示北京时间；秒级刷新，等宽数字避免每秒左右抖动。
+ */
+.market-clock {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+  min-width: 104px;
+  padding: 0 var(--sp-3);
+  border-left: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+}
+
+.market-clock__time {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.market-clock__pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--up);
+  box-shadow: 0 0 8px var(--up);
+  animation: pulse-dot 1.8s var(--ease-in-out) infinite;
+}
+
+.market-clock__meta {
+  display: flex;
+  gap: 6px;
+  font-size: var(--fs-2xs);
+  line-height: 1.1;
+  color: var(--text-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.market-clock__session {
+  color: var(--text-2);
+}
+
+@media (max-width: 1320px) {
+  /* 1280 窄屏优先保住秒级时间，日期可以收起 */
+  .market-clock__meta {
+    display: none;
+  }
+
+  .market-clock {
+    min-width: 82px;
+    padding: 0 var(--sp-2);
+  }
+
+  .market-clock__time {
+    font-size: 17px;
+  }
+}
+
 .titlebar__actions {
   display: flex;
   align-items: center;
@@ -551,6 +620,12 @@
   line-height: 1.15;
 }
 
+/* 竞价兜底价：只标注「竞价」，不伪造涨跌幅 */
+.watch-row__chg--auction {
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+}
+
 .watch-row__price--up {
   animation: flash-up 700ms var(--ease) both;
 }
@@ -647,10 +722,20 @@
 
 .quote-header__price-block {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--sp-4);
+  justify-content: flex-end;
+  gap: 2px var(--sp-4);
   margin-left: auto;
   text-align: right;
+}
+
+/* 集合竞价虚拟撮合价：只在 09:15–09:25 出现，不替代正式成交价 */
+.quote-header__auction {
+  flex: 0 0 100%;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .quote-header__price {

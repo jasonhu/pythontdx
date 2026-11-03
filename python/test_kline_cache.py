@@ -34,3 +34,35 @@ class TestKlineCache(unittest.TestCase):
 
     def test_missing_cache_returns_none(self):
         self.assertIsNone(tdx_bridge._read_kline_cache("sh600519", "day", 99, "qfq"))
+
+    def test_cache_only_miss_is_an_empty_series_not_an_error(self):
+        """首屏缓存探测：miss 是正常结果，不能抛异常污染 Electron 日志。"""
+        bridge = tdx_bridge.Bridge()
+        try:
+            result = bridge.kline("sh600519", "day", 30, "qfq", cache_only=True)
+        finally:
+            bridge.close()
+        self.assertTrue(result["miss"])
+        self.assertEqual(result["bars"], [])
+        self.assertEqual(result["source"], "cache")
+
+    def test_cache_only_hit_returns_cached_bars(self):
+        bars = [
+            {
+                "date": "2026-10-30",
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10.5,
+                "volume": 100,
+            }
+        ]
+        tdx_bridge._write_kline_cache("sh600519", "day", 30, "qfq", bars, "network")
+        bridge = tdx_bridge.Bridge()
+        try:
+            result = bridge.kline("sh600519", "day", 30, "qfq", cache_only=True)
+        finally:
+            bridge.close()
+        self.assertFalse(result.get("miss", False))
+        self.assertEqual(result["source"], "cache")
+        self.assertEqual(result["bars"][-1]["close"], 10.5)

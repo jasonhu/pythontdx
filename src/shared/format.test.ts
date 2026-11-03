@@ -4,6 +4,7 @@ import {
   compactCap,
   compactVolume,
   fixed,
+  hhmmssLabel,
   minuteLabel,
   relativeFrom,
   safeNum,
@@ -91,6 +92,14 @@ describe('时间格式化', () => {
   it('minuteLabel 把 HHMM 变成 HH:MM', () => {
     expect(minuteLabel('0930')).toBe('09:30')
     expect(minuteLabel('1500')).toBe('15:00')
+  })
+
+  it('hhmmssLabel 把 0x0547 的 updateTime 变成时间，非法值显示占位符', () => {
+    expect(hhmmssLabel(113001)).toBe('11:30:01')
+    expect(hhmmssLabel(92500)).toBe('09:25:00')
+    expect(hhmmssLabel(0)).toBe('00:00:00')
+    expect(hhmmssLabel(236000)).toBe('—')
+    expect(hhmmssLabel(undefined)).toBe('—')
   })
 
   it('relativeFrom 输出人类可读的相对时间', () => {

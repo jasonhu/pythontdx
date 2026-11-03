@@ -32,6 +32,7 @@ import {
 } from '../lib/chart-geometry'
 import { useElementSize } from '../lib/dom'
 import { toneLineVar, toneOf } from '../lib/tone'
+import { tradingSlot, withOpeningBaseline, type LiveTrendTick } from '../lib/realtime'
 
 /** 悬浮读数：由 onHover 抛给外部，用于让卡片标题区跟着十字光标联动 */
 export interface TrendHover {
@@ -47,6 +48,8 @@ export interface TrendHover {
 export interface TrendChartProps {
   /** 从旧到新排列的交易日；单日分时传一个元素即可 */
   days: MinuteTrend[]
+  /** 1 秒一次的报价轨迹；只画在官方分钟点之后，官方点到了就淡出 */
+  liveTicks?: LiveTrendTick[]
   onHover?: (hover: TrendHover | null) => void
 }
 
@@ -58,7 +61,13 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
   const [drag, setDrag] = createSignal<{ x: number; start: number; end: number } | null>(null)
 
   const days = (): MinuteTrend[] => props.days
-  const isMultiDay = (): boolean => days().length > 1
+
+  /**
+   * 开盘第一秒官方还没有任何分钟点；用昨收造一个 09:30 基准点，
+   * 让几何/坐标轴先成立，后面的 liveTicks 才有地方画。
+   */
+  const chartDays = createMemo(() => withOpeningBaseline(days(), props.liveTicks ?? []))
+  const isMultiDay = (): boolean => chartDays().length > 1
 
   // 切股票/切日期时复位缩放，避免把上一只股票的视窗带过来。
   createEffect(
@@ -72,11 +81,11 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
   )
 
   const geometry = createMemo(() =>
-    buildTrendGeometry(days(), size().width, size().height, undefined, view() ?? undefined)
+    buildTrendGeometry(chartDays(), size().width, size().height, undefined, view() ?? undefined)
   )
   const bars = createMemo(() => {
     const geo = geometry()
-    const flat = flattenTrendPoints(days())
+    const flat = flattenTrendPoints(chartDays())
     return geo
       ? flat.filter((item) => item.slot >= geo.slotStart && item.slot <= geo.slotEnd)
       : flat
@@ -86,19 +95,19 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     const first = bars()[0]
     const last = bars()[bars().length - 1]
     const startLabel = isMultiDay()
-      ? `${formatMonthDay(days()[first.dayIndex]?.date ?? '')} ${minuteLabel(first.point.time)}`
+      ? `${formatMonthDay(chartDays()[first.dayIndex]?.date ?? '')} ${minuteLabel(first.point.time)}`
       : minuteLabel(first.point.time)
     const endLabel = isMultiDay()
-      ? `${formatMonthDay(days()[last.dayIndex]?.date ?? '')} ${minuteLabel(last.point.time)}`
+      ? `${formatMonthDay(chartDays()[last.dayIndex]?.date ?? '')} ${minuteLabel(last.point.time)}`
       : minuteLabel(last.point.time)
     return `${startLabel}–${endLabel} · 拖动平移 · 双击复位`
   }
   const levels = createMemo(() => {
     const geo = geometry()
-    return geo ? buildTrendLevels(days(), geo) : []
+    return geo ? buildTrendLevels(chartDays(), geo) : []
   })
   const alertPrices = createMemo(() => {
-    const code = days()[0]?.code
+    const code = chartDays()[0]?.code
     if (!code) return []
     const result: Array<{ price: number; label: string }> = []
     for (const rule of appState.alerts) {
@@ -112,19 +121,68 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
 
   const ticks = createMemo(() => {
     const geo = geometry()
-    return geo ? buildTrendTicks(days(), geo) : []
+    return geo ? buildTrendTicks(chartDays(), geo) : []
   })
   const separators = createMemo(() => {
     const geo = geometry()
-    return geo ? buildTrendSeparators(days(), geo) : []
+    return geo ? buildTrendSeparators(chartDays(), geo) : []
   })
   const dayPaths = createMemo(() => {
     const geo = geometry()
-    return geo ? buildTrendDayPaths(days(), geo) : []
+    return geo ? buildTrendDayPaths(chartDays(), geo) : []
   })
   const averagePath = createMemo(() => {
     const geo = geometry()
-    return geo ? buildTrendAveragePath(days(), geo) : ''
+    return geo ? buildTrendAveragePath(chartDays(), geo) : ''
+  })
+
+  /**
+   * 1 秒报价轨迹：从最后一个官方分钟点（没有则从昨收）连到当前秒。
+   * 官方点到达后，旧 tick 会被 lastSeconds 过滤掉，不会污染历史。
+   */
+  const liveTrace = createMemo(() => {
+    const geo = geometry()
+    const ticks = props.liveTicks ?? []
+    const current = chartDays()
+    if (!geo || ticks.length === 0 || current.length === 0) return null
+    const dayIndex = current.length - 1
+    const day = current[dayIndex]
+    const lastPoint = day.points[day.points.length - 1]
+    /*
+     * 不能按时间过滤：通达信的分钟标签会比当前时间超前约一分钟
+     * （13:15:40 时最后一点已经是 13:16），按 timeSeconds 比会把当前
+     * 报价全部当成「历史」丢掉。按槽位过滤才和画出来的横轴一致。
+     * 09:30 的基准点是人工补的，允许同一槽位上的第一个实时点。
+     */
+    const lastSlot = dayIndex * DAY_SLOTS + Math.max(0, day.points.length - 1)
+    const filtered = ticks.filter((tick) => {
+      const slot = dayIndex * DAY_SLOTS + tradingSlot(tick.timeSeconds)
+      if (slot < geo.slotStart || slot > geo.slotEnd) return false
+      // 用 >=：开盘第一秒的 tick 可能与人工 09:30 基准点同槽；
+      // 官方 09:31 点也可能在同一槽，丢掉它会让第一秒又变成空白。
+      return slot >= lastSlot
+    })
+    if (filtered.length === 0) return null
+
+    const start = lastPoint
+      ? {
+          x: geo.x(dayIndex * DAY_SLOTS + day.points.length - 1),
+          y: geo.yPrice(lastPoint.price)
+        }
+      : { x: geo.x(dayIndex * DAY_SLOTS), y: geo.yPrice(day.prevClose) }
+    const points = filtered.map((tick) => ({
+      x: geo.x(dayIndex * DAY_SLOTS + tradingSlot(tick.timeSeconds)),
+      y: geo.yPrice(tick.price)
+    }))
+    const last = points[points.length - 1]
+    const tail = filtered[filtered.length - 1]
+    return {
+      path: `M${start.x.toFixed(1)} ${start.y.toFixed(1)} ${points
+        .map((point) => `L${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+        .join(' ')}`,
+      last,
+      changePct: day.prevClose > 0 ? ((tail.price - day.prevClose) / day.prevClose) * 100 : 0
+    }
   })
 
   const hovered = createMemo(() => {
@@ -132,10 +190,10 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     const geo = geometry()
     if (slot === null || !geo) return null
 
-    const located = locateTrendSlot(slot, days())
+    const located = locateTrendSlot(slot, chartDays())
     if (!located) return null
 
-    const day = days()[located.dayIndex]
+    const day = chartDays()[located.dayIndex]
     const point = day.points[located.pointIndex]
     const change = point.price - day.prevClose
 
@@ -180,7 +238,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     if (currentDrag) {
       const span = currentDrag.end - currentDrag.start
       const delta = Math.round(((-1 * (event.clientX - currentDrag.x)) / geo.plotW) * span)
-      const maxSlot = Math.max(DAY_SLOTS - 1, days().length * DAY_SLOTS - 1)
+      const maxSlot = Math.max(DAY_SLOTS - 1, chartDays().length * DAY_SLOTS - 1)
       const start = Math.max(0, Math.min(maxSlot - span, currentDrag.start + delta))
       setView({ start, end: start + span })
       return
@@ -194,7 +252,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     event.preventDefault()
     const geo = geometry()
     if (!geo) return
-    const maxSlot = Math.max(DAY_SLOTS - 1, days().length * DAY_SLOTS - 1)
+    const maxSlot = Math.max(DAY_SLOTS - 1, chartDays().length * DAY_SLOTS - 1)
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const anchor = slotFromX(event.clientX, rect.left, geo) ?? (geo.slotStart + geo.slotEnd) / 2
     const span = geo.slotEnd - geo.slotStart
@@ -237,7 +295,15 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
     >
       <Show when={geometry()} fallback={<div class="chart-empty">正在加载分时数据…</div>}>
         {(geo) => (
-          <svg class="chart-svg" width={geo().width} height={geo().height}>
+          <svg
+            class="chart-svg"
+            width={geo().width}
+            height={geo().height}
+            data-live-ticks={props.liveTicks?.length ?? 0}
+            data-live-last={chartDays().at(-1)?.points.at(-1)?.time ?? ''}
+            data-live-tick-last={props.liveTicks?.at(-1)?.timeSeconds ?? ''}
+            data-live-trace={liveTrace() ? '1' : '0'}
+          >
             <defs>
               <linearGradient
                 id="trend-area"
@@ -343,7 +409,7 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
             <For each={bars()}>
               {(item, index) => {
                 const previousPrice = (): number => {
-                  if (index() === 0) return days()[0]?.prevClose ?? item.point.price
+                  if (index() === 0) return chartDays()[0]?.prevClose ?? item.point.price
                   return bars()[index() - 1].point.price
                 }
                 return (
@@ -384,6 +450,30 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
               stroke-dasharray="4 3"
               opacity="0.9"
             />
+
+            {/* ---------- 当前秒的实时轨迹（官方分钟点到达后自动让位） ---------- */}
+            <Show when={liveTrace()}>
+              {(live) => (
+                <g class="trend-live" pointer-events="none">
+                  <path
+                    d={live().path}
+                    fill="none"
+                    stroke={toneLineVar(toneOf(live().changePct))}
+                    stroke-width="1.8"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  />
+                  <circle
+                    cx={live().last.x}
+                    cy={live().last.y}
+                    r="3.2"
+                    fill="var(--panel-solid)"
+                    stroke={toneLineVar(toneOf(live().changePct))}
+                    stroke-width="1.8"
+                  />
+                </g>
+              )}
+            </Show>
 
             {/* ---------- 横轴标签 ---------- */}
             <For each={ticks()}>

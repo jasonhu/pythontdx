@@ -8,6 +8,7 @@ import type { ChartPatternsRequest, ChartPatternsResult } from './patterns'
 import type {
   AppInfo,
   GraphicsInfo,
+  LinuxDesktopResult,
   ServerSpeedResult,
   AppState,
   AuctionArchiveBatchResult,
@@ -278,6 +279,8 @@ export const IPC = {
   appNotify: 'app:notify',
   /** 图形后端诊断（invoke） */
   appGraphics: 'app:graphics',
+  /** Linux AppImage 桌面集成：修复文件管理器双击不启动（invoke） */
+  appLinuxDesktop: 'app:linux-desktop',
   /** 行情主站测速（invoke） */
   serverSpeedTest: 'app:server-speed-test',
   /** 选择行情主站（invoke） */
@@ -504,6 +507,8 @@ export interface PythonTdxApi {
     info(): Promise<AppInfo>
     /** Linux 图形后端 / GPU 帧特性诊断 */
     graphics(): Promise<GraphicsInfo>
+    /** 安装 Linux 桌面入口 + 通用 AppImage 启动器（仅 AppImage 有效） */
+    installLinuxDesktop(): Promise<LinuxDesktopResult>
     /** 测试通达信公开行情主站 TCP 时延 */
     serverSpeedTest(): Promise<ServerSpeedResult>
     /** 选择首选行情主站并持久化 */

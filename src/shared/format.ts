@@ -86,6 +86,22 @@ export function minuteLabel(hhmm: string): string {
   return hhmm.length === 4 ? `${hhmm.slice(0, 2)}:${hhmm.slice(2)}` : hhmm
 }
 
+/**
+ * 0x0547 记录里的 updateTime 是 HHMMSS（如 113001），不是 epoch。
+ * 直接丢给 `new Date()` 会变成 1970 年，这里只做时间标签。
+ */
+export function hhmmssLabel(v: number | null | undefined): string {
+  if (!isFiniteNumber(v)) return '—'
+  const raw = Math.trunc(v)
+  if (raw < 0 || raw > 235959) return '—'
+  const text = String(raw).padStart(6, '0')
+  const hour = Number(text.slice(0, 2))
+  const minute = Number(text.slice(2, 4))
+  const second = Number(text.slice(4, 6))
+  if (hour > 23 || minute > 59 || second > 59) return '—'
+  return `${text.slice(0, 2)}:${text.slice(2, 4)}:${text.slice(4, 6)}`
+}
+
 /** 数据新鲜度描述 */
 export function relativeFrom(ts: number, now = Date.now()): string {
   const diff = Math.max(0, now - ts)

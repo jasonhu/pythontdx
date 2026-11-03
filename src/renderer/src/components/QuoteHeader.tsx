@@ -1,13 +1,24 @@
 /**
  * 个股行情头部：名称、代码、最新价、涨跌，以及一排核心指标。
  */
-import { createEffect, createSignal, type JSX } from 'solid-js'
-import { MARKET_LABEL, type Quote } from '@shared/types'
-import { compactAmount, compactVolume, fixed, signed, signedPct, timeOfDay } from '@shared/format'
+import { createEffect, createMemo, createSignal, onCleanup, Show, type JSX } from 'solid-js'
+import { MARKET_LABEL, type AuctionPoint, type Quote } from '@shared/types'
+import {
+  compactAmount,
+  compactVolume,
+  fixed,
+  hhmmssLabel,
+  signed,
+  signedPct,
+  timeOfDay
+} from '@shared/format'
+import { marketSession } from '@shared/market'
 import { createValueFlash } from '../lib/dom'
 import { toneOf, type Tone } from '../lib/tone'
 import { addWatchItem, defaultGroup, removeWatchItem } from '../stores/app'
+import { clockNow } from '../stores/clock'
 import { api } from '../lib/ipc'
+import { subscribePush } from '../lib/push'
 import { IconStar, IconStarFilled } from './Icons'
 
 export interface QuoteHeaderProps {
@@ -17,14 +28,55 @@ export interface QuoteHeaderProps {
 }
 
 export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
-  const tone = (): Tone => toneOf(props.quote.changePct)
-  const flash = createValueFlash(() => props.quote.price)
+  const session = createMemo(() => marketSession(new Date(clockNow())))
+  const [auction, setAuction] = createSignal<AuctionPoint | null>(null)
+  /*
+   * 集合竞价阶段，部分股票（科创板尤其明显）的 0x0547 增量刷新拿不到
+   * 新的撮合价，行情头会一直停在昨收附近。0x056a 是专门的竞价过程接口，
+   * 09:15–09:25 用它补一个「虚拟撮合价」；它只用于展示，不写进行情缓存。
+   */
+  const displayPrice = (): number =>
+    session() === 'pre-open' && auction()?.price ? auction()!.price : props.quote.price
+  const displayChange = (): number => {
+    const price = displayPrice()
+    return props.quote.prevClose > 0 ? price - props.quote.prevClose : props.quote.change
+  }
+  const displayPct = (): number => {
+    const price = displayPrice()
+    return props.quote.prevClose > 0
+      ? ((price - props.quote.prevClose) / props.quote.prevClose) * 100
+      : props.quote.changePct
+  }
+  const tone = (): Tone => toneOf(displayPct())
+  const flash = createValueFlash(displayPrice)
+  /** 0x0547 的 updateTime 是交易所侧的 HHMMSS；缺失时退回本地接收时间 */
+  const marketTime = (): string =>
+    session() === 'pre-open' && auction()
+      ? auction()!.time
+      : props.quote.updateTime && props.quote.updateTime > 0
+        ? hhmmssLabel(props.quote.updateTime)
+        : timeOfDay(props.quote.time)
   const [baseVolume, setBaseVolume] = createSignal<number | undefined>(undefined)
   let volumeRequest = 0
   const limits = (): { up?: number; down?: number } => limitPrices(props.quote)
   const volumeRatio = (): number | undefined =>
     props.quote.volumeRatio ??
     (baseVolume() && baseVolume()! > 0 ? props.quote.volume / baseVolume()! : undefined)
+
+  createEffect(() => {
+    const code = props.quote.code
+    setAuction(null)
+    if (session() !== 'pre-open') return
+    const dispose = subscribePush<AuctionPoint[]>(
+      { kind: 'auction', code },
+      1000,
+      (points) => {
+        if (props.quote.code !== code) return
+        setAuction(points[points.length - 1] ?? null)
+      }
+    )
+    onCleanup(dispose)
+  })
 
   createEffect(() => {
     const code = props.quote.code
@@ -50,7 +102,8 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
 
   /** 涨停 / 跌停判定（接口直接给了涨跌停价，顺手做个醒目标记） */
   const limitState = (): 'up' | 'down' | null => {
-    const { price, limitUp, limitDown } = props.quote
+    const price = displayPrice()
+    const { limitUp, limitDown } = props.quote
     if (limitUp !== undefined && price >= limitUp - 1e-6) return 'up'
     if (limitDown !== undefined && price <= limitDown + 1e-6) return 'down'
     return null
@@ -102,8 +155,11 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
             </button>
           </div>
 
-          <div class="quote-header__code num">
-            {props.quote.code.toUpperCase()} · {props.quote.currency} · 接收时间{' '}
+          <div
+            class="quote-header__code num"
+            title={`交易所行情时间 ${marketTime()} · 本地接收 ${timeOfDay(props.quote.time)}`}
+          >
+            {props.quote.code.toUpperCase()} · {props.quote.currency} · 行情 {marketTime()} · 接收{' '}
             {timeOfDay(props.quote.time)}
           </div>
         </div>
@@ -117,12 +173,19 @@ export function QuoteHeader(props: QuoteHeaderProps): JSX.Element {
               'quote-header__price--down': flash() === 'down'
             }}
           >
-            {fixed(props.quote.price)}
+            {fixed(displayPrice())}
           </div>
           <div class="quote-header__delta num" classList={{ [tone()]: true }}>
-            <span>{signed(props.quote.change)}</span>
-            <span>{signedPct(props.quote.changePct)}</span>
+            <span>{signed(displayChange())}</span>
+            <span>{signedPct(displayPct())}</span>
           </div>
+          <Show when={session() === 'pre-open' && auction()}>
+            {(point) => (
+              <div class="quote-header__auction" title="集合竞价虚拟撮合价，不是正式成交">
+                集合竞价 {fixed(point().price)} · {point().time}
+              </div>
+            )}
+          </Show>
         </div>
       </div>
 

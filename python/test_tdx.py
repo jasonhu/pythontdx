@@ -347,6 +347,45 @@ class TestAuctions(unittest.TestCase):
     def test_empty_auction(self):
         self.assertEqual(tdx.parse_auctions(b"\x00\x00"), [])
 
+    def test_auction_quotes_fallback_uses_last_point_and_cache(self):
+        class FakeConnection:
+            def __init__(self):
+                self.calls = 0
+
+            def request(self, _cmd, _data):
+                self.calls += 1
+                return fixture("auction-today")
+
+            def close(self):
+                pass
+
+        bridge = tdx.Bridge()
+        fake = FakeConnection()
+        bridge.conn = fake
+        bridge.quote_cache["sh600519"] = {
+            "prevClose": 1350.0,
+            "open": 1351.0,
+            "high": 1352.0,
+            "low": 1349.0,
+            "volume": 100,
+            "amount": 135100.0,
+        }
+        try:
+            quotes = bridge.auction_quotes(["sh600519"])
+            self.assertEqual(len(quotes), 1)
+            quote = quotes[0]
+            self.assertTrue(quote["auction"])
+            self.assertEqual(quote["code"], "sh600519")
+            self.assertAlmostEqual(quote["price"], 1355.0, places=2)
+            self.assertEqual(quote["auctionTime"], "09:20:01")
+            self.assertEqual(quote["updateTime"], 92001)
+            self.assertGreater(quote["price"], 0)
+            # 2 秒缓存：同一批再取一次不应再打服务器
+            bridge.auction_quotes(["sh600519"])
+            self.assertEqual(fake.calls, 1)
+        finally:
+            bridge.close()
+
 
 class TestFileRead(unittest.TestCase):
     def test_file_request(self):

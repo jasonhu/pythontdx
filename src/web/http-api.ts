@@ -9,6 +9,7 @@ import type {
   AppInfo,
   ServerSpeedResult,
   GraphicsInfo,
+  LinuxDesktopResult,
   AppState,
   AuctionArchiveBatchResult,
   AuctionArchiveItem,
@@ -575,6 +576,9 @@ export function createHttpApi(): PythonTdxApi {
         node: '—',
         platform: 'web'
       }),
+      installLinuxDesktop: async (): Promise<LinuxDesktopResult> => {
+        throw new Error('浏览器版没有 Linux 桌面环境，请在 AppImage 桌面端操作')
+      },
       serverSpeedTest: () => post<ServerSpeedResult>('/api/server_speed_test', {}),
       selectServer: (host) => post<{ preferred: string }>('/api/select_server', { host }),
       openExternal: async (url) => {

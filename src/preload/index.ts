@@ -153,6 +153,7 @@ const api: PythonTdxApi = {
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo),
     graphics: () => ipcRenderer.invoke(IPC.appGraphics),
+    installLinuxDesktop: () => ipcRenderer.invoke(IPC.appLinuxDesktop),
     serverSpeedTest: () => ipcRenderer.invoke(IPC.serverSpeedTest),
     selectServer: (host) => ipcRenderer.invoke(IPC.serverSelect, host),
     openExternal: (url) => ipcRenderer.invoke(IPC.appOpenExternal, url),

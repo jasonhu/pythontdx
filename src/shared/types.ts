@@ -95,6 +95,10 @@ export interface Quote {
   time: number
   /** 0x0547 记录内的更新时间原始值；作为下一次增量刷新的游标 */
   updateTime?: number
+  /** true = 竞价阶段由 0x056a 兜底的价格，不是正式成交 */
+  auction?: boolean
+  /** 竞价兜底点的时间 HH:MM:SS */
+  auctionTime?: string
   /** 买一 ~ 买五 */
   bids: OrderLevel[]
   /** 卖一 ~ 卖五 */
@@ -717,6 +721,10 @@ export interface KLineSeries {
   /** network = 通达信实时；cache = 网络失败后的本地缓存 */
   source?: 'network' | 'cache'
   cachePath?: string
+  /** 仅 cacheOnly 探测：本地没有缓存，bars 为空；不是错误 */
+  miss?: boolean
+  /** 主进程增量推送：bars 只是最近 N 根，渲染层需与本地全量合并 */
+  tail?: boolean
 }
 
 export interface DataInventorySection {
@@ -1256,6 +1264,18 @@ export interface AppInfo {
   chrome: string
   node: string
   platform: string
+  /** 是否从 Linux AppImage 启动（设置面板据此显示「修复双击」） */
+  appImage?: boolean
+}
+
+/** Linux AppImage 桌面集成结果（修复「文件管理器双击不启动」）。 */
+export interface LinuxDesktopResult {
+  desktopFile: string
+  launcherScript: string
+  launcherDesktopFile: string
+  mimeAppsFile: string
+  changed: boolean
+  previousHandler: string | null
 }
 
 /** 主进程推送的一帧行情更新 */

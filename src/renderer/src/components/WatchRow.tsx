@@ -38,7 +38,18 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
   const longName = (): boolean => displayName().length > 4
   const tone = (): Tone => toneOf(quote()?.changePct)
   const flash = createValueFlash(() => quote()?.price)
+  const auction = (): boolean => quote()?.auction === true
   const active = (): boolean => appState.activeCode === props.item.code
+  /**
+   * 迷你走势的末点用当前报价替换：官方分时 60 秒才补一次，
+   * 但价格是 1 秒的；这样列表里的线也能跟着跳，不必再打 30 次分时请求。
+   */
+  const sparkValues = (values: number[]): number[] => {
+    const price = quote()?.price
+    if (!price || price <= 0) return values
+    if (values.length === 0) return [price, price]
+    return [...values.slice(0, -1), price]
+  }
 
   /** 落点位置：插到这行前面还是后面 */
   const [dropSide, setDropSide] = createSignal<'before' | 'after' | null>(null)
@@ -110,11 +121,11 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
           <Show when={sparklineOf(props.item.code)}>
             {(data) => (
               <Sparkline
-                values={data().values}
+                values={sparkValues(data().values)}
                 baseline={data().prevClose}
                 width={46}
                 height={22}
-                title="当日分时走势"
+                title="当日分时走势（末点跟随 1 秒报价）"
               />
             )}
           </Show>
@@ -132,8 +143,12 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
         >
           {fixed(quote()?.price)}
         </div>
-        <div class="watch-row__chg num" classList={{ [tone()]: true }}>
-          {signedPct(quote()?.changePct)}
+        <div
+          class="watch-row__chg num"
+          classList={{ [tone()]: !auction(), 'watch-row__chg--auction': auction() }}
+          title={auction() ? `集合竞价虚拟撮合价 ${quote()?.auctionTime ?? ''}` : undefined}
+        >
+          {auction() ? '竞价' : signedPct(quote()?.changePct)}
         </div>
       </div>
 

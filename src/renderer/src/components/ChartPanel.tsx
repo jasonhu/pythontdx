@@ -11,6 +11,7 @@ import {
   createResource,
   createSignal,
   For,
+  on,
   onCleanup,
   Show,
   type JSX
@@ -23,9 +24,20 @@ import type {
   MultiDayTrend
 } from '@shared/types'
 import { fixed, signedPct, thousands, timeOfDay } from '@shared/format'
-import { isIndexCode } from '@shared/market'
+import { isIndexCode, marketSession, shanghaiClock } from '@shared/market'
 import { api, errorMessage } from '../lib/ipc'
 import { subscribePush } from '../lib/push'
+import {
+  applyLiveQuoteToKline,
+  chartRefreshMs,
+  isIntradayPeriod,
+  mergeKlineSeries,
+  quoteTimeSeconds,
+  usableCachedSeries,
+  type LiveTrendTick
+} from '../lib/realtime'
+import { clockNow } from '../stores/clock'
+import { quoteOf } from '../stores/quotes'
 import { downloadText } from '../lib/download'
 import { toCsv } from '@shared/csv'
 import { appState, updateSettings } from '../stores/app'
@@ -88,8 +100,6 @@ const maLegend = (): Array<{ label: string; color: string }> =>
     color: MA_COLORS[index] ?? MA_COLORS[0]
   }))
 
-/** 折线类图表的自动刷新周期（主进程还有 10~60 秒缓存兜底） */
-const REFRESH_MS = 30_000
 /** K 线取多少根 —— 与缩放的最大档位一致：不可能显示比拉回来的更多 */
 /** 一次请求 800 根历史：可见窗口最多 500 根，均线用完整 800 根计算。 */
 const KLINE_COUNT = 800
@@ -117,6 +127,13 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     appState.settings.subIndicator ?? 'none'
   )
   const [logScale, setLogScale] = createSignal(appState.settings.logScale ?? false)
+  /*
+   * 时段信号每秒重算，但只在「交易中/集合竞价/午休/收盘」切换时才通知下游；
+   * 这样刷新间隔会跟着开盘收盘自动变化，又不会每秒重建推送订阅。
+   */
+  const liveSession = createMemo(() => marketSession(new Date(clockNow())))
+  const marketDate = createMemo(() => shanghaiClock(new Date(clockNow())).date)
+  const refreshMs = createMemo(() => chartRefreshMs(tab(), liveSession()))
   const [clearRangeKey, setClearRangeKey] = createSignal(0)
   const [smartPlans, setSmartPlans] = createSignal<SmartDrawingPlan[] | null>(null)
   const [smartLoading, setSmartLoading] = createSignal(false)
@@ -182,6 +199,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     if (saved !== undefined && saved !== logScale()) setLogScale(saved)
   })
   const [pushed, setPushed] = createSignal<ChartData | null>(null)
+  /** 主进程最近一次推送时间；让用户能确认「图确实在刷新」 */
+  const [lastPushAt, setLastPushAt] = createSignal(0)
   const [hover, setHover] = createSignal<TrendHover | null>(null)
   const [subCursor, setSubCursor] = createSignal<number | null>(null)
   const [subWindow, setSubWindow] = createSignal({ start: 0, count: 0, width: 0 })
@@ -195,6 +214,45 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
    */
   const code = createMemo(() => props.code)
   const isTrend = (): boolean => tab() === 'minute' || tab() === 'five'
+  /**
+   * 分时图的「当前秒」轨迹。
+   *
+   * 官方分时接口一分钟才给一个点；这里把 1 秒一次的报价追加成一条
+   * 临时折线，等官方点到达后由 TrendChart 过滤掉，既保证开盘第一秒有图，
+   * 也不会污染历史数据。
+   */
+  const [liveTicks, setLiveTicks] = createSignal<LiveTrendTick[]>([])
+  let liveTickKey = ''
+  createEffect(
+    on([code, () => tab(), marketDate], () => {
+      setLiveTicks([])
+      liveTickKey = ''
+    })
+  )
+  createEffect(() => {
+    const currentTab = tab()
+    if (currentTab !== 'minute' && currentTab !== 'five') return
+    const session = liveSession()
+    if (session !== 'trading' && session !== 'pre-open') return
+    const quote = quoteOf(code())
+    if (!quote || !(quote.price > 0)) return
+    const seconds = quoteTimeSeconds(quote)
+    if (seconds === null || seconds < 9 * 3600 + 30 * 60) return
+    const key = `${seconds}:${quote.price}`
+    if (key === liveTickKey) return
+    liveTickKey = key
+    const tick: LiveTrendTick = {
+      timeSeconds: seconds,
+      price: quote.price,
+      avg: quote.avgPrice && quote.avgPrice > 0 ? quote.avgPrice : quote.price
+    }
+    setLiveTicks((previous) => {
+      const next = [...previous, tick]
+      // 一天 4 小时约 14,400 个秒点；留 6000 个足够覆盖最近 100 分钟，
+      // 更早的部分由官方分钟线接管。
+      return next.length > 6000 ? next.slice(-6000) : next
+    })
+  })
   const [cachedSeries, setCachedSeries] = createSignal<KLineSeries | null>(null)
   const [cachedTrend, setCachedTrend] = createSignal<{
     days: MinuteTrend[]
@@ -258,7 +316,13 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           cacheOnly: true
         })
         .catch(() => null)
-      if (cached && sequence === cacheSequence) setCachedSeries(cached)
+      /*
+       * cacheOnly 在本地没有缓存时返回 miss + 空 bars（不再 reject）。
+       * 空结果只是「首屏没有快照」，不能把它当成可回退的数据源，
+       * 否则网络失败时会拿着一张空图冒充缓存。
+       */
+      const cachedBars = usableCachedSeries(cached)
+      if (cachedBars && sequence === cacheSequence) setCachedSeries(cachedBars)
       try {
         return {
           kind: 'kline',
@@ -271,7 +335,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
         }
       } catch (error) {
         // 离线时缓存就是唯一数据源；不要把已经画出来的图替换成错误页。
-        if (cached) return { kind: 'kline', series: cached }
+        if (cachedBars) return { kind: 'kline', series: cachedBars }
         throw error
       }
     }
@@ -281,7 +345,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     const currentCode = code()
     const currentTab = tab()
     const currentAdjust = adjust()
+    // 时段变化时重新订阅，刷新间隔随开盘/午休/收盘切换
+    const interval = refreshMs()
     setPushed(null)
+    setLastPushAt(0)
     const task =
       currentTab === 'minute'
         ? ({ kind: 'minute', code: currentCode } as const)
@@ -296,9 +363,10 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             } as const)
     const dispose = subscribePush<MinuteTrend | MultiDayTrend | KLineSeries>(
       task,
-      REFRESH_MS,
-      (payload) => {
+      interval,
+      (payload, update) => {
         if (code() !== currentCode || tab() !== currentTab) return
+        setLastPushAt(update.at)
         if (currentTab === 'minute') {
           const trend = payload as MinuteTrend
           writeTrendCache('minute', currentCode, trend)
@@ -308,7 +376,11 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           writeTrendCache('five', currentCode, multi)
           setPushed({ kind: 'trend', days: multi.days })
         } else {
-          setPushed({ kind: 'kline', series: payload as KLineSeries })
+          // 首帧是全量，之后每秒只回最近 20 根；本地保留 800 根历史再合并
+          setPushed({
+            kind: 'kline',
+            series: mergeKlineSeries(klineSeries(), payload as KLineSeries)
+          })
         }
       }
     )
@@ -331,9 +403,19 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     return cachedSeries() ?? undefined
   }
 
+  /**
+   * 显示用 K 线：在官方尾部数据之上，再用最新报价补当前秒的 close/high/low。
+   * 官方 tail 一秒一次，报价也一秒一次；两者谁先到都不会让最后一根停在旧值。
+   */
+  const displaySeries = createMemo(() => {
+    const series = klineSeries()
+    if (!series || isTrend()) return series
+    return applyLiveQuoteToKline(series, quoteOf(code()), tab() as KLinePeriod)
+  })
+
   const rangeInfo = createMemo(() => {
     const stats = rangeStats()
-    const series = klineSeries()
+    const series = displaySeries()
     if (!stats || !series) return null
     const from = Math.max(0, Math.min(series.bars.length - 1, Math.min(stats.start, stats.end)))
     const to = Math.max(0, Math.min(series.bars.length - 1, Math.max(stats.start, stats.end)))
@@ -368,6 +450,23 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     if (!current) return false
     if (current.kind === 'kline') return current.series.bars.length === 0
     return current.days.every((day) => day.points.length === 0)
+  }
+
+  /**
+   * 开盘第一分钟不是「客户端没刷新」：通达信第一根分钟线在 09:31 才出现。
+   * 把提示写清楚，避免用户以为行情断了（2026-11-03 实盘反馈）。
+   */
+  const emptyMessage = (): string => {
+    const current = data()
+    if (current && liveSession() === 'trading') {
+      if (current.kind === 'trend' && tab() === 'minute') {
+        return '开盘首分钟：通达信在 09:31 给出第一根分钟线'
+      }
+      if (current.kind === 'kline' && isIntradayPeriod(tab() as KLinePeriod)) {
+        return '等待首根分钟 K 线（09:31 上屏）'
+      }
+    }
+    return '暂无行情数据（可能停牌或尚未开盘）'
   }
 
   const runSmartDrawings = async (): Promise<void> => {
@@ -778,6 +877,17 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
             </select>
           </Show>
 
+          <Show when={lastPushAt() > 0}>
+            <span
+              class="chart-live-badge"
+              title={`主进程最近一次推送：${timeOfDay(lastPushAt())}；当前刷新间隔 ${Math.round(
+                refreshMs() / 1000
+              )} 秒`}
+            >
+              更新 {timeOfDay(lastPushAt())}
+            </span>
+          </Show>
+
           <Show when={!isTrend() && klineSeries()?.source === 'cache'}>
             <span class="chart-cache-badge" title={klineSeries()?.cachePath ?? '本地缓存'}>
               离线缓存
@@ -952,7 +1062,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
       <div
         class="chart-card__body"
         classList={{
-          'chart-card__body--sub': subIndicator() !== 'none' && klineSeries() !== undefined
+          'chart-card__body--sub': subIndicator() !== 'none' && displaySeries() !== undefined
         }}
       >
         <div class="chart-ma-overlay" classList={{ 'chart-ma-overlay--hidden': hover() !== null }}>
@@ -1005,12 +1115,14 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
           >
             <Show
               when={!isEmpty()}
-              fallback={<div class="chart-empty">暂无行情数据（可能停牌或尚未开盘）</div>}
+              fallback={<div class="chart-empty">{emptyMessage()}</div>}
             >
               <Show when={trendDays()}>
-                {(days) => <TrendChart days={days()} onHover={setHover} />}
+                {(days) => (
+                  <TrendChart days={days()} liveTicks={liveTicks()} onHover={setHover} />
+                )}
               </Show>
-              <Show when={klineSeries()}>
+              <Show when={displaySeries()}>
                 {(series) => (
                   <KLineChart
                     series={series()}
@@ -1037,7 +1149,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                   />
                 )}
               </Show>
-              <Show when={subIndicator() !== 'none' ? klineSeries() : undefined}>
+              <Show when={subIndicator() !== 'none' ? displaySeries() : undefined}>
                 {(series) => (
                   <IndicatorSubchart
                     bars={series().bars}

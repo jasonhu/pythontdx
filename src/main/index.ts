@@ -5,9 +5,9 @@
  *   主进程 = 窗口生命周期 + 网络访问 + 持久化 + 定时器
  *   渲染进程 = 界面与交互，通过 preload 白名单 API 取数
  */
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { app, BrowserWindow, session } from 'electron'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { app, BrowserWindow, dialog, session } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc'
 import { registerIpcHandlers } from './ipc'
@@ -17,6 +17,11 @@ import { fetchPushTask } from './services/push-fetch'
 import { closeTdx, warmTdxBridge } from './services/tdx'
 import { AppStore } from './services/store'
 import { migrateLegacyPortableData, migrateLegacyUserData } from './services/legacy'
+import {
+  installLinuxDesktopIntegration,
+  readAppImageHandler,
+  shouldOfferAppImageFix
+} from './services/linux-desktop'
 import { createMainWindow } from './window'
 import { destroyTray, setupTray } from './tray'
 
@@ -120,9 +125,30 @@ function fallbackVulkanIfUnavailable(): boolean {
 
 configureLinuxGraphics()
 
-/* ----------------------------------------------------------- 单实例锁 */
-// 第二次启动时不再开新窗口，而是把已有窗口拉到前面（行情软件的标准行为）
-if (!app.requestSingleInstanceLock()) {
+/*
+ * AppImage 首次双击仍会被系统当成磁盘镜像，所以给一个不用开窗口的修复入口：
+ *   ./pythontdx-1.1.0.AppImage --install-desktop
+ * 安装完成后同一文件双击即可启动。GUI 首次启动也会询问一次。
+ */
+if (
+  process.argv.includes('--install-desktop') ||
+  app.commandLine.hasSwitch('install-desktop')
+) {
+  app.setName(APP_NAME)
+  app
+    .whenReady()
+    .then(() => installDesktopFromAppImage())
+    .then(() => {
+      console.log('[linux-desktop] 已安装桌面入口与 AppImage 启动器')
+      app.exit(0)
+    })
+    .catch((error) => {
+      console.error('[linux-desktop] 安装失败：', error)
+      app.exit(1)
+    })
+} else if (!app.requestSingleInstanceLock()) {
+  /* --------------------------------------------------------- 单实例锁 */
+  // 第二次启动时不再开新窗口，而是把已有窗口拉到前面（行情软件的标准行为）
   app.quit()
 } else {
   bootstrap()
@@ -169,6 +195,120 @@ function bootstrap(): void {
   })
 
   app.whenReady().then(onReady).catch(console.error)
+}
+
+/* ------------------------------------------------ Linux AppImage 双击修复 */
+/**
+ * 文件管理器双击 AppImage 不启动，通常不是可执行位，而是 MIME 关联被
+ * `gnome-disk-image-mounter.desktop` 接管（见 services/linux-desktop.ts）。
+ *
+ * 只在「打包后的 Linux AppImage + 系统默认仍是磁盘挂载器 + 用户没拒绝过」
+ * 时提示一次；用户点「立即修复」才写配置。不静默改系统关联。
+ */
+const DESKTOP_MARKER = 'linux-desktop.json'
+
+interface DesktopMarker {
+  installedAt?: number
+  declinedAt?: number
+  appImage?: string
+}
+
+function readDesktopMarker(path: string): DesktopMarker {
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as DesktopMarker
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeDesktopMarker(path: string, marker: DesktopMarker): void {
+  try {
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, `${JSON.stringify(marker, null, 2)}\n`, 'utf8')
+  } catch (error) {
+    console.warn('[linux-desktop] 写入标记失败：', error)
+  }
+}
+
+async function installDesktopFromAppImage(): Promise<void> {
+  const appImagePath = process.env.APPIMAGE
+  if (!appImagePath) throw new Error('当前不是 AppImage 启动')
+  const iconPath = process.env.APPDIR
+    ? join(process.env.APPDIR, 'pythontdx.png')
+    : undefined
+  await installLinuxDesktopIntegration({
+    appImagePath,
+    iconPath: iconPath && existsSync(iconPath) ? iconPath : undefined,
+    name: app.getName(),
+    version: app.getVersion()
+  })
+}
+
+async function offerLinuxDesktopFix(window: BrowserWindow): Promise<void> {
+  if (process.platform !== 'linux' || !app.isPackaged || !process.env.APPIMAGE) return
+  if (process.env.PYTHONTDX_NO_DESKTOP_PROMPT === '1') return
+
+  const markerPath = join(app.getPath('userData'), DESKTOP_MARKER)
+  const marker = readDesktopMarker(markerPath)
+
+  // 已经安装过：AppImage 路径变了就静默更新桌面入口，不再弹框
+  if (marker.installedAt) {
+    if (marker.appImage === process.env.APPIMAGE) return
+    try {
+      await installDesktopFromAppImage()
+      writeDesktopMarker(markerPath, {
+        ...marker,
+        installedAt: Date.now(),
+        appImage: process.env.APPIMAGE
+      })
+    } catch (error) {
+      console.warn('[linux-desktop] 更新桌面入口失败：', error)
+    }
+    return
+  }
+  if (marker.declinedAt) return
+
+  const handler = await readAppImageHandler()
+  if (!shouldOfferAppImageFix(handler)) return
+
+  const { response } = await dialog.showMessageBox(window, {
+    type: 'question',
+    title: '修复 AppImage 双击打开',
+    message: '系统当前把 AppImage 当成磁盘镜像，双击不会启动程序',
+    detail:
+      '是否安装一个通用 AppImage 启动器，并把 application/vnd.appimage 的默认打开方式改为它？\n\n' +
+      '这只影响「双击 AppImage」这一种文件；之后仍可从命令行启动。',
+    buttons: ['立即修复', '暂不'],
+    defaultId: 0,
+    cancelId: 1
+  })
+
+  if (response !== 0) {
+    writeDesktopMarker(markerPath, { declinedAt: Date.now() })
+    return
+  }
+
+  try {
+    await installDesktopFromAppImage()
+    writeDesktopMarker(markerPath, {
+      installedAt: Date.now(),
+      appImage: process.env.APPIMAGE
+    })
+    await dialog.showMessageBox(window, {
+      type: 'info',
+      title: '已修复',
+      message: '现在双击 AppImage 会直接启动',
+      detail: '应用菜单里也已加入 pythontdx；如果文件管理器仍缓存旧关联，注销重新登录一次即可。'
+    })
+  } catch (error) {
+    await dialog.showMessageBox(window, {
+      type: 'error',
+      title: '桌面集成失败',
+      message: error instanceof Error ? error.message : String(error),
+      detail: '可以稍后在「设置 → Linux 桌面集成」里重试。'
+    })
+  }
 }
 
 function onReady(): void {
@@ -256,6 +396,14 @@ function onReady(): void {
   })
 
   setupTray(mainWindow)
+
+  // 等首屏画完再问，别让对话框挡住启动；失败只记录日志，不影响行情。
+  const windowForPrompt = mainWindow
+  setTimeout(() => {
+    void offerLinuxDesktopFix(windowForPrompt).catch((error) => {
+      console.warn('[linux-desktop] 检查失败：', error)
+    })
+  }, 1500)
 
   // macOS 点 Dock 图标时重新开窗
   app.on('activate', () => {

@@ -19,6 +19,7 @@ import type {
 import { IPC, type CategoryRequest, type KLineRequest, type TradesRequest } from '@shared/ipc'
 import type { ChartPatternsRequest } from '@shared/patterns'
 import type { AppStore } from './services/store'
+import { installLinuxDesktopIntegration } from './services/linux-desktop'
 import {
   createChartWindow,
   createSecondaryWindow,
@@ -494,13 +495,28 @@ export function registerIpcHandlers(context: IpcContext): void {
     gpuFeatureStatus: app.getGPUFeatureStatus()
   }))
 
+  ipcMain.handle(IPC.appLinuxDesktop, async () => {
+    const appImagePath = process.env.APPIMAGE
+    if (process.platform !== 'linux' || !appImagePath) {
+      throw new Error('桌面集成只在 Linux AppImage 中可用；deb 安装版已自动注册菜单')
+    }
+    const iconPath = process.env.APPDIR ? `${process.env.APPDIR}/pythontdx.png` : undefined
+    return installLinuxDesktopIntegration({
+      appImagePath,
+      iconPath,
+      name: app.getName(),
+      version: app.getVersion()
+    })
+  })
+
   ipcMain.handle(IPC.appInfo, () => ({
     name: app.getName(),
     version: app.getVersion(),
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node,
-    platform: process.platform
+    platform: process.platform,
+    appImage: Boolean(process.env.APPIMAGE)
   }))
 
   ipcMain.handle(IPC.serverSpeedTest, () => speedTestServers())

@@ -106,9 +106,13 @@ export function isIndexCode(code: string): boolean {
 
 const SHANGHAI_PARTS = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
   weekday: 'short',
   hour: '2-digit',
   minute: '2-digit',
+  second: '2-digit',
   hour12: false
 })
 
@@ -120,6 +124,50 @@ export const SESSION_LABEL: Record<MarketSession, string> = {
   'lunch-break': '午间休市',
   closed: '已收盘',
   weekend: '周末休市'
+}
+
+const WEEKDAY_LABEL: Record<string, string> = {
+  Mon: '周一',
+  Tue: '周二',
+  Wed: '周三',
+  Thu: '周四',
+  Fri: '周五',
+  Sat: '周六',
+  Sun: '周日'
+}
+
+export interface ShanghaiClock {
+  /** 北京时间 HH:MM:SS（24 小时制） */
+  time: string
+  /** 北京时间 YYYY-MM-DD */
+  date: string
+  /** 周一 ~ 周日 */
+  weekday: string
+  session: MarketSession
+  sessionLabel: string
+  /** 集合竞价或连续竞价，界面上用这个决定是否显示实时脉冲 */
+  trading: boolean
+}
+
+/**
+ * 主界面时钟：行情软件的时间必须按交易所所在时区显示，不能跟着系统时区漂。
+ * 每秒渲染一次，纯函数便于测试。
+ */
+export function shanghaiClock(now: Date = new Date()): ShanghaiClock {
+  const parts = SHANGHAI_PARTS.formatToParts(now)
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? ''
+  const hour = String(Number(get('hour')) % 24).padStart(2, '0')
+  const minute = get('minute')
+  const second = get('second')
+  const session = marketSession(now)
+  return {
+    time: `${hour}:${minute}:${second}`,
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+    weekday: WEEKDAY_LABEL[get('weekday')] ?? get('weekday'),
+    session,
+    sessionLabel: SESSION_LABEL[session],
+    trading: session === 'trading' || session === 'pre-open'
+  }
 }
 
 /** 粗略判断 A 股当前所处的时段（不含法定节假日，节假日会显示为「已收盘」） */
@@ -137,6 +185,44 @@ export function marketSession(now: Date = new Date()): MarketSession {
   if (hm >= 11 * 60 + 30 && hm < 13 * 60) return 'lunch-break'
   if (hm >= 13 * 60 && hm <= 15 * 60) return 'trading'
   return 'closed'
+}
+
+/** Asia/Shanghai 自 1991 年起不再使用夏令时，固定 +08:00 */
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
+const SESSION_BOUNDARIES: ReadonlyArray<readonly [number, number]> = [
+  [9, 15],
+  [9, 30],
+  [11, 30],
+  [13, 0],
+  [15, 0]
+]
+
+/**
+ * 距离下一次交易时段切换还有多久（毫秒）。
+ *
+ * 行情轮询在午休/收盘会降频到 30 秒；如果恰好在 12:59:30 之后进入低频，
+ * 13:00 开盘可以被拖到 13:00:30 才恢复 1 秒推送。用它把定时器压在时段边界上。
+ * 不处理法定节假日：节假日仍按工作日边界唤醒，最多多拉几帧，不影响正确性。
+ */
+export function msUntilSessionChange(now: Date = new Date()): number {
+  const shanghai = new Date(now.getTime() + SHANGHAI_OFFSET_MS)
+  const year = shanghai.getUTCFullYear()
+  const month = shanghai.getUTCMonth()
+  const day = shanghai.getUTCDate()
+  let best = Number.POSITIVE_INFINITY
+
+  for (let offset = 0; offset < 8; offset += 1) {
+    const date = new Date(Date.UTC(year, month, day + offset))
+    const weekday = date.getUTCDay()
+    if (weekday === 0 || weekday === 6) continue
+    for (const [hour, minute] of SESSION_BOUNDARIES) {
+      const at = Date.UTC(year, month, day + offset, hour, minute) - SHANGHAI_OFFSET_MS
+      const delta = at - now.getTime()
+      if (delta > 500 && delta < best) best = delta
+    }
+  }
+
+  return Number.isFinite(best) ? best : 24 * 60 * 60 * 1000
 }
 
 export function isTradingNow(now: Date = new Date()): boolean {

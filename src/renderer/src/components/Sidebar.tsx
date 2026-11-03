@@ -14,6 +14,8 @@
 import { createEffect, createMemo, createSignal, For, Show, type JSX } from 'solid-js'
 import type { Quote, WatchGroup } from '@shared/types'
 import { fixed, signedPct } from '@shared/format'
+import { isTradingNow } from '@shared/market'
+import { createInterval } from '../lib/dom'
 import {
   appState,
   createGroup,
@@ -183,6 +185,29 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     if (!selection || view() !== 'sector') return
     void loadSectorQuotes(selection)
   })
+
+  /** 板块视图的价格同样要求 1 秒；静默刷新，不闪 loading。 */
+  const refreshSectorQuotes = async (selection: SectorSelection): Promise<void> => {
+    const codes = selection.codes
+    try {
+      for (let start = 0; start < codes.length; start += 120) {
+        const chunk = codes.slice(start, start + 120)
+        if (chunk.length === 0) continue
+        applyQuotes(await api.quote.macQuotes(chunk))
+      }
+    } catch {
+      // 下一拍重试；已有价格继续显示
+    }
+  }
+
+  createInterval(
+    () => {
+      const selection = sector()
+      if (!selection || view() !== 'sector') return
+      void refreshSectorQuotes(selection)
+    },
+    () => (view() === 'sector' && isTradingNow() ? 1000 : 30_000)
+  )
 
   const groupSelection = (group: WatchGroup): SectorSelection => ({
     key: `custom:${group.id}`,

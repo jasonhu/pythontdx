@@ -6,8 +6,8 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：1.1.0** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：319 个 TS 测试 + 172 个 Python 测试（各 1 skipped）·
+**版本：1.2.0** · **许可证：GPL-3.0-or-later** ·
+`npm run check`：359 个 TS 测试 + 175 个 Python 测试（Python 1 skipped）·
 `npm run audit:data`：39/39。
 
 > 1.1.0 正式统一名称为 **pythontdx**；旧 StockLens 的 userData、Python 数据目录、
@@ -124,8 +124,11 @@ pythontdx 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 ### 行情与图表
 
 - 实时行情：通达信 7709 / MAC 批量快照，1 秒级刷新，价格跳变高亮；
+- 标题栏北京时间：秒级时钟、日期/星期/交易时段，集合竞价与连续竞价带脉冲；
 - 分时 / 五日 / 多周期 K：5s、15s、1–60 分钟、2–45 日、日/周/月/季/年；
-- 五档盘口、成交明细、分价表、集合竞价、资金流；
+  交易时段分时与 K 线统一 1 秒刷新，九宫格同步；开盘第一秒用 09:30 基准 +
+  1 秒报价轨迹补线，官方分钟点到达后替换；
+- 五档盘口、成交明细、分价表、集合竞价（最新虚拟撮合价 + 自动跟随）、资金流；
 - K 线均线、BOLL、成交量、MACD/KDJ/RSI 等副图；
 - 线性/对数坐标、缩放、平移、十字光标、区间统计；
 - 画线：趋势线、水平线、垂直线、文字、斐波那契、测量、箭头、平行通道；
@@ -372,6 +375,17 @@ chmod +x release/<version>/pythontdx-<version>.AppImage
 
 deb 可用 `sudo apt install ./release/<version>/pythontdx_<version>_amd64.deb`
 （自动解析依赖），或 `dpkg-deb -x` 解包直接运行。
+
+> **Ubuntu/GNOME 双击 AppImage 没反应？** 不是可执行位问题：系统把
+> `application/vnd.appimage` 默认交给磁盘镜像挂载器，双击只会挂载。
+> 新版首次从 AppImage 启动会询问是否修复；也可以不开窗口直接修：
+>
+> ```bash
+> ./pythontdx-<version>.AppImage --install-desktop
+> ```
+>
+> 或到「设置 → Linux 桌面集成 → 修复双击」。它会安装应用菜单入口，并把该 MIME
+> 的默认打开方式改为通用 AppImage 启动器（详见 `docs/06` 第 43 条）。
 
 ### 4. 产物速查
 

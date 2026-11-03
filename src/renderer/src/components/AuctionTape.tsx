@@ -1,13 +1,14 @@
 /**
  * 集合竞价过程（0x056a）。
  *
- * 当日每 3 秒拉快照；历史日期优先读本地归档（服务器只保留最近交易日），
+ * 当日每 1 秒拉快照；历史日期优先读本地归档（服务器只保留最近交易日），
  * 没有归档才回退实时查询。归档写入数据湖 `lake/auction/trade_date=.../`，
  * 虚拟匹配量不是真实成交，只用于观察竞价过程。
  */
 import { createEffect, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import type { AuctionPoint } from '@shared/types'
-import { fixed, thousands } from '@shared/format'
+import { fixed, thousands, timeOfDay } from '@shared/format'
+import { createValueFlash } from '../lib/dom'
 import { api, errorMessage } from '../lib/ipc'
 import { subscribePush } from '../lib/push'
 
@@ -17,7 +18,7 @@ interface AuctionTapeProps {
 
 type AuctionSource = 'live' | 'archive' | 'none'
 
-const REFRESH_MS = 3000
+const REFRESH_MS = 1000
 
 export function AuctionTape(props: AuctionTapeProps): JSX.Element {
   const [rows, setRows] = createSignal<AuctionPoint[]>([])
@@ -27,8 +28,15 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
   const [source, setSource] = createSignal<AuctionSource>('live')
   const [archiveBusy, setArchiveBusy] = createSignal(false)
   const [archiveNote, setArchiveNote] = createSignal<string | null>(null)
+  const [lastAt, setLastAt] = createSignal(0)
+  /** 用户往上翻看历史点时不要强行拽回底部 */
+  const [stickToBottom, setStickToBottom] = createSignal(true)
+  const latest = () => rows()[rows().length - 1]
+  const flash = createValueFlash(() => latest()?.price)
   let requestId = 0
   let liveDispose: (() => void) | undefined
+  let scroller: HTMLDivElement | undefined
+  let lastKey = ''
 
   const load = async (code: string, tradingDate = date()): Promise<void> => {
     const current = ++requestId
@@ -42,6 +50,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
             setRows(archive.points)
             setSource('archive')
             setError(null)
+            setLastAt(0)
             return
           }
         } catch (cause) {
@@ -55,6 +64,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
       setRows(data)
       setSource(data.length > 0 ? 'live' : 'none')
       setError(null)
+      setLastAt(Date.now())
     } catch (cause) {
       if (current !== requestId) return
       setRows([])
@@ -75,10 +85,11 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
       liveDispose = subscribePush<AuctionPoint[]>(
         { kind: 'auction', code: props.code },
         REFRESH_MS,
-        (data) => {
+        (data, update) => {
           setRows(data)
           setSource(data.length > 0 ? 'live' : 'none')
           setError(null)
+          setLastAt(update.at)
           setLoading(false)
         },
         (message) => {
@@ -94,6 +105,31 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
       liveDispose = undefined
     })
   })
+
+  /*
+   * 竞价过程是从 09:15 顺序增长的；用户看的是「最新一条」，但它在一长串
+   * 历史点的最下面。没有自动滚动时，越活跃的票（科创板常见 150+ 点）
+   * 越像「价格不动了」。这里跟随到底部，用户主动上翻时暂停跟随。
+   */
+  createEffect(() => {
+    const key = `${props.code}:${date()}`
+    rows()
+    if (key !== lastKey) {
+      lastKey = key
+      setStickToBottom(true)
+    }
+    if (!stickToBottom() || !scroller) return
+    const element = scroller
+    queueMicrotask(() => {
+      element.scrollTop = element.scrollHeight
+    })
+  })
+
+  const onScroll = (): void => {
+    if (!scroller) return
+    const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+    setStickToBottom(distance < 28)
+  }
 
   const previousTradingDate = (): string => {
     const value = new Date()
@@ -134,7 +170,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
   const sourceLabel = (): string => {
     if (source() === 'archive') return '本地归档'
     if (date()) return '实时查询'
-    return '每 3 秒'
+    return '每 1 秒'
   }
 
   return (
@@ -144,6 +180,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
         <span>
           {sourceLabel()}
           {date() ? ` · ${date()}` : ''}
+          {lastAt() > 0 ? ` · 更新 ${timeOfDay(lastAt())}` : ''}
         </span>
       </div>
 
@@ -190,6 +227,42 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
         )}
       </Show>
 
+      {/*
+        竞价页签最常看的是「现在虚拟撮合到多少」，但它在一长串历史点的末尾。
+        顶部固定一条最新读数，列表再自动跟随到底部，避免误以为价格没刷新。
+      */}
+      <Show when={latest()}>
+        {(point) => (
+          <div class="auction__latest" data-testid="auction-latest">
+            <div class="auction__latest-main">
+              <span class="auction__latest-label">最新</span>
+              <span
+                class="auction__latest-price num"
+                classList={{
+                  'auction__latest-price--up': flash() === 'up',
+                  'auction__latest-price--down': flash() === 'down'
+                }}
+              >
+                {fixed(point().price)}
+              </span>
+              <span class="auction__latest-time num">{point().time}</span>
+            </div>
+            <div class="auction__latest-meta">
+              <span>匹配 {thousands(point().matchedVolume)}</span>
+              <span
+                classList={{
+                  'tone-up': point().unmatchedDirection > 0,
+                  'tone-down': point().unmatchedDirection < 0
+                }}
+              >
+                未匹配 {thousands(point().unmatchedVolume)}
+              </span>
+              <span>虚拟撮合</span>
+            </div>
+          </div>
+        )}
+      </Show>
+
       <div class="auction__head">
         <span>时间</span>
         <span class="auction__num">价格</span>
@@ -197,7 +270,14 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
         <span class="auction__num">未匹配</span>
       </div>
 
-      <div class="auction__rows">
+      <div
+        class="auction__rows"
+        data-testid="auction-rows"
+        ref={(element: HTMLDivElement) => {
+          scroller = element
+        }}
+        onScroll={onScroll}
+      >
         <For each={rows()}>
           {(point) => (
             <div class="auction__row" title={`${point.time} · 虚拟撮合快照`}>

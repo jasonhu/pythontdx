@@ -4,7 +4,9 @@ import {
   isIndexCode,
   joinCode,
   marketSession,
+  msUntilSessionChange,
   normalizeCode,
+  shanghaiClock,
   splitCode
 } from './market'
 
@@ -153,5 +155,50 @@ describe('marketSession（A 股交易时段）', () => {
     expect(marketSession(new Date('2026-09-21T02:00:00Z'))).toBe(
       marketSession(new Date('2026-09-21T10:00:00+08:00'))
     )
+  })
+})
+
+describe('shanghaiClock（主界面北京时间）', () => {
+  it('固定按东八区输出日期、时间与星期', () => {
+    const clock = shanghaiClock(new Date('2026-11-03T04:34:05Z'))
+    expect(clock.time).toBe('12:34:05')
+    expect(clock.date).toBe('2026-11-03')
+    expect(clock.weekday).toBe('周二')
+    expect(clock.session).toBe('lunch-break')
+    expect(clock.sessionLabel).toBe('午间休市')
+    expect(clock.trading).toBe(false)
+  })
+
+  it('集合竞价与连续竞价标记为 trading', () => {
+    expect(shanghaiClock(new Date('2026-11-03T01:20:00Z')).trading).toBe(true)
+    expect(shanghaiClock(new Date('2026-11-03T02:00:00Z')).session).toBe('trading')
+  })
+
+  it('午夜不能显示成 24 点', () => {
+    const clock = shanghaiClock(new Date('2026-11-02T16:00:01Z'))
+    expect(clock.time).toBe('00:00:01')
+    expect(clock.date).toBe('2026-11-03')
+  })
+})
+
+describe('msUntilSessionChange（定时器对齐交易时段）', () => {
+  it('午休末尾会精确对齐 13:00', () => {
+    // 2026-11-02 是周一，12:59:30 北京时间 = 04:59:30Z
+    expect(msUntilSessionChange(new Date('2026-11-02T04:59:30Z'))).toBe(30_000)
+  })
+
+  it('午休中段不会为了边界空转，仍返回真实间隔', () => {
+    // 11:30 刚收盘，下一次边界是 13:00；这里只验证下一个边界是 13:00
+    expect(msUntilSessionChange(new Date('2026-11-02T03:30:00Z'))).toBe(90 * 60_000)
+  })
+
+  it('收盘后跨过周末指向周一 09:15', () => {
+    // 2026-11-06 周五 15:30 北京时间 = 07:30Z；下一个边界是周一 09:15
+    const ms = msUntilSessionChange(new Date('2026-11-06T07:30:00Z'))
+    expect(ms).toBe((2 * 24 + 17 + 45 / 60) * 60 * 60_000)
+  })
+
+  it('开盘前 1 秒指向 09:15', () => {
+    expect(msUntilSessionChange(new Date('2026-11-02T01:14:59Z'))).toBe(1000)
   })
 })

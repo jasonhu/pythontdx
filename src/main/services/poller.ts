@@ -7,7 +7,7 @@
  *  3. 将来要多窗口/托盘常驻时，只需要一个数据源。
  */
 import type { Quote, QuoteUpdate } from '@shared/types'
-import { isTradingNow } from '@shared/market'
+import { isTradingNow, msUntilSessionChange } from '@shared/market'
 import { fetchQuotes } from './tdx'
 
 /** 非交易时段的降频下限：再快也没意义，还容易被上游限流 */
@@ -82,10 +82,16 @@ export class QuotePoller {
 
   private schedule(delay?: number): void {
     if (this.timer) clearTimeout(this.timer)
+    /*
+     * 午休/收盘会把间隔降到 30 秒；如果低频定时器恰好在 12:59:30 之后
+     * 才醒，13:00 开盘会被拖到 13:00:30 才恢复 1 秒推送。把下一次唤醒
+     * 压在交易时段边界上（最多等 0.25 秒），开盘/集合竞价不再迟到。
+     */
+    const wait = delay ?? Math.min(this.effectiveInterval(), msUntilSessionChange() + 250)
     this.timer = setTimeout(() => {
       this.timer = null
       void this.tick(false)
-    }, delay ?? this.effectiveInterval())
+    }, wait)
   }
 
   private async tick(force: boolean): Promise<void> {

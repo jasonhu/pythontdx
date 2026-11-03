@@ -73,6 +73,7 @@ import { api } from './lib/ipc'
 import { createSparklineLoader } from './stores/sparklines'
 import { dismissLatestAlert, hydrateAlertEvents, latestAlert } from './stores/alerts'
 import { startScreenTracking } from './stores/screenTracking'
+import { startClock } from './stores/clock'
 
 export default function App(): JSX.Element {
   const [rankingOpen, setRankingOpen] = createSignal(false)
@@ -111,6 +112,7 @@ export default function App(): JSX.Element {
       applyQuotes(loadCachedQuotes())
       hydrateAlertEvents()
     })
+    startClock()
     startScreenTracking()
     startAutoArchive()
     initWindowSync()
@@ -173,6 +175,28 @@ export default function App(): JSX.Element {
   }
 
   createQuoteStream(quoteCodes, () => appState.settings.refreshInterval)
+
+  /*
+   * 从搜索结果/排行榜选中一只不在自选里的股票时，行情流要等下一拍才回来，
+   * 这段时间主区会停在空态，看起来像「点不开」。这里主动补一次快照，
+   * 让行情头立刻出现；行情流随后会用同一份数据覆盖，不会多出第二套状态。
+   */
+  createEffect(() => {
+    const code = activeQuoteCode()
+    if (!appReady() || !code || quoteOf(code)) return
+    let cancelled = false
+    void api.quote
+      .snapshot([code])
+      .then((quotes) => {
+        if (!cancelled) applyQuotes(quotes)
+      })
+      .catch(() => {
+        // 失败时行情流仍会按自己的节奏重试，不在这里弹错
+      })
+    onCleanup(() => {
+      cancelled = true
+    })
+  })
 
   // 自选股行内迷你走势图：并发受限地补齐并定期刷新
   createSparklineLoader(() => (appReady() ? watchCodes() : []))

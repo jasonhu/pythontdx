@@ -302,7 +302,7 @@ export function RankingPanel(props: RankingPanelProps): JSX.Element {
           start: 0,
           count: 80
         },
-        10_000,
+        1000,
         (data) => {
           if (expanded() || sort().label !== active.label) return
           setRows(data)

@@ -34,6 +34,26 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
   const [displays, setDisplays] = createSignal<DisplayInfo[]>([])
   const [displayError, setDisplayError] = createSignal<string | null>(null)
   const [movingDisplay, setMovingDisplay] = createSignal<number | null>(null)
+  const [desktopBusy, setDesktopBusy] = createSignal(false)
+  const [desktopNote, setDesktopNote] = createSignal<string | null>(null)
+
+  const installLinuxDesktop = async (): Promise<void> => {
+    if (desktopBusy()) return
+    setDesktopBusy(true)
+    setDesktopNote(null)
+    try {
+      const result = await api.app.installLinuxDesktop()
+      setDesktopNote(
+        result.changed
+          ? '已安装桌面入口，并把双击 AppImage 改为直接运行'
+          : '桌面入口已是最新，无需重复安装'
+      )
+    } catch (cause) {
+      setDesktopNote(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setDesktopBusy(false)
+    }
+  }
 
   const loadDisplays = async (): Promise<void> => {
     try {
@@ -401,6 +421,28 @@ export function SettingsPanel(props: { onClose: () => void }): JSX.Element {
               {graphics()?.wayland ? 'Wayland 会话' : 'X11 / Web'}
             </span>
           </div>
+
+          <Show when={appInfo()?.platform === 'linux' && appInfo()?.appImage}>
+            <div class="settings__row settings__row--desktop">
+              <div>
+                <div class="settings__label">Linux 桌面集成</div>
+                <div class="settings__hint">
+                  文件管理器默认把 AppImage 当磁盘镜像，双击不会启动。这里安装桌面入口，
+                  并把双击 AppImage 的默认行为改为直接运行。
+                </div>
+                <Show when={desktopNote()}>
+                  {(message) => <div class="settings__desktop-note">{message()}</div>}
+                </Show>
+              </div>
+              <button
+                class="btn settings__desktop-install"
+                disabled={desktopBusy()}
+                onClick={() => void installLinuxDesktop()}
+              >
+                {desktopBusy() ? '安装中…' : '修复双击'}
+              </button>
+            </div>
+          </Show>
 
           <div class="settings__row settings__row--server">
             <div>

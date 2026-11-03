@@ -7,12 +7,32 @@
  *   · 周期只放基础档：日/周/月/60/30/15/5/1 分钟。
  * 纯展示，不引入第二套数据源。
  */
-import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
-import type { KLineBar, KLinePeriod, MinuteTrend, Quote } from '@shared/types'
-import { compactVolume, fixed, signedPct } from '@shared/format'
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  on,
+  onCleanup,
+  onMount,
+  Show,
+  type JSX
+} from 'solid-js'
+import type { KLineBar, KLinePeriod, KLineSeries, MinuteTrend, Quote } from '@shared/types'
+import { compactVolume, fixed, timeOfDay, signedPct } from '@shared/format'
+import { marketSession } from '@shared/market'
 import { appState, moveWatchItem } from '../stores/app'
 import { quoteOf } from '../stores/quotes'
-import { api, errorMessage } from '../lib/ipc'
+import { clockNow } from '../stores/clock'
+import { api } from '../lib/ipc'
+import { subscribePush } from '../lib/push'
+import {
+  applyLiveQuoteToKline,
+  mergeKlineSeries,
+  multiRefreshMs,
+  quoteTimeSeconds,
+  tradingSlot
+} from '../lib/realtime'
 import { IconClose } from './Icons'
 
 interface MultiStockPanelProps {
@@ -247,10 +267,13 @@ function MiniKline(props: MiniKlineProps): JSX.Element {
 }
 
 /** 单格分时：价格线 + 均价线 + 量 + 昨收基准，右对齐到最新 */
-function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
+function MiniMinute(props: {
+  trend: MinuteTrend
+  live?: { price: number; timeSeconds: number }
+}): JSX.Element {
   const view = () => {
     const points = props.trend.points.slice(0, DAY_POINTS)
-    if (points.length === 0) return null
+    if (points.length === 0 && !props.live) return null
     // 主站的 avg 字段是差分编码，不同股票/市场口径不一致；这里用「累计成交额/累计量」重算 VWAP
     const avgSeries: number[] = []
     let cumulativeVolume = 0
@@ -264,7 +287,10 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
       ...point,
       avg: avgSeries[index] ?? point.price
     }))
-    const base = props.trend.prevClose > 0 ? props.trend.prevClose : visible[0].price
+    const base =
+      props.trend.prevClose > 0
+        ? props.trend.prevClose
+        : (visible[0]?.price ?? props.live?.price ?? 0)
     let diff = 0
     let volMax = 0
     for (const point of visible) {
@@ -294,6 +320,15 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
         top: ((PAD + (index / 4) * (PRICE_H - PAD * 2)) / H) * 100
       }
     })
+    const live =
+      props.live && props.live.price > 0
+        ? {
+            x: PAD + Math.min(DAY_POINTS, tradingSlot(props.live.timeSeconds)) * step,
+            y: yOf(props.live.price),
+            startX: visible.length > 0 ? xOf(visible.length - 1) : PAD,
+            startY: visible.length > 0 ? yOf(visible[visible.length - 1].price) : yOf(base)
+          }
+        : null
     return {
       visible,
       pricePath,
@@ -303,6 +338,7 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
       yOf,
       xOf,
       axisTicks,
+      live,
       baseline: props.trend.prevClose > 0 ? yOf(props.trend.prevClose) : null
     }
   }
@@ -357,6 +393,21 @@ function MiniMinute(props: { trend: MinuteTrend }): JSX.Element {
             stroke="var(--accent)"
             stroke-width="1.2"
           />
+          <Show when={data().live}>
+            {(live) => (
+              <g class="multi-min__live">
+                <path
+                  d={`M${live().startX.toFixed(1)} ${live().startY.toFixed(
+                    1
+                  )} L${live().x.toFixed(1)} ${live().y.toFixed(1)}`}
+                  fill="none"
+                  stroke="var(--accent)"
+                  stroke-width="1.2"
+                />
+                <circle cx={live().x} cy={live().y} r="2" fill="var(--accent)" />
+              </g>
+            )}
+          </Show>
           <For each={data().visible}>
             {(point, index) => (
               <rect
@@ -401,7 +452,8 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
   const [cards, setCards] = createSignal<Card[]>([])
   const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string | null>(null)
-  let requestId = 0
+  const [updatedAt, setUpdatedAt] = createSignal(0)
+  const liveSession = createMemo(() => marketSession(new Date(clockNow())))
 
   const sourceGroup = () =>
     appState.groups.find((group) => group.id === sourceId()) ?? appState.groups[0]
@@ -409,77 +461,105 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
   const pageCount = () => Math.max(1, Math.ceil(allItems().length / 9))
   const sourceItems = () => allItems().slice(page() * 9, page() * 9 + 9)
   const count = () => ZOOM_LEVELS[zoom()] ?? 60
+  /** 只按代码序列重建九宫格，行情改名/报价对象变化不会让九张图重新订阅 */
+  const codeKey = createMemo(() => sourceItems().map((item) => item.code).join('|'))
 
-  const load = async (nextPeriod: Period): Promise<void> => {
-    const current = ++requestId
-    setPeriod(nextPeriod)
-    setLoading(true)
-    setError(null)
-    const items = sourceItems()
-    if (items.length === 0) {
-      setCards([])
-      setLoading(false)
-      return
-    }
-    const loaded = await Promise.all(
-      items.map(async (item): Promise<Card> => {
-        try {
-          if (nextPeriod === 'minute') {
-            const trend = await api.trend.minute(item.code)
-            return {
-              code: item.code,
-              name: item.name,
-              market: item.market,
-              bars: [],
-              minute: trend
-            }
-          }
-          const series = await api.trend.kline({
-            code: item.code,
-            period: nextPeriod as KLinePeriod,
-            count: FETCH_COUNT
-          })
-          return {
-            code: item.code,
-            name: item.name,
-            market: item.market,
-            bars: series.bars
-          }
-        } catch (cause) {
-          return {
-            code: item.code,
-            name: item.name,
-            market: item.market,
-            bars: [],
-            error: errorMessage(cause)
-          }
-        }
-      })
-    )
-    if (current !== requestId) return
-    // 7709 快照没有量比；补一次 MAC 批量报价，顶部数据行才完整
-    try {
-      const quotes = await api.quote.macQuotes(loaded.map((card) => card.code))
-      const byCode = new Map(quotes.map((quote) => [quote.code, quote]))
-      for (const card of loaded) card.quote = byCode.get(card.code)
-    } catch {
-      // 行情补字段失败不影响 K 线/分时主体
-    }
-    if (current !== requestId) return
-    setCards([...loaded])
-    setLoading(false)
+  const applyCard = (code: string, patch: Partial<Card>): void => {
+    setCards((current) => current.map((card) => (card.code === code ? { ...card, ...patch } : card)))
   }
 
-  createEffect(() => {
-    // 来源 / 页码 / 周期变化时重新拉；load 内部 setPeriod 同一个值不会触发循环
-    sourceId()
-    page()
-    // 拖动排序后 items 顺序变化，需要重新铺九格
-    allItems()
-      .map((item) => item.code)
-      .join('|')
-    void load(period())
-  })
+  /*
+   * 九宫格实时刷新。
+   *
+   * 以前这里只 load 一次，开面板后所有图就冻住了；现在每张图各订阅一个
+   * 主进程推送任务，按交易时段自动 3 秒（分时）/10 秒（K 线）刷新。
+   * 周期、页码、来源、交易时段变化时整体重建订阅；卡片内部数据增量更新，
+   * 不会让 9 张图一起闪骨架。
+   */
+  createEffect(
+    on([codeKey, period, liveSession], () => {
+      const items = sourceItems()
+      const currentPeriod = period()
+      const interval = multiRefreshMs(currentPeriod, liveSession())
+      setCards(
+        items.map((item) => ({
+          code: item.code,
+          name: item.name,
+          market: item.market,
+          bars: []
+        }))
+      )
+      setLoading(items.length > 0)
+      setError(null)
+      setUpdatedAt(0)
+      if (items.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      const remaining = new Set(items.map((item) => item.code))
+      const markLoaded = (code: string): void => {
+        remaining.delete(code)
+        if (remaining.size === 0) setLoading(false)
+      }
+
+      const disposers = items.map((item) =>
+        subscribePush<MinuteTrend | KLineSeries>(
+          currentPeriod === 'minute'
+            ? { kind: 'minute', code: item.code }
+            : {
+                kind: 'kline',
+                code: item.code,
+                period: currentPeriod as KLinePeriod,
+                count: FETCH_COUNT,
+                adjust: appState.settings.klineAdjust ?? 'qfq'
+              },
+          interval,
+          (payload, update) => {
+            if (currentPeriod === 'minute') {
+              applyCard(item.code, { minute: payload as MinuteTrend, error: undefined })
+            } else {
+              const incoming = payload as KLineSeries
+              const card = cards().find((entry) => entry.code === item.code)
+              const base: KLineSeries | null = card
+                ? {
+                    code: item.code,
+                    period: currentPeriod as KLinePeriod,
+                    bars: card.bars
+                  }
+                : null
+              applyCard(item.code, {
+                bars: mergeKlineSeries(base, incoming).bars,
+                error: undefined
+              })
+            }
+            setUpdatedAt(update.at)
+            markLoaded(item.code)
+          },
+          (message) => {
+            applyCard(item.code, { error: message })
+            markLoaded(item.code)
+          }
+        )
+      )
+
+      // 顶部数据行的量比/换手仍来自 MAC 批量报价；只拉一次，不跟图表抢队列
+      void api.quote
+        .macQuotes(items.map((item) => item.code))
+        .then((quotes) => {
+          const byCode = new Map(quotes.map((quote) => [quote.code, quote]))
+          for (const item of items) {
+            const quote = byCode.get(item.code)
+            if (quote) applyCard(item.code, { quote })
+          }
+        })
+        .catch(() => {
+          // 行情补字段失败不影响 K 线/分时主体
+        })
+
+      onCleanup(() => disposers.forEach((dispose) => dispose()))
+    })
+  )
 
   onMount(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -592,12 +672,40 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                 <div class="multi__grid">
                   <For each={cards()}>
                     {(card, index) => {
-                      const quote = () => card.quote ?? quoteOf(card.code)
+                      const quote = () => quoteOf(card.code) ?? card.quote
+                      const liveMinute = () => {
+                        const current = quote()
+                        if (!current || !(current.price > 0)) return undefined
+                        const seconds = quoteTimeSeconds(current)
+                        return seconds === null ? undefined : { price: current.price, timeSeconds: seconds }
+                      }
                       const minutePoints = () => card.minute?.points ?? []
+                      const minuteTrend = (): MinuteTrend =>
+                        card.minute ?? {
+                          code: card.code,
+                          name: card.name,
+                          date: '',
+                          prevClose: quote()?.prevClose ?? 0,
+                          points: []
+                        }
+                      /** 官方 tail 之外，再用 1 秒报价补最后一根 K 线 */
+                      const liveBars = () => {
+                        const current = quote()
+                        if (period() === 'minute' || !current) return card.bars
+                        return applyLiveQuoteToKline(
+                          {
+                            code: card.code,
+                            period: period() as KLinePeriod,
+                            bars: card.bars
+                          },
+                          current,
+                          period() as KLinePeriod
+                        ).bars
+                      }
                       const lastPrice = () =>
                         period() === 'minute'
                           ? (minutePoints()[minutePoints().length - 1]?.price ?? 0)
-                          : (card.bars[card.bars.length - 1]?.close ?? 0)
+                          : (liveBars()[liveBars().length - 1]?.close ?? 0)
                       const changePct = () => {
                         if (period() === 'minute') {
                           const points = minutePoints()
@@ -605,7 +713,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                           const base = card.minute?.prevClose ?? 0
                           return tail && base > 0 ? ((tail.price - base) / base) * 100 : 0
                         }
-                        const bars = card.bars
+                        const bars = liveBars()
                         const tail = bars[bars.length - 1]
                         const prev = bars[bars.length - 2]
                         if (!tail || !prev || prev.close === 0) return 0
@@ -614,7 +722,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                       const lastDate = () =>
                         period() === 'minute'
                           ? (card.minute?.date ?? '')
-                          : (card.bars[card.bars.length - 1]?.date ?? '')
+                          : (liveBars()[liveBars().length - 1]?.date ?? '')
                       const price = () => quote()?.price ?? lastPrice()
                       const change = () => quote()?.changePct ?? changePct()
                       const delta = () => {
@@ -626,7 +734,7 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                       const lastVolume = () =>
                         period() === 'minute'
                           ? (minutePoints()[minutePoints().length - 1]?.volume ?? 0)
-                          : (card.bars[card.bars.length - 1]?.volume ?? 0)
+                          : (liveBars()[liveBars().length - 1]?.volume ?? 0)
                       const turnover = () =>
                         quote()?.turnoverRate === undefined
                           ? '—'
@@ -722,8 +830,8 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                             <Show
                               when={
                                 period() === 'minute'
-                                  ? minutePoints().length > 0
-                                  : card.bars.length > 0
+                                  ? minutePoints().length > 0 || liveMinute() !== undefined
+                                  : liveBars().length > 0
                               }
                               fallback={
                                 <div class="multi-card__state">
@@ -733,9 +841,9 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
                             >
                               <Show
                                 when={period() === 'minute'}
-                                fallback={<MiniKline bars={card.bars} count={count()} />}
+                                fallback={<MiniKline bars={liveBars()} count={count()} />}
                               >
-                                <MiniMinute trend={card.minute!} />
+                                <MiniMinute trend={minuteTrend()} live={liveMinute()} />
                               </Show>
                             </Show>
                           </div>
@@ -755,7 +863,13 @@ export function MultiStockPanel(props: MultiStockPanelProps): JSX.Element {
               ? '点击卡片切换主图 · 分时固定全天，不支持缩放'
               : '点击卡片切换主图 · ↑ 放大 / ↓ 缩小，9 张同步'}
           </span>
-          <span>周期：{PERIODS.find((item) => item.key === period())?.label}</span>
+          <span>
+            周期：{PERIODS.find((item) => item.key === period())?.label}
+            <Show when={updatedAt() > 0}>
+              {' '}
+              · 更新 {timeOfDay(updatedAt())}
+            </Show>
+          </span>
         </footer>
       </section>
     </div>

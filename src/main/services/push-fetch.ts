@@ -4,14 +4,14 @@ import {
   fetchAuctions,
   fetchCategoryQuotes,
   fetchFiveDayTrend,
-  fetchKline,
+  fetchKlineLive,
   fetchMacMoneyFlow,
   fetchMinuteTrend,
   fetchMoneyFlow,
   fetchTrades
 } from './tdx'
 
-export async function fetchPushTask(task: PushTask): Promise<unknown> {
+export async function fetchPushTask(task: PushTask, first = false): Promise<unknown> {
   switch (task.kind) {
     case 'category':
       return fetchCategoryQuotes({
@@ -37,11 +37,15 @@ export async function fetchPushTask(task: PushTask): Promise<unknown> {
       ])
       return { flow, mac }
     }
+    // 面板订阅是「实时推送」，必须绕过主进程 TTL 缓存；否则 10s/60s
+    // 缓存会把 1s 一推变成 1s 一读旧值，用户看到的就是「不刷新」。
+    // 首帧给全量，之后每秒只回最近 20 根，渲染层合并；否则 9 张图
+    // 每秒各传 800 根会把 IPC/HTTP 打满。
     case 'kline':
-      return fetchKline(task.code, task.period, task.count, task.adjust)
+      return fetchKlineLive(task.code, task.period, task.count, task.adjust, first)
     case 'minute':
-      return fetchMinuteTrend(task.code)
+      return fetchMinuteTrend(task.code, undefined, true)
     case 'fiveDay':
-      return fetchFiveDayTrend(task.code)
+      return fetchFiveDayTrend(task.code, undefined, true)
   }
 }

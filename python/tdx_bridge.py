@@ -3192,6 +3192,12 @@ class Bridge:
         self.industry_cache: tuple[float, dict] | None = None
         self.zhb_cache: tuple[float, bytes, dict, int] | None = None
         self.screen_cache: tuple[float, list[dict]] | None = None
+        # 分时接口每次都要先查两日日线拿 date/prevClose；1 秒一推时这段是
+        # 纯重复请求。30 秒缓存足够覆盖一个交易日内的基准，跨日会自然过期。
+        self.minute_daily_cache: dict[str, tuple[float, list[dict]]] = {}
+        # 竞价阶段左侧栏兜底：没有 0x0547/0x054c 报价的代码，用 0x056a
+        # 最后一笔虚拟撮合价补上，避免自选行显示「—」。
+        self.auction_quote_cache: dict[str, tuple[float, dict]] = {}
         # 0x0547 增量刷新：每只代码的下一游标，以及最后一次完整报价。
         # 服务端对“没有新成交”的代码返回 0 条；调用方仍需拿到上一帧。
         self.quote_cursors: dict[str, int] = {}
@@ -4105,6 +4111,76 @@ class Bridge:
             except TdxError:
                 pass
         return points
+
+    def auction_quotes(self, codes: list[str]) -> list[dict]:
+        """竞价阶段给自选/行情头兜底：返回每只票最后一个虚拟撮合点。
+
+        0x0547/0x054c 在 09:15–09:25 对部分代码（科创板尤其明显）可能没有
+        记录或价格为 0；这里直接用 0x056a 的最后一根补一个最小 Quote。
+        prevClose/open/high/low 优先复用当天已有的 quote_cache，没有就只给价格。
+        2 秒缓存：竞价快照本身约 3 秒一个点，1 秒轮询不必每次都打服务器。
+        """
+        now = time.time()
+        received_at = int(now * 1000)
+        results: list[dict] = []
+        for raw in codes:
+            code = str(raw).strip().lower()
+            if not code:
+                continue
+            cached = self.auction_quote_cache.get(code)
+            if cached and cached[0] > now:
+                results.append(cached[1])
+                continue
+            try:
+                market, symbol = parse_code(code)
+                body = self.conn.request(
+                    CMD_AUCTION,
+                    auction_data(market, symbol, None, 0, 0, AUCTION_LIMIT),
+                )
+                points = parse_auctions(body)
+            except Exception:  # noqa: BLE001 - 单只失败不拖垮整批
+                continue
+            if not points:
+                continue
+            last = points[-1]
+            price = float(last.get("price") or 0)
+            if price <= 0:
+                continue
+            base = self.quote_cache.get(code, {})
+            prev_close = float(base.get("prevClose") or 0)
+            open_price = float(base.get("open") or 0) or price
+            high = max(float(base.get("high") or 0), price)
+            low = min(float(base.get("low") or price), price)
+            seconds = int(last.get("timeSeconds") or 0)
+            hour, minute, second = seconds // 3600, seconds % 3600 // 60, seconds % 60
+            quote = {
+                "code": code,
+                "symbol": symbol,
+                "name": self._name(code, symbol),
+                "market": MARKET_NAMES[market],
+                "price": price,
+                "prevClose": prev_close,
+                "open": open_price,
+                "high": high,
+                "low": low,
+                "change": price - prev_close if prev_close > 0 else 0.0,
+                "changePct": (price - prev_close) / prev_close * 100
+                if prev_close > 0
+                else 0.0,
+                "volume": int(base.get("volume") or 0),
+                "amount": float(base.get("amount") or 0),
+                "currency": "CNY",
+                "time": received_at,
+                "receivedAt": received_at,
+                "updateTime": hour * 10000 + minute * 100 + second,
+                "auction": True,
+                "auctionTime": str(last.get("time") or ""),
+                "bids": [],
+                "asks": [],
+            }
+            self.auction_quote_cache[code] = (now + 2, quote)
+            results.append(quote)
+        return results
 
     def auction_archive_save(
         self, code: str, trading_date: str | None = None
@@ -5058,7 +5134,15 @@ class Bridge:
                     "source": "cache",
                     "cachePath": str(full_path),
                 }
-            raise TdxError("本地没有对应 K 线缓存")
+            # 首屏「只读缓存」是正常探测：没缓存不是错误，不能把 IPC 变成
+            # rejected promise（Electron 会把每次 miss 都打成 handler 异常）。
+            return {
+                "code": code,
+                "period": period,
+                "bars": [],
+                "source": "cache",
+                "miss": True,
+            }
         try:
             body = self.conn.request(
                 CMD_BARS,
@@ -5337,17 +5421,32 @@ class Bridge:
 
     def minute(self, code: str) -> dict:
         market, symbol = parse_code(code)
-        daily = self._raw_daily(code, 2, market, symbol)
+        today = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
+        cached = self.minute_daily_cache.get(code)
+        if cached and cached[0] > time.time() and cached[1] == today:
+            daily = cached[2]
+        else:
+            daily = self._raw_daily(code, 2, market, symbol)
+            self.minute_daily_cache[code] = (time.time() + 30, today, daily)
         last = daily[-1] if daily else None
         previous = daily[-2] if len(daily) >= 2 else None
+
+        # 09:30 第一秒时今天的日线可能还没生成：daily 最后一根是昨天。
+        # 不能拿「昨天-前天」当昨收，否则第一根分时的涨跌幅/坐标全错。
+        has_today = bool(last and last["date"] == today)
+        prev_close = (
+            previous["close"]
+            if has_today and previous
+            else (last["close"] if last else 0.0)
+        )
 
         body = self.conn.request(CMD_MINUTE, minute_data(market, symbol))
         return parse_today_minute(
             body,
             code=code,
             name=self._name(code, symbol),
-            date=last["date"] if last else "",
-            prev_close=previous["close"] if previous else (last["open"] if last else 0.0),
+            date=today,
+            prev_close=prev_close,
             decimal=self._decimal(code),
         )
 
@@ -5435,6 +5534,8 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             start=int(payload.get("start", 0)),
             limit=int(payload.get("limit", AUCTION_LIMIT)),
         )
+    if cmd == "auction_quotes":
+        return bridge.auction_quotes(payload.get("codes") or [])
     if cmd == "auction_archive_save":
         return bridge.auction_archive_save(
             str(payload.get("code") or ""), payload.get("date") or None

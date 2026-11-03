@@ -4,9 +4,8 @@
 import { createEffect, createSignal, For, onCleanup, Show, type JSX } from 'solid-js'
 import type { MarketBreadth } from '@shared/types'
 import { SESSION_LABEL, marketSession } from '@shared/market'
-import { relativeFrom, timeOfDay } from '@shared/format'
+import { hhmmssLabel, relativeFrom, timeOfDay } from '@shared/format'
 import { scheduleBreadth } from '../lib/breadth'
-import { createInterval } from '../lib/dom'
 import { api } from '../lib/ipc'
 import {
   exportWatchlist,
@@ -23,6 +22,7 @@ import {
   watchCodes
 } from '../stores/app'
 import { connection, lastUpdateAt, quoteOf, refreshQuotes, streamError } from '../stores/quotes'
+import { clockNow } from '../stores/clock'
 import { IconRefresh } from './Icons'
 
 const INTERVAL_OPTIONS = [
@@ -43,16 +43,11 @@ export function StatusBar(props: {
   onOpenShortcuts: () => void
   onOpenMarketReport: () => void
 }): JSX.Element {
-  // 每秒走一次，让「N 秒前」「当前时段」保持鲜活
-  const [now, setNow] = createSignal(Date.now())
+  // 和标题栏共用同一个 1 秒时钟，避免两个定时器各走各的
   const [notice, setNotice] = createSignal<string | null>(null)
   const [breadth, setBreadth] = createSignal<MarketBreadth | null>(null)
   const [format, setFormat] = createSignal<'json' | 'csv'>('json')
   let fileInput: HTMLInputElement | undefined
-  createInterval(
-    () => setNow(Date.now()),
-    () => 1000
-  )
 
   const loadBreadth = async (): Promise<void> => {
     try {
@@ -108,7 +103,7 @@ export function StatusBar(props: {
   }
 
   const quote = () => quoteOf(activeQuoteCode())
-  const session = () => marketSession(new Date(now()))
+  const session = () => marketSession(new Date(clockNow()))
 
   return (
     <footer class="statusbar">
@@ -133,7 +128,11 @@ export function StatusBar(props: {
       <Show when={quote()}>
         {(current) => (
           <span class="statusbar__text num">
-            行情 {timeOfDay(current().time)} · {relativeFrom(lastUpdateAt() || Date.now(), now())}
+            行情{' '}
+            {current().updateTime !== undefined
+              ? hhmmssLabel(current().updateTime)
+              : timeOfDay(current().time)}{' '}
+            · {relativeFrom(lastUpdateAt() || Date.now(), clockNow())}
           </span>
         )}
       </Show>

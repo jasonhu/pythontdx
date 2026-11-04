@@ -4919,6 +4919,33 @@ class Bridge:
         """7615 频道资讯。"""
         return fetch_channel_news(channel, page, page_size, "1", keyword)
 
+    def f10_channel_news_archive_save(
+        self,
+        channel: int = 201,
+        page: int = 1,
+        page_size: int = 50,
+        keyword: str = "",
+    ) -> dict:
+        rows = self.f10_channel_news(channel, page, page_size, keyword)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            "channel": channel,
+            "rows": len(rows),
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "channel_news",
+                "channel_news",
+                rows,
+                source=f"TDX 7615 CWServ.tdxi_zxxwnews channel={channel}",
+                trade_date=trade_date,
+                fields=["id", "title", "date", "summary", "source", "url"],
+            ),
+        }
+
+    def f10_channel_news_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "channel_news", limit
+        )
+
     def f10_market_news_archive_save(
         self, tab: int = 3, page: int = 1, page_size: int = 50
     ) -> dict:
@@ -6877,6 +6904,15 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             int(payload.get("pageSize", 50)),
             str(payload.get("keyword") or ""),
         )
+    if cmd == "f10_channel_news_archive_save":
+        return bridge.f10_channel_news_archive_save(
+            int(payload.get("channel", 201)),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 50)),
+            str(payload.get("keyword") or ""),
+        )
+    if cmd == "f10_channel_news_archive_list":
+        return bridge.f10_channel_news_archive_list(int(payload.get("limit", 50)))
     if cmd == "f10_market_news_archive_save":
         return bridge.f10_market_news_archive_save(
             int(payload.get("tab", 3)),

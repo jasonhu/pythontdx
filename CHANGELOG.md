@@ -71,6 +71,8 @@ pythontdx 的所有重要变更都记录在这里。
   `/api/dataset_archive_read`，可按 dataset + trade_date 读取通用 JSONL 归档。
 - **板块/指数/大盘归档**：新增 `lake/f10_market` 与
   `/api/f10_market_report_archive_save`、`/api/f10_market_report_archives`。
+- **频道资讯归档**：新增 `lake/channel_news` 与
+  `/api/f10_channel_news_archive_save`、`/api/f10_channel_news_archives`。
 - **7615 F10 补充分区**：新增最新提示 8 分区（含投资者互动）、全市场资讯首页、
   盈利预测/治理/排名明细/北向持仓；个股结果继续写 `lake/f10_pit`，
   资讯可写 `lake/market_news`。

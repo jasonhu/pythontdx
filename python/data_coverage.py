@@ -43,6 +43,7 @@ def collect_data_coverage(root: Path) -> dict:
         _scan(base, "f10_detail", ("lake/f10_detail/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "f10_market", ("lake/f10_market/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "market_news", ("lake/market_news/**/*.jsonl.gz",), "trade_date"),
+        _scan(base, "channel_news", ("lake/channel_news/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "server_files", ("lake/server_files/**/catalog.json",), "snapshot_date"),
         _scan(base, "server_meta", ("lake/server_meta/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "quotes", ("lake/quotes/**/*",), "trade_date"),

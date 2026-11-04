@@ -832,6 +832,25 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/f10_channel_news_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_channel_news_archive_save(
+                            int(payload.get("channel", 201)),
+                            int(payload.get("page", 1)),
+                            int(payload.get("pageSize", 50)),
+                            str(payload.get("keyword") or ""),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_channel_news_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_channel_news_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_market_news_archive_save":
                 with self.server.lock:
                     self._ok(

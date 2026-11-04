@@ -85,6 +85,7 @@ from kline_manifest import write_kline_manifest
 from server_catalog import list_server_catalogs, write_server_catalog
 from protocol_archive import list_dataset_archives, write_dataset_archive
 from delisted_archive import list_delisted_archives, write_delisted_archive
+from adjust_factors import apply_factors, build_factors
 from tick_archive import (
     TickArchiveError,
     latest_tick_archive,
@@ -5760,6 +5761,53 @@ class Bridge:
             pythontdx_data_dir() / "lake" / "corporate", limit
         )
 
+    def adjustment_factors(
+        self,
+        code: str,
+        anchor_date: str | None = None,
+        start_date: str | None = None,
+    ) -> dict:
+        """0x000f 标签 1 事件 → 本地 qfq/hfq 仿射系数。"""
+        result = self.capital_changes([code])
+        factors = build_factors(
+            result["records"], anchor_date=anchor_date, start_date=start_date
+        )
+        return {
+            "code": code,
+            "anchorDate": anchor_date,
+            "startDate": start_date,
+            "count": len(factors),
+            "factors": factors,
+        }
+
+    def local_adjust_kline(
+        self,
+        code: str,
+        period: str = "day",
+        adjust: str = "qfq",
+        count: int = 800,
+    ) -> dict:
+        """不复权 K 线 + 本地权息系数，得到可审计的复权结果。"""
+        if adjust not in {"qfq", "hfq"}:
+            raise TdxError("本地复权只支持 qfq / hfq")
+        raw = self.kline(code, period, count, "none")
+        bars = raw.get("bars") or []
+        if not bars:
+            return {**raw, "bars": [], "adjust": adjust, "factors": []}
+        start_date = str(bars[0]["date"])[:10]
+        anchor_date = str(bars[-1]["date"])[:10]
+        factors = build_factors(
+            self.capital_changes([code])["records"],
+            anchor_date=anchor_date,
+            start_date=start_date,
+        )
+        return {
+            **raw,
+            "bars": apply_factors(bars, factors, adjust),
+            "adjust": adjust,
+            "factors": factors,
+        }
+
     # -- 特殊涨跌停 / 退市 K 线 -------------------------------------------
 
     def special_limits(self, start_index: int = 0) -> dict:
@@ -6771,6 +6819,19 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.capital_archive_save(list(payload.get("codes") or []))
     if cmd == "capital_archive_list":
         return bridge.capital_archive_list(int(payload.get("limit", 50)))
+    if cmd == "adjustment_factors":
+        return bridge.adjustment_factors(
+            str(payload.get("code") or ""),
+            payload.get("anchorDate") or None,
+            payload.get("startDate") or None,
+        )
+    if cmd == "local_adjust_kline":
+        return bridge.local_adjust_kline(
+            str(payload.get("code") or ""),
+            str(payload.get("period") or "day"),
+            str(payload.get("adjust") or "qfq"),
+            int(payload.get("count", 800)),
+        )
     if cmd == "special_limits":
         return bridge.special_limits(int(payload.get("startIndex", 0)))
     if cmd == "scan_special_limits":

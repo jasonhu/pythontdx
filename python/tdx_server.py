@@ -357,6 +357,27 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/adjustment_factors":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.adjustment_factors(
+                            query.get("code", ""),
+                            query.get("anchorDate") or None,
+                            query.get("startDate") or None,
+                        )
+                    )
+                return
+            if parsed.path == "/api/local_adjust_kline":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.local_adjust_kline(
+                            query.get("code", ""),
+                            query.get("period", "day"),
+                            query.get("adjust", "qfq"),
+                            int(query.get("count", "800")),
+                        )
+                    )
+                return
             if parsed.path == "/api/special_limits":
                 with self.server.lock:
                     self._ok(

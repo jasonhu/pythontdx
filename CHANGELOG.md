@@ -50,6 +50,8 @@ pythontdx 的所有重要变更都记录在这里。
   新增 `/api/minute_archive_save`、`/api/minute_archives`。
 - **分类行情归档**：`0x054b` 全量分页快照写 `lake/category_quotes`，
   新增 `/api/category_snapshot`、`/api/category_archive_save`、`/api/category_archives`。
+- **本地复权系数**：按 `0x000f` 标签 1 权息事件计算 qfq/hfq 仿射系数，
+  新增 `/api/adjustment_factors`、`/api/local_adjust_kline`；附公式单测。
 - **7615 F10 补充分区**：新增最新提示 8 分区（含投资者互动）、全市场资讯首页、
   盈利预测/治理/排名明细/北向持仓；个股结果继续写 `lake/f10_pit`，
   资讯可写 `lake/market_news`。

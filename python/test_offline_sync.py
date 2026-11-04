@@ -219,6 +219,29 @@ class TestPlanAndShard(unittest.TestCase):
                 )
                 self.assertEqual(plan2["skipped"], 1)
 
+    def test_kline_1m_missing_manifest_is_repaired(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = (
+                root
+                / "lake"
+                / "kline_1m"
+                / "trade_date=2026-11-04"
+                / "sh600000.parquet"
+            )
+            target.parent.mkdir(parents=True)
+            write_bars(
+                target,
+                "sh600000",
+                [{"date": "2026-11-04 09:31", "open": 1.0, "close": 1.0, "high": 1.0, "low": 1.0, "volume": 1.0, "amount": 1.0}],
+            )
+            self.assertTrue(
+                offline_sync._already_archived(
+                    {"dataset": "kline_1m", "code": "sh600000"}, root
+                )
+            )
+            self.assertTrue((target.parent / "sh600000.parquet.manifest.json").is_file())
+
     def test_kline_1m_old_complete_false_is_still_skipped(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

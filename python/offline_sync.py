@@ -878,8 +878,35 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
 
         target = root / "lake" / "kline_1m" / f"trade_date={day}" / f"{code}.parquet"
         meta = manifest_path(target)
-        if not target.is_file() or not meta.is_file():
+        if not target.is_file():
             return False
+        if not meta.is_file():
+            # 旧版本/中断可能已原子写完 parquet 但没来得及写 manifest。
+            # 读回校验并补 manifest，避免每次把整只 100 日重新抓一遍。
+            try:
+                from parquet_store import read_bars
+                from kline_manifest import write_kline_manifest
+
+                bars = read_bars(target).get("bars") or []
+                if not bars:
+                    return False
+                write_kline_manifest(
+                    target,
+                    {
+                        "code": code,
+                        "period": "1m",
+                        "adjust": "none",
+                        "source": "repaired manifest from parquet",
+                        "rows": len(bars),
+                        "firstDate": bars[0].get("date"),
+                        "lastDate": bars[-1].get("date"),
+                        "complete": True,
+                        "scope": "recent",
+                    },
+                )
+                return True
+            except Exception:
+                return False
         try:
             payload = json.loads(meta.read_text("utf-8"))
             # 1m 是滚动窗口：文件+manifest+rows 有效就跳过。旧版本把

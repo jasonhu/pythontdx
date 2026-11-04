@@ -5,9 +5,9 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `7709 / MAC / 7615`
 
-**v1.4.0-rc16** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
+**v1.4.0-rc17** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
 
-`npm run check` **359 TS（357 通过 / 2 skipped）+ 282 Python（281 通过 / 1 skipped）**
+`npm run check` **359 TS（357 通过 / 2 skipped）+ 283 Python（282 通过 / 1 skipped）**
 
 [GitHub Releases](https://github.com/riverzhou/pythontdx/releases) ·
 [数据并行同步](docs/18-离线数据并行同步.md) ·
@@ -242,7 +242,7 @@ python -m pytest python -q
 npm run audit:data
 ```
 
-当前基线：**359 TS（357 通过 / 2 skipped）+ 282 Python（281 通过 / 1 skipped）**。
+当前基线：**359 TS（357 通过 / 2 skipped）+ 283 Python（282 通过 / 1 skipped）**。
 协议测试使用 `python/fixtures/` 真实报文；MAC/GBBQ/gpcw/离线同步均有独立单测。
 
 ---

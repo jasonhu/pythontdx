@@ -27,7 +27,8 @@ pythontdx 的所有重要变更都记录在这里。
 - **日 K 缓存按最近交易日刷新**：skipExisting 不再把上一交易日的日 K 永久跳过。
 - **1m 重复下载**：旧 1m manifest 把「服务端只有 92 日」写成 `complete=false`，
   导致每次跳过检查失败；现在 1m 只要有文件+manifest+rows 就跳过，新归档写
-  `complete=true`。
+  `complete=true`。旧版中断留下的「有 parquet、无 manifest」会读回 Parquet 补写
+  manifest，不再整只重抓。
 - **进度条完成态**：失败任务也计入已处理，`completed` 时进度条画满，不再卡在 97%。
 - **任务摘要耗时/数据集**：摘要显示总耗时（startedAt→finishedAt），
   每数据集完成数修正（worker 的 `ok` 正确映射到 `done`，不再显示 —）。

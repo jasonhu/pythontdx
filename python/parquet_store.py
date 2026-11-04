@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import csv
 import hashlib
 import os
 import threading
@@ -105,25 +106,33 @@ def _sql_path(path: Path) -> str:
 
 
 def _write(target: Path, rows: list[dict[str, Any]], types: tuple) -> Path:
-    """原子写 Parquet；.part 文件名不会被 DuckDB 的 *.parquet 匹配。"""
+    """原子写 Parquet；.part 文件名不会被 DuckDB 的 *.parquet 匹配。
+
+    为什么先写 CSV：DuckDB 逐行 executemany/多行 INSERT 每 2.2 万行要 4 秒，
+    全市场 1m 会被写盘拖到几小时；CSV staging + COPY 实测约 0.1 秒/文件。
+    """
     duckdb = _duckdb()
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(
-        f".{target.name}.{os.getpid()}.{threading.get_ident()}.part"
-    )
+    token = f"{os.getpid()}.{threading.get_ident()}"
+    temporary = target.with_name(f".{target.name}.{token}.part")
+    csv_temp = target.with_name(f".{target.name}.{token}.csv.part")
     columns = ", ".join(f"{name} {kind}" for name, kind in types)
-    placeholders = ", ".join("?" for _ in types)
-    row_placeholder = f"({placeholders})"
     names = [name for name, _ in types]
-    values = [tuple(row.get(name) for name in names) for row in rows]
     connection = duckdb.connect(":memory:")
     try:
+        def cell(value: Any) -> Any:
+            return "" if value is None else value
+
+        with csv_temp.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerows(
+                [[cell(row.get(name)) for name in names] for row in rows]
+            )
         connection.execute(f"CREATE TABLE data ({columns})")
-        # DuckDB 的 executemany 逐行开销很大；批量多行 INSERT 快一个数量级。
-        for start in range(0, len(values), 500):
-            chunk = values[start : start + 500]
-            sql = "INSERT INTO data VALUES " + ", ".join([row_placeholder] * len(chunk))
-            connection.execute(sql, [value for row in chunk for value in row])
+        connection.execute(
+            f"COPY data FROM '{_sql_path(csv_temp)}' "
+            f"(FORMAT CSV, HEADER false, NULL '')"
+        )
         connection.execute(
             f"COPY data TO '{_sql_path(temporary)}' "
             f"(FORMAT PARQUET, COMPRESSION ZSTD)"
@@ -132,6 +141,10 @@ def _write(target: Path, rows: list[dict[str, Any]], types: tuple) -> Path:
         raise ParquetStoreError(f"Parquet 写入失败：{error}") from error
     finally:
         connection.close()
+        try:
+            csv_temp.unlink()
+        except OSError:
+            pass
     temporary.replace(target)
     return target
 

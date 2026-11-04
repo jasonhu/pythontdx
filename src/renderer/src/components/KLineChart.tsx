@@ -18,7 +18,7 @@ import {
   type JSX
 } from 'solid-js'
 import type { ChartDrawing, KLineSeries } from '@shared/types'
-import { fixed, signedPct, thousands } from '@shared/format'
+import { fixed, signedPct, thousands, compactAmount } from '@shared/format'
 import { boll } from '@shared/indicators'
 import { evaluateFormula } from '@shared/formula'
 import { ruleConditions } from '@shared/alerts'
@@ -1844,6 +1844,12 @@ export function KLineChart(props: KLineChartProps): JSX.Element {
               <span class="chart-tooltip__label">成交量</span>
               <span class="num">{thousands(current().bar.volume)} 手</span>
             </div>
+            <Show when={(current().bar.amount ?? 0) > 0}>
+              <div class="chart-tooltip__row">
+                <span class="chart-tooltip__label">成交额</span>
+                <span class="num">{compactAmount(current().bar.amount)} 元</span>
+              </div>
+            </Show>
             <For each={current().averages}>
               {(average) => (
                 <div class="chart-tooltip__row">

@@ -237,7 +237,8 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
     const quote = quoteOf(code())
     if (!quote || !(quote.price > 0)) return
     const seconds = quoteTimeSeconds(quote)
-    if (seconds === null || seconds < 9 * 3600 + 30 * 60) return
+    // 集合竞价也要从 09:15 开始刷新主图；09:15 之前没有撮合价，不画。
+    if (seconds === null || seconds < 9 * 3600 + 15 * 60) return
     const key = `${seconds}:${quote.price}`
     if (key === liveTickKey) return
     liveTickKey = key
@@ -246,12 +247,9 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
       price: quote.price,
       avg: quote.avgPrice && quote.avgPrice > 0 ? quote.avgPrice : quote.price
     }
-    setLiveTicks((previous) => {
-      const next = [...previous, tick]
-      // 一天 4 小时约 14,400 个秒点；留 6000 个足够覆盖最近 100 分钟，
-      // 更早的部分由官方分钟线接管。
-      return next.length > 6000 ? next.slice(-6000) : next
-    })
+    // 分时实时段只保留「当前这一秒」：每次报价重画一条从最后官方分钟点
+    // 到当前价的短线，而不是把一整天/一整分钟的 tick 叠成越来越粗的轨迹。
+    setLiveTicks([tick])
   })
   const [cachedSeries, setCachedSeries] = createSignal<KLineSeries | null>(null)
   const [cachedTrend, setCachedTrend] = createSignal<{
@@ -498,8 +496,18 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
       downloadText(
         `pythontdx-${props.code}-${series.period}.csv`,
         toCsv(
-          ['日期', '开盘', '最高', '最低', '收盘', '成交量(手)'],
-          series.bars.map((bar) => [bar.date, bar.open, bar.high, bar.low, bar.close, bar.volume])
+          ['日期', '开盘', '最高', '最低', '收盘', '成交量(手)', '成交额(元)', '上涨家数', '下跌家数'],
+          series.bars.map((bar) => [
+            bar.date,
+            bar.open,
+            bar.high,
+            bar.low,
+            bar.close,
+            bar.volume,
+            bar.amount ?? '',
+            bar.upCount ?? '',
+            bar.downCount ?? ''
+          ])
         )
       )
       return

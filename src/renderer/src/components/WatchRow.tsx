@@ -22,6 +22,7 @@ import {
 } from '../stores/app'
 import { quoteOf } from '../stores/quotes'
 import { sparklineOf } from '../stores/sparklines'
+import { openStockMenu } from '../stores/stockMenu'
 import { IconClose } from './Icons'
 import { Sparkline } from './Sparkline'
 
@@ -109,7 +110,10 @@ export function WatchRow(props: WatchRowProps): JSX.Element {
         setDropSide(null)
       }}
       onClick={() => setActiveCode(props.item.code)}
-      title={`${displayName()} ${props.item.code.toUpperCase()}（可拖拽排序）`}
+      onContextMenu={(event) =>
+        openStockMenu(event, { code: props.item.code, name: displayName() })
+      }
+      title={`${displayName()} ${props.item.code.toUpperCase()}（可拖拽排序，右键加入自定义板块）`}
     >
       <div class="watch-row__main">
         <div class="watch-row__name">{displayName()}</div>

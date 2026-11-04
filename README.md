@@ -511,6 +511,7 @@ docs/assets/       README 截图
 | [docs/09-官方客户端功能清单.md](docs/09-官方客户端功能清单.md) | 功能矩阵               |
 | [docs/12-数据覆盖审计.md](docs/12-数据覆盖审计.md)             | 数据清单、schema、审计 |
 | [docs/13-技术分析算法.md](docs/13-技术分析算法.md)             | Python/TS 算法边界     |
+| [docs/14-eltdx数据能力调研.md](docs/14-eltdx数据能力调研.md)   | 协议/数据能力对比与增强 |
 
 工程规则见 [AGENTS.md](AGENTS.md)、[PRINCIPLES.md](PRINCIPLES.md)、
 [PLAN.md](PLAN.md) 和 [CHANGELOG.md](CHANGELOG.md)。

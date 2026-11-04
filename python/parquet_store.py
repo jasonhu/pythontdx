@@ -29,7 +29,17 @@ def _duckdb():
     return duckdb
 
 
-BAR_COLUMNS = ("date", "open", "close", "high", "low", "volume")
+BAR_COLUMNS = (
+    "date",
+    "open",
+    "close",
+    "high",
+    "low",
+    "volume",
+    "amount",
+    "upCount",
+    "downCount",
+)
 TICK_COLUMNS = (
     "index",
     "timeSeconds",
@@ -52,6 +62,9 @@ _BAR_TYPES = (
     ("high", "DOUBLE"),
     ("low", "DOUBLE"),
     ("volume", "DOUBLE"),
+    ("amount", "DOUBLE"),
+    ("upCount", "BIGINT"),
+    ("downCount", "BIGINT"),
 )
 _TICK_TYPES = (
     ("code", "VARCHAR"),
@@ -105,14 +118,29 @@ def _write(target: Path, rows: list[dict[str, Any]], types: tuple) -> Path:
 
 def _read(target: Path, columns: tuple[str, ...]) -> list[dict[str, Any]]:
     duckdb = _duckdb()
-    projection = ", ".join(columns)
     connection = duckdb.connect(":memory:")
     try:
+        # 旧缓存没有 amount 列；按实际 schema 投影并给缺失字段补 None，
+        # 不能因为一次列升级就让用户已有的 Parquet 全部读不出来。
+        description = connection.execute(
+            f"DESCRIBE SELECT * FROM read_parquet('{_sql_path(target)}')"
+        ).fetchall()
+        available = {row[0] for row in description}
+        present = [name for name in columns if name in available]
+        if not present:
+            return []
+        projection = ", ".join(present)
         result = connection.execute(
             f"SELECT {projection} FROM read_parquet('{_sql_path(target)}')"
         )
         names = [item[0] for item in result.description]
-        return [dict(zip(names, row)) for row in result.fetchall()]
+        rows = []
+        for values in result.fetchall():
+            row = dict(zip(names, values))
+            for name in columns:
+                row.setdefault(name, None)
+            rows.append(row)
+        return rows
     except Exception as error:  # noqa: BLE001 - 统一成可读错误
         raise ParquetStoreError(f"Parquet 读取失败：{error}") from error
     finally:

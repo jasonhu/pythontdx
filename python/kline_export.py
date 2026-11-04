@@ -24,10 +24,12 @@ def write_kline_export(
         csv_path = root / f"{base}.csv"
         with csv_path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["date", "open", "high", "low", "close", "volume"])
+            writer.writerow(
+                ["date", "open", "high", "low", "close", "volume", "amount", "upCount", "downCount"]
+            )
             for bar in bars:
                 writer.writerow(
-                    [bar.get("date", ""), bar.get("open", ""), bar.get("high", ""), bar.get("low", ""), bar.get("close", ""), bar.get("volume", "")]
+                    [bar.get("date", ""), bar.get("open", ""), bar.get("high", ""), bar.get("low", ""), bar.get("close", ""), bar.get("volume", ""), bar.get("amount", ""), bar.get("upCount", ""), bar.get("downCount", "")]
                 )
         jsonl_path = root / f"{base}.jsonl.gz"
         with gzip.open(jsonl_path, "wt", encoding="utf-8") as handle:

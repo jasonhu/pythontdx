@@ -162,7 +162,21 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   const totalCount = (): number =>
     appState.groups.reduce((sum, group) => sum + group.items.length, 0)
 
-  /** 板块成分股不在自选订阅里，得按代码批量补一次 MAC 报价 */
+  /**
+   * 板块成分股不在自选订阅里，按 120 只一批补报价。
+   * 优先走 0x054c 快照（和行情头/主图同一套竞价兜底），失败再退 MAC。
+   * 只走 MAC 时，集合竞价阶段部分代码会停在昨收，左栏就不刷新了。
+   */
+  const loadSectorBatch = async (codes: string[]): Promise<Quote[]> => {
+    try {
+      const quotes = await api.quote.snapshot(codes)
+      if (quotes.length > 0) return quotes
+    } catch {
+      // 继续走 MAC 兜底
+    }
+    return api.quote.macQuotes(codes)
+  }
+
   const loadSectorQuotes = async (selection: SectorSelection): Promise<void> => {
     setSectorLoading(true)
     setSectorError(null)
@@ -171,7 +185,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       for (let start = 0; start < codes.length; start += 120) {
         const chunk = codes.slice(start, start + 120)
         if (chunk.length === 0) continue
-        applyQuotes(await api.quote.macQuotes(chunk))
+        applyQuotes(await loadSectorBatch(chunk))
       }
     } catch (cause) {
       setSectorError(errorMessage(cause))
@@ -193,7 +207,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       for (let start = 0; start < codes.length; start += 120) {
         const chunk = codes.slice(start, start + 120)
         if (chunk.length === 0) continue
-        applyQuotes(await api.quote.macQuotes(chunk))
+        applyQuotes(await loadSectorBatch(chunk))
       }
     } catch {
       // 下一拍重试；已有价格继续显示

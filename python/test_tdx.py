@@ -829,6 +829,10 @@ class TestBars(unittest.TestCase):
         self.assertAlmostEqual(bars[4]["open"], 1349.99, places=2)
         self.assertAlmostEqual(bars[4]["close"], 1354.0, places=2)
         self.assertAlmostEqual(bars[4]["volume"], 42992.0, delta=0.5)
+        self.assertGreater(bars[4]["amount"], 0)
+        self.assertAlmostEqual(
+            bars[4]["amount"] / (bars[4]["close"] * bars[4]["volume"] * 100), 1.0, delta=0.05
+        )
 
     def test_week_bars(self):
         bars = tdx.parse_bars(fixture("bars-week3"), "stock")
@@ -843,6 +847,11 @@ class TestBars(unittest.TestCase):
             ["2026-10-27", "2026-10-28", "2026-10-29"],
         )
         self.assertAlmostEqual(bars[2]["close"], 3651.43, places=2)
+        self.assertIn("upCount", bars[0])
+        self.assertIn("downCount", bars[0])
+        self.assertGreaterEqual(bars[0]["upCount"], 0)
+        self.assertGreaterEqual(bars[0]["downCount"], 0)
+        self.assertGreater(bars[0]["amount"], 0)
 
 
 class TestMinutes(unittest.TestCase):

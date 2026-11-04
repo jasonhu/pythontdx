@@ -23,7 +23,15 @@ class TestKlineCache(unittest.TestCase):
 
     def test_write_and_read_cache(self):
         bars = [
-            {"date": "2026-10-30", "open": 10, "high": 11, "low": 9, "close": 10.5, "volume": 100}
+            {
+                "date": "2026-10-30",
+                "open": 10,
+                "high": 11,
+                "low": 9,
+                "close": 10.5,
+                "volume": 100,
+                "amount": 105000,
+            }
         ]
         path = tdx_bridge._write_kline_cache("sh600519", "day", 30, "qfq", bars, "network")
         self.assertTrue(Path(path).exists())
@@ -31,6 +39,7 @@ class TestKlineCache(unittest.TestCase):
         self.assertIsNotNone(cached)
         self.assertEqual(cached["source"], "cache")
         self.assertEqual(cached["bars"][0]["close"], 10.5)
+        self.assertEqual(cached["bars"][0]["amount"], 105000)
 
     def test_missing_cache_returns_none(self):
         self.assertIsNone(tdx_bridge._read_kline_cache("sh600519", "day", 99, "qfq"))

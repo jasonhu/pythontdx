@@ -2421,22 +2421,30 @@ def parse_bars(body: bytes, kind: str, period_raw: int = 4) -> list[dict]:
         open_raw = base + open_diff
         close_raw = open_raw + close_diff
         volume_raw = _u32(body, pos)
-        _u32(body, pos + 4)  # amount
+        amount_raw = _u32(body, pos + 4)
         pos += 8
+        up_count = None
+        down_count = None
         if kind == "index":
+            up_count = _u16(body, pos)
+            down_count = _u16(body, pos + 2)
             pos += 4
 
         volume = decode_volume(volume_raw)
-        bars.append(
-            {
-                "date": date_text,
-                "open": open_raw / 1000,
-                "close": close_raw / 1000,
-                "high": (open_raw + high_diff) / 1000,
-                "low": (open_raw + low_diff) / 1000,
-                "volume": volume / 100,
-            }
-        )
+        amount = decode_volume(amount_raw)
+        bar = {
+            "date": date_text,
+            "open": open_raw / 1000,
+            "close": close_raw / 1000,
+            "high": (open_raw + high_diff) / 1000,
+            "low": (open_raw + low_diff) / 1000,
+            "volume": volume / 100,
+            "amount": amount,
+        }
+        if kind == "index":
+            bar["upCount"] = up_count
+            bar["downCount"] = down_count
+        bars.append(bar)
         base = close_raw
 
     return bars

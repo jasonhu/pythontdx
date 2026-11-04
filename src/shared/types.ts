@@ -712,6 +712,12 @@ export interface KLineBar {
   low: number
   /** 成交量（手） */
   volume: number
+  /** 成交额（元）；0.9.x 旧缓存没有该列，读取后可能为 undefined */
+  amount?: number
+  /** 指数 K 线的上涨家数；个股/旧缓存为 undefined */
+  upCount?: number
+  /** 指数 K 线的下跌家数；个股/旧缓存为 undefined */
+  downCount?: number
 }
 
 export interface KLineSeries {

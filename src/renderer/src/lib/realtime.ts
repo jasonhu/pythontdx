@@ -150,7 +150,8 @@ export function applyLiveQuoteToKline(
           high: period === 'day' && quote.high > 0 ? Math.max(price, quote.high) : price,
           low: period === 'day' && quote.low > 0 ? Math.min(price, quote.low) : price,
           close: price,
-          volume: period === 'day' ? quote.volume : 0
+          volume: period === 'day' ? quote.volume : 0,
+          ...(period === 'day' ? { amount: quote.amount } : {})
         }
       ]
     }
@@ -169,7 +170,8 @@ export function applyLiveQuoteToKline(
       close: price,
       high,
       low,
-      ...(volume === undefined ? {} : { volume })
+      ...(volume === undefined ? {} : { volume }),
+      ...(period === 'day' ? { amount: quote.amount } : {})
     }
   }
 
@@ -191,7 +193,8 @@ export function applyLiveQuoteToKline(
           high: period === 'day' && quote.high > 0 ? Math.max(price, quote.high) : price,
           low: period === 'day' && quote.low > 0 ? Math.min(price, quote.low) : price,
           close: price,
-          volume: period === 'day' ? quote.volume : 0
+          volume: period === 'day' ? quote.volume : 0,
+          ...(period === 'day' ? { amount: quote.amount } : {})
         }
       ]
     }

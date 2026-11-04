@@ -100,6 +100,7 @@ def verify_data_integrity(root: Path) -> dict:
         _verify_generic(root, "category_quotes", "lake/category_quotes/**/manifest.json"),
         _verify_generic(root, "market_news", "lake/market_news/**/manifest.json"),
         _verify_generic(root, "f10_detail", "lake/f10_detail/**/manifest.json"),
+        _verify_generic(root, "f10_market", "lake/f10_market/**/manifest.json"),
     ]
     return {
         "ok": all(item["failed"] == 0 for item in checks),

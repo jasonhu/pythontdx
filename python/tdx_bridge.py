@@ -4951,6 +4951,45 @@ class Bridge:
     ) -> dict:
         return fetch_market_report(code, section, arg, page, page_size)
 
+    def f10_market_report_archive_save(
+        self,
+        code: str = "",
+        section: str = "board_info",
+        arg: str = "",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict:
+        result = self.f10_market_report(code, section, arg, page, page_size)
+        rows: list[dict] = []
+        for table_index, table in enumerate(result.get("tables") or []):
+            columns = table.get("columns") or []
+            for row_index, row in enumerate(table.get("rows") or []):
+                rows.append(
+                    {
+                        "code": code,
+                        "section": section,
+                        "tableIndex": table_index,
+                        "rowIndex": row_index,
+                        **{str(columns[i]): value for i, value in enumerate(row) if i < len(columns)},
+                    }
+                )
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            **result,
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "f10_market",
+                "f10_market",
+                rows,
+                source=f"TDX 7615 skef10 section={section}",
+                trade_date=trade_date,
+            ),
+        }
+
+    def f10_market_report_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "f10_market", limit
+        )
+
     def f10_profit_forecast(self, code: str, section: str = "ylyctj") -> dict:
         return fetch_profit_forecast(code, section)
 
@@ -6854,6 +6893,16 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             int(payload.get("page", 1)),
             int(payload.get("pageSize", 20)),
         )
+    if cmd == "f10_market_report_archive_save":
+        return bridge.f10_market_report_archive_save(
+            str(payload.get("code") or ""),
+            str(payload.get("section") or "board_info"),
+            str(payload.get("arg") or ""),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 20)),
+        )
+    if cmd == "f10_market_report_archive_list":
+        return bridge.f10_market_report_archive_list(int(payload.get("limit", 50)))
     if cmd == "f10_profit_forecast":
         return bridge.f10_profit_forecast(
             str(payload.get("code") or ""), str(payload.get("section") or "ylyctj")

@@ -155,21 +155,31 @@ export function TrendChart(props: TrendChartProps): JSX.Element {
      * 09:30 的基准点是人工补的，允许同一槽位上的第一个实时点。
      */
     const lastSlot = dayIndex * DAY_SLOTS + Math.max(0, day.points.length - 1)
+    // 集合竞价的最后一秒（09:25:00）也必须留在图上：竞价点都归到 09:30
+    // 槽位，若官方已有 09:30 基准点/旧点，按 lastSlot 过滤会把最后撮合价
+    // 丢掉。竞价阶段直接按 slotStart 放行，并从昨收画到当前价。
+    const isPreOpen = ticks.some((tick) => tick.timeSeconds < 9 * 3600 + 30 * 60)
     const filtered = ticks.filter((tick) => {
       const slot = dayIndex * DAY_SLOTS + tradingSlot(tick.timeSeconds)
       if (slot < geo.slotStart || slot > geo.slotEnd) return false
+      if (isPreOpen) return true
       // 用 >=：开盘第一秒的 tick 可能与人工 09:30 基准点同槽；
       // 官方 09:31 点也可能在同一槽，丢掉它会让第一秒又变成空白。
       return slot >= lastSlot
     })
     if (filtered.length === 0) return null
 
-    const start = lastPoint
+    const start = isPreOpen
       ? {
-          x: geo.x(dayIndex * DAY_SLOTS + day.points.length - 1),
-          y: geo.yPrice(lastPoint.price)
+          x: geo.x(dayIndex * DAY_SLOTS),
+          y: geo.yPrice(day.prevClose || lastPoint?.price || filtered[0].price)
         }
-      : { x: geo.x(dayIndex * DAY_SLOTS), y: geo.yPrice(day.prevClose) }
+      : lastPoint
+        ? {
+            x: geo.x(dayIndex * DAY_SLOTS + day.points.length - 1),
+            y: geo.yPrice(lastPoint.price)
+          }
+        : { x: geo.x(dayIndex * DAY_SLOTS), y: geo.yPrice(day.prevClose) }
     const points = filtered.map((tick) => ({
       x: geo.x(dayIndex * DAY_SLOTS + tradingSlot(tick.timeSeconds)),
       y: geo.yPrice(tick.price)

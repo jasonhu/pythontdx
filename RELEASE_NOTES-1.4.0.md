@@ -1,6 +1,6 @@
 # pythontdx 1.4.0 发布说明（RC 候选）
 
-- 版本：`1.4.0-rc17`
+- 版本：`1.4.0-rc18`
 - 日期：2026-11-04
 - 状态：**本地 RC，未打 tag、未发 Release**；人工验收通过后才打 `v1.4.0`
 - 平台：Windows x64（本机 RC）；正式版再出 Linux x64 / macOS arm64
@@ -52,9 +52,9 @@
 ## RC 产物
 
 ```text
-release/1.4.0-rc17/pythontdx-1.4.0-rc17-setup.exe        d5968878…e5c5
-release/1.4.0-rc17/pythontdx-1.4.0-rc17-portable.exe     8b09f56e…9d79
-release/1.4.0-rc17/pythontdx-1.4.0-rc17-win-x64.zip      f97cd069…5ff83
+release/1.4.0-rc18/pythontdx-1.4.0-rc18-setup.exe        6e3bb9d2…f55234e
+release/1.4.0-rc18/pythontdx-1.4.0-rc18-portable.exe     42802bd2…5f7578a
+release/1.4.0-rc18/pythontdx-1.4.0-rc18-win-x64.zip      6e52d8f8…05a0f16
 ```
 
 正式版资产与 SHA256 在 `v1.4.0` 发布时补齐。

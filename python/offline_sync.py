@@ -914,6 +914,26 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
             return int(payload.get("rows") or 0) > 0
         except (OSError, ValueError):
             return False
+    if dataset == "auction":
+        # auction manifest 的 SHA 是对解压后的 canonical JSONL 计算的，
+        # 通用 _data_and_manifest 按 gz 文件算会全部误判为损坏。
+        try:
+            from auction_archive import read_auction_archive
+
+            read_auction_archive(root / "lake" / "auction", code, day)
+            return True
+        except Exception:
+            return False
+    if dataset == "money_flow":
+        # 旧 flow manifest 没有 rows 字段，但 SHA 是 parquet 文件的；
+        # 用专用读取器校验，避免 5,616 只每次重下。
+        try:
+            from flow_archive import read_flow_archive
+
+            read_flow_archive(root / "lake" / "money_flow", code, day)
+            return True
+        except Exception:
+            return False
     if dataset == "today_minute":
         return _data_and_manifest(root / "lake" / "today_minute" / f"trade_date={day}" / f"{code}.jsonl.gz")
     if dataset == "minute_aux":

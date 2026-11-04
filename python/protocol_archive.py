@@ -110,3 +110,30 @@ def list_dataset_archives(root: Path, limit: int = 50) -> list[dict]:
             }
         )
     return items[: max(1, min(100, int(limit)))]
+
+
+def read_dataset_archive(root: Path, dataset: str, trade_date: str) -> dict:
+    """读取一个 trade_date 分区的 JSONL；dataset/date 只允许安全字符。"""
+    import re
+
+    name = str(dataset or "").strip()
+    date = str(trade_date or "").strip()
+    if not re.fullmatch(r"[a-z0-9_]+", name):
+        raise ValueError("dataset 不合法")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        raise ValueError("date 必须是 YYYY-MM-DD")
+    directory = Path(root) / f"trade_date={date}"
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"归档不存在：{name} {date}")
+    manifest = json.loads(manifest_path.read_text("utf-8"))
+    jsonl = directory / f"{name}.jsonl.gz"
+    if not jsonl.is_file():
+        raise FileNotFoundError(f"归档数据缺失：{jsonl.name}")
+    rows: list[dict] = []
+    with gzip.open(jsonl, "rt", encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                rows.append(json.loads(line))
+    return {"manifest": manifest, "rows": rows, "count": len(rows)}
+

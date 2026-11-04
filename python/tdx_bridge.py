@@ -83,7 +83,7 @@ from data_integrity import verify_data_integrity
 from patterns import build_smart_drawings, pattern_summary
 from kline_manifest import write_kline_manifest
 from server_catalog import list_server_catalogs, write_server_catalog
-from protocol_archive import list_dataset_archives, write_dataset_archive
+from protocol_archive import read_dataset_archive, list_dataset_archives, write_dataset_archive
 from delisted_archive import list_delisted_archives, write_delisted_archive
 from adjust_factors import apply_factors, build_factors
 from tick_archive import (
@@ -4058,6 +4058,13 @@ class Bridge:
     def lake_archives(self, limit: int = 20) -> list[dict]:
         return list_snapshot_archives(pythontdx_data_dir() / "lake" / "quotes", limit)
 
+    def dataset_archive_read(self, dataset: str, trade_date: str) -> dict:
+        return read_dataset_archive(
+            pythontdx_data_dir() / "lake" / str(dataset),
+            str(dataset),
+            str(trade_date),
+        )
+
     def archive_snapshot(self) -> dict:
         """把全市场 A 股快照归档到数据湖 lake/quotes/trade_date=/。"""
         now = datetime.now().astimezone()
@@ -6717,6 +6724,10 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.archive_snapshot()
     if cmd == "lake_archives":
         return bridge.lake_archives(int(payload.get("limit", 20)))
+    if cmd == "dataset_archive_read":
+        return bridge.dataset_archive_read(
+            str(payload.get("dataset") or ""), str(payload.get("date") or "")
+        )
     if cmd == "export_klines":
         return bridge.export_klines(
             payload.get("codes") or [],

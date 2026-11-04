@@ -986,6 +986,15 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.lake_archives(int(payload.get("limit", 20))))
                 return
+            if parsed.path == "/api/dataset_archive_read":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.dataset_archive_read(
+                            str(payload.get("dataset") or ""),
+                            str(payload.get("date") or ""),
+                        )
+                    )
+                return
             if parsed.path == "/api/finance_archive_save":
                 with self.server.lock:
                     self._ok(

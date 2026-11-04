@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from data_integrity import _verify_generic, verify_data_integrity
-from protocol_archive import write_dataset_archive
+from protocol_archive import read_dataset_archive, write_dataset_archive
 
 
 class TestGenericIntegrity(unittest.TestCase):
@@ -46,6 +46,22 @@ class TestGenericIntegrity(unittest.TestCase):
             result = verify_data_integrity(root)
             self.assertTrue(result["ok"])
             self.assertGreaterEqual(result["checked"], 1)
+
+    def test_read_dataset_archive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_dataset_archive(
+                root,
+                "finance",
+                [{"code": "sh600519", "netProfit": 1}],
+                source="test",
+                trade_date="2026-11-04",
+            )
+            result = read_dataset_archive(root, "finance", "2026-11-04")
+            self.assertEqual(result["count"], 1)
+            self.assertEqual(result["rows"][0]["code"], "sh600519")
+            with self.assertRaises(ValueError):
+                read_dataset_archive(root, "../x", "2026-11-04")
 
 
 if __name__ == "__main__":

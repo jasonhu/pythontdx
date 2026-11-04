@@ -130,6 +130,12 @@ configureLinuxGraphics()
  *   ./pythontdx-1.1.0.AppImage --install-desktop
  * 安装完成后同一文件双击即可启动。GUI 首次启动也会询问一次。
  */
+// 截图/自动化可以用独立 userData，避免与正在运行的用户实例抢单实例锁。
+app.setName(APP_NAME)
+if (process.env.PYTHONTDX_USER_DATA) {
+  app.setPath('userData', process.env.PYTHONTDX_USER_DATA)
+}
+
 if (
   process.argv.includes('--install-desktop') ||
   app.commandLine.hasSwitch('install-desktop')

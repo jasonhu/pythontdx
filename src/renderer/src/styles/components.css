@@ -6383,6 +6383,61 @@
 }
 
 /* 备份/恢复真实字节进度；scan 阶段用不确定态，避免假装百分比。 */
+.data__op-progress {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--panel) 72%, var(--bg) 28%);
+}
+
+.data__op-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--panel-hover);
+}
+
+.data__op-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--up)));
+  transition: width 0.25s ease;
+}
+
+.data__op-bar--indeterminate > span {
+  animation: data-op-slide 1.15s ease-in-out infinite;
+}
+
+@keyframes data-op-slide {
+  0% { transform: translateX(-60%); }
+  100% { transform: translateX(380%); }
+}
+
+.data__op-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.data__op-meta .num {
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.data__op-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+}
+
 .data__backup-progress {
   display: grid;
   gap: 4px;

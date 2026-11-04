@@ -1481,11 +1481,21 @@ def probe_servers(
     return results
 
 
+def _worker_executable() -> str:
+    """打包/便携/开发都可能改变 sys.executable；优先选真实存在的路径。"""
+    candidates = [sys.executable, sys.argv[0] if sys.argv else ""]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return str(Path(candidate).resolve())
+    return sys.executable
+
+
 def _worker_command(spec_path: Path) -> list[str]:
     """worker 启动命令：开发态用 Python 脚本，打包态复用 sidecar 可执行文件。"""
+    executable = _worker_executable()
     if is_frozen():
-        return [sys.executable, "--offline-worker", str(spec_path)]
-    return [sys.executable, str(Path(__file__).resolve()), "--worker", str(spec_path)]
+        return [executable, "--offline-worker", str(spec_path)]
+    return [executable, str(Path(__file__).resolve()), "--worker", str(spec_path)]
 
 
 def is_frozen() -> bool:
@@ -1808,7 +1818,9 @@ class OfflineSyncManager:
                 try:
                     process = self._popen_factory(
                         _worker_command(spec_path),
-                        cwd=str(Path(__file__).resolve().parent),
+                        # cwd 必须是确定存在的目录；Nuitka onefile 下 __file__
+                        # 可能指向构建机路径，不能拿来当 cwd。
+                        cwd=str(job_dir),
                         stdout=log_handle,
                         stderr=subprocess.STDOUT,
                         stdin=subprocess.DEVNULL,

@@ -152,6 +152,20 @@ class TestNormalizeOptions(unittest.TestCase):
         self.assertEqual(options["f10Sections"], "full")
 
 
+class TestWorkerCommand(unittest.TestCase):
+    def test_frozen_uses_existing_executable(self):
+        with mock.patch.object(offline_sync, "is_frozen", return_value=True):
+            command = offline_sync._worker_command(Path("spec.json"))
+        self.assertEqual(command[0], str(Path(offline_sync.sys.executable).resolve()))
+        self.assertEqual(command[1], "--offline-worker")
+
+    def test_dev_uses_script(self):
+        with mock.patch.object(offline_sync, "is_frozen", return_value=False):
+            command = offline_sync._worker_command(Path("spec.json"))
+        self.assertTrue(command[1].endswith("offline_sync.py"))
+        self.assertEqual(command[2], "--worker")
+
+
 class TestPlanAndShard(unittest.TestCase):
     def test_plan_and_skip_existing(self):
         with tempfile.TemporaryDirectory() as directory:

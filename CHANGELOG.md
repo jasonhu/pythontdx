@@ -10,6 +10,29 @@ pythontdx 的所有重要变更都记录在这里。
 
 ---
 
+## [1.3.2] - 2026-11-04
+
+### 修复
+
+- **打包版离线同步无法启动 worker**：`subprocess.Popen` 在 Nuitka 打包后把
+  `cwd` 指到构建机路径，报 `WinError 2`；改为 `cwd=job_dir`，并优先选择真实存在的
+  `sys.executable`/`sys.argv[0]`。用打包后的 `tdx-bridge.exe` 实测 worker 正常启动。
+- **同步失败不可见**：状态为 `failed` 时面板直接显示错误，不再只停在「同步中」。
+
+### 新增
+
+- **数据工具全量进度条**：并行同步（探测/计划/真实完成数/吞吐/ETA）、下载
+  zhb.zip、目录扫描、完整性校验、K 线导出、全市场快照、数据湖归档、竞价归档、
+  本地读取/导入/写回、SQL 查询；能算百分比就画确定进度，否则画不确定动画 + 耗时。
+- **README 全面翻新**：新主图/数据工具进度/尾盘竞价截图，重写功能、数据湖、
+  协议边界、快速开始与文档索引。
+
+### 验证
+
+- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 279 Python（278 通过/1 skipped）；
+- 打包 sidecar：`offline_sync_start` → worker pid 运行中；
+- 指数成交量 599.39 万手；尾盘竞价 688499 56 点。
+
 ## [1.3.1] - 2026-11-04
 
 ### 修复
@@ -92,7 +115,7 @@ pythontdx 的所有重要变更都记录在这里。
 - 日常预设 2 只代码、2 进程 × 3 线程 → 23 个任务、0 失败、25,460 行（含九榜
   540 行、主力监控 1,200 行）；
 - `data_integrity` 真实数据 148,427 份 manifest/SHA256，0 失败；
-- `npm run check` 全绿（359 TS + 277 Python，1 skipped）；
+- `npm run check` 全绿（359 TS + 279 Python，1 skipped）；
 - 面板截图 `screenshots/data-offline-sync.png`（23 个数据集、保护中徽标）。
 
 ### 新增（2026-11-04 数据功能第二轮）
@@ -196,7 +219,7 @@ pythontdx 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 277 Python（276 通过/1 skipped）；
+- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 279 Python（276 通过/1 skipped）；
 - MAC 日 K 6,035 根与 7709 一致；gpcw 5,572×658；GBBQ 202,313 条；
 - 离线同步 23 数据集；面板截图 `screenshots/data-offline-sync.png`；
 - 详细边界见 `docs/20-数据功能补齐与代码审计.md` §3。

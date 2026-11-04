@@ -3,7 +3,7 @@
  *
  * 只做只读数据管理，不碰交易；导出路径由 Python 后端决定并在界面上明确展示。
  */
-import { createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
+import { createEffect, createSignal, For, onCleanup, onMount, Show, type JSX } from 'solid-js'
 import type {
   StatsCsvExport,
   StatsParquetExport,
@@ -43,6 +43,56 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${bytes} B`
+}
+
+/**
+ * 通用耗时操作进度：能拿到百分比就画确定进度，拿不到就画不确定动画。
+ * 所有下载/扫描/归档/导入都用它，避免只有按钮文字「处理中…」。
+ */
+function OpProgress(props: {
+  active: boolean
+  label: string
+  detail?: string
+  percent?: number
+}): JSX.Element {
+  const [elapsed, setElapsed] = createSignal(0)
+  createEffect(() => {
+    if (!props.active) {
+      setElapsed(0)
+      return
+    }
+    const startedAt = performance.now()
+    const timer = setInterval(
+      () => setElapsed((performance.now() - startedAt) / 1000),
+      200
+    )
+    onCleanup(() => clearInterval(timer))
+  })
+  const done = (): number =>
+    props.percent === undefined ? 0 : Math.max(0, Math.min(100, props.percent))
+  return (
+    <Show when={props.active}>
+      <div class="data__op-progress">
+        <div
+          class="data__op-bar"
+          classList={{ 'data__op-bar--indeterminate': props.percent === undefined }}
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow={Math.round(done())}
+        >
+          <span style={{ width: props.percent === undefined ? '30%' : `${done()}%` }} />
+        </div>
+        <div class="data__op-meta" title={props.detail ?? ''}>
+          <span>{props.label}</span>
+          <span class="num">{elapsed().toFixed(1)} s</span>
+          <Show when={props.detail}>
+            <span class="data__op-detail">{props.detail}</span>
+          </Show>
+        </div>
+      </div>
+    </Show>
+  )
 }
 
 /** 备份/恢复共用的真实字节进度条；扫描阶段没有 total，用不确定态表示仍在工作。 */
@@ -960,6 +1010,25 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </button>
             </div>
 
+            <OpProgress
+              active={
+                syncBusy() ||
+                (syncRunning() && (syncStatus()?.totals?.total ?? 0) === 0)
+              }
+              label={
+                syncBusy()
+                  ? '提交同步任务'
+                  : syncStatus()?.state === 'probing'
+                    ? '探测可用主站'
+                    : '生成下载计划'
+              }
+              detail={
+                syncStatus()?.state === 'probing'
+                  ? '多服务器 TCP 探活'
+                  : '任务切片 / 分发给 worker'
+              }
+            />
+
             <Show when={syncStatus()?.totals && (syncStatus()?.totals?.total ?? 0) > 0}>
               <div class="data__bulk-progress">
                 <span
@@ -1010,6 +1079,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
             </Show>
 
+            <Show when={syncStatus()?.state === 'failed'}>
+              <div class="data__query-error">
+                同步失败：{syncStatus()?.error || 'worker 未能启动，详见 lake/offline_sync/<job>/logs/'}
+              </div>
+            </Show>
             <Show when={syncError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
@@ -1031,6 +1105,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 {inventoryLoading() ? '扫描中…' : '重新扫描'}
               </button>
             </div>
+            <OpProgress active={inventoryLoading()} label="扫描 raw / cache / lake / exports / normalized / local" />
             <Show when={inventoryError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
@@ -1361,6 +1436,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 </button>
               </div>
             </div>
+            <OpProgress active={limitLoading()} label="扫描本地全历史日 K，计算涨停/跌停/炸板" />
             <Show when={limitError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
@@ -1440,6 +1516,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 {klineExporting() ? '导出中…' : `导出 ${watchCodes().length} 只`}
               </button>
             </div>
+            <OpProgress
+              active={klineExporting()}
+              label={`导出 ${watchCodes().length} 只自选 K 线`}
+              detail={`${klineCount()} 根 · ${klinePeriod()}`}
+            />
           </section>
           <Show when={klineExportError()}>
             {(message) => <div class="data__query-error">{message()}</div>}
@@ -1481,6 +1562,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             >
               {snapshotExporting() ? '拉取中…' : '导出全市场 CSV'}
             </button>
+            <OpProgress active={snapshotExporting()} label="MAC 全市场报价 → CSV" detail="约 5,600 只" />
           </section>
           <section class="data__kline">
             <div>
@@ -1496,6 +1578,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             >
               {archiving() ? '归档中…' : '归档全市场'}
             </button>
+            <OpProgress active={archiving()} label="归档全市场快照到数据湖" detail="lake/quotes" />
           </section>
           <section class="data__kline">
             <div>
@@ -1513,6 +1596,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             >
               {auctionArchiving() ? '归档中…' : '归档自选竞价'}
             </button>
+            <OpProgress active={auctionArchiving()} label="归档自选竞价" detail="lake/auction" />
           </section>
           <Show when={auctionArchiveNote()}>
             {(note) => <div class="data__sub data__auction-note">{note()}</div>}
@@ -1529,6 +1613,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             >
               {auctionArchivesLoading() ? '读取中…' : '刷新'}
             </button>
+            <OpProgress active={auctionArchivesLoading()} label="读取竞价归档清单" />
           </section>
           <Show when={auctionArchivesError()}>
             {(message) => <div class="data__query-error">{message()}</div>}
@@ -1602,6 +1687,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 {archivesLoading() ? '读取中…' : '刷新归档'}
               </button>
             </div>
+            <OpProgress active={archivesLoading()} label="读取 lake/quotes 归档分区" />
             <Show when={archivesError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
@@ -1676,6 +1762,19 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             </button>
             <span class="data__hint">只读操作，不访问付费/加密数据</span>
           </div>
+          <OpProgress
+            active={loading() || exporting() || parquetExporting() || csvExporting()}
+            label={
+              loading()
+                ? '下载并解析 zhb.zip'
+                : exporting()
+                  ? '规范化导出'
+                  : parquetExporting()
+                    ? '导出 Parquet'
+                    : '导出 CSV'
+            }
+            detail={loading() ? '约 17 MB，按 60 KB 分块读取' : undefined}
+          />
 
           <Show when={error()}>
             {(message) => (
@@ -1864,6 +1963,11 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               aria-label=".day 文件路径"
               onInput={(event) => setLocalPath(event.currentTarget.value)}
             />
+            <OpProgress
+              active={localLoading() || importLoading() || writeLoading()}
+              label={localLoading() ? '读取本地行情文件' : importLoading() ? '导入数据湖' : '写回本地文件'}
+              detail={localPath()}
+            />
             <Show when={localError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
@@ -2007,6 +2111,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               aria-label="SQL 查询"
               onInput={(event) => setSql(event.currentTarget.value)}
             />
+            <OpProgress active={querying()} label={`${engine().toUpperCase()} 只读查询`} detail="最多 500 行" />
             <Show when={queryError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>

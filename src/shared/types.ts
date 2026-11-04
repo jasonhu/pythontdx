@@ -1237,6 +1237,8 @@ export interface OfflineSyncPreferences {
   processes: number
   threads: number
   skipExisting: boolean
+  /** 上次任务 incomplete 时，桥接重启后自动续跑一次 */
+  autoResume?: boolean
 }
 
 export interface AppSettings {

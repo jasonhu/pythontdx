@@ -292,7 +292,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     Math.min(4, Math.max(1, savedSync?.threads ?? 4))
   )
   const [syncSkipExisting, setSyncSkipExisting] = createSignal(savedSync?.skipExisting ?? true)
+  const [syncAutoResume, setSyncAutoResume] = createSignal(savedSync?.autoResume ?? true)
   const [syncBusy, setSyncBusy] = createSignal(false)
+  let autoResumeTried = false
   const [syncError, setSyncError] = createSignal<string | null>(null)
   let syncTimer: number | undefined
   // 有保存记录（哪怕是用户主动清空）就不再套 daily 预设。
@@ -306,7 +308,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
         source: syncSource(),
         processes: syncProcesses(),
         threads: syncThreads(),
-        skipExisting: syncSkipExisting()
+        skipExisting: syncSkipExisting(),
+        autoResume: syncAutoResume()
       }
     })
   })
@@ -329,6 +332,17 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       ])
       setSyncCatalog(catalog)
       setSyncStatus(status)
+      const last = status.lastSummary
+      if (
+        syncAutoResume() &&
+        !autoResumeTried &&
+        status.state === 'idle' &&
+        last?.state === 'incomplete' &&
+        (last.options?.datasets?.length ?? 0) > 0
+      ) {
+        autoResumeTried = true
+        void resumeLastSync(last)
+      }
       if (syncSelectionTouched) {
         const valid = new Set(catalog.datasets.map((item) => item.key))
         setSyncSelection((current) => {
@@ -397,8 +411,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     }
   }
 
-  const resumeLastSync = async (): Promise<void> => {
-    const last = syncStatus()?.lastSummary
+  const resumeLastSync = async (summary = syncStatus()?.lastSummary): Promise<void> => {
+    const last = summary
     if (!last?.options?.datasets?.length || syncRunning() || syncBusy()) return
     setSyncBusy(true)
     setSyncError(null)
@@ -1033,6 +1047,15 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   onChange={() => setSyncSkipExisting((value) => !value)}
                 />
                 跳过已有
+              </label>
+              <label class="data__incremental" title="桥接重启或应用重开后，自动续跑最近一次 incomplete 任务一次">
+                <input
+                  type="checkbox"
+                  checked={syncAutoResume()}
+                  disabled={syncRunning()}
+                  onChange={() => setSyncAutoResume((value) => !value)}
+                />
+                自动续跑
               </label>
             </div>
 

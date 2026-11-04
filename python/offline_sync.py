@@ -442,6 +442,18 @@ def summarize_job_dir(job_dir: Path) -> dict[str, Any] | None:
             error = "任务未生成 manifest（进程中断或应用被关闭）"
     if not isinstance(datasets, dict):
         datasets = plan.get("datasets") if isinstance(plan.get("datasets"), dict) else {}
+    # manifest 的 datasets 是每数据集 {done,skipped,failed,rows}；摘要只显示完成数。
+    normalized_datasets: dict[str, int] = {}
+    for name, value in datasets.items():
+        if isinstance(value, dict):
+            normalized_datasets[str(name)] = int(
+                value.get("done") if "done" in value else value.get("rows") or 0
+            )
+        else:
+            try:
+                normalized_datasets[str(name)] = int(value or 0)
+            except (TypeError, ValueError):
+                normalized_datasets[str(name)] = 0
 
     started = manifest.get("startedAt") or plan.get("plannedAt")
     finished = manifest.get("finishedAt")
@@ -455,6 +467,15 @@ def summarize_job_dir(job_dir: Path) -> dict[str, Any] | None:
     planned = manifest.get("planned")
     if planned is None:
         planned = plan.get("tasks")
+    elapsed = None
+    if started and finished:
+        try:
+            elapsed = max(
+                0.0,
+                (datetime.fromisoformat(str(finished)) - datetime.fromisoformat(str(started))).total_seconds(),
+            )
+        except ValueError:
+            elapsed = None
     return {
         "jobId": manifest.get("jobId") or job_dir.name,
         "dir": str(job_dir),
@@ -462,7 +483,8 @@ def summarize_job_dir(job_dir: Path) -> dict[str, Any] | None:
         "error": error,
         "planned": int(planned or 0),
         "totals": {key: int(totals.get(key) or 0) for key in totals},
-        "datasets": datasets,
+        "datasets": normalized_datasets,
+        "elapsedSeconds": round(elapsed, 1) if elapsed is not None else None,
         "options": manifest.get("options") or job.get("options") or {},
         "codes": int(plan.get("codes") or 0),
         "startedAt": started,
@@ -1492,7 +1514,8 @@ def run_worker(spec_path: str | Path) -> dict[str, Any]:
                 bucket = progress["datasets"].setdefault(
                     task["dataset"], {"done": 0, "skipped": 0, "failed": 0, "rows": 0}
                 )
-                bucket[status] = int(bucket.get(status, 0)) + 1
+                bucket_key = "done" if status == "ok" else status
+                bucket[bucket_key] = int(bucket.get(bucket_key, 0)) + 1
                 bucket["rows"] = int(bucket.get("rows", 0)) + int(rows or 0)
             progress["updatedAt"] = _shanghai_now().isoformat(timespec="seconds")
 

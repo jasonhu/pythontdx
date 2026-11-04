@@ -40,6 +40,15 @@ interface DataPanelProps {
   onClose: () => void
 }
 
+function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0 秒'
+  if (seconds < 60) return `${seconds.toFixed(1)} 秒`
+  const minutes = Math.floor(seconds / 60)
+  const rest = Math.round(seconds % 60)
+  if (minutes < 60) return `${minutes} 分 ${rest} 秒`
+  return `${Math.floor(minutes / 60)} 时 ${minutes % 60} 分`
+}
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -316,6 +325,16 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
 
   const syncRunning = (): boolean =>
     ['probing', 'planning', 'running'].includes(syncStatus()?.state ?? '')
+
+  const syncPercent = (): number => {
+    const status = syncStatus()
+    const totals = status?.totals
+    if (!totals || totals.total <= 0) return 0
+    // 完成态必须画满：失败任务也已处理完，不能卡在 97.x%。
+    if (status?.state === 'completed') return 100
+    const processed = totals.done + totals.skipped + totals.failed
+    return Math.max(0, Math.min(100, (processed / Math.max(1, totals.total)) * 100))
+  }
 
   const syncWindowLabel = (): string => {
     const window = syncStatus()?.window ?? syncCatalog()?.window
@@ -1118,14 +1137,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             <Show when={syncStatus()?.totals && (syncStatus()?.totals?.total ?? 0) > 0}>
               <div class="data__bulk-progress">
                 <span
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (((syncStatus()?.totals?.done ?? 0) + (syncStatus()?.totals?.skipped ?? 0)) /
-                        Math.max(1, syncStatus()?.totals?.total ?? 1)) *
-                        100
-                    )}%`
-                  }}
+                  style={{ width: `${syncPercent()}%` }}
                 />
               </div>
               <div class="data__bulk-meta">
@@ -1190,7 +1202,16 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   <div class="data__sync-summary-meta">
                     计划 {thousands(last().planned)} · 完成 {thousands(last().totals.done)} · 跳过{' '}
                     {thousands(last().totals.skipped)} · 失败 {thousands(last().totals.failed)} ·{' '}
-                    {thousands(last().totals.rows)} 行
+                    {thousands(last().totals.rows)} 行 · 耗时{' '}
+                    {formatDuration(
+                      last().elapsedSeconds ??
+                        (last().startedAt && last().finishedAt
+                          ? Math.max(
+                              0,
+                              (Date.parse(last().finishedAt!) - Date.parse(last().startedAt!)) / 1000
+                            )
+                          : 0)
+                    )}
                     {last().finishedAt ? ` · ${last().finishedAt}` : ''}
                   </div>
                   <div class="data__sync-summary-meta">

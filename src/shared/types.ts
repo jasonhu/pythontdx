@@ -1092,6 +1092,7 @@ export interface OfflineSyncLastSummary {
   planned: number
   totals: OfflineSyncTotals
   datasets: Record<string, number>
+  elapsedSeconds?: number | null
   /** 中断任务的原选项，用于窗口里的「继续未完成任务」。 */
   options?: Partial<OfflineSyncOptions>
   codes?: number

@@ -1100,6 +1100,23 @@ def run_task(bridge: Any, task: dict[str, Any]) -> dict[str, Any]:
     dataset = task["dataset"]
     if dataset == "kline":
         source = str(task.get("source") or "auto")
+        period = str(task.get("period") or "day")
+        adjust = str(task.get("adjust") or "none")
+        if source in ("auto", "file") and period == "day" and adjust == "none":
+            try:
+                file_result = bridge.day_file_archive_save(task["code"])
+                return {
+                    "rows": int(file_result.get("rows") or 0),
+                    "files": 1,
+                    "complete": True,
+                    "pages": 0,
+                    "source": "0x06b9-file",
+                    "chunks": file_result.get("chunks", 0),
+                }
+            except Exception:
+                if source == "file":
+                    raise
+                # 文件服务不可用时回退到原 MAC/7709 分页路径
         result = None
         if source in ("mac", "auto"):
             try:

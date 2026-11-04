@@ -69,6 +69,46 @@ class LocalDayError(Exception):
     pass
 
 
+def parse_day_bytes(data: bytes, filename: str) -> dict:
+    """解析服务器/本地 .day 的原始字节（0x06b9 下载后直接落库）。"""
+    if len(data) < RECORD.size:
+        raise LocalDayError(f".day 数据不足一条记录：{len(data)} 字节")
+    price_coeff, volume_coeff = security_coefficients(filename)
+    bars = []
+    invalid_dates = 0
+    for offset in range(0, len(data) - RECORD.size + 1, RECORD.size):
+        date, open_, high, low, close, amount, volume, _ = RECORD.unpack_from(data, offset)
+        year, month, day = date // 10000, date % 10000 // 100, date % 100
+        if not (1990 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31):
+            invalid_dates += 1
+            continue
+        if close <= 0 or open_ <= 0:
+            continue
+        bars.append(
+            {
+                "date": f"{year:04d}-{month:02d}-{day:02d}",
+                "open": round(open_ * price_coeff, 4),
+                "high": round(high * price_coeff, 4),
+                "low": round(low * price_coeff, 4),
+                "close": round(close * price_coeff, 4),
+                "amount": round(float(amount), 2),
+                "volume": round(volume * volume_coeff, 2),
+            }
+        )
+    if not bars:
+        raise LocalDayError("没有有效的日线记录")
+    return {
+        "count": len(bars),
+        "firstDate": bars[0]["date"],
+        "lastDate": bars[-1]["date"],
+        "securityType": detect_security_type(filename),
+        "priceCoefficient": price_coeff,
+        "volumeCoefficient": volume_coeff,
+        "invalidDates": invalid_dates,
+        "bars": bars,
+    }
+
+
 def read_day_file(path: str, limit: int = 0) -> dict:
     file = Path(path).expanduser()
     if not file.is_file():

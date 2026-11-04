@@ -54,7 +54,7 @@ from duckdb_query import run_duckdb_query
 from data_paths import data_dir
 from formula import FormulaError, evaluate_formula, evaluate_series
 from parquet_export import export_stats_parquet
-from tdx_local import read_local_file, write_day_file, write_min_file
+from tdx_local import parse_day_bytes, read_local_file, write_day_file, write_min_file
 from tdx_mac import (
     MacError,
     fetch_capital_flow,
@@ -7309,6 +7309,50 @@ class Bridge:
             if cached is not None:
                 return cached
             raise
+
+    def day_file_archive_save(self, code: str) -> dict:
+        """用 0x06b9 下载官方 vipdoc 日线文件，避免 0x052d 逐页翻全历史。
+
+        `vipdoc/sh/lday/sh600519.day` 实测可直接下载（7 个 30KB 块，
+        比 0x052d 的 800 根/页少很多 RTT），内容就是官方客户端的 .day。
+        """
+        market, symbol = parse_code(code)
+        prefix = code[:2].lower()
+        path = f"vipdoc/{prefix}/lday/{code}.day"
+        data, chunks = self._download_bytes(path, max_bytes=16 * 1024 * 1024)
+        if not data:
+            raise TdxError(f"服务器没有 {path}（0x06b9 返回空）")
+        parsed = parse_day_bytes(data, f"{code}.day")
+        bars = parsed["bars"]
+        target = _full_kline_cache_path(code, "day", "none")
+        write_bars(target, code, bars)
+        write_kline_manifest(
+            target,
+            {
+                "code": code,
+                "period": "day",
+                "adjust": "none",
+                "source": f"0x06b9 {path}",
+                "firstDate": parsed["firstDate"],
+                "lastDate": parsed["lastDate"],
+                "rows": len(bars),
+                "chunks": chunks,
+                "bytes": len(data),
+                "complete": True,
+            },
+        )
+        return {
+            "code": code,
+            "period": "day",
+            "bars": bars,
+            "rows": len(bars),
+            "chunks": chunks,
+            "bytes": len(data),
+            "firstDate": parsed["firstDate"],
+            "lastDate": parsed["lastDate"],
+            "source": "0x06b9-file",
+            "cachePath": str(target),
+        }
 
     def full_kline(
         self, code: str, period: str = "day", adjust: str = "none"

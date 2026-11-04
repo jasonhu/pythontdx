@@ -21,7 +21,7 @@
 | 数据能力      | 7709 26/26 命令、MAC 5 类、7615 32 个 fetch；新增 `lake/top_board`、`lake/unusual`、`lake/volume_profile`；按代码/按业务 key 分片归档 11 类，修复「同一天只存第一只」 |
 | 目标          | 桌面 + Web 双前端；A 股协议全覆盖；实时 + 离线 + 面向 ML 的数据湖（`docs/00`）                                                                                                                                                                                                                                                      |
 | 数据源        | 通达信 7709 + MAC + 7615 + 文件下载/本地文件；7727/EX 不做                                                                                                                                                                                                                                                                          |
-| 分发          | v1.3.0 已打 tag，由 GitHub Actions 构建 Linux AppImage/deb、Windows setup/portable/zip、macOS arm64 dmg；v1.2.0/v1.1.0/v1.0.0 保留旧资产 |
+| 分发          | v1.3.0 已由 tag `v1.3.0` 触发 GitHub Actions（run `41788032570`）：Linux AppImage/deb、Windows setup/portable/zip、macOS arm64 dmg，共 13 个 Release 资产；v1.2.0/v1.1.0/v1.0.0 保留旧资产 |
 | 平台验证      | 代码跨 Windows/Linux/macOS；Linux、Windows x64、macOS arm64 已实机打包验收；macOS 仅支持 Apple Silicon（2026-11-02 决定不支持 Intel）                                                                                                                                                                                               |
 | 构建/测试环境 | Windows 10 22H2 x64 · macOS 27.2 arm64 · Ubuntu 26.04.1 x64；原生编译，不做交叉编译；0.14.4 Windows 安装版 K 线 353ms / 逐笔 209ms（自签名），macOS 真首次 10,333ms、二次 365ms                                                                                                                                                     |
 

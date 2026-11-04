@@ -862,6 +862,10 @@ def _nodata_marker(root: Path, task: dict[str, Any]) -> Path | None:
         return None
     if dataset in {"auction", "ticks", "kline_1m", "history_minute"}:
         return root / "lake" / dataset / f"trade_date={day}" / f"{code}.nodata.json"
+    if dataset == "kline":
+        period = str(task.get("period") or "day")
+        adjust = str(task.get("adjust") or "none")
+        return root / "cache" / "klines" / f"{code}_{period}_all_{adjust}.nodata.json"
     if dataset == "minute_aux":
         return (
             root
@@ -954,6 +958,11 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
         if task.get("period") == "day" and task.get("adjust") == "none":
             latest = recent_trading_days(1, root)[0]
             if str(payload.get("lastDate") or "")[:10] < latest:
+                # 当天已经重试过，但官方 .day 仍是旧日期（北交所/停牌/退市）。
+                # 同一天不要无限重下；第二天 fetchedAt 不再是今天，会再试一次。
+                fetched = str(payload.get("fetchedAt") or "")[:10]
+                if fetched == _today():
+                    return True
                 return False
         return target.stat().st_size > 32
     if dataset == "kline_1m":

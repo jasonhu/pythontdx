@@ -29,6 +29,9 @@ import type {
   SnapshotArchiveItem,
   LimitReviewResult,
 } from '@shared/types'
+
+// 自动续跑只对同一个 jobId 尝试一次；面板关闭重开不能反复拉起计划。
+const autoResumeAttempted = new Set<string>()
 import { fixed, signedPct, thousands } from '@shared/format'
 import { appState, updateSettings, watchCodes } from '../stores/app'
 import { api, errorMessage } from '../lib/ipc'
@@ -303,7 +306,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [syncSkipExisting, setSyncSkipExisting] = createSignal(savedSync?.skipExisting ?? true)
   const [syncAutoResume, setSyncAutoResume] = createSignal(savedSync?.autoResume ?? true)
   const [syncBusy, setSyncBusy] = createSignal(false)
-  let autoResumeTried = false
   const [syncError, setSyncError] = createSignal<string | null>(null)
   let syncTimer: number | undefined
   // 有保存记录（哪怕是用户主动清空）就不再套 daily 预设。
@@ -354,12 +356,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       const last = status.lastSummary
       if (
         syncAutoResume() &&
-        !autoResumeTried &&
+        last &&
+        !autoResumeAttempted.has(last.jobId) &&
         status.state === 'idle' &&
-        last?.state === 'incomplete' &&
+        last.state === 'incomplete' &&
         (last.options?.datasets?.length ?? 0) > 0
       ) {
-        autoResumeTried = true
+        autoResumeAttempted.add(last.jobId)
         void resumeLastSync(last)
       }
       if (syncSelectionTouched) {

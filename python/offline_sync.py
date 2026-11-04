@@ -823,9 +823,11 @@ def _dataset_archive_valid(directory: Path) -> bool:
 
 
 def _data_and_manifest(path: Path) -> bool:
-    """按代码分片：数据文件 + manifest + SHA 三重校验，半写副本不算完成。"""
-    import hashlib
+    """按代码分片：规划阶段只做 manifest + 文件大小校验。
 
+    深度 SHA 由 data_integrity 负责；如果规划时对 11 万份 tick 逐个读全文件
+    算 SHA，「生成下载计划」会从几秒变成 40+ 秒。
+    """
     manifest_path = _manifest_for(path)
     if not _path_exists(path) or not manifest_path.is_file():
         return False
@@ -833,10 +835,13 @@ def _data_and_manifest(path: Path) -> bool:
         payload = json.loads(manifest_path.read_text("utf-8"))
         if int(payload.get("rows") or 0) <= 0:
             return False
+        expected = int(payload.get("bytes") or 0)
+        if expected > 0 and expected != path.stat().st_size:
+            return False
         listed = [path.parent / str(name) for name in payload.get("files") or []]
         if listed and not all(item.is_file() for item in listed):
             return False
-        return hashlib.sha256(path.read_bytes()).hexdigest() == payload.get("sha256")
+        return True
     except (OSError, ValueError):
         return False
 
@@ -915,24 +920,39 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
         except (OSError, ValueError):
             return False
     if dataset == "auction":
-        # auction manifest 的 SHA 是对解压后的 canonical JSONL 计算的，
-        # 通用 _data_and_manifest 按 gz 文件算会全部误判为损坏。
+        # 规划阶段不能对 5,600 个 gz 逐个解压校验，否则「生成下载计划」要几分钟。
+        # manifest + 文件存在 + rows/code/date 一致就跳过；深度 SHA 交给完整性审计。
+        directory = root / "lake" / "auction" / f"trade_date={day}"
+        data = directory / f"{code}.jsonl.gz"
+        meta = directory / f"{code}.manifest.json"
+        if not data.is_file() or data.stat().st_size <= 0 or not meta.is_file():
+            return False
         try:
-            from auction_archive import read_auction_archive
-
-            read_auction_archive(root / "lake" / "auction", code, day)
-            return True
-        except Exception:
+            payload = json.loads(meta.read_text("utf-8"))
+            return (
+                int(payload.get("rows") or 0) > 0
+                and payload.get("code") == code
+                and payload.get("tradeDate") == day
+            )
+        except (OSError, ValueError):
             return False
     if dataset == "money_flow":
-        # 旧 flow manifest 没有 rows 字段，但 SHA 是 parquet 文件的；
-        # 用专用读取器校验，避免 5,616 只每次重下。
+        # 旧 flow manifest 没有 rows，但 bytes/sha 是 parquet 文件的。
+        # 只做 stat + manifest 元数据，避免 5,600 次 DuckDB 打开。
+        directory = root / "lake" / "money_flow" / f"trade_date={day}"
+        data = directory / f"{code}.parquet"
+        meta = directory / f"{code}.manifest.json"
+        if not data.is_file() or data.stat().st_size <= 0 or not meta.is_file():
+            return False
         try:
-            from flow_archive import read_flow_archive
-
-            read_flow_archive(root / "lake" / "money_flow", code, day)
-            return True
-        except Exception:
+            payload = json.loads(meta.read_text("utf-8"))
+            expected = int(payload.get("bytes") or 0)
+            return (
+                payload.get("code") == code
+                and str(payload.get("tradeDate") or "")[:10] == day
+                and (expected <= 0 or expected == data.stat().st_size)
+            )
+        except (OSError, ValueError):
             return False
     if dataset == "today_minute":
         return _data_and_manifest(root / "lake" / "today_minute" / f"trade_date={day}" / f"{code}.jsonl.gz")
@@ -1108,9 +1128,26 @@ def build_plan(
     if "ticks" in selected:
         # 逐笔默认最近 20 个交易日；显式 --dates 时尊重用户日期。
         tick_dates = dates if options["dates"] else recent_trading_days(20, root)
+        # 逐笔是 20×N 个任务；逐个读 manifest 会让计划阶段扫十几万次 JSON。
+        # 规划只按“当天目录下已有 parquet”预加载，深度校验交给完整性审计。
+        tick_existing: set[tuple[str, str]] = set()
+        if options["skipExisting"]:
+            for day in tick_dates:
+                directory = root / "lake" / "ticks" / f"trade_date={day}"
+                if not directory.is_dir():
+                    continue
+                for path in directory.glob("*.parquet"):
+                    try:
+                        if path.stat().st_size > 0:
+                            tick_existing.add((day, path.stem))
+                    except OSError:
+                        continue
         for day in tick_dates:
             for code in codes:
-                add({"dataset": "ticks", "code": code, "date": day})
+                if options["skipExisting"] and (day, code) in tick_existing:
+                    skipped += 1
+                    continue
+                tasks.append({"dataset": "ticks", "code": code, "date": day})
     if "f10" in selected:
         for code in codes:
             add({"dataset": "f10", "code": code, "sections": options["f10Sections"]})

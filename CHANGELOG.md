@@ -31,8 +31,12 @@ pythontdx 的所有重要变更都记录在这里。
   manifest，不再整只重抓。
 - **auction / money_flow 重复下载**：auction manifest 的 SHA 是对解压后 JSONL
   计算，通用跳过器按 gz 文件算，全部误判损坏；money_flow 旧 manifest 没有 rows
-  字段，通用检查直接跳过。现在改用各自的专用读取器校验，auction 从 5,616 任务
-  降到 133、money_flow 降到 0。
+  字段，通用检查直接跳过。现在改用 manifest + 文件大小/元数据校验，auction 从
+  5,616 任务降到 133、money_flow 降到 0。
+- **生成下载计划过慢**：规划阶段不再对 11 万份逐笔逐个读 manifest/算 SHA，
+  逐笔按交易日目录预加载；完整计划从约 41 秒降到约 7 秒。
+- **自动续跑反复拉起**：同一 jobId 在一次会话内只自动尝试一次，关闭/重开数据
+  面板不会反复重新规划。
 - **进度条完成态**：失败任务也计入已处理，`completed` 时进度条画满，不再卡在 97%。
 - **任务摘要耗时/数据集**：摘要显示总耗时（startedAt→finishedAt），
   每数据集完成数修正（worker 的 `ok` 正确映射到 `done`，不再显示 —）。

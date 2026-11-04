@@ -199,6 +199,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [integrityElapsed, setIntegrityElapsed] = createSignal(0)
   const [integrityError, setIntegrityError] = createSignal<string | null>(null)
   const runIntegrity = async (): Promise<void> => {
+    if (syncRunning() || inventoryLoading()) return
     setIntegrityBusy(true)
     setIntegrityError(null)
     setIntegrity(null)
@@ -362,7 +363,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   }
 
   const startSync = async (): Promise<void> => {
-    if (syncBusy() || syncRunning()) return
+    if (syncBusy() || syncRunning() || integrityBusy() || inventoryLoading()) return
     if (syncSelection().length === 0) {
       setSyncError('至少选择一个数据集')
       return
@@ -437,6 +438,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [writeError, setWriteError] = createSignal<string | null>(null)
 
   const loadInventory = async (): Promise<void> => {
+    if (syncRunning() || integrityBusy()) return
     setInventoryLoading(true)
     setInventoryError(null)
     try {
@@ -872,7 +874,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     // 并行同步是后台任务，面板打开期间每 2.5 秒拉一次进度；任务结束后继续拉
     // 也没有副作用（status 只是一次本地 JSON 读取）。
     syncTimer = window.setInterval(() => {
-      if (!syncBusy()) void refreshSync()
+      // 完整性校验/目录扫描也是单线程 Python 命令；它们运行时不要再发 status，
+      // 否则请求排队到超时会把桥接进程杀掉，连正在下载的 worker 一起断。
+      if (!syncBusy() && !integrityBusy() && !inventoryLoading()) void refreshSync()
     }, 2500)
     onCleanup(() => {
       if (syncTimer !== undefined) window.clearInterval(syncTimer)
@@ -1037,7 +1041,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </Show>
               <button
                 class="btn btn--primary data__download-run"
-                disabled={syncRunning() || syncBusy()}
+                disabled={syncRunning() || syncBusy() || integrityBusy() || inventoryLoading()}
                 onClick={() => void startSync()}
               >
                 {syncRunning() ? '同步中…' : syncBusy() ? '处理中…' : '开始并行同步'}
@@ -1118,6 +1122,48 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 同步失败：{syncStatus()?.error || 'worker 未能启动，详见 lake/offline_sync/<job>/logs/'}
               </div>
             </Show>
+            <Show when={syncStatus()?.lastSummary}>
+              {(last) => (
+                <div class="data__sync-summary">
+                  <div class="data__sync-summary-head">
+                    <strong>最近任务摘要</strong>
+                    <span
+                      classList={{
+                        'data__sync-summary-state': true,
+                        'data__sync-summary-state--ok': last().state === 'completed',
+                        'data__sync-summary-state--bad': ['failed', 'incomplete', 'cancelled'].includes(
+                          last().state
+                        )
+                      }}
+                    >
+                      {last().state}
+                    </span>
+                  </div>
+                  <div class="data__sync-summary-meta">
+                    计划 {thousands(last().planned)} · 完成 {thousands(last().totals.done)} · 跳过{' '}
+                    {thousands(last().totals.skipped)} · 失败 {thousands(last().totals.failed)} ·{' '}
+                    {thousands(last().totals.rows)} 行
+                    {last().finishedAt ? ` · ${last().finishedAt}` : ''}
+                  </div>
+                  <div class="data__sync-summary-meta">
+                    任务：{last().jobId}
+                  </div>
+                  <div class="data__sync-summary-datasets">
+                    <For each={Object.entries(last().datasets).slice(0, 12)}>
+                      {([name, count]) => (
+                        <span>
+                          {name} {thousands(Number(count))}
+                        </span>
+                      )}
+                    </For>
+                  </div>
+                  <Show when={last().error}>
+                    <div class="data__query-error">{last().error}</div>
+                  </Show>
+                  <code class="data__sync-summary-dir">{last().dir}</code>
+                </div>
+              )}
+            </Show>
             <Show when={syncError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
@@ -1197,7 +1243,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 <div class="data__integrity-actions">
                   <button
                     class="btn data__integrity-run"
-                    disabled={integrityBusy()}
+                    disabled={integrityBusy() || syncRunning() || inventoryLoading()}
                     onClick={() => void runIntegrity()}
                   >
                     {integrityBusy() ? '统计/校验中…' : '统计与校验'}

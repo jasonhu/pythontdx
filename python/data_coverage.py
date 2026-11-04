@@ -91,6 +91,25 @@ def collect_data_coverage(root: Path) -> dict:
             kline["oldest"] = min(first_dates)
         if last_dates:
             kline["newest"] = max(last_dates)
+    # 1m 按「最后交易日」分目录，目录区间只有最后一天；真实区间在 manifest
+    # 的 firstDate/lastDate 里。不读这一层，UI 会误显示成只有今天。
+    kline_1m = next((item for item in datasets if item["name"] == "kline_1m"), None)
+    if kline_1m is not None:
+        first_1m: list[str] = []
+        last_1m: list[str] = []
+        for path in (base / "lake" / "kline_1m").glob("**/*.parquet.manifest.json"):
+            try:
+                manifest = json.loads(path.read_text("utf-8"))
+            except (OSError, ValueError):
+                continue
+            if manifest.get("firstDate"):
+                first_1m.append(str(manifest["firstDate"]))
+            if manifest.get("lastDate"):
+                last_1m.append(str(manifest["lastDate"]))
+        if first_1m:
+            kline_1m["oldest"] = min(first_1m)
+        if last_1m:
+            kline_1m["newest"] = max(last_1m)
     return {
         "generatedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
         "root": str(base.resolve()),

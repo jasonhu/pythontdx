@@ -152,6 +152,12 @@ class TestNormalizeOptions(unittest.TestCase):
         self.assertEqual(options["f10Sections"], "full")
 
 
+class TestWorkerWatchdog(unittest.TestCase):
+    def test_pid_alive(self):
+        self.assertTrue(offline_sync._pid_alive(os.getpid()))
+        self.assertFalse(offline_sync._pid_alive(999999))
+
+
 class TestWorkerCommand(unittest.TestCase):
     def test_frozen_uses_existing_executable(self):
         with mock.patch.object(offline_sync, "is_frozen", return_value=True):

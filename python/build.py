@@ -101,14 +101,13 @@ def build_nuitka() -> None:
         f"--include-data-files={ROOT / 'connect.cfg'}=connect.cfg",
     ]
 
-    if sys.platform == "darwin":
-        # onefile 每次启动都解包约 90MB；macOS 冷启动实测 8~9 秒，而缓存解包目录后
-        # 只要 0.28 秒。缓存键由源码/Nuitka 版本决定，升级 sidecar 时自然失效。
-        cache_tag = sidecar_cache_tag()
-        command.append(
-            f"--onefile-tempdir-spec={{CACHE_DIR}}/pythontdx/tdx-bridge/{cache_tag}"
-        )
-        print(f"[build] macOS onefile cache: {{CACHE_DIR}}/pythontdx/tdx-bridge/{cache_tag}")
+    # onefile 每次启动都解包约 90MB；48 个 worker 同时启动会把 CPU/磁盘打满，
+    # 固定缓存目录后，后续 worker 复用同一份解包，启动不再线性变慢。
+    cache_tag = sidecar_cache_tag()
+    command.append(
+        f"--onefile-tempdir-spec={{CACHE_DIR}}/pythontdx/tdx-bridge/{cache_tag}"
+    )
+    print(f"[build] onefile cache: {{CACHE_DIR}}/pythontdx/tdx-bridge/{cache_tag}")
 
     command.append(str(ROOT / "tdx_bridge.py"))
     print("[build] Nuitka:", " ".join(command), flush=True)

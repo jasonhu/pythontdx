@@ -6633,6 +6633,63 @@
   color: var(--up);
 }
 
+.data__sync-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+
+.data__sync-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-xs);
+}
+
+.data__sync-summary-state {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__sync-summary-state--ok {
+  background: color-mix(in srgb, var(--down) 16%, transparent);
+  color: var(--down);
+}
+
+.data__sync-summary-state--bad {
+  background: color-mix(in srgb, var(--up) 16%, transparent);
+  color: var(--up);
+}
+
+.data__sync-summary-meta {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__sync-summary-datasets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+}
+
+.data__sync-summary-dir {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .data__bulk {
   display: flex;
   flex-direction: column;

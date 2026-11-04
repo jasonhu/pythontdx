@@ -7395,11 +7395,27 @@ class Bridge:
         kind = "index" if is_index_code(market, symbol) else "stock"
         adjust_raw = {"none": 0, "qfq": 1, "hfq": 2}.get(safe_adjust, 0)
         page_size = 800
-        max_pages = min(200, want_days * 2 + 4)
-        start = 0
-        pages = 0
         by_date: dict[str, dict] = {}
         day_keys: set[str] = set()
+        cache_last = ""
+        cached_path = _full_kline_cache_path(code, "1m", "none")
+        if cached_path.is_file():
+            try:
+                for bar in read_bars(cached_path).get("bars") or []:
+                    date = str(bar.get("date") or "")
+                    if date:
+                        by_date[date] = bar
+                        day_keys.add(date[:10])
+                        cache_last = max(cache_last, date)
+            except (OSError, ValueError, ParquetStoreError):
+                by_date.clear()
+                day_keys.clear()
+                cache_last = ""
+        # 已有 1m 全历史缓存时只补最近几页；没有缓存才从头翻 100 天。
+        # 这样 5,600 只全市场不会重复拉 28 页/只。
+        max_pages = 8 if by_date else min(200, want_days * 2 + 4)
+        start = 0
+        pages = 0
         complete = False
         while start <= 0xFFFF and pages < max_pages and len(day_keys) < want_days:
             body = self.conn.request(
@@ -7412,12 +7428,20 @@ class Bridge:
                 break
             pages += 1
             fresh = 0
+            page_dates: list[str] = []
             for bar in page:
-                if bar["date"] not in by_date:
+                date = str(bar.get("date") or "")
+                if not date:
+                    continue
+                page_dates.append(date)
+                if date not in by_date:
                     fresh += 1
-                by_date[bar["date"]] = bar
-                day_keys.add(str(bar["date"])[:10])
+                by_date[date] = bar
+                day_keys.add(date[:10])
             if fresh == 0:
+                break
+            # 缓存已经覆盖的旧区间到了就停；只补最新缺口。
+            if cache_last and page_dates and min(page_dates) <= cache_last:
                 break
             start += len(page)
         dates = sorted(by_date)
@@ -7441,13 +7465,17 @@ class Bridge:
                 "code": code,
                 "period": "1m",
                 "adjust": safe_adjust,
-                "source": "7709 0x052d recent",
+                "source": (
+                    "cache+7709 0x052d recent"
+                    if cached_path.is_file()
+                    else "7709 0x052d recent"
+                ),
                 "days": want_days,
                 "daysAvailable": len(day_keys),
                 "firstDate": bars[0]["date"],
                 "lastDate": bars[-1]["date"],
                 "pages": pages,
-                "complete": complete or len(dates) >= want_days,
+                "complete": complete or len(day_keys) >= want_days,
                 "scope": "recent",
             },
         )
@@ -7460,7 +7488,7 @@ class Bridge:
             "rows": len(bars),
             "firstDate": bars[0]["date"],
             "lastDate": bars[-1]["date"],
-            "complete": complete or len(dates) >= want_days,
+            "complete": complete or len(day_keys) >= want_days,
             "cachePath": str(target),
         }
 

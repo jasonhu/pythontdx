@@ -1084,6 +1084,18 @@ export interface OfflineSyncWorker {
   updatedAt: string | null
 }
 
+export interface OfflineSyncLastSummary {
+  jobId: string
+  dir: string
+  state: string
+  error: string
+  planned: number
+  totals: OfflineSyncTotals
+  datasets: Record<string, number>
+  startedAt?: string | null
+  finishedAt?: string | null
+}
+
 export interface OfflineSyncStatus {
   state: OfflineSyncState
   jobId?: string
@@ -1102,6 +1114,7 @@ export interface OfflineSyncStatus {
   throughputPerSecond?: number
   etaSeconds?: number | null
   summary?: Record<string, unknown> | null
+  lastSummary?: OfflineSyncLastSummary | null
   catalog?: OfflineSyncDatasetMeta[]
   presets?: Record<string, OfflineSyncPreset>
 }

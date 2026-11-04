@@ -405,6 +405,89 @@ def offline_window(
     }
 
 
+def summarize_job_dir(job_dir: Path) -> dict[str, Any] | None:
+    """把最近一次任务压成窗口里可长期保留的摘要。
+
+    正常完成读 manifest；进程被杀/崩溃没有 manifest 时，从 plan 和 worker
+    progress 估算完成量，标成 incomplete——这比“窗口里什么都没有”有用。
+    """
+    job_dir = Path(job_dir)
+    if not (job_dir / "plan.json").is_file() and not (job_dir / "manifest.json").is_file():
+        return None
+    plan: dict[str, Any] = {}
+    manifest: dict[str, Any] = {}
+    try:
+        if (job_dir / "plan.json").is_file():
+            plan = json.loads((job_dir / "plan.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        plan = {}
+    try:
+        if (job_dir / "manifest.json").is_file():
+            manifest = json.loads((job_dir / "manifest.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+
+    totals = manifest.get("totals")
+    state = str(manifest.get("state") or "")
+    error = str(manifest.get("error") or "")
+    datasets = manifest.get("datasets")
+    if not isinstance(totals, dict):
+        totals = {"total": 0, "done": 0, "skipped": 0, "failed": 0, "rows": 0}
+        for path in sorted((job_dir / "progress").glob("worker-[0-9][0-9][0-9].json")):
+            try:
+                payload = json.loads(path.read_text("utf-8"))
+            except (OSError, ValueError):
+                continue
+            for key in totals:
+                totals[key] += int(payload.get(key) or 0)
+        if not state:
+            state = "incomplete"
+            error = "任务未生成 manifest（进程中断或应用被关闭）"
+    if not isinstance(datasets, dict):
+        datasets = plan.get("datasets") if isinstance(plan.get("datasets"), dict) else {}
+
+    started = manifest.get("startedAt") or plan.get("plannedAt")
+    finished = manifest.get("finishedAt")
+    if not finished:
+        try:
+            finished = datetime.fromtimestamp(job_dir.stat().st_mtime, SHANGHAI).isoformat(
+                timespec="seconds"
+            )
+        except OSError:
+            finished = None
+    planned = manifest.get("planned")
+    if planned is None:
+        planned = plan.get("tasks")
+    return {
+        "jobId": manifest.get("jobId") or job_dir.name,
+        "dir": str(job_dir),
+        "state": state or "unknown",
+        "error": error,
+        "planned": int(planned or 0),
+        "totals": {key: int(totals.get(key) or 0) for key in totals},
+        "datasets": datasets,
+        "startedAt": started,
+        "finishedAt": finished,
+    }
+
+
+def latest_job_summary(root: Path | None = None) -> dict[str, Any] | None:
+    base = Path(root) if root else data_dir() / "lake" / "offline_sync"
+    try:
+        candidates = sorted(
+            (path for path in base.iterdir() if path.is_dir()),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        return None
+    for path in candidates[:5]:
+        summary = summarize_job_dir(path)
+        if summary is not None:
+            return summary
+    return None
+
+
 # ---------------------------------------------------------------- 数据集元信息
 
 
@@ -1278,6 +1361,38 @@ def _worker_servers(servers: list[str]) -> list[str]:
     return [str(item) for item in servers if str(item).strip()] or [""]
 
 
+def _pid_alive(pid: int) -> bool:
+    """worker 看父 sidecar 是否还活着；父进程被杀时 worker 不能变孤儿。
+
+    注意：Windows 上绝不能写 `os.kill(pid, 0)`。Python 把 0 当成
+    CTRL_C_EVENT，会向整个进程组发 Ctrl+C，父 sidecar 和所有 worker
+    会一起 KeyboardInterrupt——18:27 的任务就是这么被瞬间打断的。
+    """
+    if pid <= 0:
+        return True
+    if os.name == "nt":
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_bool, ctypes.c_ulong]
+        kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        handle = kernel32.OpenProcess(0x00100000, False, int(pid))  # SYNCHRONIZE
+        if not handle:
+            # ERROR_ACCESS_DENIED 说明进程还在；其余按已退出处理。
+            return kernel32.GetLastError() == 5
+        try:
+            return kernel32.WaitForSingleObject(handle, 0) == 0x102  # WAIT_TIMEOUT
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
 def _write_json_atomic(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".part")
@@ -1306,6 +1421,7 @@ def run_worker(spec_path: str | Path) -> dict[str, Any]:
     job_dir = Path(spec["jobDir"]).resolve()
     index = int(spec.get("index", 0))
     threads = max(1, int(spec.get("threads", 1)))
+    parent_pid = int(spec.get("parentPid") or 0)
     tasks: list[dict[str, Any]] = list(spec.get("tasks") or [])
     servers = _worker_servers(list(spec.get("servers") or []))
     codes_file = Path(spec["codesFile"]).resolve() if spec.get("codesFile") else None
@@ -1369,6 +1485,11 @@ def run_worker(spec_path: str | Path) -> dict[str, Any]:
         host = servers[thread_index % len(servers)]
         try:
             while not cancelled.is_set() and not paused.is_set():
+                if parent_pid and not _pid_alive(parent_pid):
+                    # 父 sidecar 被杀/应用直接退出时，不能留下 48 个下载器
+                    # 继续吃 CPU；下次启动时它们也不会再被父进程回收。
+                    cancelled.set()
+                    break
                 if cancel_file.exists():
                     cancelled.set()
                     break
@@ -1656,7 +1777,13 @@ class OfflineSyncManager:
         with self._lock:
             job = self._job
         if job is None:
-            return {"state": "idle", "window": window, "datasets": dataset_catalog(), "presets": PRESETS}
+            return {
+                "state": "idle",
+                "window": window,
+                "datasets": dataset_catalog(),
+                "presets": PRESETS,
+                "lastSummary": latest_job_summary(self.root),
+            }
         job_dir: Path = job["dir"]
         state = job["state"]
         summary: dict[str, Any] = {}
@@ -1730,6 +1857,7 @@ class OfflineSyncManager:
             "throughputPerSecond": round(throughput, 2),
             "etaSeconds": round(remaining / throughput, 1) if throughput > 0.01 else None,
             "summary": summary or None,
+            "lastSummary": summarize_job_dir(job_dir) if summary else None,
             "catalog": dataset_catalog(),
             "presets": PRESETS,
         }
@@ -1873,6 +2001,7 @@ class OfflineSyncManager:
                         "codesFile": str(job_dir / "codes.json"),
                         "retries": options["retries"],
                         "enforceWindow": options["enforceWindow"],
+                        "parentPid": os.getpid(),
                     },
                 )
                 specs.append(spec_path)

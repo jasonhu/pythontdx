@@ -452,6 +452,18 @@ class TestF10DigestAndNews(unittest.TestCase):
         self.assertEqual(detail["recordId"], "123")
         self.assertEqual(post.call_args.args[1]["Params"], ["gg", "123"])
 
+    def test_fund_report_request(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [{"ColName": ["N001"], "Content": [["基金资料"]]}],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload) as post:
+            result = tdx_f10.fetch_fund_report("sz159915", "basic")
+        self.assertEqual(result["section"], "basic")
+        entry, body = post.call_args.args
+        self.assertTrue(entry.endswith("skef10_jj_jjzl"))
+        self.assertEqual(body["Params"], ["4", "159915", "", "1", "1", "20"])
+
 
 if __name__ == "__main__":
     unittest.main()

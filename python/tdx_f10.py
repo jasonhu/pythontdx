@@ -1352,6 +1352,70 @@ def fetch_detail(detail_type: str, record_id: str | int) -> dict:
     return {"detailType": kind, "recordId": str(record_id), **_parse_result_table(payload)}
 
 
+FUND_REPORT_SECTIONS = {
+    "name", "managers", "company", "basic", "seats", "scale", "scale_history",
+    "nav", "nav_period", "nav_rank", "dividends", "asset_allocation",
+    "industry_allocation", "holdings_compare", "holdings_rank", "holding_summary",
+    "bond_allocation", "futures_allocation", "holdings", "holdings_detail",
+    "holdings_changes", "fund_of_funds", "finance", "sales_info",
+    "sales_announcements", "sales_news", "etf", "margin", "ratings", "categories",
+}
+
+
+def fetch_fund_report(
+    code: str,
+    section: str = "basic",
+    arg: str = "",
+    date: str = "",
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """7615 ETF/基金 F10：30 个 section，返回全部 ResultSet。"""
+    if section not in FUND_REPORT_SECTIONS:
+        raise F10Error(f"不支持的基金分区：{section}")
+    symbol = _code6(code)
+    page_text, size_text = str(max(1, page)), str(max(1, min(page_size, 100)))
+    date_text = str(date or "")
+    jj = "CWServ.skef10_jj_"
+    jjzl, gmfe, jzhb = f"{jj}jjzl", f"{jj}gmfe", f"{jj}jzhb"
+    tzzh, cgqk, xsxx, etfzj = f"{jj}tzzh", f"{jj}cgqk", f"{jj}xsxx", f"{jj}etfzj"
+    table = {
+        "name": (f"{jj}idreq", ["name", symbol]),
+        "managers": (jjzl, ["1", symbol, "", page_text, page_text, size_text]),
+        "company": (jjzl, ["2", symbol, "", page_text, page_text, size_text]),
+        "basic": (jjzl, ["4", symbol, "", page_text, page_text, size_text]),
+        "seats": (jjzl, ["5", symbol, arg, page_text, page_text, size_text]),
+        "scale": (gmfe, ["0", symbol, "", ""]),
+        "scale_history": (gmfe, [arg or "0", symbol, "", date_text]),
+        "nav": (jzhb, ["0", symbol, "0", ""]),
+        "nav_period": (jzhb, ["1", symbol, "0", ""]),
+        "nav_rank": (jzhb, ["3", symbol, "0", ""]),
+        "dividends": (jzhb, ["5", symbol, "0", ""]),
+        "asset_allocation": (tzzh, ["zcpz", symbol, ""]),
+        "industry_allocation": (tzzh, ["hyfb", symbol, date_text]),
+        "holdings_compare": (tzzh, ["cgjzd", symbol, ""]),
+        "holdings_rank": (tzzh, ["zjpz", symbol, ""]),
+        "holding_summary": (tzzh, ["jjxtzzh", symbol, ""]),
+        "bond_allocation": (tzzh, ["zczq", symbol, date_text]),
+        "futures_allocation": (tzzh, ["ccqhmx", symbol, date_text]),
+        "holdings": (cgqk, ["cgqkbgq", symbol, "", "", "1", "1", "1"]),
+        "holdings_detail": (cgqk, ["cgmxbgq", symbol, "", "", "1", "1", "1"]),
+        "holdings_changes": (cgqk, ["cyjjmxbgq", symbol, "", "", "1", "1", "1"]),
+        "fund_of_funds": (cgqk, ["sxjjzcbgq", symbol, "", "", "1", "1", "1"]),
+        "finance": (f"{jj}cwzk", [arg or "zcfzb", symbol]),
+        "sales_info": (xsxx, ["0", symbol]),
+        "sales_announcements": (xsxx, ["4", symbol]),
+        "sales_news": (xsxx, ["5", symbol]),
+        "etf": (etfzj, ["etfzjlx", symbol, date_text or "3M"]),
+        "margin": (etfzj, ["etfrzrq", symbol, date_text or "3M"]),
+        "ratings": (f"{jj}jjpj", [arg or "001", symbol]),
+        "categories": (f"{jj}fxsy", [arg or "bgqzf", symbol, ""]),
+    }
+    entry, params = table[section]
+    payload = _post_tqlex(entry, {"Params": params})
+    return {"section": section, "tables": _parse_all_tables(payload, 200)}
+
+
 # ---------------------------------------------------------------- 板块 / 指数 / 大盘
 
 MARKET_REPORT_SECTIONS = {

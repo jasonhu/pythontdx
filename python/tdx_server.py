@@ -886,6 +886,19 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/f10_fund_report":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_fund_report(
+                            str(payload.get("code") or ""),
+                            str(payload.get("section") or "basic"),
+                            str(payload.get("arg") or ""),
+                            str(payload.get("date") or ""),
+                            int(payload.get("page", 1)),
+                            int(payload.get("pageSize", 20)),
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_detail":
                 with self.server.lock:
                     self._ok(

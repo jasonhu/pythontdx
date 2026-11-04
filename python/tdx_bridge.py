@@ -102,6 +102,7 @@ from tdx_f10 import (
     fetch_digest,
     fetch_detail,
     fetch_finance,
+    fetch_fund_report,
     fetch_governance,
     fetch_hot_topics,
     fetch_market_news,
@@ -4952,6 +4953,17 @@ class Bridge:
     def f10_hot_topics(self, code: str, section: str = "zttzbkz") -> dict:
         return fetch_hot_topics(code, section)
 
+    def f10_fund_report(
+        self,
+        code: str,
+        section: str = "basic",
+        arg: str = "",
+        date: str = "",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict:
+        return fetch_fund_report(code, section, arg, date, page, page_size)
+
     def f10_detail(self, detail_type: str, record_id: str) -> dict:
         return fetch_detail(detail_type, record_id)
 
@@ -6812,6 +6824,15 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
     if cmd == "f10_hot_topics":
         return bridge.f10_hot_topics(
             str(payload.get("code") or ""), str(payload.get("section") or "zttzbkz")
+        )
+    if cmd == "f10_fund_report":
+        return bridge.f10_fund_report(
+            str(payload.get("code") or ""),
+            str(payload.get("section") or "basic"),
+            str(payload.get("arg") or ""),
+            str(payload.get("date") or ""),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 20)),
         )
     if cmd == "f10_detail":
         return bridge.f10_detail(

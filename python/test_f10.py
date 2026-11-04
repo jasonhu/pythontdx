@@ -397,6 +397,20 @@ class TestF10DigestAndNews(unittest.TestCase):
         self.assertEqual(rows[0]["id"], "42")
         self.assertEqual(rows[0]["title"], "标题")
 
+    def test_profit_forecast_multiple_tables(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {"ColName": ["nyear", "flag"], "Content": [["2026", 0]]},
+                {"ColName": ["T036", "T033"], "Content": [[1.1, 100.0]]},
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload):
+            result = tdx_f10.fetch_profit_forecast("sz000001")
+        self.assertEqual(result["section"], "ylyctj")
+        self.assertEqual(len(result["tables"]), 2)
+        self.assertEqual(result["tables"][1]["rows"][0], [1.1, 100.0])
+
 
 if __name__ == "__main__":
     unittest.main()

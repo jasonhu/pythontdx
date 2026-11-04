@@ -1213,6 +1213,76 @@ def fetch_market_news(tab: int = 3, page: int = 1, page_size: int = 50) -> list[
     return parse_market_news_payload(payload, page_size)
 
 
+PROFIT_FORECAST_SECTIONS = {"ylyctj", "ylycmx", "yzyq", "tzpjtj", "ycpjyjbg"}
+GOVERNANCE_SECTIONS = {"wgcl", "dbmxbgq", "gljy", "gqzr", "gqzy", "sgjb", "zdsx", "zjly", "dbmx", "gqtz", "xmtz"}
+RANKING_SECTIONS = {"scpmdela", "scpmdelat", "hypmdela", "hypmdelat", "scpmzxt", "hypmzxt", "ztxqzxts"}
+
+
+def _parse_all_tables(payload: dict, limit: int = 50) -> list[dict]:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    tables: list[dict] = []
+    for table in payload.get("ResultSets") or []:
+        columns = [str(name) for name in (table.get("ColName") or [])]
+        rows = [list(values) for values in (table.get("Content") or [])][: max(1, limit)]
+        tables.append({"columns": columns, "rows": rows, "count": len(rows)})
+    return tables
+
+
+def fetch_profit_forecast(code: str, section: str = "ylyctj") -> dict:
+    """7615 盈利预测：5 个分区，返回全部 ResultSet。"""
+    _market, symbol = _market_of(code)
+    if section not in PROFIT_FORECAST_SECTIONS:
+        raise F10Error(f"不支持的盈利预测分区：{section}")
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_ybpj", {"Params": [symbol, section]}
+    )
+    return {"section": section, "tables": _parse_all_tables(payload)}
+
+
+def fetch_governance(code: str, section: str = "gljy") -> dict:
+    """7615 资本运作治理：违规/担保/关联交易/股权/诉讼/重大事项/资金运用。"""
+    _market, symbol = _market_of(code)
+    if section not in GOVERNANCE_SECTIONS:
+        raise F10Error(f"不支持的治理分区：{section}")
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_zbyz", {"Params": [section, symbol, ""]}
+    )
+    return {"section": section, **_parse_result_table(payload)}
+
+
+def fetch_ranking_detail(code: str, section: str = "scpmdela") -> dict:
+    """7615 市场/行业排名明细。"""
+    _market, symbol = _market_of(code)
+    if section not in RANKING_SECTIONS:
+        raise F10Error(f"不支持的排位分区：{section}")
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_zxts_rqpm", {"Params": [symbol, section]}
+    )
+    return {"section": section, **_parse_result_table(payload)}
+
+
+def fetch_northbound_holding(
+    code: str, section: str = "bszj", filter_value: str = "", page: int = 1, page_size: int = 20
+) -> dict:
+    """7615 沪深股通持股变化。"""
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_zlcc",
+        {
+            "Params": [
+                symbol,
+                section,
+                filter_value,
+                str(max(1, page)),
+                str(max(1, page)),
+                str(max(1, min(page_size, 100))),
+            ]
+        },
+    )
+    return {"section": section, **_parse_result_table(payload)}
+
+
 # ---------------------------------------------------------------- PIT 自动快照
 #
 # 所有公开 F10 fetch 统一包一层：成功返回后按 snapshot_date + code + table 写
@@ -1229,10 +1299,14 @@ _F10_PIT_TABLES = (
     "digest",
     "dividend",
     "finance",
+    "governance",
     "industry",
     "institutions",
     "news",
+    "northbound_holding",
     "profile",
+    "profit_forecast",
+    "ranking_detail",
     "reports",
     "shareholder_changes",
     "shareholder_count",

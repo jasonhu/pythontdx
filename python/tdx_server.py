@@ -783,6 +783,41 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/f10_profit_forecast":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_profit_forecast(
+                            payload.get("code", ""), payload.get("section", "ylyctj")
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_governance":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_governance(
+                            payload.get("code", ""), payload.get("section", "gljy")
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_ranking_detail":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_ranking_detail(
+                            payload.get("code", ""), payload.get("section", "scpmdela")
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_northbound_holding":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_northbound_holding(
+                            payload.get("code", ""),
+                            payload.get("section", "bszj"),
+                            int(payload.get("page", 1)),
+                            int(payload.get("pageSize", 20)),
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_industry":
                 with self.server.lock:
                     self._ok(

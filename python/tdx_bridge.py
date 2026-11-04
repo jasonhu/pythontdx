@@ -99,9 +99,13 @@ from tdx_f10 import (
     fetch_business,
     fetch_digest,
     fetch_finance,
+    fetch_governance,
     fetch_market_news,
     fetch_news,
+    fetch_northbound_holding,
     fetch_profile,
+    fetch_profit_forecast,
+    fetch_ranking_detail,
     fetch_reports,
     fetch_shareholders,
     fetch_statement,
@@ -4869,6 +4873,20 @@ class Bridge:
             pythontdx_data_dir() / "lake" / "market_news", limit
         )
 
+    def f10_profit_forecast(self, code: str, section: str = "ylyctj") -> dict:
+        return fetch_profit_forecast(code, section)
+
+    def f10_governance(self, code: str, section: str = "gljy") -> dict:
+        return fetch_governance(code, section)
+
+    def f10_ranking_detail(self, code: str, section: str = "scpmdela") -> dict:
+        return fetch_ranking_detail(code, section)
+
+    def f10_northbound_holding(
+        self, code: str, section: str = "bszj", page: int = 1, page_size: int = 20
+    ) -> dict:
+        return fetch_northbound_holding(code, section, "", page, page_size)
+
     def f10_industry(self, code: str, section: str = "summary") -> dict:
         """7615 TQLEX 行业汇总/新闻/研报。"""
         from tdx_f10 import fetch_industry
@@ -6601,6 +6619,25 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "f10_market_news_archive_list":
         return bridge.f10_market_news_archive_list(int(payload.get("limit", 50)))
+    if cmd == "f10_profit_forecast":
+        return bridge.f10_profit_forecast(
+            str(payload.get("code") or ""), str(payload.get("section") or "ylyctj")
+        )
+    if cmd == "f10_governance":
+        return bridge.f10_governance(
+            str(payload.get("code") or ""), str(payload.get("section") or "gljy")
+        )
+    if cmd == "f10_ranking_detail":
+        return bridge.f10_ranking_detail(
+            str(payload.get("code") or ""), str(payload.get("section") or "scpmdela")
+        )
+    if cmd == "f10_northbound_holding":
+        return bridge.f10_northbound_holding(
+            str(payload.get("code") or ""),
+            str(payload.get("section") or "bszj"),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 20)),
+        )
     if cmd == "f10_industry":
         return bridge.f10_industry(
             str(payload.get("code") or ""), str(payload.get("section") or "summary")

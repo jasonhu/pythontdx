@@ -587,6 +587,33 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/category_snapshot":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.category_snapshot(
+                            int(payload.get("category", 6)),
+                            int(payload.get("sortType", 0)),
+                            int(payload.get("maxPages", 100)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/category_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.category_archive_save(
+                            int(payload.get("category", 6)),
+                            int(payload.get("sortType", 0)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/category_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.category_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
             if parsed.path == "/api/trades":
                 with self.server.lock:
                     self._ok(

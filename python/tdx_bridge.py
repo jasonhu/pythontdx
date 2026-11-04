@@ -3952,6 +3952,51 @@ class Bridge:
         self._attach_finance(quotes)
         return quotes
 
+    def category_snapshot(
+        self,
+        category: int = 6,
+        sort_type: int = 0,
+        max_pages: int = 100,
+    ) -> list[dict]:
+        """0x054b 全量分类行情；按空页/短页停止，按代码去重。"""
+        limit = max(1, min(int(max_pages), 200))
+        by_code: dict[str, dict] = {}
+        for page_index in range(limit):
+            page = self.category_quotes(
+                category=category,
+                sort_type=sort_type,
+                start=page_index * 80,
+                count=80,
+            )
+            for quote in page:
+                by_code[quote["code"]] = quote
+            if len(page) < 80:
+                break
+        return list(by_code.values())
+
+    def category_archive_save(
+        self, category: int = 6, sort_type: int = 0
+    ) -> dict:
+        rows = self.category_snapshot(category, sort_type)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            "category": category,
+            "sortType": sort_type,
+            "rows": len(rows),
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "category_quotes",
+                "category_quotes",
+                rows,
+                source=f"TDX 7709 0x054b category={category} sort={sort_type}",
+                trade_date=trade_date,
+            ),
+        }
+
+    def category_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "category_quotes", limit
+        )
+
     def _all_category_quotes(self) -> list[dict]:
         if self.screen_cache and self.screen_cache[0] > time.time():
             return self.screen_cache[1]
@@ -6433,6 +6478,18 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             ascending=bool(payload.get("ascending", False)),
             filter_raw=int(payload.get("filterRaw", payload.get("filter_raw", 0))),
         )
+    if cmd == "category_snapshot":
+        return bridge.category_snapshot(
+            int(payload.get("category", 6)),
+            int(payload.get("sortType", 0)),
+            int(payload.get("maxPages", 100)),
+        )
+    if cmd == "category_archive_save":
+        return bridge.category_archive_save(
+            int(payload.get("category", 6)), int(payload.get("sortType", 0))
+        )
+    if cmd == "category_archive_list":
+        return bridge.category_archive_list(int(payload.get("limit", 50)))
     if cmd == "trades":
         return bridge.trades(
             payload.get("code", ""),

@@ -135,7 +135,7 @@ class TestOfflineWindow(unittest.TestCase):
 class TestNormalizeOptions(unittest.TestCase):
     def test_clamps_and_rejects(self):
         options = offline_sync.normalize_options({"processes": 99, "threads": 0})
-        self.assertEqual(options["processes"], offline_sync.MAX_PROCESSES)
+        self.assertEqual(options["processes"], 48)
         self.assertEqual(options["threads"], 1)
         self.assertEqual(
             options["datasets"], offline_sync.default_options()["datasets"]
@@ -240,6 +240,20 @@ class TestPlanAndShard(unittest.TestCase):
                 plan = offline_sync.build_plan(options, [], root)
             self.assertEqual(plan["skipped"], 0)
             self.assertEqual(len(plan["tasks"]), 1)
+
+    def test_ticks_defaults_to_20_trading_days(self):
+        options = offline_sync.normalize_options(
+            {
+                "datasets": ["ticks"],
+                "scope": "codes",
+                "codes": ["sh600519"],
+                "skipExisting": False,
+            }
+        )
+        plan = offline_sync.build_plan(options, ["sh600519"], Path(tempfile.gettempdir()))
+        self.assertEqual(len(plan["tasks"]), 20)
+        self.assertEqual(len({task["date"] for task in plan["tasks"]}), 20)
+        self.assertLess(plan["tasks"][0]["date"], plan["tasks"][-1]["date"])
 
     def test_every_dataset_can_plan_tasks(self):
         """新增数据集必须接进 build_plan，否则界面上勾了也永远不会执行。"""

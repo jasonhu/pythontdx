@@ -278,8 +278,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [syncSource, setSyncSource] = createSignal<'auto' | 'mac' | '7709'>(
     savedSync?.source ?? 'auto'
   )
-  const [syncProcesses, setSyncProcesses] = createSignal(savedSync?.processes ?? 4)
-  const [syncThreads, setSyncThreads] = createSignal(savedSync?.threads ?? 8)
+  const [syncProcesses, setSyncProcesses] = createSignal(
+    Math.min(48, Math.max(1, savedSync?.processes ?? 8))
+  )
+  const [syncThreads, setSyncThreads] = createSignal(
+    Math.min(4, Math.max(1, savedSync?.threads ?? 4))
+  )
   const [syncSkipExisting, setSyncSkipExisting] = createSignal(savedSync?.skipExisting ?? true)
   const [syncBusy, setSyncBusy] = createSignal(false)
   const [syncError, setSyncError] = createSignal<string | null>(null)
@@ -971,7 +975,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 <input
                   type="number"
                   min={1}
-                  max={12}
+                  max={48}
                   value={syncProcesses()}
                   disabled={syncRunning()}
                   onChange={(event) => setSyncProcesses(Number(event.currentTarget.value) || 1)}
@@ -982,7 +986,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                 <input
                   type="number"
                   min={1}
-                  max={24}
+                  max={4}
                   value={syncThreads()}
                   disabled={syncRunning()}
                   onChange={(event) => setSyncThreads(Number(event.currentTarget.value) || 1)}

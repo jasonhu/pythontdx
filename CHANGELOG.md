@@ -10,6 +10,25 @@ pythontdx 的所有重要变更都记录在这里。
 
 ---
 
+## [1.3.4] - 2026-11-04
+
+### 变更
+
+- **并发模型**：默认 **8 进程 × 4 线程**；进程上限 **48**、每进程线程上限 **4**；
+  48×4 可开 192 条连接，不再被旧的 12 进程上限截断成「最多 12 个下载器」。
+- **一进程一主站**：调度时把第 i 个 worker 钉在 `servers[i % len(servers)]`，
+  该 worker 的 4 条线程共享同一主站，避免所有进程都挤在前几台。
+- **逐笔成交最近 20 交易日**：`ticks` 数据集默认展开最近 20 个交易日
+  （显式 `--dates` 时仍尊重用户日期），标签改为「逐笔成交（最近 20 交易日）」。
+- 数据工具恢复上次配置时，进程/线程数按 1–48 / 1–4 夹取。
+
+### 验证
+
+- `npm run check`：359 TS + 280 Python（279 通过/1 skipped）；
+- 设置面板 8×4；48×4 规划不再被 clamp；
+- 任务 spec 每个 worker 只带 1 台主站；
+- ticks 单只代码规划 20 个交易日任务（2026-10-08 → 2026-11-04）。
+
 ## [1.3.3] - 2026-11-04
 
 ### 新增
@@ -31,7 +50,7 @@ pythontdx 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check`：359 TS + 279 Python（278 通过/1 skipped）；
+- `npm run check`：359 TS + 280 Python（279 通过/1 skipped）；
 - `kline_1m` 单只：22,080 根 / 92 日 / 1.1s（20 日时 4,800 根）；
 - 打包 sidecar worker 启动已验证（1.3.2）。
 
@@ -54,7 +73,7 @@ pythontdx 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 279 Python（278 通过/1 skipped）；
+- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 280 Python（279 通过/1 skipped）；
 - 打包 sidecar：`offline_sync_start` → worker pid 运行中；
 - 指数成交量 599.39 万手；尾盘竞价 688499 56 点。
 
@@ -140,7 +159,7 @@ pythontdx 的所有重要变更都记录在这里。
 - 日常预设 2 只代码、2 进程 × 3 线程 → 23 个任务、0 失败、25,460 行（含九榜
   540 行、主力监控 1,200 行）；
 - `data_integrity` 真实数据 148,427 份 manifest/SHA256，0 失败；
-- `npm run check` 全绿（359 TS + 279 Python，1 skipped）；
+- `npm run check` 全绿（359 TS + 280 Python，1 skipped）；
 - 面板截图 `screenshots/data-offline-sync.png`（24 个数据集、保护中徽标）。
 
 ### 新增（2026-11-04 数据功能第二轮）
@@ -244,7 +263,7 @@ pythontdx 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 279 Python（276 通过/1 skipped）；
+- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 280 Python（276 通过/1 skipped）；
 - MAC 日 K 6,035 根与 7709 一致；gpcw 5,572×658；GBBQ 202,313 条；
 - 离线同步 24 数据集；面板截图 `screenshots/data-offline-sync.png`；
 - 详细边界见 `docs/20-数据功能补齐与代码审计.md` §3。

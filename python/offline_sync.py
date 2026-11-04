@@ -53,10 +53,10 @@ WINDOW_START = dtime(8, 45)
 WINDOW_END = dtime(15, 45)
 JOB_SCHEMA = "pythontdx.offline_sync.v1"
 PROGRESS_SCHEMA = "pythontdx.offline_sync.progress.v1"
-DEFAULT_PROCESSES = 4
-DEFAULT_THREADS = 8
-MAX_PROCESSES = 12
-MAX_THREADS = 24
+DEFAULT_PROCESSES = 8
+DEFAULT_THREADS = 4
+MAX_PROCESSES = 48
+MAX_THREADS = 4
 MAX_TASKS_REPORTED_FAILURES = 500
 
 # 数据集总表：UI/HTTP 用它生成选择项，planning/worker 用它决定落盘方式。
@@ -107,11 +107,11 @@ DATASETS: dict[str, dict[str, Any]] = {
         "description": "0x056a 竞价明细，按代码 + 交易日写 lake/auction",
     },
     "ticks": {
-        "label": "逐笔成交",
+        "label": "逐笔成交（最近 20 交易日）",
         "group": "行情",
         "mode": "per_code",
         "weight": 20,
-        "description": "0x0fc5/0x0fc6 全部逐笔，按代码 + 交易日写 lake/ticks（体量最大）",
+        "description": "0x0fc5/0x0fc6 最近 20 个交易日全部逐笔，按代码 + 交易日写 lake/ticks（体量最大）",
     },
     "history_minute": {
         "label": "历史分时",
@@ -325,6 +325,21 @@ def load_holidays(root: Path | None = None) -> set[str]:
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
             days.add(text)
     return days
+
+
+def recent_trading_days(count: int = 20, root: Path | None = None) -> list[str]:
+    """最近 N 个交易日（含今天；15:00 前不含今天），按升序返回。"""
+    holidays = load_holidays(root)
+    current = _shanghai_now()
+    day = current.date()
+    if current.time().replace(tzinfo=None) < dtime(15, 0):
+        day -= timedelta(days=1)
+    days: list[str] = []
+    while len(days) < max(1, int(count)):
+        if is_trading_day(day, holidays):
+            days.append(day.isoformat())
+        day -= timedelta(days=1)
+    return sorted(days)
 
 
 def is_trading_day(day: date, holidays: set[str] | None = None) -> bool:
@@ -904,11 +919,17 @@ def build_plan(
     if "top_board" in selected:
         for category, _sort in CATEGORY_PAIRS:
             add({"dataset": "top_board", "category": category, "size": 20})
-    for dataset in ("auction", "ticks", "history_minute"):
+    for dataset in ("auction", "history_minute"):
         if dataset in selected:
             for day in dates:
                 for code in codes:
                     add({"dataset": dataset, "code": code, "date": day})
+    if "ticks" in selected:
+        # 逐笔默认最近 20 个交易日；显式 --dates 时尊重用户日期。
+        tick_dates = dates if options["dates"] else recent_trading_days(20, root)
+        for day in tick_dates:
+            for code in codes:
+                add({"dataset": "ticks", "code": code, "date": day})
     if "f10" in selected:
         for code in codes:
             add({"dataset": "f10", "code": code, "sections": options["f10Sections"]})
@@ -1846,7 +1867,9 @@ class OfflineSyncManager:
                         "index": index,
                         "threads": options["threads"],
                         "tasks": shard,
-                        "servers": servers,
+                        # 一个进程钉一台服务器：线程共享该连接池，避免所有进程
+                        # 都挤在前几台主机上。
+                        "servers": [servers[index % len(servers)]],
                         "codesFile": str(job_dir / "codes.json"),
                         "retries": options["retries"],
                         "enforceWindow": options["enforceWindow"],

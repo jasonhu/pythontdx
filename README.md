@@ -5,9 +5,9 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `7709 / MAC / 7615`
 
-**v1.3.3** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
+**v1.3.4** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
 
-`npm run check` **359 TS（357 通过 / 2 skipped）+ 279 Python（278 通过 / 1 skipped）**
+`npm run check` **359 TS（357 通过 / 2 skipped）+ 280 Python（279 通过 / 1 skipped）**
 
 [GitHub Releases](https://github.com/riverzhou/pythontdx/releases) ·
 [数据并行同步](docs/18-离线数据并行同步.md) ·
@@ -76,7 +76,7 @@
 
 ![数据工具](docs/assets/pythontdx-1.3-data.png)
 
-- 并行离线同步：4 进程 × 8 线程默认，24 个数据集；
+- 并行离线同步：8 进程 × 4 线程默认（可调 1–48 × 1–4），24 个数据集；
 - 日 K（全历史）与 1 分钟 K（最近 100 交易日，服务端实际约 92 日/22,080 根）是两个独立选项；
 - 数据集勾选、范围、数据源、进程/线程数、跳过已有会作为「上次配置」持久化；
 - 每个耗时操作都有进度条：同步（探测/计划/完成数/吞吐/ETA）、下载 zhb.zip、
@@ -238,7 +238,7 @@ python -m pytest python -q
 npm run audit:data
 ```
 
-当前基线：**359 TS（357 通过 / 2 skipped）+ 279 Python（278 通过 / 1 skipped）**。
+当前基线：**359 TS（357 通过 / 2 skipped）+ 280 Python（279 通过 / 1 skipped）**。
 协议测试使用 `python/fixtures/` 真实报文；MAC/GBBQ/gpcw/离线同步均有独立单测。
 
 ---

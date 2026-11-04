@@ -1200,7 +1200,9 @@ def parse_quotes(
             "low": low,
             "change": change,
             "changePct": (change / prev_close * 100) if prev_close > 0 else 0.0,
-            "volume": total_hand,
+            # 指数 0x053e/054c/054b 的 totalHand 是「股」，个股是「手」；
+            # 统一成手，与 K 线 volume 同单位。
+            "volume": total_hand / 100 if index_code else total_hand,
             "innerVolume": inner_volume,
             "outerVolume": outer_volume,
             "amount": amount,
@@ -1327,7 +1329,8 @@ def _build_quote(
         "low": low,
         "change": change,
         "changePct": (change / prev_close * 100) if prev_close > 0 else 0.0,
-        "volume": total_hand,
+        # 指数 totalHand 是「股」，统一成手，与 K 线 volume 同单位。
+        "volume": total_hand / 100 if index_code else total_hand,
         "amount": amount,
         "currency": "CNY",
         "time": received_at,

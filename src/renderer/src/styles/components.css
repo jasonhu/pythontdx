@@ -1049,6 +1049,12 @@
   cursor: pointer;
 }
 
+.auction__today--on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .auction__today:hover {
   color: var(--text-1);
   background: var(--panel-hover);

@@ -178,7 +178,12 @@ export function applyLiveQuoteToKline(
   const canAppend = period === 'day' || isIntradayPeriod(period)
   if (last.date === label) {
     const next = bars.slice(0, -1)
-    next.push(patch(last, period === 'day' ? quote.volume : undefined))
+    next.push(
+        patch(
+          last,
+          period === 'day' ? quote.volume : undefined
+        )
+      )
     return { ...series, bars: next }
   }
 

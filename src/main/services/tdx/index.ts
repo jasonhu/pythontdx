@@ -389,10 +389,14 @@ export async function fetchMacMoneyFlowBatch(
   )
 }
 
-export async function fetchAuctions(code: string, date?: string): Promise<AuctionPoint[]> {
+export async function fetchAuctions(
+  code: string,
+  date?: string,
+  selector = 0
+): Promise<AuctionPoint[]> {
   return bridge.send<AuctionPoint[]>(
     'auctions',
-    { code, date: date || undefined, limit: 500 },
+    { code, date: date || undefined, selector, limit: 500 },
     QUOTES_TIMEOUT_MS
   )
 }

@@ -136,6 +136,8 @@ class TestQuotes(unittest.TestCase):
         self.assertEqual(len(quotes), 1)
         self.assertEqual(quotes[0]["code"], "sh000001")
         self.assertAlmostEqual(quotes[0]["price"], 3651.43, places=2)
+        # 指数报价成交量从「股」归一成「手」，与 K 线同单位。
+        self.assertAlmostEqual(quotes[0]["volume"], 4435641.44, places=2)
         self.assertEqual(quotes[0]["bids"], [])
         self.assertEqual(quotes[0]["asks"], [])
 

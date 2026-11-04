@@ -6,7 +6,7 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：1.3.0** · **许可证：GPL-3.0-or-later** ·
+**版本：1.3.1** · **许可证：GPL-3.0-or-later** ·
 `npm run check`：359 个 TS 测试 + 277 个 Python 测试（Python 1 skipped）·
 `npm run audit:data`：39/39。
 

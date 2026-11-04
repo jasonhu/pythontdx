@@ -51,7 +51,8 @@ const api: PythonTdxApi = {
     boards: (boardType) => ipcRenderer.invoke(IPC.macBoards, boardType)
   },
   auction: {
-    series: (code, date) => ipcRenderer.invoke(IPC.auctionSeries, code, date),
+    series: (code, date, selector) =>
+      ipcRenderer.invoke(IPC.auctionSeries, code, date, selector),
     archiveSave: (code, date) => ipcRenderer.invoke(IPC.auctionArchiveSave, code, date),
     archiveRead: (code, date) => ipcRenderer.invoke(IPC.auctionArchiveRead, code, date),
     archiveList: (limit) => ipcRenderer.invoke(IPC.auctionArchiveList, limit),

@@ -17,6 +17,7 @@ interface AuctionTapeProps {
 }
 
 type AuctionSource = 'live' | 'archive' | 'none'
+type AuctionSession = 'open' | 'close' | 'all'
 
 const REFRESH_MS = 1000
 
@@ -29,9 +30,15 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
   const [archiveBusy, setArchiveBusy] = createSignal(false)
   const [archiveNote, setArchiveNote] = createSignal<string | null>(null)
   const [lastAt, setLastAt] = createSignal(0)
+  /** 0x056a selector=0 只到 09:25；selector=1 才包含 14:57–15:00 尾盘竞价。 */
+  const [session, setSession] = createSignal<AuctionSession>('open')
   /** 用户往上翻看历史点时不要强行拽回底部 */
   const [stickToBottom, setStickToBottom] = createSignal(true)
-  const latest = () => rows()[rows().length - 1]
+  const displayRows = (): AuctionPoint[] => {
+    if (session() === 'close') return rows().filter((point) => point.time >= '14:57')
+    return rows()
+  }
+  const latest = () => displayRows()[displayRows().length - 1]
   const flash = createValueFlash(() => latest()?.price)
   let requestId = 0
   let liveDispose: (() => void) | undefined
@@ -42,7 +49,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
     const current = ++requestId
     setLoading(true)
     try {
-      if (tradingDate) {
+      if (tradingDate && session() === 'open') {
         try {
           const archive = await api.auction.archiveRead(code, tradingDate)
           if (current !== requestId) return
@@ -59,7 +66,11 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
           setArchiveNote(`本地归档读取失败：${errorMessage(cause)}`)
         }
       }
-      const data = await api.auction.series(code, tradingDate || undefined)
+      const data = await api.auction.series(
+        code,
+        tradingDate || undefined,
+        session() === 'open' ? 0 : 1
+      )
       if (current !== requestId) return
       setRows(data)
       setSource(data.length > 0 ? 'live' : 'none')
@@ -77,9 +88,10 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
 
   createEffect(() => {
     const tradingDate = date()
+    const mode = session()
     liveDispose?.()
     liveDispose = undefined
-    if (tradingDate) {
+    if (tradingDate || mode !== 'open') {
       void load(props.code, tradingDate)
     } else {
       liveDispose = subscribePush<AuctionPoint[]>(
@@ -169,14 +181,14 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
 
   const sourceLabel = (): string => {
     if (source() === 'archive') return '本地归档'
-    if (date()) return '实时查询'
+    if (date() || session() !== 'open') return '单次查询'
     return '每 1 秒'
   }
 
   return (
     <div class="auction">
       <div class="auction__meta">
-        <span>{loading() ? '刷新中…' : `${rows().length} 点`}</span>
+        <span>{loading() ? '刷新中…' : `${displayRows().length} 点`}</span>
         <span>
           {sourceLabel()}
           {date() ? ` · ${date()}` : ''}
@@ -185,6 +197,27 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
       </div>
 
       <div class="auction__toolbar">
+        <button
+          class="auction__today"
+          classList={{ 'auction__today--on': session() === 'open' }}
+          onClick={() => setSession('open')}
+        >
+          早盘
+        </button>
+        <button
+          class="auction__today"
+          classList={{ 'auction__today--on': session() === 'close' }}
+          onClick={() => setSession('close')}
+        >
+          尾盘
+        </button>
+        <button
+          class="auction__today"
+          classList={{ 'auction__today--on': session() === 'all' }}
+          onClick={() => setSession('all')}
+        >
+          全天
+        </button>
         <input
           class="auction__date"
           type="date"
@@ -206,7 +239,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
         </Show>
         <button
           class="auction__today auction__archive"
-          disabled={archiveBusy() || loading() || rows().length === 0}
+          disabled={archiveBusy() || loading() || rows().length === 0 || session() !== 'open'}
           title="写入本地数据湖，供服务器不再保留该日期后回看"
           onClick={() => void saveArchive()}
         >
@@ -278,7 +311,7 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
         }}
         onScroll={onScroll}
       >
-        <For each={rows()}>
+        <For each={displayRows()}>
           {(point) => (
             <div class="auction__row" title={`${point.time} · 虚拟撮合快照`}>
               <span class="auction__time num">{point.time}</span>
@@ -298,13 +331,19 @@ export function AuctionTape(props: AuctionTapeProps): JSX.Element {
         </For>
       </div>
 
-      <Show when={!loading() && rows().length === 0 && !error()}>
+      <Show when={!loading() && displayRows().length === 0 && !error()}>
         <div class="auction__empty">
           {date() ? '该日期没有实时数据，也没有本地归档；通达信只保留最近交易日' : '暂无竞价数据'}
         </div>
       </Show>
 
-      <div class="auction__foot">09:15–09:25 · 虚拟匹配量，不是成交 · 可归档到本地</div>
+      <div class="auction__foot">
+        {session() === 'close'
+          ? '14:57–15:00 尾盘集合竞价 · 虚拟匹配量，不是成交'
+          : session() === 'all'
+            ? '09:15–09:25 开盘 + 14:57–15:00 尾盘 · 虚拟匹配量'
+            : '09:15–09:25 开盘集合竞价 · 虚拟匹配量，不是成交 · 可归档到本地'}
+      </div>
     </div>
   )
 }

@@ -382,8 +382,8 @@ export interface PythonTdxApi {
     boards(boardType?: number): Promise<MacBoard[]>
   }
   auction: {
-    /** 集合竞价过程快照（0x056a）；date 省略为当日 */
-    series(code: string, date?: string): Promise<AuctionPoint[]>
+    /** 集合竞价过程快照（0x056a）；date 省略为当日，selector=1 含尾盘竞价 */
+    series(code: string, date?: string, selector?: number): Promise<AuctionPoint[]>
     /** 写入本地归档；date 省略时从分时推断交易日 */
     archiveSave(code: string, date?: string): Promise<AuctionArchiveResult>
     /** 读取本地归档；不存在返回 found=false */

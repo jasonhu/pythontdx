@@ -410,7 +410,8 @@ export function createHttpApi(): PythonTdxApi {
       boards: (boardType) => post<MacBoard[]>('/api/mac_boards', { boardType })
     },
     auction: {
-      series: (code, date) => post<AuctionPoint[]>('/api/auctions', { code, date }),
+      series: (code, date, selector) =>
+        post<AuctionPoint[]>('/api/auctions', { code, date, selector }),
       archiveSave: (code, date) =>
         post<AuctionArchiveResult>('/api/auction_archive_save', { code, date }),
       archiveRead: (code, date) =>

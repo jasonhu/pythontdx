@@ -317,6 +317,11 @@ def parse_quotes(body: bytes, received_at: int) -> list[dict]:
                 slot["volume"] = int(values[bit])
             else:
                 slot["price"] = round(float(values[bit]), 2)
+        index_like = (
+            (market[1] == "sh" and symbol.startswith(("000", "999", "880", "881")))
+            or (market[1] == "sz" and symbol.startswith("399"))
+            or (market[1] == "bj" and symbol.startswith("899"))
+        )
         quotes.append(
             {
                 "code": f"{market[1]}{symbol}",
@@ -330,7 +335,8 @@ def parse_quotes(body: bytes, received_at: int) -> list[dict]:
                 "low": round(float(values.get(3, 0)), 2),
                 "change": change,
                 "changePct": round(change / pre_close * 100, 2) if pre_close else 0.0,
-                "volume": int(values.get(5, 0)),
+                # MAC 的指数量也是「股」，与 7709 一样统一成「手」。
+                "volume": int(values.get(5, 0) / 100) if index_like else int(values.get(5, 0)),
                 "amount": float(values.get(7, 0)),
                 "volumeRatio": float(values.get(6, 0)),
                 "turnoverRate": float(values.get(0x1B, 0)),

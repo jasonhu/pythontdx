@@ -149,8 +149,10 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IPC.macBoards, (_event, boardType?: number) => fetchMacBoards(boardType))
   ipcMain.handle(IPC.macUnusual, (_event, count?: number) => fetchMacUnusual(count))
 
-  ipcMain.handle(IPC.auctionSeries, (_event, code: string, date?: string) =>
-    fetchAuctions(code, date)
+  ipcMain.handle(
+    IPC.auctionSeries,
+    (_event, code: string, date?: string, selector?: number) =>
+      fetchAuctions(code, date, selector)
   )
 
   ipcMain.handle(IPC.auctionArchiveSave, (_event, code: string, date?: string) =>

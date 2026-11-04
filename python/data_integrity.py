@@ -33,6 +33,31 @@ def _verify(root: Path, name: str, pattern: str, limit: int = 100_000) -> dict:
     return {"name": name, "checked": checked, "failed": failed, "details": details[:10]}
 
 
+def _verify_generic(root: Path, name: str, pattern: str) -> dict:
+    """校验 protocol_archive 的 files[] + JSONL SHA256 格式。"""
+    checked = 0
+    failed = 0
+    details: list[dict] = []
+    for manifest_path in sorted(Path(root).glob(pattern))[:100_000]:
+        checked += 1
+        try:
+            manifest = json.loads(manifest_path.read_text("utf-8"))
+            files = [manifest_path.parent / str(item) for item in manifest.get("files") or []]
+            if not files or not all(path.is_file() for path in files):
+                raise ValueError("数据文件缺失")
+            jsonl = next((path for path in files if path.name.endswith(".jsonl.gz")), None)
+            if jsonl is None:
+                raise ValueError("缺少 JSONL 数据文件")
+            if file_sha256(jsonl) != manifest.get("sha256"):
+                raise ValueError("SHA256 不匹配")
+            if int(manifest.get("rows") or 0) < 0:
+                raise ValueError("rows 非法")
+        except Exception as error:  # noqa: BLE001
+            failed += 1
+            details.append({"manifest": str(manifest_path), "error": str(error)})
+    return {"name": name, "checked": checked, "failed": failed, "details": details[:10]}
+
+
 def _verify_auction(root: Path) -> dict:
     checked = 0
     failed = 0
@@ -62,6 +87,19 @@ def verify_data_integrity(root: Path) -> dict:
         _verify(root, "f10_pit", "lake/f10_pit/**/*.manifest.json"),
         _verify(root, "money_flow", "lake/money_flow/**/*.manifest.json"),
         _verify(root, "server_files", "lake/server_files/**/manifest.json"),
+        _verify(root, "delisted", "lake/delisted/*.manifest.json"),
+        _verify_generic(root, "finance", "lake/finance/**/manifest.json"),
+        _verify_generic(root, "corporate", "lake/corporate/**/manifest.json"),
+        _verify_generic(root, "special_limits", "lake/special_limits/**/manifest.json"),
+        _verify_generic(root, "server_meta", "lake/server_meta/**/manifest.json"),
+        _verify_generic(root, "minute_aux", "lake/minute_aux/**/manifest.json"),
+        _verify_generic(root, "sparkline", "lake/sparkline/**/manifest.json"),
+        _verify_generic(root, "recent_minute", "lake/recent_minute/**/manifest.json"),
+        _verify_generic(root, "history_minute", "lake/history_minute/**/manifest.json"),
+        _verify_generic(root, "today_minute", "lake/today_minute/**/manifest.json"),
+        _verify_generic(root, "category_quotes", "lake/category_quotes/**/manifest.json"),
+        _verify_generic(root, "market_news", "lake/market_news/**/manifest.json"),
+        _verify_generic(root, "f10_detail", "lake/f10_detail/**/manifest.json"),
     ]
     return {
         "ok": all(item["failed"] == 0 for item in checks),

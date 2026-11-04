@@ -846,6 +846,82 @@ def _data_and_manifest(path: Path) -> bool:
         return False
 
 
+NODATA_HINTS = (
+    "没有可归档",
+    "未返回 1 分钟",
+    "未返回 K 线",
+    "归档数据为空",
+)
+
+
+def _nodata_marker(root: Path, task: dict[str, Any]) -> Path | None:
+    dataset = str(task.get("dataset") or "")
+    code = str(task.get("code") or "")
+    day = str(task.get("date") or _today())
+    if not code:
+        return None
+    if dataset in {"auction", "ticks", "kline_1m", "history_minute"}:
+        return root / "lake" / dataset / f"trade_date={day}" / f"{code}.nodata.json"
+    if dataset == "minute_aux":
+        return (
+            root
+            / "lake"
+            / "minute_aux"
+            / f"trade_date={day}"
+            / f"{code}_{task.get('kind', '')}.nodata.json"
+        )
+    return None
+
+
+def _has_nodata_marker(root: Path, task: dict[str, Any]) -> bool:
+    marker = _nodata_marker(root, task)
+    return bool(marker and marker.is_file())
+
+
+def _write_nodata_markers(job_dir: Path, root: Path) -> None:
+    """把“服务器明确没有数据”的失败记成当天标记，后续运行不再重复请求。
+
+    只标记 no-data，不标记超时/连接失败；第二天日期变了会重新尝试。
+    """
+    for path in (job_dir / "failures").glob("*.jsonl"):
+        try:
+            lines = path.read_text("utf-8").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                failure = json.loads(line)
+            except ValueError:
+                continue
+            error = str(failure.get("error") or "")
+            task = failure.get("task") or {}
+            task_dataset = str(task.get("dataset") or "")
+            if not any(hint in error for hint in NODATA_HINTS) and not (
+                error.startswith("CodeArchiveError") and task_dataset in {"minute_aux", "history_minute"}
+            ):
+                continue
+            marker = _nodata_marker(root, task)
+            if marker is None:
+                continue
+            try:
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                marker.write_text(
+                    json.dumps(
+                        {
+                            "dataset": task.get("dataset"),
+                            "code": task.get("code"),
+                            "date": task.get("date"),
+                            "error": error[:300],
+                            "at": _shanghai_now().isoformat(timespec="seconds"),
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+            except OSError:
+                pass
+
+
 def _already_archived(task: dict[str, Any], root: Path) -> bool:
     """任务级断点续跑：已有有效文件就跳过。只做本地 stat，不联网。"""
     from tdx_bridge import _full_kline_cache_path
@@ -853,6 +929,8 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
     dataset = task["dataset"]
     code = str(task.get("code") or "")
     day = str(task.get("date") or _today())
+    if _has_nodata_marker(root, task):
+        return True
     if dataset == "kline":
         from kline_manifest import manifest_path
 
@@ -1144,7 +1222,12 @@ def build_plan(
                         continue
         for day in tick_dates:
             for code in codes:
-                if options["skipExisting"] and (day, code) in tick_existing:
+                if options["skipExisting"] and (
+                    (day, code) in tick_existing
+                    or _has_nodata_marker(
+                        root, {"dataset": "ticks", "code": code, "date": day}
+                    )
+                ):
                     skipped += 1
                     continue
                 tasks.append({"dataset": "ticks", "code": code, "date": day})
@@ -2295,6 +2378,10 @@ class OfflineSyncManager:
                 },
             )
         finally:
+            try:
+                _write_nodata_markers(job_dir, data_dir())
+            except Exception:
+                pass
             for process in self._processes:
                 try:
                     if process.poll() is None:

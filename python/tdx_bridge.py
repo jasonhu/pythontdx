@@ -7461,7 +7461,8 @@ class Bridge:
         start = 0
         pages = 0
         complete = False
-        while start <= 0xFFFF and pages < max_pages and len(day_keys) < want_days:
+        # 即使缓存已有 100 日也要至少抓最新一页：否则旧缓存永远不会更新。
+        while start <= 0xFFFF and pages < max_pages:
             body = self.conn.request(
                 CMD_BARS,
                 bars_data(market, symbol, 7, page_size, adjust_raw, start, 1),
@@ -7486,6 +7487,8 @@ class Bridge:
                 break
             # 缓存已经覆盖的旧区间到了就停；只补最新缺口。
             if cache_last and page_dates and min(page_dates) <= cache_last:
+                break
+            if not cache_last and len(day_keys) >= want_days:
                 break
             start += len(page)
         dates = sorted(by_date)

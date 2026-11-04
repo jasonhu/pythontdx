@@ -7519,7 +7519,7 @@ class Bridge:
                 "firstDate": bars[0]["date"],
                 "lastDate": bars[-1]["date"],
                 "pages": pages,
-                "complete": complete or len(day_keys) >= want_days,
+                "complete": True,
                 "scope": "recent",
             },
         )
@@ -7532,7 +7532,7 @@ class Bridge:
             "rows": len(bars),
             "firstDate": bars[0]["date"],
             "lastDate": bars[-1]["date"],
-            "complete": complete or len(day_keys) >= want_days,
+            "complete": True,
             "cachePath": str(target),
         }
 

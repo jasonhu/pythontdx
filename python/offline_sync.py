@@ -882,7 +882,9 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
             return False
         try:
             payload = json.loads(meta.read_text("utf-8"))
-            return int(payload.get("rows") or 0) > 0 and payload.get("complete") is not False
+            # 1m 是滚动窗口：文件+manifest+rows 有效就跳过。旧版本把
+            # “不足 100 日/服务端只有 92 日”写成 complete=false，导致每次重下。
+            return int(payload.get("rows") or 0) > 0
         except (OSError, ValueError):
             return False
     if dataset == "today_minute":

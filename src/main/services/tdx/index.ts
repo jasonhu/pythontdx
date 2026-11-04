@@ -699,7 +699,7 @@ export async function archiveSnapshot(): Promise<SnapshotArchiveResult> {
 }
 
 export async function dataInventory(): Promise<DataInventory> {
-  return bridge.send<DataInventory>('data_inventory', {}, 20_000)
+  return bridge.send<DataInventory>('data_inventory', {}, 120_000)
 }
 
 /** 离线归档 manifest + SHA256 全量校验，可能跑几分钟 */
@@ -769,11 +769,11 @@ export async function cacheKlines(req: {
 export async function offlineSyncCatalog(): Promise<OfflineSyncCatalog> {
   // 优先级：数据面板打开时 data_inventory 可能在扫几十 GB 目录，串行队列会把
   // 这个纯本地读取压到最后；priority 插队，保证进度徽标立刻有状态。
-  return bridge.send<OfflineSyncCatalog>('offline_sync_catalog', {}, 30_000, true)
+  return bridge.send<OfflineSyncCatalog>('offline_sync_catalog', {}, 120_000, true)
 }
 
 export async function offlineSyncStatus(): Promise<OfflineSyncStatus> {
-  return bridge.send<OfflineSyncStatus>('offline_sync_status', {}, 30_000, true)
+  return bridge.send<OfflineSyncStatus>('offline_sync_status', {}, 120_000, true)
 }
 
 export async function offlineSyncStart(options: OfflineSyncOptions): Promise<OfflineSyncStatus> {

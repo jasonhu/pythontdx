@@ -189,7 +189,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [klinePeriod, setKlinePeriod] = createSignal('day')
   const [klineCount, setKlineCount] = createSignal(240)
   const [inventory, setInventory] = createSignal<DataInventory | null>(null)
-  const [inventoryLoading, setInventoryLoading] = createSignal(true)
+  // 不自动扫几十万文件：数据面板打开时同步命令还在排队，扫描会把桥接进程
+  // 拖到 20s 超时并被 Electron 杀掉。改为用户点「扫描」或同步结束后再扫。
+  const [inventoryLoading, setInventoryLoading] = createSignal(false)
   const [inventoryError, setInventoryError] = createSignal<string | null>(null)
   const [coverage, setCoverage] = createSignal<DataCoverageResult | null>(null)
   const [integrity, setIntegrity] = createSignal<DataIntegrityResult | null>(null)
@@ -866,7 +868,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     // 先拉同步状态（priority 请求），再扫本地目录；目录扫描在几十 GB 时很慢，
     // 不能让它把进度徽标饿死。
     void refreshSync()
-    void loadInventory()
     void loadAuctionArchives()
     // 并行同步是后台任务，面板打开期间每 2.5 秒拉一次进度；任务结束后继续拉
     // 也没有副作用（status 只是一次本地 JSON 读取）。
@@ -1132,7 +1133,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </div>
               <button
                 class="btn data__inventory-refresh"
-                disabled={inventoryLoading()}
+                disabled={inventoryLoading() || syncRunning()}
                 onClick={() => void loadInventory()}
               >
                 {inventoryLoading() ? '扫描中…' : '重新扫描'}

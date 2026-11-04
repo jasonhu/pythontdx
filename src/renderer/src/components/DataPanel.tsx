@@ -268,18 +268,37 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [restoreProgress, setRestoreProgress] = createSignal<DataBackupProgress | null>(null)
 
   /* ------------------------------------- 并行离线同步（多进程×多线程×多服务器） */
+  const savedSync = appState.settings.offlineSync
   const [syncCatalog, setSyncCatalog] = createSignal<OfflineSyncCatalog | null>(null)
   const [syncStatus, setSyncStatus] = createSignal<OfflineSyncStatus | null>(null)
-  const [syncSelection, setSyncSelection] = createSignal<string[]>([])
-  const [syncScope, setSyncScope] = createSignal<'watchlist' | 'all'>('watchlist')
-  const [syncSource, setSyncSource] = createSignal<'auto' | 'mac' | '7709'>('auto')
-  const [syncProcesses, setSyncProcesses] = createSignal(4)
-  const [syncThreads, setSyncThreads] = createSignal(8)
-  const [syncSkipExisting, setSyncSkipExisting] = createSignal(true)
+  const [syncSelection, setSyncSelection] = createSignal<string[]>(savedSync?.datasets ?? [])
+  const [syncScope, setSyncScope] = createSignal<'watchlist' | 'all'>(
+    savedSync?.scope ?? 'watchlist'
+  )
+  const [syncSource, setSyncSource] = createSignal<'auto' | 'mac' | '7709'>(
+    savedSync?.source ?? 'auto'
+  )
+  const [syncProcesses, setSyncProcesses] = createSignal(savedSync?.processes ?? 4)
+  const [syncThreads, setSyncThreads] = createSignal(savedSync?.threads ?? 8)
+  const [syncSkipExisting, setSyncSkipExisting] = createSignal(savedSync?.skipExisting ?? true)
   const [syncBusy, setSyncBusy] = createSignal(false)
   const [syncError, setSyncError] = createSignal<string | null>(null)
   let syncTimer: number | undefined
-  let syncSelectionTouched = false
+  // 有保存记录（哪怕是用户主动清空）就不再套 daily 预设。
+  let syncSelectionTouched = savedSync?.datasets !== undefined
+
+  createEffect(() => {
+    updateSettings({
+      offlineSync: {
+        datasets: syncSelection(),
+        scope: syncScope(),
+        source: syncSource(),
+        processes: syncProcesses(),
+        threads: syncThreads(),
+        skipExisting: syncSkipExisting()
+      }
+    })
+  })
 
   const syncRunning = (): boolean =>
     ['probing', 'planning', 'running'].includes(syncStatus()?.state ?? '')
@@ -299,6 +318,13 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       ])
       setSyncCatalog(catalog)
       setSyncStatus(status)
+      if (syncSelectionTouched) {
+        const valid = new Set(catalog.datasets.map((item) => item.key))
+        setSyncSelection((current) => {
+          const kept = current.filter((key) => valid.has(key))
+          return kept.length === current.length ? current : kept
+        })
+      }
       // 只在用户尚未手动改过选择时套用 daily 预设；否则清空选择会被轮询悄悄覆盖。
       if (!syncSelectionTouched && syncSelection().length === 0 && catalog.datasets.length > 0) {
         const preset = catalog.presets.daily

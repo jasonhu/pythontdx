@@ -7180,8 +7180,6 @@ class Bridge:
                 by_date[bar["date"]] = bar
             if fresh == 0:
                 break
-            if page:
-                last_close = float(page[-1].get("close") or 0.0)
             start += len(page)
         bars = sorted(by_date.values(), key=lambda bar: bar["date"])
         return {
@@ -7380,6 +7378,90 @@ class Bridge:
             "complete": complete,
             "cachePath": str(target),
             "fetchedAt": int(time.time() * 1000),
+        }
+
+    def kline_1m_archive_save(
+        self, code: str, days: int = 100, adjust: str = "none"
+    ) -> dict:
+        """1 分钟 K 只取最近 N 个交易日，写 lake/kline_1m/trade_date=<末日>。
+
+        0x052d 的 start 是从最新往前翻的偏移；每页 800 根。服务端目前只保留
+        约 92 个交易日（22,080 根），请求 100 日会返回全部可用历史；不要调用
+        full_kline，避免重复写全历史缓存。
+        """
+        market, symbol = parse_code(code)
+        want_days = max(1, min(120, int(days)))
+        safe_adjust = adjust if adjust in {"none", "qfq", "hfq"} else "none"
+        kind = "index" if is_index_code(market, symbol) else "stock"
+        adjust_raw = {"none": 0, "qfq": 1, "hfq": 2}.get(safe_adjust, 0)
+        page_size = 800
+        max_pages = min(200, want_days * 2 + 4)
+        start = 0
+        pages = 0
+        by_date: dict[str, dict] = {}
+        day_keys: set[str] = set()
+        complete = False
+        while start <= 0xFFFF and pages < max_pages and len(day_keys) < want_days:
+            body = self.conn.request(
+                CMD_BARS,
+                bars_data(market, symbol, 7, page_size, adjust_raw, start, 1),
+            )
+            page = parse_bars(body, kind, 7)
+            if not page:
+                complete = True
+                break
+            pages += 1
+            fresh = 0
+            for bar in page:
+                if bar["date"] not in by_date:
+                    fresh += 1
+                by_date[bar["date"]] = bar
+                day_keys.add(str(bar["date"])[:10])
+            if fresh == 0:
+                break
+            start += len(page)
+        dates = sorted(by_date)
+        if not dates:
+            raise TdxError("MAC/7709 未返回 1 分钟 K 数据")
+        keep_days = sorted(day_keys)[-want_days:]
+        keep = [date for date in dates if str(date)[:10] >= keep_days[0]]
+        bars = [by_date[date] for date in keep]
+        last_date = keep_days[-1]
+        target = (
+            pythontdx_data_dir()
+            / "lake"
+            / "kline_1m"
+            / f"trade_date={last_date}"
+            / f"{code}.parquet"
+        )
+        write_bars(target, code, bars)
+        write_kline_manifest(
+            target,
+            {
+                "code": code,
+                "period": "1m",
+                "adjust": safe_adjust,
+                "source": "7709 0x052d recent",
+                "days": want_days,
+                "daysAvailable": len(day_keys),
+                "firstDate": bars[0]["date"],
+                "lastDate": bars[-1]["date"],
+                "pages": pages,
+                "complete": complete or len(dates) >= want_days,
+                "scope": "recent",
+            },
+        )
+        return {
+            "code": code,
+            "period": "1m",
+            "adjust": safe_adjust,
+            "days": want_days,
+            "daysAvailable": len(day_keys),
+            "rows": len(bars),
+            "firstDate": bars[0]["date"],
+            "lastDate": bars[-1]["date"],
+            "complete": complete or len(dates) >= want_days,
+            "cachePath": str(target),
         }
 
     def chart_patterns(

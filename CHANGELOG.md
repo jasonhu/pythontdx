@@ -10,6 +10,31 @@ pythontdx 的所有重要变更都记录在这里。
 
 ---
 
+## [1.3.3] - 2026-11-04
+
+### 新增
+
+- **1 分钟 K 独立下载**：`kline_1m` 与 `kline`（日 K 全历史）分开勾选；
+  1 分钟 K 默认取**最近 100 个交易日**，服务端当前实际保留约 92 个交易日
+  （600519 实测 22,080 根，2026-06-22 → 2026-11-04），写
+  `lake/kline_1m/trade_date=<末日>/<code>.parquet` + manifest。
+- **数据工具记住上次配置**：数据集勾选、范围、数据源、进程/线程、跳过已有
+  写入 `settings.offlineSync`，下次打开数据工具自动恢复（包括用户主动清空）。
+
+### 修复
+
+- **`offlineSync` 设置 IPC 克隆错误**：`plainSettings()` 未拍平嵌套的
+  `offlineSync`，打开数据工具时报 “An object could not be cloned”；已拍平
+  datasets 数组。
+- **1 分钟 K 天数分组**：按完整日期时间计数会错当 20 根；改为按交易日
+  `YYYY-MM-DD` 分组，再裁剪最近 N 日。
+
+### 验证
+
+- `npm run check`：359 TS + 279 Python（278 通过/1 skipped）；
+- `kline_1m` 单只：22,080 根 / 92 日 / 1.1s（20 日时 4,800 根）；
+- 打包 sidecar worker 启动已验证（1.3.2）。
+
 ## [1.3.2] - 2026-11-04
 
 ### 修复
@@ -50,7 +75,7 @@ pythontdx 的所有重要变更都记录在这里。
 ### 新增
 
 - **离线数据并行同步**（`python/offline_sync.py`）：多进程 × 每进程多线程 ×
-  每条线程钉不同主站，23 个数据集（K 线/分时/买卖力道/小走势/竞价/逐笔/
+  每条线程钉不同主站，24 个数据集（K 线/分时/买卖力道/小走势/竞价/逐笔/
   历史分时/资金流/财务/股本变迁/F10/退市日线/分类行情/板块元数据/涨跌停表/
   服务器文件），任务切片、按权重分片、任务级 results、bulk 合并、失败清单、
   `skipExisting` 断点续跑。
@@ -116,7 +141,7 @@ pythontdx 的所有重要变更都记录在这里。
   540 行、主力监控 1,200 行）；
 - `data_integrity` 真实数据 148,427 份 manifest/SHA256，0 失败；
 - `npm run check` 全绿（359 TS + 279 Python，1 skipped）；
-- 面板截图 `screenshots/data-offline-sync.png`（23 个数据集、保护中徽标）。
+- 面板截图 `screenshots/data-offline-sync.png`（24 个数据集、保护中徽标）。
 
 ### 新增（2026-11-04 数据功能第二轮）
 
@@ -221,7 +246,7 @@ pythontdx 的所有重要变更都记录在这里。
 
 - `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 279 Python（276 通过/1 skipped）；
 - MAC 日 K 6,035 根与 7709 一致；gpcw 5,572×658；GBBQ 202,313 条；
-- 离线同步 23 数据集；面板截图 `screenshots/data-offline-sync.png`；
+- 离线同步 24 数据集；面板截图 `screenshots/data-offline-sync.png`；
 - 详细边界见 `docs/20-数据功能补齐与代码审计.md` §3。
 
 ## [1.2.0] - 2026-11-03

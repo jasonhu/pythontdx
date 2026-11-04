@@ -36,6 +36,7 @@ def collect_data_coverage(root: Path) -> dict:
     base = Path(root)
     datasets = [
         _scan(base, "klines", ("cache/klines/*.parquet",), "trade_date"),
+        _scan(base, "kline_1m", ("lake/kline_1m/**/*.parquet",), "trade_date"),
         _scan(base, "ticks", ("lake/ticks/**/*.parquet",), "trade_date"),
         _scan(base, "auction", ("lake/auction/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "money_flow", ("lake/money_flow/**/*.parquet",), "trade_date"),

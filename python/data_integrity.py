@@ -90,6 +90,7 @@ def verify_data_integrity(root: Path) -> dict:
     kline_check = verify_kline_manifests(Path(root) / "cache" / "klines", limit=100_000)
     checks = [
         {"name": "klines", **kline_check},
+        _verify_generic(root, "kline_1m", "lake/kline_1m/**/*.manifest.json"),
         _verify(root, "ticks", "lake/ticks/**/*.manifest.json"),
         _verify_auction(root),
         _verify(root, "f10_pit", "lake/f10_pit/**/*.manifest.json"),

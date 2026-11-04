@@ -1213,6 +1213,16 @@ export interface ChartDrawing {
   smart?: boolean
 }
 
+/** 数据工具上次使用的并行同步选项；空对象表示从未保存过。 */
+export interface OfflineSyncPreferences {
+  datasets: string[]
+  scope: 'watchlist' | 'all'
+  source: 'auto' | 'mac' | '7709'
+  processes: number
+  threads: number
+  skipExisting: boolean
+}
+
 export interface AppSettings {
   /** 行情轮询间隔（ms） */
   refreshInterval: number
@@ -1292,6 +1302,8 @@ export interface AppSettings {
   trackingPresetId?: string
   /** 可同时跟踪多个预设 */
   trackingPresetIds?: string[]
+  /** 上次离线同步的勾选/范围/数据源/并发，下次打开数据工具恢复 */
+  offlineSync?: OfflineSyncPreferences
 }
 
 export interface ScreenPreset {

@@ -5,7 +5,7 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `7709 / MAC / 7615`
 
-**v1.3.2** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
+**v1.3.3** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
 
 `npm run check` **359 TS（357 通过 / 2 skipped）+ 279 Python（278 通过 / 1 skipped）**
 
@@ -21,7 +21,7 @@
 ![pythontdx 主界面](docs/assets/pythontdx-1.3-overview.png)
 
 - **实时行情**：1 秒刷新；分时、五日、K 线、九宫格同一节奏；
-- **数据工具**：23 个离线数据集，多进程 × 多线程 × 多服务器并行下载；
+- **数据工具**：24 个离线数据集，日 K 与 1 分钟 K 独立勾选；多进程 × 多线程 × 多服务器并行下载；
 - **协议覆盖**：7709 主站 29 条命令、MAC 15 条 A 股相关命令、7615 51 个入口；
 - **本地数据湖**：Parquet/ZSTD + DuckDB、JSONL.gz、`trade_date=` 分区、manifest + SHA256；
 - **桌面 + Web**：同一套渲染层，桌面走 IPC，Web 走 HTTP/SSE/WebSocket。
@@ -76,10 +76,14 @@
 
 ![数据工具](docs/assets/pythontdx-1.3-data.png)
 
-- 并行离线同步：4 进程 × 8 线程默认，23 个数据集；
+- 并行离线同步：4 进程 × 8 线程默认，24 个数据集；
+- 日 K（全历史）与 1 分钟 K（最近 100 交易日，服务端实际约 92 日/22,080 根）是两个独立选项；
+- 数据集勾选、范围、数据源、进程/线程数、跳过已有会作为「上次配置」持久化；
 - 每个耗时操作都有进度条：同步（探测/计划/完成数/吞吐/ETA）、下载 zhb.zip、
   扫描/校验、备份/恢复字节进度、K 线导出、全市场快照、数据湖归档、本地导入/写回；
 - 08:45–15:45 自动保护：窗口内启动返回 `blocked`，跑到一半暂停，15:45 后续跑。
+
+![数据工具进度条](docs/assets/pythontdx-1.3-progress.png)
 
 ### 尾盘集合竞价
 
@@ -159,7 +163,7 @@
 ```
 
 每份归档带 `manifest.json`（来源、时间、行数、SHA256、文件列表）；
-`data_coverage` 扫描 31 项覆盖，`data_integrity` 逐份校验 manifest/SHA256。
+`data_coverage` 扫描 32 项覆盖，`data_integrity` 逐份校验 manifest/SHA256。
 **不需要为了修显示问题重新下载历史数据**——缓存本身有校验，只有损坏副本才会重写。
 
 ---

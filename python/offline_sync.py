@@ -71,6 +71,13 @@ DATASETS: dict[str, dict[str, Any]] = {
         "weight": 6,
         "description": "0x052d 800 根分页拉全历史，写 cache/klines/*.parquet（含 amount/指数家数）",
     },
+    "kline_1m": {
+        "label": "1 分钟 K（最近 100 交易日）",
+        "group": "行情",
+        "mode": "per_code",
+        "weight": 4,
+        "description": "0x052d 从最新往前翻页，最近 100 个交易日（服务端当前约保留 92 日），写 lake/kline_1m",
+    },
     "today_minute": {
         "label": "当日分时",
         "group": "行情",
@@ -451,6 +458,7 @@ PRESETS: dict[str, dict[str, Any]] = {
         "label": "自选深度（含分时/逐笔/竞价）",
         "datasets": [
             "kline",
+            "kline_1m",
             "today_minute",
             "minute_aux",
             "sparkline",
@@ -463,7 +471,7 @@ PRESETS: dict[str, dict[str, Any]] = {
             "limit_ladder",
         ],
         "scope": "watchlist",
-        "periods": ["day", "1m"],
+        "periods": ["day"],
         "f10Sections": "full",
     },
     "full": {
@@ -627,6 +635,7 @@ def _task_key(task: dict[str, Any]) -> str:
         "filename",
         "size",
         "count",
+        "days",
     ):
         if task.get(field) is not None:
             parts.append(f"{field}={task[field]}")
@@ -717,6 +726,18 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
         except (OSError, ValueError):
             return False
         return target.stat().st_size > 32
+    if dataset == "kline_1m":
+        from kline_manifest import manifest_path
+
+        target = root / "lake" / "kline_1m" / f"trade_date={day}" / f"{code}.parquet"
+        meta = manifest_path(target)
+        if not target.is_file() or not meta.is_file():
+            return False
+        try:
+            payload = json.loads(meta.read_text("utf-8"))
+            return int(payload.get("rows") or 0) > 0 and payload.get("complete") is not False
+        except (OSError, ValueError):
+            return False
     if dataset == "today_minute":
         return _data_and_manifest(root / "lake" / "today_minute" / f"trade_date={day}" / f"{code}.jsonl.gz")
     if dataset == "minute_aux":
@@ -836,7 +857,8 @@ def build_plan(
         tasks.append(task)
 
     if "kline" in selected:
-        for period in options["periods"]:
+        # 日 K 走全历史；1 分钟 K 独立成 kline_1m（只取最近 20 交易日）。
+        for period in [item for item in options["periods"] if item == "day"] or ["day"]:
             for code in codes:
                 add(
                     {
@@ -847,6 +869,16 @@ def build_plan(
                         "source": options["source"],
                     }
                 )
+    if "kline_1m" in selected:
+        for code in codes:
+            add(
+                {
+                    "dataset": "kline_1m",
+                    "code": code,
+                    "days": 100,
+                    "adjust": options["adjust"],
+                }
+            )
     for dataset in ("today_minute", "money_flow"):
         if dataset in selected:
             for code in codes:
@@ -981,6 +1013,16 @@ def run_task(bridge: Any, task: dict[str, Any]) -> dict[str, Any]:
             "complete": bool(result.get("complete")),
             "pages": result.get("pages", 0),
             "source": result.get("source", "7709"),
+        }
+    if dataset == "kline_1m":
+        result = bridge.kline_1m_archive_save(
+            task["code"], int(task.get("days") or 20), task.get("adjust", "none")
+        )
+        return {
+            "rows": int(result.get("rows") or 0),
+            "files": 1,
+            "complete": bool(result.get("complete")),
+            "days": result.get("daysAvailable", 0),
         }
     if dataset == "today_minute":
         source = str(task.get("source") or "auto")

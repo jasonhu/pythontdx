@@ -439,7 +439,13 @@ function plainSettings(): AppSettings {
     indicatorParams: state.settings.indicatorParams
       ? { ...state.settings.indicatorParams }
       : undefined,
-    trackingPresetIds: state.settings.trackingPresetIds?.slice()
+    trackingPresetIds: state.settings.trackingPresetIds?.slice(),
+    offlineSync: state.settings.offlineSync
+      ? {
+          ...state.settings.offlineSync,
+          datasets: [...state.settings.offlineSync.datasets]
+        }
+      : undefined
   }
 }
 

@@ -41,6 +41,10 @@ pythontdx 的所有重要变更都记录在这里。
   分别写 `lake/corporate`、`lake/finance`、`lake/server_meta`、
   `lake/minute_aux`、`lake/sparkline`、`lake/recent_minute`、
   `lake/special_limits`、`lake/delisted`，均带 manifest/SHA 并纳入 data coverage。
+- **MAC 字段扩展**：`0x122B` 位图加入涨跌停价、PE TTM/静态、主力净额、委比、
+  短换手、DDX/DDY/DDZ/DDF；解析结果补对应字段，离线位图/解析测试覆盖。
+- **历史分时归档**：新增 `0x0fb4` 单日历史分时查询与
+  `/api/history_minute*`，写 `lake/history_minute`。
 
 ## [1.2.0] - 2026-11-03
 

@@ -30,6 +30,28 @@ class TestMacQuotes(unittest.TestCase):
         self.assertEqual(quote["volume"], 59927)
         self.assertAlmostEqual(quote["changePct"], 2.81, places=2)
 
+    def test_parse_extended_fields(self):
+        extra = [0x20, 0x21, 0x30, 0x31, 0x38, 0x39, 0x69, 0x73, 0x74, 0x75, 0x76]
+        bits = list(range(8)) + extra
+        bitmap = bytearray(20)
+        for bit in bits:
+            bitmap[bit // 8] |= 1 << (bit % 8)
+        row = bytearray()
+        row += struct.pack("<H", 1)
+        row += b"600519".ljust(22, b"\x00")
+        row += "贵州茅台".encode("gbk").ljust(44, b"\x00")
+        values = [1354.0, 1363.0, 1393.37, 1352.98, 1392.05, 59927, 1.36, 8257381888.0]
+        values += [1500.0, 1200.0, 21.5, 20.5, 123456.0, 12.5, 3.2, 1.1, 2.2, 3.3, 4.4]
+        for index, value in enumerate(values):
+            row += struct.pack("<I" if index == 5 else "<f", value)
+        body = bytes(bitmap) + struct.pack("<IH", 1, 1) + bytes(row)
+        quote = tdx_mac.parse_quotes(body, 123)[0]
+        self.assertEqual(quote["limitUp"], 1500.0)
+        self.assertEqual(quote["limitDown"], 1200.0)
+        self.assertAlmostEqual(quote["peTtm"], 21.5)
+        self.assertAlmostEqual(quote["mainNetAmount"], 123456.0)
+        self.assertAlmostEqual(quote["ddx"], 1.1)
+
     def test_parse_depth(self):
         bits = list(range(0, 8)) + [0x11, 0x12, 0x18, 0x19, 0x80, 0x86]
         bitmap = bytearray(20)

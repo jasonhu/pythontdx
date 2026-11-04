@@ -6239,6 +6239,47 @@ class Bridge:
             pythontdx_data_dir() / "lake" / "recent_minute", limit
         )
 
+    def history_minute(self, code: str, date: str) -> dict:
+        market, symbol = parse_code(code)
+        try:
+            day = datetime.strptime(str(date), "%Y-%m-%d").date()
+        except ValueError as error:
+            raise TdxError("历史分时日期必须是 YYYY-MM-DD") from error
+        body = self.conn.request(
+            CMD_HISTORY_MINUTE,
+            history_minute_data(market, symbol, int(day.strftime("%Y%m%d"))),
+        )
+        return parse_history_minute(
+            body,
+            code=code,
+            name=self._name(code, symbol),
+            date=day.isoformat(),
+            prev_close=0.0,
+            decimal=self._decimal(code),
+        )
+
+    def history_minute_archive_save(self, code: str, date: str) -> dict:
+        result = self.history_minute(code, date)
+        return {
+            **result,
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "history_minute",
+                "history_minute",
+                [
+                    {"code": code, "date": result["date"], **point}
+                    for point in result["points"]
+                ],
+                source="TDX 7709 0x0fb4",
+                trade_date=result["date"],
+                fields=["code", "date", "time", "price", "avg", "volume"],
+            ),
+        }
+
+    def history_minute_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "history_minute", limit
+        )
+
     def five_day(self, code: str) -> dict:
         market, symbol = parse_code(code)
         daily = self._raw_daily(code, 6, market, symbol)
@@ -6662,6 +6703,16 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "recent_minute_archive_list":
         return bridge.recent_minute_archive_list(int(payload.get("limit", 50)))
+    if cmd == "history_minute":
+        return bridge.history_minute(
+            str(payload.get("code") or ""), str(payload.get("date") or "")
+        )
+    if cmd == "history_minute_archive_save":
+        return bridge.history_minute_archive_save(
+            str(payload.get("code") or ""), str(payload.get("date") or "")
+        )
+    if cmd == "history_minute_archive_list":
+        return bridge.history_minute_archive_list(int(payload.get("limit", 50)))
     if cmd == "five_day":
         return bridge.five_day(payload.get("code", ""))
     raise TdxError(f"未知命令：{cmd}")

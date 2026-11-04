@@ -486,6 +486,22 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/history_minute":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.history_minute(
+                            query.get("code", ""), query.get("date", "")
+                        )
+                    )
+                return
+            if parsed.path == "/api/history_minute_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.history_minute_archive_list(
+                            int(query.get("limit", "50"))
+                        )
+                    )
+                return
             if parsed.path == "/api/recent_minute_archives":
                 with self.server.lock:
                     self._ok(
@@ -812,6 +828,15 @@ class ApiHandler(BaseHTTPRequestHandler):
                         self.server.bridge.recent_minute_archive_save(
                             str(payload.get("code") or ""),
                             payload.get("date") or None,
+                        )
+                    )
+                return
+            if parsed.path == "/api/history_minute_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.history_minute_archive_save(
+                            str(payload.get("code") or ""),
+                            str(payload.get("date") or ""),
                         )
                     )
                 return

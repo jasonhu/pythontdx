@@ -392,6 +392,23 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/finance_snapshot":
+                codes = [
+                    item.strip()
+                    for item in query.get("codes", "").split(",")
+                    if item.strip()
+                ]
+                with self.server.lock:
+                    self._ok(self.server.bridge.finance_snapshot(codes))
+                return
+            if parsed.path == "/api/finance_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.finance_archive_list(
+                            int(query.get("limit", "50"))
+                        )
+                    )
+                return
             if parsed.path == "/api/special_limits_archives":
                 with self.server.lock:
                     self._ok(
@@ -672,6 +689,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/lake_archives":
                 with self.server.lock:
                     self._ok(self.server.bridge.lake_archives(int(payload.get("limit", 20))))
+                return
+            if parsed.path == "/api/finance_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.finance_archive_save(
+                            list(payload.get("codes") or [])
+                        )
+                    )
                 return
             if parsed.path == "/api/special_limits_archive_save":
                 with self.server.lock:

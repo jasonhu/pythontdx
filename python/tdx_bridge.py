@@ -2677,10 +2677,43 @@ def parse_security_list(body: bytes, market: int) -> list[dict]:
 
 
 def parse_finance(body: bytes) -> list[dict]:
+    """0x0010 财务批量：保留全部 136B info 字段，不只取 4 个摘要值。
+
+    原始浮点单位：股本为万股，资产/收入/利润为千元；同时给出换算后的
+    股数/元字段，避免调用方反复记单位。字段顺序来自 0x0010 记录布局。
+    """
     count = _u16(body, 0)
     if len(body) != 2 + count * 143:
         raise TdxError("财务报文长度异常")
 
+    offsets = {
+        "floatShares": 0,
+        "totalShares": 16,
+        "eps": 40,
+        "totalAssets": 44,
+        "currentAssets": 48,
+        "fixedAssets": 52,
+        "intangibleAssets": 56,
+        "shareholders": 60,
+        "currentLiabilities": 64,
+        "longTermLiabilities": 68,
+        "capitalReserve": 72,
+        "netAssets": 76,
+        "revenue": 80,
+        "mainProfit": 84,
+        "receivables": 88,
+        "operatingProfit": 92,
+        "investmentIncome": 96,
+        "operatingCashFlow": 100,
+        "totalCashFlow": 104,
+        "inventory": 108,
+        "comprehensiveProfit": 112,
+        "afterTaxProfit": 116,
+        "netProfit": 120,
+        "retainedProfit": 124,
+        "netAssetsPerShare": 128,
+        "reserved2": 132,
+    }
     items: list[dict] = []
     for index in range(count):
         base = 2 + index * 143
@@ -2694,15 +2727,23 @@ def parse_finance(body: bytes) -> list[dict]:
             continue
 
         info = base + 7
-        items.append(
+        values = {name: _f32(body, info + offset) for name, offset in offsets.items()}
+        values.update(
             {
-                "code": full_code(market_id, symbol),
-                "floatShares": _f32(body, info),
-                "totalShares": _f32(body, info + 16),
-                "eps": _f32(body, info + 40),
-                "netAssetsPerShare": _f32(body, info + 128),
+                "provinceId": _u16(body, info + 4),
+                "industryId": _u16(body, info + 6),
+                "updatedDate": _u32(body, info + 8),
+                "ipoDate": _u32(body, info + 12),
             }
         )
+        values["floatSharesRaw"] = values["floatShares"]
+        values["totalSharesRaw"] = values["totalShares"]
+        values["floatSharesYuan"] = values["floatShares"] * 10000
+        values["totalSharesYuan"] = values["totalShares"] * 10000
+        values["totalAssetsYuan"] = values["totalAssets"] * 1000
+        values["revenueYuan"] = values["revenue"] * 1000
+        values["netProfitYuan"] = values["netProfit"] * 1000
+        items.append({"code": full_code(market_id, symbol), **values})
 
     return items
 
@@ -5202,6 +5243,73 @@ class Bridge:
         if finance["netAssetsPerShare"] > 0:
             quote["pb"] = quote["price"] / finance["netAssetsPerShare"]
 
+    # -- 财务快照 / 特殊涨跌停 / 退市 K 线 ------------------------------
+
+    def finance_snapshot(self, codes: list[str]) -> list[dict]:
+        """批量拉 0x0010 全字段，供归档/选股/ML 使用（不写 quote）。"""
+        items: list[tuple[int, str]] = []
+        for code in codes:
+            try:
+                items.append(parse_code(str(code)))
+            except TdxError:
+                continue
+        rows: list[dict] = []
+        for start in range(0, len(items), FINANCE_BATCH):
+            batch = items[start : start + FINANCE_BATCH]
+            if not batch:
+                continue
+            body = self.conn.request(CMD_FINANCE, finance_data(batch))
+            rows.extend(parse_finance(body))
+        return rows
+
+    def finance_archive_save(self, codes: list[str]) -> dict:
+        """把 0x0010 全字段财务快照写 lake/finance（同交易日保留第一份）。"""
+        rows = self.finance_snapshot(codes)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return write_dataset_archive(
+            pythontdx_data_dir() / "lake" / "finance",
+            "finance",
+            rows,
+            source="TDX 7709 0x0010",
+            trade_date=trade_date,
+            fields=[
+                "code",
+                "floatShares",
+                "totalShares",
+                "eps",
+                "totalAssets",
+                "currentAssets",
+                "fixedAssets",
+                "intangibleAssets",
+                "shareholders",
+                "currentLiabilities",
+                "longTermLiabilities",
+                "capitalReserve",
+                "netAssets",
+                "revenue",
+                "mainProfit",
+                "receivables",
+                "operatingProfit",
+                "investmentIncome",
+                "operatingCashFlow",
+                "totalCashFlow",
+                "inventory",
+                "comprehensiveProfit",
+                "afterTaxProfit",
+                "netProfit",
+                "retainedProfit",
+                "netAssetsPerShare",
+                "updatedDate",
+                "ipoDate",
+                "totalAssetsYuan",
+                "revenueYuan",
+                "netProfitYuan",
+            ],
+        )
+
+    def finance_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(pythontdx_data_dir() / "lake" / "finance", limit)
+
     # -- 特殊涨跌停 / 退市 K 线 -------------------------------------------
 
     def special_limits(self, start_index: int = 0) -> dict:
@@ -5963,6 +6071,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("kind", "zcfzb")),
             bool(payload.get("full", False)),
         )
+    if cmd == "finance_snapshot":
+        return bridge.finance_snapshot(list(payload.get("codes") or []))
+    if cmd == "finance_archive_save":
+        return bridge.finance_archive_save(list(payload.get("codes") or []))
+    if cmd == "finance_archive_list":
+        return bridge.finance_archive_list(int(payload.get("limit", 50)))
     if cmd == "special_limits":
         return bridge.special_limits(int(payload.get("startIndex", 0)))
     if cmd == "scan_special_limits":

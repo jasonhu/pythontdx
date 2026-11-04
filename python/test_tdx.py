@@ -911,6 +911,11 @@ class TestSecurityAndFinance(unittest.TestCase):
         self.assertAlmostEqual(maotai["totalShares"], 125008, delta=1)
         self.assertAlmostEqual(maotai["eps"], 35.57, places=2)
         self.assertAlmostEqual(maotai["netAssetsPerShare"], 200.99, places=2)
+        self.assertAlmostEqual(maotai["totalAssets"], 309050784, delta=1000)
+        self.assertAlmostEqual(maotai["netProfit"], 44516880, delta=1000)
+        self.assertEqual(maotai["updatedDate"], 20260815)
+        self.assertEqual(maotai["ipoDate"], 20010827)
+        self.assertAlmostEqual(maotai["totalAssetsYuan"], 309050784000, delta=1_000_000)
 
 
 

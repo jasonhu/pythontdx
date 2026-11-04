@@ -356,6 +356,58 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/special_limits":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.special_limits(
+                            int(query.get("startIndex", "0"))
+                        )
+                    )
+                return
+            if parsed.path == "/api/special_limits_scan":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.scan_special_limits(
+                            int(query.get("maxRows", "10000"))
+                        )
+                    )
+                return
+            if parsed.path == "/api/delisted_kline":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.delisted_kline(
+                            query.get("code", ""),
+                            int(query.get("start", "0")),
+                            int(query.get("count", "800")),
+                        )
+                    )
+                return
+            if parsed.path == "/api/delisted_history":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.delisted_history(
+                            query.get("code", ""),
+                            int(query.get("pageSize", "800")),
+                            int(query.get("maxPages", "200")),
+                        )
+                    )
+                return
+            if parsed.path == "/api/special_limits_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.special_limits_archive_list(
+                            int(query.get("limit", "50"))
+                        )
+                    )
+                return
+            if parsed.path == "/api/delisted_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.delisted_archive_list(
+                            int(query.get("limit", "100"))
+                        )
+                    )
+                return
             if parsed.path == "/api/minute":
                 with self.server.lock:
                     self._ok(self.server.bridge.minute(query.get("code", "")))
@@ -620,6 +672,24 @@ class ApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/lake_archives":
                 with self.server.lock:
                     self._ok(self.server.bridge.lake_archives(int(payload.get("limit", 20))))
+                return
+            if parsed.path == "/api/special_limits_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.special_limits_archive_save(
+                            int(payload.get("maxRows", 10000))
+                        )
+                    )
+                return
+            if parsed.path == "/api/delisted_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.delisted_archive_save(
+                            str(payload.get("code") or ""),
+                            int(payload.get("pageSize", 800)),
+                            int(payload.get("maxPages", 200)),
+                        )
+                    )
                 return
             if parsed.path == "/api/archive_snapshot":
                 with self.server.lock:

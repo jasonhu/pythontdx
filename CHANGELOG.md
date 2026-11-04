@@ -31,6 +31,10 @@ pythontdx 的所有重要变更都记录在这里。
   CSV 导出增加 `amount`（成交额，元）；指数 K 线同时保留 `upCount/downCount`
   （上涨/下跌家数）。K 线浮层显示成交额；旧 Parquet 没有这些列时兼容读取为
   `null`，下次网络请求自动回写完整列。
+- **协议能力第一批**：独立实现 `0x0452` 特殊品种涨跌停表、`0x052b` 退市日线
+  （仅日线不复权），新增 `/api/special_limits*`、`/api/delisted_*`；
+  特殊涨跌停写 `lake/special_limits` JSONL/CSV + manifest，退市日线写
+  `lake/delisted/*.parquet` + manifest，均纳入 data coverage。
 
 ## [1.2.0] - 2026-11-03
 

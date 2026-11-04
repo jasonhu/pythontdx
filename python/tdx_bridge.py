@@ -83,6 +83,8 @@ from data_integrity import verify_data_integrity
 from patterns import build_smart_drawings, pattern_summary
 from kline_manifest import write_kline_manifest
 from server_catalog import list_server_catalogs, write_server_catalog
+from protocol_archive import list_dataset_archives, write_dataset_archive
+from delisted_archive import list_delisted_archives, write_delisted_archive
 from tick_archive import (
     TickArchiveError,
     latest_tick_archive,
@@ -340,6 +342,8 @@ CMD_HISTORY_MINUTE = 0x0FB4
 CMD_SECURITY_COUNT = 0x044E
 CMD_SECURITY_LIST = 0x044D
 CMD_FINANCE = 0x0010
+CMD_SPECIAL_LIMITS = 0x0452
+CMD_DELISTED_BARS = 0x052B
 
 # 0x054c / 0x053e 共用的请求前缀；0x0547 是另一套「代码 + 游标」布局
 QUOTE_LIST_PREFIX = b"\x05\x00\x00\x00\x00\x00\x00\x00"
@@ -849,6 +853,26 @@ def bars_data(
         adjust,
         0,
         b"",
+    )
+
+
+def special_limits_data(start_index: int = 0) -> bytes:
+    """0x0452：起始行号 u16 + 12 字节零。"""
+    return struct.pack("<H12s", max(0, min(int(start_index), 0xFFFF)), b"")
+
+
+def delisted_bars_data(
+    market: int, symbol: str, start: int = 0, count: int = 800
+) -> bytes:
+    """0x052b：市场 u16 + 6 位代码 + start/count。"""
+    if count < 1 or count > 800:
+        raise TdxError("退市 K 线单页必须在 1~800 根之间")
+    return struct.pack(
+        "<H6sHH",
+        market,
+        code_bytes(symbol),
+        max(0, min(int(start), 0xFFFF)),
+        count,
     )
 
 
@@ -2447,6 +2471,71 @@ def parse_bars(body: bytes, kind: str, period_raw: int = 4) -> list[dict]:
         bars.append(bar)
         base = close_raw
 
+    return bars
+
+
+def parse_special_limits(body: bytes) -> list[dict]:
+    """0x0452：count u16 + 13 字节记录（市场/代码/u32 涨停 f32/跌停 f32）。"""
+    count = _u16(body, 0)
+    if len(body) != 2 + count * 13:
+        raise TdxError("特殊涨跌停报文长度异常")
+    records: list[dict] = []
+    for index in range(count):
+        offset = 2 + index * 13
+        market_id = body[offset]
+        code_num = _u32(body, offset + 1)
+        market = MARKET_NAMES.get(market_id)
+        if market is None:
+            continue
+        code = f"{code_num:06d}"
+        records.append(
+            {
+                "market": market,
+                "marketId": market_id,
+                "code": f"{market.lower()}{code}",
+                "symbol": code,
+                "limitUp": round(_f32(body, offset + 5), 4),
+                "limitDown": round(_f32(body, offset + 9), 4),
+            }
+        )
+    return records
+
+
+def parse_delisted_bars(body: bytes) -> list[dict]:
+    """0x052b：退市日线（不复权）；记录为日期 + 4 个价格 delta + 量/额。"""
+    count = _u16(body, 0)
+    if len(body) < 2 + count * 17:
+        raise TdxError("退市 K 线报文不完整")
+    pos = 2
+    base = 0
+    bars: list[dict] = []
+    for _ in range(count):
+        date_raw = _u32(body, pos)
+        pos += 4
+        open_diff, pos = read_varint(body, pos)
+        close_diff, pos = read_varint(body, pos)
+        high_diff, pos = read_varint(body, pos)
+        low_diff, pos = read_varint(body, pos)
+        volume_raw, pos = read_varint(body, pos)
+        if volume_raw < 0 or volume_raw > 0xFFFFFFFF:
+            raise TdxError("退市 K 线成交量不合法")
+        amount_raw = _u32(body, pos)
+        pos += 4
+        pos += 4  # unknown suffix
+        open_raw = base + open_diff
+        close_raw = open_raw + close_diff
+        bars.append(
+            {
+                "date": format_date(date_raw),
+                "open": open_raw / 1000,
+                "close": close_raw / 1000,
+                "high": (open_raw + high_diff) / 1000,
+                "low": (open_raw + low_diff) / 1000,
+                "volume": volume_raw / 100,
+                "amount": decode_volume(amount_raw),
+            }
+        )
+        base = close_raw
     return bars
 
 
@@ -5113,6 +5202,127 @@ class Bridge:
         if finance["netAssetsPerShare"] > 0:
             quote["pb"] = quote["price"] / finance["netAssetsPerShare"]
 
+    # -- 特殊涨跌停 / 退市 K 线 -------------------------------------------
+
+    def special_limits(self, start_index: int = 0) -> dict:
+        """0x0452 特殊品种涨跌停表，按表内行号分页。"""
+        start = max(0, min(int(start_index), 0xFFFF))
+        body = self.conn.request(CMD_SPECIAL_LIMITS, special_limits_data(start))
+        records = parse_special_limits(body)
+        return {"startIndex": start, "count": len(records), "records": records}
+
+    def scan_special_limits(self, max_rows: int = 10000) -> dict:
+        """连续翻页扫描特殊涨跌停表，供本地索引/归档。"""
+        limit = max(1, min(int(max_rows), 50000))
+        start = 0
+        records: list[dict] = []
+        pages = 0
+        while len(records) < limit and pages < 200:
+            page = self.special_limits(start)
+            rows = page["records"]
+            if not rows:
+                break
+            records.extend(rows)
+            start += int(page["count"])
+            pages += 1
+            if int(page["count"]) < 1:
+                break
+        return {"startIndex": 0, "count": len(records[:limit]), "records": records[:limit]}
+
+    @staticmethod
+    def _delisted_code(code: str) -> tuple[int, str]:
+        """退市代码支持 T000038 / sz000038 / 000038；只允许 A 股市场。"""
+        raw = str(code or "").strip().lower()
+        if raw.startswith("t") and len(raw) == 7:
+            raw = raw[1:]
+        if raw[:2] in {"sh", "sz", "bj"}:
+            return parse_code(raw)
+        if len(raw) != 6 or not raw.isdigit():
+            raise TdxError("退市 K 线代码格式不正确")
+        # 与 inferMarket 的 A 股规则保持一致
+        if raw.startswith(("60", "68", "90", "11", "50", "51", "52", "56", "58")):
+            return 1, raw
+        if raw.startswith(("43", "83", "87", "88", "92")):
+            return 2, raw
+        return 0, raw
+
+    def delisted_kline(self, code: str, start: int = 0, count: int = 800) -> dict:
+        """0x052b 退市日线（仅日线、不复权）。"""
+        market, symbol = self._delisted_code(code)
+        body = self.conn.request(
+            CMD_DELISTED_BARS, delisted_bars_data(market, symbol, start, count)
+        )
+        bars = parse_delisted_bars(body)
+        return {"code": full_code(market, symbol), "bars": bars, "source": "network"}
+
+    def delisted_history(
+        self, code: str, page_size: int = 800, max_pages: int = 200
+    ) -> dict:
+        """自动翻页到空页/短页，按日期去重升序。"""
+        market, symbol = self._delisted_code(code)
+        page_size = max(1, min(int(page_size), 800))
+        max_pages = max(1, min(int(max_pages), 500))
+        start = 0
+        pages = 0
+        by_date: dict[str, dict] = {}
+        while pages < max_pages:
+            body = self.conn.request(
+                CMD_DELISTED_BARS,
+                delisted_bars_data(market, symbol, start, page_size),
+            )
+            page = parse_delisted_bars(body)
+            if not page:
+                break
+            pages += 1
+            for bar in page:
+                by_date[bar["date"]] = bar
+            if len(page) < page_size:
+                break
+            start += len(page)
+        bars = sorted(by_date.values(), key=lambda bar: bar["date"])
+        return {
+            "code": full_code(market, symbol),
+            "bars": bars,
+            "pages": pages,
+            "complete": pages < max_pages,
+            "source": "network",
+        }
+
+    def special_limits_archive_save(self, max_rows: int = 10000) -> dict:
+        """扫描 0x0452 并落盘；同一交易日已有快照时保留第一份。"""
+        scan = self.scan_special_limits(max_rows)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return write_dataset_archive(
+            pythontdx_data_dir() / "lake" / "special_limits",
+            "special_limits",
+            scan["records"],
+            source="TDX 7709 0x0452",
+            trade_date=trade_date,
+            fields=["market", "marketId", "code", "symbol", "limitUp", "limitDown"],
+        )
+
+    def special_limits_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "special_limits", limit
+        )
+
+    def delisted_archive_save(
+        self, code: str, page_size: int = 800, max_pages: int = 200
+    ) -> dict:
+        """拉全 0x052b 退市日线并写 Parquet；已有有效归档不覆盖。"""
+        result = self.delisted_history(code, page_size, max_pages)
+        archived = write_delisted_archive(
+            pythontdx_data_dir() / "lake" / "delisted",
+            result["code"],
+            result["bars"],
+        )
+        return {**result, "archive": archived}
+
+    def delisted_archive_list(self, limit: int = 100) -> list[dict]:
+        return list_delisted_archives(
+            pythontdx_data_dir() / "lake" / "delisted", limit
+        )
+
     # -- K 线 / 分时 -----------------------------------------------------
 
     def kline(
@@ -5753,6 +5963,34 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             str(payload.get("kind", "zcfzb")),
             bool(payload.get("full", False)),
         )
+    if cmd == "special_limits":
+        return bridge.special_limits(int(payload.get("startIndex", 0)))
+    if cmd == "scan_special_limits":
+        return bridge.scan_special_limits(int(payload.get("maxRows", 10000)))
+    if cmd == "delisted_kline":
+        return bridge.delisted_kline(
+            str(payload.get("code") or ""),
+            int(payload.get("start", 0)),
+            int(payload.get("count", 800)),
+        )
+    if cmd == "delisted_history":
+        return bridge.delisted_history(
+            str(payload.get("code") or ""),
+            int(payload.get("pageSize", 800)),
+            int(payload.get("maxPages", 200)),
+        )
+    if cmd == "special_limits_archive_save":
+        return bridge.special_limits_archive_save(int(payload.get("maxRows", 10000)))
+    if cmd == "special_limits_archive_list":
+        return bridge.special_limits_archive_list(int(payload.get("limit", 50)))
+    if cmd == "delisted_archive_save":
+        return bridge.delisted_archive_save(
+            str(payload.get("code") or ""),
+            int(payload.get("pageSize", 800)),
+            int(payload.get("maxPages", 200)),
+        )
+    if cmd == "delisted_archive_list":
+        return bridge.delisted_archive_list(int(payload.get("limit", 100)))
     if cmd == "kline":
         return bridge.kline(
             payload.get("code", ""),

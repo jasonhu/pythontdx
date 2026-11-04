@@ -1213,6 +1213,55 @@ def fetch_market_news(tab: int = 3, page: int = 1, page_size: int = 50) -> list[
     return parse_market_news_payload(payload, page_size)
 
 
+NEWS_CHANNELS = {
+    200: "财经最新",
+    201: "财经要闻",
+    202: "国内财经",
+    203: "国际财经",
+    204: "证券市场",
+    300: "股票最新",
+    301: "股票要闻",
+    302: "大盘分析",
+    303: "板块聚焦",
+    306: "公司新闻",
+    307: "公司公告",
+    500: "新股最新",
+    501: "新股要闻",
+    502: "新股公告",
+    507: "新股评论",
+    800: "基金最新",
+    801: "基金要闻",
+    808: "机构持仓",
+    809: "基金公告",
+    1200: "债券最新",
+    1201: "债券要闻",
+    1205: "债券公告",
+}
+
+
+def fetch_channel_news(
+    channel: int = 201,
+    page: int = 1,
+    page_size: int = 50,
+    query1: str = "1",
+    keyword: str = "",
+) -> list[dict]:
+    """7615 资讯频道：频道号见 NEWS_CHANNELS。"""
+    payload = _post_tqlex(
+        "CWServ.tdxi_zxxwnews",
+        {
+            "Params": [
+                str(query1 or "1"),
+                str(int(channel)),
+                str(max(1, page)),
+                str(max(1, min(page_size, 100))),
+                str(keyword or ""),
+            ]
+        },
+    )
+    return parse_market_news_payload(payload, page_size)
+
+
 PROFIT_FORECAST_SECTIONS = {"ylyctj", "ylycmx", "yzyq", "tzpjtj", "ycpjyjbg"}
 GOVERNANCE_SECTIONS = {"wgcl", "dbmxbgq", "gljy", "gqzr", "gqzy", "sgjb", "zdsx", "zjly", "dbmx", "gqtz", "xmtz"}
 RANKING_SECTIONS = {"scpmdela", "scpmdelat", "hypmdela", "hypmdelat", "scpmzxt", "hypmzxt", "ztxqzxts"}

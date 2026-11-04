@@ -98,6 +98,7 @@ from tick_archive import (
 from tdx_f10 import (
     fetch_announcements,
     fetch_business,
+    fetch_channel_news,
     fetch_digest,
     fetch_finance,
     fetch_governance,
@@ -4898,6 +4899,16 @@ class Bridge:
         """7615 全市场资讯首页。"""
         return fetch_market_news(tab, page, page_size)
 
+    def f10_channel_news(
+        self,
+        channel: int = 201,
+        page: int = 1,
+        page_size: int = 50,
+        keyword: str = "",
+    ) -> list[dict]:
+        """7615 频道资讯。"""
+        return fetch_channel_news(channel, page, page_size, "1", keyword)
+
     def f10_market_news_archive_save(
         self, tab: int = 3, page: int = 1, page_size: int = 50
     ) -> dict:
@@ -6758,6 +6769,13 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             int(payload.get("tab", 3)),
             int(payload.get("page", 1)),
             int(payload.get("pageSize", 50)),
+        )
+    if cmd == "f10_channel_news":
+        return bridge.f10_channel_news(
+            int(payload.get("channel", 201)),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 50)),
+            str(payload.get("keyword") or ""),
         )
     if cmd == "f10_market_news_archive_save":
         return bridge.f10_market_news_archive_save(

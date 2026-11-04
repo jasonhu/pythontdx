@@ -423,6 +423,21 @@ class TestF10DigestAndNews(unittest.TestCase):
         self.assertTrue(entry.endswith("skef10_dpzx_jbxx"))
         self.assertEqual(body["Params"], ["002", "000001"])
 
+    def test_channel_news(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {"ColName": ["x"], "Content": []},
+                {"ColName": ["Title"], "Content": [["财经标题"]]},
+            ],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload) as post:
+            rows = tdx_f10.fetch_channel_news(201, 2, 20)
+        self.assertEqual(rows[0]["title"], "财经标题")
+        entry, body = post.call_args.args
+        self.assertTrue(entry.endswith("tdxi_zxxwnews"))
+        self.assertEqual(body["Params"], ["1", "201", "2", "20", ""])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -90,5 +90,38 @@ class TestDelistedBars(unittest.TestCase):
             self.assertEqual(len(list_delisted_archives(Path(directory))), 1)
 
 
+class TestCapitalChanges(unittest.TestCase):
+    def test_parse_category_one_and_share_category(self):
+        def record(category: int, values: tuple[float, float, float, float]) -> bytes:
+            return (
+                bytes([0])
+                + b"000001"
+                + b"\x00"
+                + struct.pack("<I", 20200101)
+                + bytes([category])
+                + struct.pack("<4f", *values)
+            )
+
+        block = (
+            bytes([0])
+            + b"000001"
+            + struct.pack("<H", 2)
+            + record(1, (0, 3.56, 0, 1))
+            + record(5, (0, 0, 2650, 4850))
+        )
+        body = struct.pack("<H", 1) + block
+        blocks = tdx_bridge.parse_capital_changes(body)
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual(blocks[0]["code"], "sz000001")
+        self.assertEqual(blocks[0]["count"], 2)
+        dividend = blocks[0]["records"][0]
+        self.assertEqual(dividend["categoryName"], "除权除息")
+        self.assertAlmostEqual(dividend["c2"], 3.56, places=2)
+        self.assertEqual(dividend["c4"], 1)
+        shares = blocks[0]["records"][1]
+        self.assertEqual(shares["c3"], 26_500_000)
+        self.assertEqual(shares["c4"], 48_500_000)
+
+
 if __name__ == "__main__":
     unittest.main()

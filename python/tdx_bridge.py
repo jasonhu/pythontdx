@@ -320,6 +320,7 @@ HEARTBEAT_INTERVAL = 30.0
 QUOTE_BASELINE_INTERVAL = 60.0
 QUOTE_BATCH = 80
 FINANCE_BATCH = 80
+CAPITAL_BATCH = 75
 CODE_PAGE = 1600
 FINANCE_TTL = 6 * 60 * 60
 
@@ -342,6 +343,7 @@ CMD_HISTORY_MINUTE = 0x0FB4
 CMD_SECURITY_COUNT = 0x044E
 CMD_SECURITY_LIST = 0x044D
 CMD_FINANCE = 0x0010
+CMD_CAPITAL_CHANGES = 0x000F
 CMD_SPECIAL_LIMITS = 0x0452
 CMD_DELISTED_BARS = 0x052B
 
@@ -898,6 +900,18 @@ def finance_data(items: list[tuple[int, str]]) -> bytes:
     if len(items) > FINANCE_BATCH:
         raise TdxError("单次财务请求不能超过 80 只")
 
+    payload = bytearray(struct.pack("<H", len(items)))
+    for market, symbol in items:
+        payload += struct.pack("<B", market) + code_bytes(symbol)
+    return bytes(payload)
+
+
+def capital_changes_data(items: list[tuple[int, str]]) -> bytes:
+    """0x000f 股本变迁：count + 每只市场/代码。"""
+    if not items:
+        raise TdxError("股本变迁请求不能为空")
+    if len(items) > CAPITAL_BATCH:
+        raise TdxError(f"单次股本变迁请求不能超过 {CAPITAL_BATCH} 只")
     payload = bytearray(struct.pack("<H", len(items)))
     for market, symbol in items:
         payload += struct.pack("<B", market) + code_bytes(symbol)
@@ -2674,6 +2688,90 @@ def parse_security_list(body: bytes, market: int) -> list[dict]:
         )
 
     return items
+
+
+CAPITAL_CATEGORY_NAMES = {
+    1: "除权除息",
+    2: "送配股上市",
+    3: "非流通股上市",
+    4: "未知股本变动",
+    5: "股本变化",
+    6: "增发新股",
+    7: "股份回购",
+    8: "增发新股上市",
+    9: "转配股上市",
+    10: "可转债上市",
+    11: "扩缩股",
+    12: "非流通股缩股",
+    13: "送认购权证",
+    14: "送认沽权证",
+    15: "重整调整",
+}
+CAPITAL_SHARE_CATEGORIES = {2, 3, 5, 7, 8, 9, 10}
+
+
+def parse_capital_changes(body: bytes) -> list[dict]:
+    """0x000f 股本变迁：block header (9B) + 29B 记录。"""
+    block_count = _u16(body, 0)
+    pos = 2
+    blocks: list[dict] = []
+    for _ in range(block_count):
+        if pos + 9 > len(body):
+            raise TdxError("股本变迁块头不完整")
+        market_id = body[pos]
+        symbol = body[pos + 1 : pos + 7].decode("ascii", errors="replace").rstrip("\x00")
+        record_count = _u16(body, pos + 7)
+        pos += 9
+        if len(symbol) != 6 or not symbol.isdigit():
+            raise TdxError("股本变迁代码不合法")
+        market = MARKET_NAMES.get(market_id)
+        if market is None:
+            raise TdxError("股本变迁市场不合法")
+        records: list[dict] = []
+        for _ in range(record_count):
+            if pos + 29 > len(body):
+                raise TdxError("股本变迁记录不完整")
+            record_market = body[pos]
+            record_symbol = body[pos + 1 : pos + 7].decode("ascii", errors="replace").rstrip("\x00")
+            date_raw = _u32(body, pos + 8)
+            category = body[pos + 12]
+            floats = [_f32(body, pos + 13 + index * 4) for index in range(4)]
+            if category in CAPITAL_SHARE_CATEGORIES:
+                values = [round(value * 10000, 4) for value in floats]
+            elif category == 6:
+                values = [floats[0], floats[1], round(floats[2] * 10000, 4), floats[3]]
+            else:
+                values = floats
+            records.append(
+                {
+                    "market": MARKET_NAMES.get(record_market, market),
+                    "code": full_code(record_market, record_symbol),
+                    "date": format_date(date_raw),
+                    "category": category,
+                    "categoryName": CAPITAL_CATEGORY_NAMES.get(category, f"类别{category}"),
+                    "c1": values[0],
+                    "c2": values[1],
+                    "c3": values[2],
+                    "c4": values[3],
+                    "c1Float": floats[0],
+                    "c2Float": floats[1],
+                    "c3Float": floats[2],
+                    "c4Float": floats[3],
+                    "reserved": body[pos + 7],
+                }
+            )
+            pos += 29
+        blocks.append(
+            {
+                "code": full_code(market_id, symbol),
+                "market": market,
+                "count": len(records),
+                "records": records,
+            }
+        )
+    if pos != len(body):
+        raise TdxError("股本变迁报文尾部有多余字节")
+    return blocks
 
 
 def parse_finance(body: bytes) -> list[dict]:
@@ -5310,6 +5408,60 @@ class Bridge:
     def finance_archive_list(self, limit: int = 50) -> list[dict]:
         return list_dataset_archives(pythontdx_data_dir() / "lake" / "finance", limit)
 
+    # -- 股本变迁 0x000f ---------------------------------------------------
+
+    def capital_changes(self, codes: list[str]) -> dict:
+        """0x000f 股本变迁/权息；返回股票块与扁平事件列表。"""
+        items: list[tuple[int, str]] = []
+        for code in codes:
+            try:
+                items.append(parse_code(str(code)))
+            except TdxError:
+                continue
+        blocks: list[dict] = []
+        for start in range(0, len(items), CAPITAL_BATCH):
+            batch = items[start : start + CAPITAL_BATCH]
+            if not batch:
+                continue
+            body = self.conn.request(CMD_CAPITAL_CHANGES, capital_changes_data(batch))
+            blocks.extend(parse_capital_changes(body))
+        records = [record for block in blocks for record in block["records"]]
+        return {"count": len(blocks), "blocks": blocks, "records": records}
+
+    def capital_archive_save(self, codes: list[str]) -> dict:
+        result = self.capital_changes(codes)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            **result,
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "corporate",
+                "capital_changes",
+                result["records"],
+                source="TDX 7709 0x000f",
+                trade_date=trade_date,
+                fields=[
+                    "code",
+                    "date",
+                    "category",
+                    "categoryName",
+                    "c1",
+                    "c2",
+                    "c3",
+                    "c4",
+                    "c1Float",
+                    "c2Float",
+                    "c3Float",
+                    "c4Float",
+                    "reserved",
+                ],
+            ),
+        }
+
+    def capital_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "corporate", limit
+        )
+
     # -- 特殊涨跌停 / 退市 K 线 -------------------------------------------
 
     def special_limits(self, start_index: int = 0) -> dict:
@@ -6077,6 +6229,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.finance_archive_save(list(payload.get("codes") or []))
     if cmd == "finance_archive_list":
         return bridge.finance_archive_list(int(payload.get("limit", 50)))
+    if cmd == "capital_changes":
+        return bridge.capital_changes(list(payload.get("codes") or []))
+    if cmd == "capital_archive_save":
+        return bridge.capital_archive_save(list(payload.get("codes") or []))
+    if cmd == "capital_archive_list":
+        return bridge.capital_archive_list(int(payload.get("limit", 50)))
     if cmd == "special_limits":
         return bridge.special_limits(int(payload.get("startIndex", 0)))
     if cmd == "scan_special_limits":

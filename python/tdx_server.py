@@ -747,6 +747,42 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/f10_digest":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_digest(
+                            payload.get("code", ""), payload.get("section", "tips")
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_market_news":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_market_news(
+                            int(payload.get("tab", 3)),
+                            int(payload.get("page", 1)),
+                            int(payload.get("pageSize", 50)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_market_news_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_market_news_archive_save(
+                            int(payload.get("tab", 3)),
+                            int(payload.get("page", 1)),
+                            int(payload.get("pageSize", 50)),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_market_news_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_market_news_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_industry":
                 with self.server.lock:
                     self._ok(

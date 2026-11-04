@@ -1134,6 +1134,85 @@ def fetch_industry(code: str, section: str = "summary") -> dict:
     }
 
 
+# ---------------------------------------------------------------- 7615 补充分区
+
+DIGEST_SECTIONS = {
+    "tips": "zxts",
+    "profile": "gsgy",
+    "events": "gsds",
+    "news": "gsxw",
+    "announcements": "gsgg",
+    "reports": "gsyj",
+    "roadshows": "lyhd",
+}
+
+
+def _parse_result_table(payload: dict, limit: int = 200) -> dict:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if not tables:
+        return {"columns": [], "rows": [], "count": 0}
+    table = tables[0]
+    columns = [str(name) for name in (table.get("ColName") or [])]
+    rows = [list(values) for values in (table.get("Content") or [])][: max(1, limit)]
+    return {"columns": columns, "rows": rows, "count": len(rows)}
+
+
+def fetch_digest(
+    code: str, section: str = "tips", page_size: int = 20
+) -> dict:
+    """7615 最新提示 8 分区；interaction 走独立 Entry。"""
+    _market, symbol = _market_of(code)
+    if section == "interaction":
+        payload = _post_tqlex(
+            "CWServ.tdxf10_gg_zxtstzzhd",
+            {"Params": [symbol, "1", "1", str(max(1, min(page_size, 100)))]},
+        )
+    elif section in DIGEST_SECTIONS:
+        payload = _post_tqlex(
+            "CWServ.tdxf10_gg_zxts",
+            {"Params": [symbol, DIGEST_SECTIONS[section], ""]},
+        )
+    else:
+        raise F10Error(f"不支持的 F10 提示分区：{section}")
+    result = _parse_result_table(payload)
+    return {"section": section, **result}
+
+
+def parse_market_news_payload(payload: dict, limit: int = 50) -> list[dict]:
+    if int(payload.get("ErrorCode") or 0) != 0:
+        raise F10Error(f"7615 资讯返回错误码 {payload.get('ErrorCode')}")
+    tables = payload.get("ResultSets") or []
+    if len(tables) < 2:
+        return []
+    table = tables[1]
+    columns = [str(name) for name in (table.get("ColName") or [])]
+    rows: list[dict] = []
+    for values in (table.get("Content") or [])[: max(1, limit)]:
+        row = dict(zip(columns, values))
+        rows.append(
+            {
+                "id": str(row.get("rec_id") or ""),
+                "title": str(row.get("Title") or ""),
+                "date": str(row.get("Issue_date") or "")[:19],
+                "summary": str(row.get("Summary") or ""),
+                "source": str(row.get("Info_Src") or ""),
+                "url": str(row.get("Url") or ""),
+            }
+        )
+    return rows
+
+
+def fetch_market_news(tab: int = 3, page: int = 1, page_size: int = 50) -> list[dict]:
+    """7615 全市场资讯首页：1 滚动/2 今日焦点/3 要闻速递/4 正面/5 负面/6 精华/7 最新/9 机构。"""
+    payload = _post_tqlex(
+        "CWServ.tdxi_zxxwsy",
+        {"Params": [str(tab), str(max(1, page)), str(max(1, min(page_size, 100)))]},
+    )
+    return parse_market_news_payload(payload, page_size)
+
+
 # ---------------------------------------------------------------- PIT 自动快照
 #
 # 所有公开 F10 fetch 统一包一层：成功返回后按 snapshot_date + code + table 写
@@ -1147,6 +1226,7 @@ _F10_PIT_TABLES = (
     "change_plans",
     "circulating_shareholders",
     "controller",
+    "digest",
     "dividend",
     "finance",
     "industry",

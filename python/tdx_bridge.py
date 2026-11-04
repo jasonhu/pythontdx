@@ -97,7 +97,9 @@ from tick_archive import (
 from tdx_f10 import (
     fetch_announcements,
     fetch_business,
+    fetch_digest,
     fetch_finance,
+    fetch_market_news,
     fetch_news,
     fetch_profile,
     fetch_reports,
@@ -4835,6 +4837,38 @@ class Bridge:
         """7615 TQLEX 公司新闻列表。"""
         return fetch_news(code)
 
+    def f10_digest(self, code: str, section: str = "tips") -> dict:
+        """7615 最新提示 8 分区。"""
+        return fetch_digest(code, section)
+
+    def f10_market_news(
+        self, tab: int = 3, page: int = 1, page_size: int = 50
+    ) -> list[dict]:
+        """7615 全市场资讯首页。"""
+        return fetch_market_news(tab, page, page_size)
+
+    def f10_market_news_archive_save(
+        self, tab: int = 3, page: int = 1, page_size: int = 50
+    ) -> dict:
+        rows = self.f10_market_news(tab, page, page_size)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            "rows": len(rows),
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "market_news",
+                "market_news",
+                rows,
+                source=f"TDX 7615 CWServ.tdxi_zxxwsy tab={tab}",
+                trade_date=trade_date,
+                fields=["id", "title", "date", "summary", "source", "url"],
+            ),
+        }
+
+    def f10_market_news_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "market_news", limit
+        )
+
     def f10_industry(self, code: str, section: str = "summary") -> dict:
         """7615 TQLEX 行业汇总/新闻/研报。"""
         from tdx_f10 import fetch_industry
@@ -6549,6 +6583,24 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_reports(payload.get("code", ""))
     if cmd == "f10_news":
         return bridge.f10_news(payload.get("code", ""))
+    if cmd == "f10_digest":
+        return bridge.f10_digest(
+            str(payload.get("code") or ""), str(payload.get("section") or "tips")
+        )
+    if cmd == "f10_market_news":
+        return bridge.f10_market_news(
+            int(payload.get("tab", 3)),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 50)),
+        )
+    if cmd == "f10_market_news_archive_save":
+        return bridge.f10_market_news_archive_save(
+            int(payload.get("tab", 3)),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 50)),
+        )
+    if cmd == "f10_market_news_archive_list":
+        return bridge.f10_market_news_archive_list(int(payload.get("limit", 50)))
     if cmd == "f10_industry":
         return bridge.f10_industry(
             str(payload.get("code") or ""), str(payload.get("section") or "summary")

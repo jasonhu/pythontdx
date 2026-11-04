@@ -367,5 +367,36 @@ class TestF10Announcements(unittest.TestCase):
             tdx_f10.fetch_announcements("600519")
 
 
+class TestF10DigestAndNews(unittest.TestCase):
+    def test_digest_table(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {"ColName": ["N001", "N002"], "Content": [["2026-11-04", "测试"]]}
+            ],
+        }
+        table = tdx_f10._parse_result_table(payload)
+        self.assertEqual(table["count"], 1)
+        self.assertEqual(table["columns"], ["N001", "N002"])
+
+    def test_market_news_second_result_set(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [
+                {"ColName": ["x"], "Content": []},
+                {
+                    "ColName": ["Title", "Issue_date", "Summary", "rec_id", "Info_Src", "Url"],
+                    "Content": [
+                        ["标题", "2026-11-04 10:00:00", "摘要", "42", "交易所", "http://example.test"]
+                    ],
+                },
+            ],
+        }
+        rows = tdx_f10.parse_market_news_payload(payload)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], "42")
+        self.assertEqual(rows[0]["title"], "标题")
+
+
 if __name__ == "__main__":
     unittest.main()

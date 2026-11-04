@@ -23,6 +23,7 @@ import type {
   DataInventory,
   OfflineSyncCatalog,
   OfflineSyncStatus,
+  OfflineSyncOptions,
   KLineExportResult,
   SnapshotArchiveResult,
   SnapshotArchiveItem,
@@ -389,6 +390,30 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       if (status.state === 'blocked') {
         setSyncError(status.reason ?? '当前处于交易时段保护窗口，15:45 后再试')
       }
+    } catch (cause) {
+      setSyncError(errorMessage(cause))
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
+  const resumeLastSync = async (): Promise<void> => {
+    const last = syncStatus()?.lastSummary
+    if (!last?.options?.datasets?.length || syncRunning() || syncBusy()) return
+    setSyncBusy(true)
+    setSyncError(null)
+    try {
+      const { jobId: _oldJobId, ...rest } = last.options
+      const options = {
+        ...rest,
+        // 中断任务续跑：已有有效归档跳过，只补失败/未完成的。
+        skipExisting: true
+      } as OfflineSyncOptions
+      if (options.scope === 'watchlist' && !options.codes?.length) {
+        options.codes = [...watchCodes()]
+      }
+      const status = await api.data.offlineSyncStart(options)
+      setSyncStatus(status)
     } catch (cause) {
       setSyncError(errorMessage(cause))
     } finally {
@@ -1161,6 +1186,20 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                     <div class="data__query-error">{last().error}</div>
                   </Show>
                   <code class="data__sync-summary-dir">{last().dir}</code>
+                  <Show
+                    when={
+                      ['incomplete', 'failed', 'cancelled'].includes(last().state) &&
+                      (last().options?.datasets?.length ?? 0) > 0
+                    }
+                  >
+                    <button
+                      class="btn data__sync-summary-resume"
+                      disabled={syncRunning() || syncBusy()}
+                      onClick={() => void resumeLastSync()}
+                    >
+                      继续未完成任务（跳过已有）
+                    </button>
+                  </Show>
                 </div>
               )}
             </Show>

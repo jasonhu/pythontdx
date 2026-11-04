@@ -6690,6 +6690,11 @@
   white-space: nowrap;
 }
 
+.data__sync-summary-resume {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
 .data__bulk {
   display: flex;
   flex-direction: column;

@@ -416,16 +416,13 @@ def summarize_job_dir(job_dir: Path) -> dict[str, Any] | None:
         return None
     plan: dict[str, Any] = {}
     manifest: dict[str, Any] = {}
-    try:
-        if (job_dir / "plan.json").is_file():
-            plan = json.loads((job_dir / "plan.json").read_text("utf-8"))
-    except (OSError, ValueError):
-        plan = {}
-    try:
-        if (job_dir / "manifest.json").is_file():
-            manifest = json.loads((job_dir / "manifest.json").read_text("utf-8"))
-    except (OSError, ValueError):
-        manifest = {}
+    job: dict[str, Any] = {}
+    for name, target in (("plan.json", plan), ("manifest.json", manifest), ("job.json", job)):
+        try:
+            if (job_dir / name).is_file():
+                target.update(json.loads((job_dir / name).read_text("utf-8")))
+        except (OSError, ValueError):
+            pass
 
     totals = manifest.get("totals")
     state = str(manifest.get("state") or "")
@@ -466,6 +463,8 @@ def summarize_job_dir(job_dir: Path) -> dict[str, Any] | None:
         "planned": int(planned or 0),
         "totals": {key: int(totals.get(key) or 0) for key in totals},
         "datasets": datasets,
+        "options": manifest.get("options") or job.get("options") or {},
+        "codes": int(plan.get("codes") or 0),
         "startedAt": started,
         "finishedAt": finished,
     }

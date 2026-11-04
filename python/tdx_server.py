@@ -461,6 +461,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.minute(query.get("code", "")))
                 return
+            if parsed.path == "/api/minute_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.minute_archive_list(
+                            int(query.get("limit", "50"))
+                        )
+                    )
+                return
             if parsed.path == "/api/minute_aux":
                 with self.server.lock:
                     self._ok(
@@ -881,6 +889,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                     self._ok(
                         self.server.bridge.block_meta_archive_save(
                             str(payload.get("filename") or "")
+                        )
+                    )
+                return
+            if parsed.path == "/api/minute_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.minute_archive_save(
+                            str(payload.get("code") or "")
                         )
                     )
                 return

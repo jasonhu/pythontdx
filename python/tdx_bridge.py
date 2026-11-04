@@ -6206,6 +6206,38 @@ class Bridge:
             decimal=self._decimal(code),
         )
 
+    def minute_archive_save(self, code: str) -> dict:
+        result = self.minute(code)
+        rows = [
+            {
+                "code": code,
+                "date": result["date"],
+                "time": point["time"],
+                "price": point["price"],
+                "avg": point["avg"],
+                "volume": point["volume"],
+            }
+            for point in result["points"]
+        ]
+        return {
+            "code": code,
+            "date": result["date"],
+            "rows": len(rows),
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "today_minute",
+                "today_minute",
+                rows,
+                source="TDX 7709 0x0537",
+                trade_date=result["date"],
+                fields=["code", "date", "time", "price", "avg", "volume"],
+            ),
+        }
+
+    def minute_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "today_minute", limit
+        )
+
     def minute_aux(self, code: str, kind: str = "buy_sell_strength") -> dict:
         market, symbol = parse_code(code)
         key = str(kind or "").strip().lower()
@@ -6758,6 +6790,10 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.limit_review(str(payload.get("date") or ""))
     if cmd == "minute":
         return bridge.minute(payload.get("code", ""))
+    if cmd == "minute_archive_save":
+        return bridge.minute_archive_save(str(payload.get("code") or ""))
+    if cmd == "minute_archive_list":
+        return bridge.minute_archive_list(int(payload.get("limit", 50)))
     if cmd == "minute_aux":
         return bridge.minute_aux(
             str(payload.get("code") or ""), str(payload.get("kind") or "buy_sell_strength")

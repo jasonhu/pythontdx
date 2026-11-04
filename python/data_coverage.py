@@ -45,6 +45,7 @@ def collect_data_coverage(root: Path) -> dict:
         _scan(base, "server_meta", ("lake/server_meta/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "quotes", ("lake/quotes/**/*",), "trade_date"),
         _scan(base, "finance", ("lake/finance/**/*.jsonl.gz",), "trade_date"),
+        _scan(base, "today_minute", ("lake/today_minute/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "minute_aux", ("lake/minute_aux/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "sparkline", ("lake/sparkline/**/*.jsonl.gz",), "trade_date"),
         _scan(base, "recent_minute", ("lake/recent_minute/**/*.jsonl.gz",), "trade_date"),

@@ -46,6 +46,8 @@ pythontdx 的所有重要变更都记录在这里。
   解析结果附 `fields` 原始字典，离线位图/解析测试覆盖。
 - **历史分时归档**：新增 `0x0fb4` 单日历史分时查询与
   `/api/history_minute*`，写 `lake/history_minute`。
+- **当日分时归档**：`0x0537` 显式归档到 `lake/today_minute`，
+  新增 `/api/minute_archive_save`、`/api/minute_archives`。
 - **7615 F10 补充分区**：新增最新提示 8 分区（含投资者互动）、全市场资讯首页、
   盈利预测/治理/排名明细/北向持仓；个股结果继续写 `lake/f10_pit`，
   资讯可写 `lake/market_news`。

@@ -59,7 +59,10 @@ pythontdx 的所有重要变更都记录在这里。
 - **7615 热点题材/详情**：新增 `/api/f10_hot_topics`、`/api/f10_detail`，
   题材结果写 `lake/f10_pit`。
 - **7615 ETF/基金 F10**：新增 30 个 section（基金经理/公司/概况/规模/净值/
-  分红/持仓/资产配置/费率/评级等），HTTP `/api/f10_fund_report`。
+  分红/持仓/资产配置/费率/评级等），HTTP `/api/f10_fund_report`；结果自动写
+  `lake/f10_pit`。
+- **F10 详情归档**：`f10_detail` 新增 `lake/f10_detail` 归档与
+  `/api/f10_detail_archive_save`、`/api/f10_detail_archives`。
 - **7615 F10 补充分区**：新增最新提示 8 分区（含投资者互动）、全市场资讯首页、
   盈利预测/治理/排名明细/北向持仓；个股结果继续写 `lake/f10_pit`，
   资讯可写 `lake/market_news`。

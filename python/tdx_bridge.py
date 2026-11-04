@@ -4967,6 +4967,36 @@ class Bridge:
     def f10_detail(self, detail_type: str, record_id: str) -> dict:
         return fetch_detail(detail_type, record_id)
 
+    def f10_detail_archive_save(self, detail_type: str, record_id: str) -> dict:
+        result = self.f10_detail(detail_type, record_id)
+        columns = result.get("columns") or []
+        source_rows = result.get("rows") or []
+        rows = [
+            {
+                "detailType": str(detail_type),
+                "recordId": str(record_id),
+                "rowIndex": index,
+                **{str(columns[i]): value for i, value in enumerate(row) if i < len(columns)},
+            }
+            for index, row in enumerate(source_rows)
+        ]
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            **result,
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "f10_detail",
+                "f10_detail",
+                rows,
+                source=f"TDX 7615 CWServ.tdxf10_gg_idreq type={detail_type}",
+                trade_date=trade_date,
+            ),
+        }
+
+    def f10_detail_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "f10_detail", limit
+        )
+
     def f10_ranking_detail(self, code: str, section: str = "scpmdela") -> dict:
         return fetch_ranking_detail(code, section)
 
@@ -6838,6 +6868,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_detail(
             str(payload.get("detailType") or ""), str(payload.get("recordId") or "")
         )
+    if cmd == "f10_detail_archive_save":
+        return bridge.f10_detail_archive_save(
+            str(payload.get("detailType") or ""), str(payload.get("recordId") or "")
+        )
+    if cmd == "f10_detail_archive_list":
+        return bridge.f10_detail_archive_list(int(payload.get("limit", 50)))
     if cmd == "f10_ranking_detail":
         return bridge.f10_ranking_detail(
             str(payload.get("code") or ""), str(payload.get("section") or "scpmdela")

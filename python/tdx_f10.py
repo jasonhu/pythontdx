@@ -1525,6 +1525,7 @@ _F10_PIT_TABLES = (
     "digest",
     "dividend",
     "finance",
+    "fund_report",
     "governance",
     "hot_topics",
     "industry",

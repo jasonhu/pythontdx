@@ -899,6 +899,23 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/f10_detail_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_detail_archive_save(
+                            str(payload.get("detailType") or ""),
+                            str(payload.get("recordId") or ""),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_detail_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_detail_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_detail":
                 with self.server.lock:
                     self._ok(

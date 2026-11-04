@@ -337,6 +337,7 @@ CMD_FILE_CONTENT = 0x06B9
 CMD_MONEY_FLOW = 0x0FFC
 CMD_F10_CATEGORY = 0x02CF
 CMD_F10_CONTENT = 0x02D0
+CMD_BLOCK_META = 0x02C5
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
@@ -797,6 +798,20 @@ def file_content_data(path: str, offset: int = 0, size: int = FILE_CHUNK) -> byt
         struct.pack("<II", offset, size)
         + text.encode("ascii").ljust(FILE_PATH_FIELD, b"\x00")
     )
+
+
+def block_meta_data(filename: str) -> bytes:
+    """0x02c5：40 字节 ASCII 文件名，NUL 填充。"""
+    text = str(filename or "").strip()
+    if not text or "\x00" in text:
+        raise TdxError("板块文件名不能为空或包含 NUL")
+    try:
+        raw = text.encode("ascii")
+    except UnicodeEncodeError as error:
+        raise TdxError("板块文件名必须是 ASCII") from error
+    if len(raw) > 40:
+        raise TdxError("板块文件名不能超过 40 字节")
+    return raw.ljust(40, b"\x00")
 
 
 def money_flow_data(market: int, symbol: str) -> bytes:
@@ -1541,6 +1556,14 @@ def parse_auctions(body: bytes) -> list[dict]:
         )
         pos += AUCTION_RECORD
     return points
+
+
+def parse_block_meta(body: bytes) -> dict:
+    """0x02c5：u32 size + 保留字节 + 32 字节 ASCII MD5。"""
+    if len(body) < 38:
+        raise TdxError("板块文件元数据不完整")
+    md5 = body[5:37].split(b"\x00", 1)[0].decode("ascii", errors="replace").strip()
+    return {"size": _u32(body, 0), "md5": md5}
 
 
 def parse_file_chunk(
@@ -4548,6 +4571,29 @@ class Bridge:
         )
         return parse_file_chunk(body, normalized, offset, size)
 
+    def block_meta(self, filename: str) -> dict:
+        """0x02c5 板块文件元数据（大小 + MD5）。"""
+        name = str(filename or "").strip()
+        body = self.conn.request(CMD_BLOCK_META, block_meta_data(name))
+        return {"filename": name, **parse_block_meta(body)}
+
+    def block_meta_archive_save(self, filename: str) -> dict:
+        meta = self.block_meta(filename)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return write_dataset_archive(
+            pythontdx_data_dir() / "lake" / "server_meta",
+            "block_meta",
+            [meta],
+            source="TDX 7709 0x02c5",
+            trade_date=trade_date,
+            fields=["filename", "size", "md5"],
+        )
+
+    def block_meta_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "server_meta", limit
+        )
+
     def money_flow(self, code: str) -> list[dict]:
         """0x0ffc 资金流向日数据；必须走资金流专用节点。"""
         market, symbol = parse_code(code)
@@ -6098,6 +6144,12 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             offset=int(payload.get("offset", 0)),
             size=int(payload.get("size", FILE_CHUNK)),
         )
+    if cmd == "block_meta":
+        return bridge.block_meta(str(payload.get("filename") or ""))
+    if cmd == "block_meta_archive_save":
+        return bridge.block_meta_archive_save(str(payload.get("filename") or ""))
+    if cmd == "block_meta_archive_list":
+        return bridge.block_meta_archive_list(int(payload.get("limit", 50)))
     if cmd == "file_download":
         return bridge.file_download(
             payload.get("path", ""),

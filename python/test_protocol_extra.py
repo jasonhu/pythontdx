@@ -142,5 +142,17 @@ class TestFixedAdjustmentRequest(unittest.TestCase):
         self.assertEqual(anchor, 20240603)
 
 
+class TestBlockMeta(unittest.TestCase):
+    def test_request_and_parse(self):
+        request = tdx_bridge.block_meta_data("block_zs.dat")
+        self.assertEqual(len(request), 40)
+        self.assertTrue(request.startswith(b"block_zs.dat"))
+        md5 = "0123456789abcdef0123456789abcdef"
+        body = struct.pack("<I", 1234) + b"\x00" + md5.encode("ascii") + b"\x00"
+        meta = tdx_bridge.parse_block_meta(body)
+        self.assertEqual(meta["size"], 1234)
+        self.assertEqual(meta["md5"], md5)
+
+
 if __name__ == "__main__":
     unittest.main()

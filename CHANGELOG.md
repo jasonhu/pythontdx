@@ -34,11 +34,12 @@ pythontdx 的所有重要变更都记录在这里。
 - **协议能力第一批**：独立实现 `0x000f` 股本变迁/GBBQ、`0x0010` 财务 136B
   全字段、`0x02c5` 板块文件元数据、`0x0452` 特殊品种涨跌停表、`0x051b`
   分时副图（买卖力道/成交对比）、`0x052b` 退市日线（仅日线不复权）、
-  `0x052d` 定点复权（`fixed_qfq`/`fixed_hfq` + anchor）、`0x0fd1` 小走势，
-  新增 `/api/capital_*`、`/api/finance_*`、`/api/block_meta*`、
-  `/api/minute_aux*`、`/api/sparkline*`、`/api/special_limits*`、
-  `/api/delisted_*`；分别写 `lake/corporate`、`lake/finance`、
-  `lake/server_meta`、`lake/minute_aux`、`lake/sparkline`、
+  `0x052d` 定点复权（`fixed_qfq`/`fixed_hfq` + anchor）、`0x0fd1` 小走势、
+  `0x0feb` 近期历史分时，新增 `/api/capital_*`、`/api/finance_*`、
+  `/api/block_meta*`、`/api/minute_aux*`、`/api/sparkline*`、
+  `/api/recent_minute*`、`/api/special_limits*`、`/api/delisted_*`；
+  分别写 `lake/corporate`、`lake/finance`、`lake/server_meta`、
+  `lake/minute_aux`、`lake/sparkline`、`lake/recent_minute`、
   `lake/special_limits`、`lake/delisted`，均带 manifest/SHA 并纳入 data coverage。
 
 ## [1.2.0] - 2026-11-03

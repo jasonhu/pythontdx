@@ -182,5 +182,26 @@ class TestMinuteAuxAndSparkline(unittest.TestCase):
         self.assertAlmostEqual(result["prices"][0], 11.2, places=2)
 
 
+class TestRecentMinute(unittest.TestCase):
+    def test_request_selector_and_parse(self):
+        request = tdx_bridge.recent_minute_data(0, "000001", "2026-05-11")
+        selector, market = struct.unpack_from("<IB", request, 0)
+        self.assertEqual(market, 0)
+        # 2026-05-11 的 selector 应该等于基准减去 date ordinal
+        import datetime as dt
+
+        self.assertEqual(
+            selector,
+            0xFED62304 - dt.date(2026, 5, 11).toordinal(),
+        )
+        body = struct.pack("<H2f", 1, 11.0, 11.1) + b"\x00\x00\x00"
+        result = tdx_bridge.parse_recent_minute(
+            body, "sz000001", "平安银行", "2026-05-11", 2
+        )
+        self.assertEqual(result["count"] if "count" in result else len(result["points"]), 1)
+        self.assertEqual(result["prevClose"], 11.0)
+        self.assertAlmostEqual(result["open"], 11.1, places=2)
+
+
 if __name__ == "__main__":
     unittest.main()

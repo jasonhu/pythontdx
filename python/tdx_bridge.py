@@ -343,6 +343,7 @@ CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
 CMD_MINUTE_AUX = 0x051B
 CMD_SPARKLINE = 0x0FD1
+CMD_RECENT_MINUTE = 0x0FEB
 CMD_SECURITY_COUNT = 0x044E
 CMD_SECURITY_LIST = 0x044D
 CMD_FINANCE = 0x0010
@@ -931,6 +932,18 @@ def sparkline_data(
         0x01000000,
         b"",
     )
+
+
+def recent_minute_data(market: int, symbol: str, date_text: str) -> bytes:
+    """0x0feb：日期 selector = 0xfed62304 - Python date ordinal。"""
+    try:
+        day = datetime.strptime(str(date_text), "%Y-%m-%d").date()
+    except ValueError as error:
+        raise TdxError("近期分时日期必须是 YYYY-MM-DD") from error
+    selector = 0xFED62304 - day.toordinal()
+    if selector < 0:
+        raise TdxError("近期分时日期超出协议范围")
+    return struct.pack("<IB6s", selector, market, code_bytes(symbol))
 
 
 def count_data(market: int, client_date: int) -> bytes:
@@ -2729,6 +2742,50 @@ def parse_sparkline(body: bytes) -> dict:
         "basePrice": base,
         "count": count,
         "prices": prices,
+    }
+
+
+def parse_recent_minute(
+    body: bytes, code: str, name: str, date: str, decimal: int | None
+) -> dict:
+    """0x0feb 近期历史分时：10B 头 + 每点 price/avg/volume varint。"""
+    count = _u16(body, 0)
+    prev_close = _f32(body, 2)
+    open_price = _f32(body, 6)
+    if len(body) < 10:
+        raise TdxError("近期分时报文不完整")
+    divisor = price_divisor(decimal)
+    points: list[dict] = []
+    pos = 10
+    price_acc = 0
+    avg_acc = 0
+    for index in range(count):
+        price_delta, pos = read_varint(body, pos)
+        avg_delta, pos = read_varint(body, pos)
+        volume, pos = read_varint(body, pos)
+        if index == 0:
+            price_acc = price_delta
+            avg_acc = avg_delta
+        else:
+            price_acc += price_delta
+            avg_acc += avg_delta
+        points.append(
+            {
+                "time": minute_label(index),
+                "price": price_acc / (100 * divisor),
+                "avg": avg_acc / (10000 * divisor),
+                "volume": volume,
+            }
+        )
+    if pos != len(body):
+        raise TdxError("近期分时报文尾部有多余字节")
+    return {
+        "code": code,
+        "name": name,
+        "date": date,
+        "prevClose": prev_close,
+        "open": open_price,
+        "points": points,
     }
 
 
@@ -6152,6 +6209,36 @@ class Bridge:
     def sparkline_archive_list(self, limit: int = 50) -> list[dict]:
         return list_dataset_archives(pythontdx_data_dir() / "lake" / "sparkline", limit)
 
+    def recent_minute(self, code: str, date: str | None = None) -> dict:
+        market, symbol = parse_code(code)
+        date_text = str(date or datetime.now().astimezone().strftime("%Y-%m-%d"))
+        body = self.conn.request(CMD_RECENT_MINUTE, recent_minute_data(market, symbol, date_text))
+        return parse_recent_minute(
+            body, code, self._name(code, symbol), date_text, self._decimal(code)
+        )
+
+    def recent_minute_archive_save(self, code: str, date: str | None = None) -> dict:
+        result = self.recent_minute(code, date)
+        return {
+            **result,
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "recent_minute",
+                "recent_minute",
+                [
+                    {"code": code, "date": result["date"], **point}
+                    for point in result["points"]
+                ],
+                source="TDX 7709 0x0feb",
+                trade_date=result["date"],
+                fields=["code", "date", "time", "price", "avg", "volume"],
+            ),
+        }
+
+    def recent_minute_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "recent_minute", limit
+        )
+
     def five_day(self, code: str) -> dict:
         market, symbol = parse_code(code)
         daily = self._raw_daily(code, 6, market, symbol)
@@ -6565,6 +6652,16 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "sparkline_archive_list":
         return bridge.sparkline_archive_list(int(payload.get("limit", 50)))
+    if cmd == "recent_minute":
+        return bridge.recent_minute(
+            str(payload.get("code") or ""), payload.get("date") or None
+        )
+    if cmd == "recent_minute_archive_save":
+        return bridge.recent_minute_archive_save(
+            str(payload.get("code") or ""), payload.get("date") or None
+        )
+    if cmd == "recent_minute_archive_list":
+        return bridge.recent_minute_archive_list(int(payload.get("limit", 50)))
     if cmd == "five_day":
         return bridge.five_day(payload.get("code", ""))
     raise TdxError(f"未知命令：{cmd}")

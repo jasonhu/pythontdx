@@ -5,7 +5,7 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `7709 / MAC / 7615`
 
-**v1.4.0-rc21** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
+**v1.4.0** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
 
 `npm run check` **359 TS（357 通过 / 2 skipped）+ 283 Python（282 通过 / 1 skipped）**
 
@@ -18,18 +18,29 @@
 
 ## 一眼看懂
 
-![pythontdx 主界面](docs/assets/pythontdx-1.3-overview.png)
+![pythontdx 主界面](docs/assets/pythontdx-1.4-overview.png)
 
 - **实时行情**：1 秒刷新；分时、五日、K 线、九宫格同一节奏；
-- **数据工具**：24 个离线数据集，日 K 与 1 分钟 K 独立勾选；多进程 × 多线程 × 多服务器并行下载；
+- **数据工具**：24 个离线数据集，日 K 与 1 分钟 K 独立勾选，多进程 × 多线程 × 多服务器并行；
 - **协议覆盖**：7709 主站 29 条命令、MAC 15 条 A 股相关命令、7615 51 个入口；
 - **本地数据湖**：Parquet/ZSTD + DuckDB、JSONL.gz、`trade_date=` 分区、manifest + SHA256；
 - **桌面 + Web**：同一套渲染层，桌面走 IPC，Web 走 HTTP/SSE/WebSocket。
 
-> **1.4.0 重点**：离线 K 线下载重做。日 K 改用官方 `0x06b9` `.day` 文件，
-> 1 分钟 K 改为 100 日窗口 + 本地缓存复用；Parquet 写入从约 4 秒/文件降到
-> 0.19 秒/文件，1m 批量速度提升约 20 倍；数据工具增加任务摘要、失败/中断续跑
-> 和自动续跑。官方 1 分钟**没有 HTTP 文件 URL**，是行情协议抓取后写 `vipdoc/*.lc1`。
+## 1.4.0 重点：离线 K 线下载重做
+
+- **日 K 走官方文件**：`0x06b9` 直接下载 `vipdoc/{sh,sz,bj}/lday/<code>.day`，
+  失败才回退 0x052d 分页；600519 实测 6,035 根全历史 / 7 个块，100 只 16×4 约 6.2 秒。
+- **1 分钟 K 100 日窗口**：独立 `kline_1m` 数据集，优先复用本地缓存，只补最新页；
+  服务端实际保留约 92 个交易日（600519 实测 22,080 根）。
+- **Parquet 写入提速**：临时 CSV staging + DuckDB `COPY`，2.2 万行约 4 秒降到
+  **0.19 秒/文件**；最终仍是 Parquet+ZSTD+manifest，CSV 写完即删。
+- **真正跳过已有数据**：1m/manifest/auction/money_flow/日 K 都有明确的跳过规则；
+  “服务器明确无数据”写 `.nodata.json`，第二次同步不再重试；北交所旧 `.day`
+  当天只刷新一次，避免同一天反复重下。
+- **任务摘要/续跑**：保留 `completed/failed/incomplete/cancelled`、完成/失败/行数/
+  总耗时；中断可一键续跑，自动续跑默认开启，同一 jobId 只自动尝试一次。
+- **官方 1 分钟没有 HTTP URL**：7719 文件服务对 `.lc1` 返回 `size=0`；官方客户端
+  是行情协议抓取后写 `vipdoc/*/minline/*.lc1`，本项目继续走 0x052d。
 
 ---
 
@@ -37,7 +48,7 @@
 
 ### 主图：指数 K 线、成交量、盘口
 
-![指数 K 线与成交量](docs/assets/pythontdx-1.3-overview.png)
+![指数 K 线与成交量](docs/assets/pythontdx-1.4-overview.png)
 
 主图上方是今开/最高/最低/昨收、换手、量比、振幅、均价、涨停/跌停、成交量/成交额；
 右侧五档盘口 + 明细/指标/分价/资金/竞价页签；下方成交量与 MACD 副图。
@@ -75,29 +86,65 @@
 
 ### 数据工具：并行同步 + 真实进度
 
-![数据工具](docs/assets/pythontdx-1.3-data.png)
+![数据工具](docs/assets/pythontdx-1.4-data.png)
 
-- 并行离线同步：8 进程 × 4 线程默认（可调 1–48 × 1–4），24 个数据集；
-- 日 K（全历史，官方 `0x06b9` `.day` 文件）与 1 分钟 K（最近 100 交易日，服务端实际约 92 日/22,080 根）是两个独立选项；
-- 数据集勾选、范围、数据源、进程/线程数、跳过已有、自动续跑会持久化；
-- 最近任务摘要保留 `completed / failed / incomplete / cancelled`，中断任务可一键续跑，默认自动续跑一次；
-- 1m 任务先用本地 1m 缓存补最近几页，再写 `lake/kline_1m`；全市场 100 只实测 8.2 秒（48×4）；
-- Parquet 写入使用临时 CSV staging，最终仍是 Parquet+ZSTD+manifest，CSV 不保留；
-- 每个耗时操作都有进度条：同步（探测/计划/完成数/吞吐/ETA）、下载 zhb.zip、
-  扫描/校验、备份/恢复字节进度、K 线导出、全市场快照、数据湖归档、本地导入/写回；
+- 默认 **8 进程 × 4 线程**，可调 1–48 × 1–4；一进程钉一台主站，48×4 = 192 条连接；
+- 日 K（全历史，官方 `.day` 文件）与 1 分钟 K（最近 100 交易日）是两个独立选项；
+- 逐笔成交默认最近 **20 个交易日**；
+- 数据集、范围、数据源、进程/线程、跳过已有、自动续跑会持久化；
+- 每个耗时操作都有进度条：探测/计划/完成数/吞吐/ETA、下载 zhb.zip、扫描/校验、
+  备份/恢复字节进度、K 线导出、全市场快照、数据湖归档、本地导入/写回；
+- 最近任务摘要显示完成/跳过/失败/行数/总耗时，中断任务可单独续跑；
 - 08:45–15:45 自动保护：窗口内启动返回 `blocked`，跑到一半暂停，15:45 后续跑。
-
-![数据工具进度条](docs/assets/pythontdx-1.3-progress.png)
 
 ### 尾盘集合竞价
 
-![尾盘集合竞价](docs/assets/pythontdx-1.3-auction.png)
+![尾盘集合竞价](docs/assets/pythontdx-1.4-auction.png)
 
 「竞价」页签支持 **早盘 / 尾盘 / 全天**：
 
 - 早盘 09:15–09:25；
 - 尾盘 14:57–15:00（`0x056a selector=1`）；
 - 全天合并；虚拟匹配量不是正式成交，15:00 最终成交看「明细」。
+
+---
+
+## 数据下载与缓存
+
+### 并行模型
+
+```text
+父进程探活全部主站 → 拉一次代码表 → 按数据集/代码/日期切片
+  → N 个 worker（每进程钉一台主站）
+      → 每 worker T 条线程（每条独立 7709 连接）
+```
+
+- 开发态与打包态共用 `offline_sync.py --worker` / `tdx-bridge --offline-worker`；
+- 任务级断点续跑：有效的同名归档直接跳过，损坏副本才允许重写；
+- worker 每 1.5 秒原子写进度，父进程只读文件，不阻塞状态查询；
+- Windows 看门狗用 `OpenProcess + WaitForSingleObject`，不会误发 Ctrl+C。
+
+### 跳过规则（1.4.0 修正）
+
+| 数据 | 规则 |
+| --- | --- |
+| 日 K | 缓存 manifest 有效；当天已刷新但官方仍是旧日期的北交所/停牌代码，当天跳过，次日再试 |
+| 1 分钟 K | 当前 `trade_date` 分区有文件 + manifest + rows；旧 `complete=false` 也跳过 |
+| 逐笔 | `trade_date=<day>/<code>.parquet` + manifest + rows/bytes |
+| auction | 专用 manifest（SHA 是解压后 JSONL）按 rows/code/date 校验 |
+| money_flow | 旧 manifest 无 rows，按 code/date/bytes 校验 |
+| 明确无数据 | 写 `.nodata.json`，下次同代码/日期跳过；只标记 no-data，不标记超时 |
+
+规划阶段不对十几万份逐笔逐个读全文件算 SHA；完整计划约 **6–7 秒**。
+
+### 实测
+
+```text
+1m 100 只：48×4 8.2s / 8×4 12.3s
+日K 100 只：16×4 6.2s / 48×4 12.2s
+```
+
+这台 8 核/16 线程机器上，48 进程不总是更快；默认 8×4 更稳。
 
 ---
 
@@ -149,7 +196,7 @@
   cache/klines/            K 线 Parquet + manifest
   lake/
     today_minute/          分时（按代码分片）
-    ticks/                 逐笔 Parquet
+    ticks/                 逐笔 Parquet（最近 20 交易日）
     auction/               竞价
     money_flow/            资金流
     category_quotes/       分类行情
@@ -166,9 +213,10 @@
   exports/                 导出 CSV/JSON/Parquet
 ```
 
-每份归档带 `manifest.json`（来源、时间、行数、SHA256、文件列表）；
-`data_coverage` 扫描 32 项覆盖，`data_integrity` 逐份校验 manifest/SHA256。
-**不需要为了修显示问题重新下载历史数据**——缓存本身有校验，只有损坏副本才会重写。
+每份归档带 manifest（来源、时间、行数、SHA256、文件列表）；
+`data_coverage` 扫描覆盖，`data_integrity` 逐份校验 manifest/SHA256。
+**正常显示问题不需要重新下载历史数据**——缓存有校验，只有损坏副本才允许重写。
+1.4.0 对“有 parquet 无 manifest”的旧 1m 文件会读回补 manifest，不整只重抓。
 
 ---
 
@@ -218,32 +266,19 @@ src/main/        桌面壳：窗口/托盘/更新/拉起 Python sidecar
 src/preload/     contextBridge 白名单
 src/shared/      桌面/Web/后端共享类型与纯函数
 src/renderer/    SolidJS 界面（桌面与 Web 共用）
-python/          7709/MAC/7615 协议、离线同步、数据湖、HTTP API
-docs/            协议手册、架构、数据覆盖、发布手册
-scripts/         探针、截图、构建辅助
+python/          通达信协议 + Python 服务/数据任务
+scripts/         图标、截图、Python 入口、协议探针
+docs/            是什么、为什么、协议与发布记录
 ```
 
-关键入口：
+新代码位置：
 
-- `python/tdx_bridge.py`：7709 协议、sidecar JSONL、归档；
-- `python/tdx_mac.py` / `python/tdx_mac_ext.py`：MAC 命令；
-- `python/offline_sync.py`：多进程 × 多线程 × 多服务器同步；
-- `python/tdx_f10.py`：7615 TQLEX；
-- `python/tdx_server.py`：HTTP/SSE/WS；
-- `src/renderer/src/components/DataPanel.tsx`：数据工具与进度。
-
----
-
-## 测试
-
-```bash
-npm run check
-python -m pytest python -q
-npm run audit:data
-```
-
-当前基线：**359 TS（357 通过 / 2 skipped）+ 283 Python（282 通过 / 1 skipped）**。
-协议测试使用 `python/fixtures/` 真实报文；MAC/GBBQ/gpcw/离线同步均有独立单测。
+- 新协议/字段解析 → `python/tdx_bridge.py` + `python/test_tdx.py` + fixture；
+- 主机探活/落盘/补历史 → `python/`；
+- 桌面/Web 共用界面 → `src/renderer/`；
+- 平台外壳 → `src/main/`；
+- 全局状态 → `src/renderer/src/stores/`；
+- 颜色/间距/动效 → `src/renderer/src/styles/tokens.css`。
 
 ---
 
@@ -251,28 +286,26 @@ npm run audit:data
 
 | 文档 | 内容 |
 | --- | --- |
-| [docs/00-项目章程](docs/00-项目章程.md) | 目标、范围与非目标 |
-| [docs/02-架构设计](docs/02-架构设计.md) | 桌面/Web/Python 架构 |
-| [docs/03-通达信行情手册](docs/03-通达信行情手册.md) | 7709/MAC/7615 帧与字段 |
-| [docs/08-通达信资料索引](docs/08-通达信资料索引.md) | 资料与来源台账 |
-| [docs/12-数据覆盖审计](docs/12-数据覆盖审计.md) | 数据清单、schema、审计 |
-| [docs/15-协议实现矩阵](docs/15-协议实现矩阵.md) | 命令状态与落盘 |
-| [docs/16-gotdx 调研](docs/16-gotdx能力与推送机制调研.md) | gotdx 对照与推送事实 |
-| [docs/17-eltdx 差距](docs/17-eltdx协议差距与补齐清单.md) | eltdx 差距与落地状态 |
-| [docs/18-离线数据并行同步](docs/18-离线数据并行同步.md) | 并发、窗口、数据集 |
-| [docs/19-MAC 策略](docs/19-MAC协议与数据源策略.md) | MAC 矩阵与边界 |
-| [docs/20-数据功能与审计](docs/20-数据功能补齐与代码审计.md) | 补齐清单与审计 |
-| [docs/21-协议总表](docs/21-通达信协议总表.md) | 一页协议总表 |
+| [docs/00-项目章程](docs/00-项目章程.md) | 目标、范围、六条核心要求 |
+| [docs/02-架构](docs/02-架构.md) | 双前端、Python sidecar、数据流 |
+| [docs/03-通达信协议](docs/03-通达信协议.md) | 7709/MAC/7615 字段与报文 |
+| [docs/08-通达信资料索引](docs/08-通达信资料索引.md) | 协议来源、探针、研究台账 |
+| [docs/12-数据覆盖审计](docs/12-数据覆盖审计.md) | 每个数据集的实际覆盖与边界 |
+| [docs/18-离线数据并行同步](docs/18-离线数据并行同步.md) | 多进程/多线程、缓存、1m、性能 |
+| [docs/19-MAC协议与数据源策略](docs/19-MAC协议与数据源策略.md) | MAC 覆盖与回退 |
+| [docs/21-通达信协议总表](docs/21-通达信协议总表.md) | 命令/入口/字段总表 |
+| [CHANGELOG.md](CHANGELOG.md) | 版本变更 |
+| [RELEASE_NOTES-1.4.0.md](RELEASE_NOTES-1.4.0.md) | 1.4.0 发布说明 |
 
 ---
 
 ## 边界
 
-- 只做 A 股；港股/美股/期货/期权/外汇、7727 EX 不做；
-- 不做 Level-2/逐笔委托、研报正文、交易下单、账户登录；
-- 不引入腾讯/新浪/东财/AKShare 等第三方行情兜底；
-- 协议拿不到或授权不允许的数据不伪造；验证不了的字段标「未验证」并保留原始值。
-
-## 许可证
-
-GPL-3.0-or-later。完整条款见 [LICENSE](LICENSE)。
+- 只做 A 股 + 通达信；7727/EX、港股/美股/期货不做。
+- `ticks`/`history_minute` 全市场是天量数据，默认只对自选或最近窗口；
+  全市场需要显式确认磁盘空间。
+- `f10` 的 `full` 档每只约 30 次 7615 请求，全市场首次建库以小时计；默认 `core`。
+- 7615 没有公开并发/限流文档，线程数过大可能被限流；失败会在下次续跑。
+- 退市代码不在当前代码表里，`delisted` 必须显式提供代码。
+- `volume_profile`（0x051a）在免费主站全部超时，不进预设。
+- 节假日表缺省只按周末判断；需要精确判断时在数据目录放 `trading_holidays.json`。

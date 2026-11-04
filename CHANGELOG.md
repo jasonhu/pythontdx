@@ -68,7 +68,7 @@ pythontdx 的所有重要变更都记录在这里。
 
 ### 验证
 
-- `npm run check`：359 TS（357/2 skipped）+ 281 Python（280/1 skipped）；
+- `npm run check`：359 TS（357/2 skipped）+ 283 Python（282/1 skipped）；
 - 1m 100 只：48×4 **8.2 秒**，8×4 **12.3 秒**；
 - 日 K 100 只：16×4 **6.2 秒**，48×4 **12.2 秒**；
 - 全量覆盖审计仍不完整；任务摘要会明确标 `incomplete`，可续跑。

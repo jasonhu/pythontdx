@@ -7,10 +7,18 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 
 TQLEX_URL = "http://static.tdx.com.cn:7615/TQLEX"
+# 7615 有三个免费网关：主站、热点主机、page2。不同 Entry 在不同主机上可用性不同，
+# 逐个尝试（超时/连接失败才换），比硬编码单主机稳。
+TQLEX_HOSTS = (
+    "http://static.tdx.com.cn:7615/TQLEX",
+    "http://hot.icfqs.com:7615/TQLEX",
+    "http://page2.tdx.com.cn:7615/TQLEX",
+)
 
 # 7615 是和 7709 一样的直达行情通道，不能交给 HTTP 代理。
 #
@@ -224,28 +232,70 @@ def parse_business_payload(payload: dict) -> dict:
 
 
 def _post_tqlex(entry: str, body: dict) -> dict:
-    request = Request(
-        f"{TQLEX_URL}?Entry={entry}",
-        data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "pythontdx/1.0",
-        },
-        method="POST",
-    )
-    try:
-        with _OPENER.open(request, timeout=12) as response:
-            raw = response.read()
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise F10Error(f"7615 请求失败：{error}") from error
-    try:
-        parsed = json.loads(raw.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise F10Error("7615 返回非 JSON") from error
-    if not isinstance(parsed, dict):
-        raise F10Error("7615 返回结构异常")
-    return parsed
+    payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
+    last_error: Exception | None = None
+    # TQLEX_URL 允许测试/部署覆盖；把它放在首位，其余网关去重后兜底。
+    bases = [TQLEX_URL] + [host for host in TQLEX_HOSTS if host != TQLEX_URL]
+    for base in bases:
+        request = Request(
+            f"{base}?Entry={entry}",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "pythontdx/1.0",
+            },
+            method="POST",
+        )
+        try:
+            with _OPENER.open(request, timeout=12) as response:
+                raw = response.read()
+        except (HTTPError, URLError, TimeoutError) as error:
+            last_error = error
+            continue
+        try:
+            parsed = json.loads(raw.decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            last_error = error
+            continue
+        if not isinstance(parsed, dict):
+            last_error = F10Error("7615 返回结构异常")
+            continue
+        return parsed
+    raise F10Error(f"7615 请求失败：{last_error}")
+
+
+def _post_tqlex_data(entry: str, data: bytes) -> dict:
+    """已编码 JSON 的多主机 POST（供自定义 body 的旧函数复用 failover）。"""
+    last_error: Exception | None = None
+    bases = [TQLEX_URL] + [host for host in TQLEX_HOSTS if host != TQLEX_URL]
+    for base in bases:
+        request = Request(
+            f"{base}?Entry={entry}",
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "pythontdx/1.0",
+            },
+            method="POST",
+        )
+        try:
+            with _OPENER.open(request, timeout=12) as response:
+                raw = response.read()
+        except (HTTPError, URLError, TimeoutError) as error:
+            last_error = error
+            continue
+        try:
+            parsed = json.loads(raw.decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            last_error = error
+            continue
+        if not isinstance(parsed, dict):
+            last_error = F10Error("7615 返回结构异常")
+            continue
+        return parsed
+    raise F10Error(f"7615 请求失败：{last_error}")
 
 
 def parse_shareholder_payload(payload: dict) -> dict:
@@ -692,27 +742,10 @@ def fetch_business(code: str) -> dict:
 
 def fetch_finance(code: str) -> dict:
     _market, symbol = _market_of(code)
-    request = Request(
-        f"{TQLEX_URL}?Entry={FINANCE_ENTRY}",
-        data=json.dumps({"Params": [symbol, "zyzb", ""]}, separators=(",", ":")).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "pythontdx/1.0",
-        },
-        method="POST",
+    parsed = _post_tqlex_data(
+        FINANCE_ENTRY,
+        json.dumps({"Params": [symbol, "zyzb", ""]}, separators=(",", ":")).encode("utf-8"),
     )
-    try:
-        with _OPENER.open(request, timeout=12) as response:
-            raw = response.read()
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise F10Error(f"7615 财务请求失败：{error}") from error
-    try:
-        parsed = json.loads(raw.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise F10Error("7615 财务返回非 JSON") from error
-    if not isinstance(parsed, dict):
-        raise F10Error("7615 财务返回结构异常")
     return parse_finance_payload(parsed)
 
 
@@ -727,54 +760,298 @@ def fetch_valuation(code: str) -> dict:
         "PageSize": "20",
         "modname": "mod_gpsj.dll",
     }
-    request = Request(
-        f"{TQLEX_URL}?Entry={VALUATION_ENTRY}",
-        data=json.dumps([payload], separators=(",", ":")).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "pythontdx/1.0",
-        },
-        method="POST",
+    parsed = _post_tqlex_data(
+        VALUATION_ENTRY,
+        json.dumps([payload], separators=(",", ":")).encode("utf-8"),
     )
-    try:
-        with _OPENER.open(request, timeout=12) as response:
-            raw = response.read()
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise F10Error(f"7615 估值请求失败：{error}") from error
-    try:
-        parsed = json.loads(raw.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise F10Error("7615 估值返回非 JSON") from error
-    if not isinstance(parsed, dict):
-        raise F10Error("7615 估值返回结构异常")
     return parse_valuation_payload(parsed)
 
 
 def fetch_profile(code: str) -> dict:
     _market, symbol = _market_of(code)
-    request = Request(
-        f"{TQLEX_URL}?Entry={PROFILE_ENTRY}",
-        data=json.dumps({"Params": ["8", symbol, ""]}, separators=(",", ":")).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "pythontdx/1.0",
-        },
-        method="POST",
+    payload = _post_tqlex_data(
+        PROFILE_ENTRY,
+        json.dumps({"Params": ["8", symbol, ""]}, separators=(",", ":")).encode("utf-8"),
     )
-    try:
-        with _OPENER.open(request, timeout=12) as response:
-            raw = response.read()
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise F10Error(f"7615 公司概况请求失败：{error}") from error
-    try:
-        payload = json.loads(raw.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise F10Error("7615 公司概况返回非 JSON") from error
-    if not isinstance(payload, dict):
-        raise F10Error("7615 公司概况返回结构异常")
     return parse_profile_payload(payload)
+
+
+# ---------------------------------------------------------------- 缺失 Entry（2026-11-04 补齐）
+#
+# 这些入口此前只做了 19 个页签，但通达信前端还有股票基础信息、题材 ID、财务诊断、
+# 个股总评、题材内对比、增发获配日期/明细。统一用 Params 调用，返回 tables 数组；
+# 需要 dict 行时用 `parse_table_rows`。
+
+
+def _fetch_params(entry: str, params: list[str], limit: int = 200) -> dict:
+    payload = _post_tqlex(entry, {"Params": [str(item) for item in params]})
+    tables = _parse_all_tables(payload, limit)
+    return {
+        "entry": entry,
+        "params": [str(item) for item in params],
+        "tables": tables,
+        "rowCount": sum(int(table.get("count") or 0) for table in tables),
+    }
+
+
+def fetch_stock_info(code: str) -> dict:
+    """comreq:gpquery 股票基础信息。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params("CWServ.tdxf10_gg_comreq", ["gpquery", symbol])
+
+
+def fetch_topic_ids(code: str) -> dict:
+    """comreq:rdtcgn 关联题材 ID 列表。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params("CWServ.tdxf10_gg_comreq", ["rdtcgn", symbol])
+
+
+def fetch_finance_diagnosis(code: str, section: str = "zzyj") -> dict:
+    """cwzd 财务诊断（服务端仅 zzyj 有数据，其余 section 可能为空）。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params("CWServ.tdxf10_gg_cwzd", [section, symbol, ""])
+
+
+def fetch_stock_score(code: str, section: str = "pf", arg: str = "") -> dict:
+    """ggzp 个股总评（section=pf 综合评分）。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params("CWServ.tdxf10_gg_ggzp", [section, symbol, arg, ""])
+
+
+def fetch_topic_compare(
+    code: str, topic_id: str, section: str = "gndbzfsj", sort_by: str = "zdf"
+) -> dict:
+    """rdtc_gndb 题材内对比排名。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params(
+        "CWServ.tdxf10_gg_rdtc_gndb", [section, symbol, str(topic_id), sort_by]
+    )
+
+
+def fetch_allotment_dates(code: str) -> dict:
+    """fhrz_zfhpmx:zfpg_bgq 增发获配可选日期。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params("CWServ.tdxf10_gg_fhrz_zfhpmx", ["zfpg_bgq", symbol, ""])
+
+
+def fetch_allotment_details(code: str, date: str) -> dict:
+    """fhrz_zfhpmx:zfpg 指定增发日期的获配机构明细。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params("CWServ.tdxf10_gg_fhrz_zfhpmx", ["zfpg", symbol, str(date)])
+
+
+HQ_NLP_TCIHQ = "HQServ.hq_nlp_tcihq"
+HQ_NLP_GPSJ = "HQServ.hq_nlp_gpsj"
+
+
+def fetch_hq_nlp(
+    code: str,
+    req_id: str | int,
+    *,
+    days: int | None = None,
+    page: int = -1,
+    page_size: int = 10,
+    entry: str = HQ_NLP_TCIHQ,
+    extra: dict | None = None,
+) -> dict:
+    """HQServ 题材/资金/排名/估值类页面（ReqId 决定语义）。"""
+    market, symbol = _market_of(code)
+    payload: dict = {
+        "ReqId": str(req_id),
+        "setcode": str(market),
+        "code": symbol,
+        "Page": page,
+        "PageSize": str(page_size),
+        "modname": "mod_tcihq.dll" if entry == HQ_NLP_TCIHQ else "mod_gpsj.dll",
+    }
+    if days is not None:
+        payload["zq_num"] = str(days)
+    if extra:
+        payload.update(extra)
+    parsed = _post_tqlex(entry, [payload])
+    tables = _parse_all_tables(parsed, 500)
+    return {
+        "entry": entry,
+        "reqId": str(req_id),
+        "tables": tables,
+        "rowCount": sum(len(table.get("rows") or []) for table in tables),
+    }
+
+
+def fetch_stock_stage_gain(code: str, days: int = 60) -> dict:
+    return fetch_hq_nlp(code, 200740, days=days)
+
+
+def fetch_stock_main_funds(code: str, days: int = 30) -> dict:
+    return fetch_hq_nlp(code, 200742, days=days)
+
+
+def fetch_stock_industry_rank(code: str, days: int = 30) -> dict:
+    return fetch_hq_nlp(code, 200745, days=days)
+
+
+def fetch_stock_industry_pct_rank(code: str, days: int = 30) -> dict:
+    return fetch_hq_nlp(code, 200747, days=days)
+
+
+def fetch_hq_valuation(
+    code: str,
+    req_id: str | int,
+    *,
+    page: int = 0,
+    page_size: int = 20,
+    extra: dict | None = None,
+) -> dict:
+    """HQServ.hq_nlp_gpsj 的估值类请求（Code/BeginDate/EndDate 口径）。"""
+    market, symbol = _market_of(code)
+    payload = {
+        "ReqId": str(req_id),
+        "Code": f"{symbol}|{market}",
+        "BeginDate": "0",
+        "EndDate": "0",
+        "Page": str(page),
+        "PageSize": str(page_size),
+        "modname": "mod_gpsj.dll",
+    }
+    if extra:
+        payload.update(extra)
+    parsed = _post_tqlex(HQ_NLP_GPSJ, [payload])
+    tables = _parse_all_tables(parsed, 500)
+    return {
+        "entry": HQ_NLP_GPSJ,
+        "reqId": str(req_id),
+        "tables": tables,
+        "rowCount": sum(len(table.get("rows") or []) for table in tables),
+    }
+
+
+def fetch_stock_valuation_percentile(code: str, kind: str = "0") -> dict:
+    return fetch_hq_valuation(code, 200192, page_size=5, extra={"Type": kind})
+
+
+def fetch_stock_pepb_percentile(
+    code: str, indicator: str = "0", window: str = "1Y", period: str = "0"
+) -> dict:
+    return fetch_hq_valuation(
+        code,
+        200124,
+        page=1,
+        page_size=300,
+        extra={"sjfw": window, "zb": indicator, "hqzq": period},
+    )
+
+
+def fetch_stock_history_trend(code: str) -> dict:
+    return fetch_hq_valuation(code, 200135, page=0, page_size=20)
+
+
+def fetch_board_member_quotes(
+    board_code: str, board_market: int = 1, page: int = -1, page_size: int = -1
+) -> dict:
+    """HQServ 200744：板块成分股行情（板块代码如 881319）。"""
+    payload = {
+        "ReqId": "200744",
+        "setcode": str(board_market),
+        "code": str(board_code).strip(),
+        "Page": page,
+        "PageSize": str(page_size),
+        "modname": "mod_tcihq.dll",
+    }
+    parsed = _post_tqlex(HQ_NLP_TCIHQ, [payload])
+    tables = _parse_all_tables(parsed, 500)
+    return {
+        "entry": HQ_NLP_TCIHQ,
+        "reqId": "200744",
+        "tables": tables,
+        "rowCount": sum(len(table.get("rows") or []) for table in tables),
+    }
+
+
+def fetch_limit_board_ladder(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    include_summary: bool = False,
+) -> dict:
+    """涨跌停/炸板梯子（CWServ.cfg_fx_lbtt，Params=["1", start, end]）。"""
+    start = _normalize_date(start_date)
+    end = _normalize_date(end_date)
+    if start is None and end is None:
+        start = end = datetime.now(timezone(timedelta(hours=8))).strftime("%Y%m%d")
+    if start is None:
+        start = end
+    if end is None:
+        end = start
+    if start > end:
+        raise F10Error("start_date 不能晚于 end_date")
+    detail = _fetch_params("CWServ.cfg_fx_lbtt", ["1", start, end], 500)
+    result = {"startDate": start, "endDate": end, "detail": detail}
+    if include_summary:
+        result["summary"] = _fetch_params(
+            "CWServ.cfg_fx_lbtt", ["2", start, end], 500
+        )
+    return result
+
+
+def _normalize_date(value: str | int | None) -> str | None:
+    if value in (None, ""):
+        return None
+    text = str(value).strip().replace("-", "").replace("/", "")
+    if len(text) != 8 or not text.isdigit():
+        raise F10Error(f"日期不合法：{value}")
+    return text
+
+
+def fetch_finance_weights(code: str, section: str = "zcfzb") -> dict:
+    """最新提示：财务指标权重（section 由 digest 的财务概况列表给出）。"""
+    _market, symbol = _market_of(code)
+    return _fetch_params("CWServ.tdxf10_gg_zxtscwbq", [symbol, section])
+
+
+INDUSTRY_PAGES = {
+    "hqtj": ("CWServ.skef10_hy_hqtj", lambda hy: [hy]),
+    "hyzq": ("CWServ.skef10_hy_hyzq", lambda hy: [hy]),
+    "hygy": ("CWServ.skef10_hy_hygy", lambda hy: [hy]),
+    "zszfb": ("CWServ.skef10_hy_zszfb", lambda hy: [hy]),
+    "stage_rise": ("CWServ.skef10_hy_jdzf", lambda hy: [hy, "e"]),
+    "profile": ("CWServ.skef10_hy_hyzl_hyjs", lambda hy: [hy]),
+    "commentary": ("CWServ.skef10_hy_hyzl_hyplk", lambda hy: ["001", hy]),
+    "news": ("CWServ.skef10_hy_zxdt", lambda hy: ["hydt", hy]),
+    "cwzkpm": ("CWServ.skef10_hy_hydw_cwzkpm", lambda hy: ["002", hy, "", "e", ""]),
+    "gsgmpm": ("CWServ.skef10_hy_hydw_gsgmpm", lambda hy: [hy]),
+    "gzsppm": ("CWServ.skef10_hy_hydw_gzsppm", lambda hy: ["01", hy, "o"]),
+    "scbxpm": ("CWServ.skef10_hy_hydw_scbxpm", lambda hy: ["scpm", "", hy]),
+    "zysrpm": ("CWServ.skef10_hy_hydw_zysrpm", lambda hy: ["001", hy, ""]),
+    "capital_stats": ("CWServ.skef10_hy_hysj_bxzjtj", lambda hy: ["001", hy, "n"]),
+    "fund_holdings": ("CWServ.skef10_hy_hysj_jjzb", lambda hy: ["1", hy, ""]),
+    "capital_flow": ("CWServ.skef10_hy_hysj_zjlx", lambda hy: ["001", hy]),
+    "analyst_index": ("CWServ.skef10_hy_hyyj_fxszs", lambda hy: ["001", hy, "", ""]),
+    "major_holders": ("CWServ.skef10_hy_hyyj_hymzgd", lambda hy: [hy]),
+    "rating_summary": ("CWServ.skef10_hy_hyyj_hypjhz", lambda hy: ["001", hy, ""]),
+    "index": ("CWServ.skef10_hy_idsy", lambda hy: ["002", hy]),
+}
+
+
+def fetch_industry_page(hy: str, section: str = "hqtj") -> dict:
+    """行业 hyf10 家族（20 个子页）；hy 为 6 位行业代码（如 881319）。"""
+    text = str(hy or "").strip()
+    if len(text) != 6 or not text.isdigit():
+        raise F10Error("行业代码必须是 6 位数字")
+    if section not in INDUSTRY_PAGES:
+        raise F10Error(f"未知行业页：{section}")
+    entry, builder = INDUSTRY_PAGES[section]
+    return _fetch_params(entry, builder(text), 500)
+
+
+def parse_table_rows(table: dict) -> list[dict]:
+    """把列名/数组行转成 dict 行；重复列名加 `__2` 后缀，避免静默覆盖。"""
+    columns: list[str] = []
+    seen: dict[str, int] = {}
+    for raw in table.get("columns") or []:
+        name = str(raw) or "col"
+        count = seen.get(name, 0) + 1
+        seen[name] = count
+        columns.append(name if count == 1 else f"{name}__{count}")
+    return [dict(zip(columns, values)) for values in table.get("rows") or []]
 
 
 def parse_news_payload(payload: dict) -> list[dict]:
@@ -1031,27 +1308,10 @@ def fetch_news(code: str) -> list[dict]:
         "bin": "1",
         "qsid": "tdx",
     }
-    request = Request(
-        f"{TQLEX_URL}?Entry=CWSearch.tzx_rcache",
-        data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "pythontdx/1.0",
-        },
-        method="POST",
+    parsed = _post_tqlex_data(
+        "CWSearch.tzx_rcache",
+        json.dumps(body, separators=(",", ":")).encode("utf-8"),
     )
-    try:
-        with _OPENER.open(request, timeout=12) as response:
-            raw = response.read()
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise F10Error(f"7615 新闻请求失败：{error}") from error
-    try:
-        parsed = json.loads(raw.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise F10Error("7615 新闻返回非 JSON") from error
-    if not isinstance(parsed, dict):
-        raise F10Error("7615 新闻返回结构异常")
     return parse_news_payload(parsed)
 
 
@@ -1063,27 +1323,10 @@ def fetch_announcements(code: str) -> list[dict]:
         "bin": "1",
         "qsid": "tdx",
     }
-    request = Request(
-        f"{TQLEX_URL}?Entry={ENTRY}",
-        data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "pythontdx/1.0",
-        },
-        method="POST",
+    payload = _post_tqlex_data(
+        ENTRY,
+        json.dumps(body, separators=(",", ":")).encode("utf-8"),
     )
-    try:
-        with _OPENER.open(request, timeout=12) as response:
-            raw = response.read()
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise F10Error(f"7615 公告请求失败：{error}") from error
-    try:
-        payload = json.loads(raw.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise F10Error("7615 公告返回非 JSON") from error
-    if not isinstance(payload, dict):
-        raise F10Error("7615 公告返回结构异常")
     return parse_announcements_payload(payload)
 
 
@@ -1214,29 +1457,109 @@ def fetch_market_news(tab: int = 3, page: int = 1, page_size: int = 50) -> list[
 
 
 NEWS_CHANNELS = {
+    # 频道号与中文名来自通达信前端栏目枚举（84 个），按 firstNav 分组。
     200: "财经最新",
     201: "财经要闻",
     202: "国内财经",
     203: "国际财经",
     204: "证券市场",
+    205: "金融货币",
+    206: "宏观经济",
+    207: "产经动态",
+    211: "数字财经",
+    212: "财经人物",
+    213: "时政要闻",
     300: "股票最新",
     301: "股票要闻",
     302: "大盘分析",
     303: "板块聚焦",
+    304: "三板动态",
+    305: "B股资讯",
     306: "公司新闻",
     307: "公司公告",
+    309: "海外股市",
+    310: "海外公司",
+    318: "科创板",
     500: "新股最新",
     501: "新股要闻",
     502: "新股公告",
+    503: "沪深新股",
+    504: "港股新股",
+    505: "美股新股",
     507: "新股评论",
+    600: "港股最新",
+    601: "港股要闻",
+    602: "港股市场",
+    603: "港股公司",
+    604: "港股公告",
+    605: "投行评级",
+    606: "涡轮资讯",
+    607: "香港经济",
+    700: "美股最新",
+    701: "美股要闻",
+    702: "美股市场",
+    703: "美股新闻",
+    704: "中概股",
+    705: "美股评论",
+    706: "海外经济",
     800: "基金最新",
     801: "基金要闻",
+    802: "公募基金",
+    803: "私募基金",
+    804: "社保基金",
+    805: "信托基金",
     808: "机构持仓",
     809: "基金公告",
+    900: "期货最新",
+    901: "期货要闻",
+    902: "市场评述",
+    903: "金融期货",
+    904: "能源化工",
+    905: "金属期货",
+    906: "农产品",
+    907: "持仓交割",
+    908: "现货报价",
+    909: "库存数据",
+    910: "生产供求",
+    1000: "理财最新",
+    1001: "理财要闻",
+    1002: "银行理财",
+    1006: "贵金属",
+    1008: "综合理财",
+    1011: "互联网金融",
+    1100: "外汇最新",
+    1101: "外汇要闻",
+    1102: "货币专栏",
+    1103: "央行专栏",
+    1111: "汇市评论",
     1200: "债券最新",
     1201: "债券要闻",
+    1202: "国内债市",
+    1203: "国际债市",
+    1204: "债券新闻",
     1205: "债券公告",
+    1801: "期权最新",
+    1802: "期权要闻",
+    1803: "指数期权",
+    1804: "商品期权",
 }
+
+# 分组用于 UI/批量归档：只做 A 股相关（财经/股票/新股/基金/债券），
+# 港股/美股/期货/外汇/期权保留枚举但不主动批量抓取。
+NEWS_CHANNEL_GROUPS = {
+    "财经": [200, 201, 202, 203, 204, 205, 206, 207, 211, 212, 213],
+    "股票": [300, 301, 302, 303, 306, 318, 304, 309, 310, 307, 305],
+    "新股": [500, 501, 502, 507, 503, 504, 505],
+    "基金": [800, 801, 808, 802, 803, 804, 805, 809],
+    "债券": [1200, 1201, 1202, 1203, 1204, 1205],
+    "港股": [600, 601, 602, 603, 605, 606, 604, 607],
+    "美股": [700, 701, 702, 703, 704, 705, 706],
+    "期货": [900, 901, 902, 903, 904, 905, 906, 907, 908, 910, 909],
+    "理财": [1000, 1001, 1002, 1008, 1006, 1011],
+    "外汇": [1100, 1101, 1111, 1102, 1103],
+    "期权": [1801, 1802, 1803, 1804],
+}
+
 
 
 def fetch_channel_news(
@@ -1272,9 +1595,25 @@ def _parse_all_tables(payload: dict, limit: int = 50) -> list[dict]:
         raise F10Error(f"7615 返回错误码 {payload.get('ErrorCode')}")
     tables: list[dict] = []
     for table in payload.get("ResultSets") or []:
-        columns = [str(name) for name in (table.get("ColName") or [])]
+        # 部分 HQServ 结果集只给 ColDes/列描述，不填 ColName；不能因此丢列名。
+        raw_columns = table.get("ColName") or table.get("ColDes") or []
+        columns = []
+        for item in raw_columns:
+            if isinstance(item, dict):
+                columns.append(str(item.get("Name") or item.get("ColName") or ""))
+            else:
+                columns.append(str(item))
+        columns = [name for name in columns if name]
         rows = [list(values) for values in (table.get("Content") or [])][: max(1, limit)]
-        tables.append({"columns": columns, "rows": rows, "count": len(rows)})
+        # 重复列名加 __2 后缀，避免下游 dict(zip(...)) 静默覆盖。
+        renamed: list[str] = []
+        seen: dict[str, int] = {}
+        for name in columns:
+            key = name or f"col{len(renamed)}"
+            count = seen.get(key, 0) + 1
+            seen[key] = count
+            renamed.append(key if count == 1 else f"{key}__{count}")
+        tables.append({"columns": renamed, "rows": rows, "count": len(rows)})
     return tables
 
 
@@ -1461,7 +1800,16 @@ def fetch_market_report(
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
-    """7615 板块/指数/大盘 F10：23 个常用 section。"""
+    """7615 板块/指数/大盘 F10：23 个常用 section。
+
+    兼容 eltdx 语义别名：index_members→index_flow_members（成份股清单）、
+    index_etfs→index_tracking（跟踪产品）、ipo_calendar→market_new_shares。
+    """
+    section = {
+        "index_members": "index_flow_members",
+        "index_etfs": "index_tracking",
+        "ipo_calendar": "market_new_shares",
+    }.get(section, section)
     if section not in MARKET_REPORT_SECTIONS:
         raise F10Error(f"不支持的市场资料分区：{section}")
     entry, code_less = MARKET_REPORT_SECTIONS[section]
@@ -1516,6 +1864,8 @@ def fetch_market_report(
 # 三条调用路径都会留下同一份快照；失败只告警，不阻断资料查询。
 
 _F10_PIT_TABLES = (
+    "allotment_dates",
+    "allotment_details",
     "announcements",
     "business",
     "capital_structure",
@@ -1525,6 +1875,7 @@ _F10_PIT_TABLES = (
     "digest",
     "dividend",
     "finance",
+    "finance_diagnosis",
     "fund_report",
     "governance",
     "hot_topics",
@@ -1540,6 +1891,18 @@ _F10_PIT_TABLES = (
     "shareholder_count",
     "shareholders",
     "statement",
+    "stock_info",
+    "stock_score",
+    "stock_stage_gain",
+    "stock_main_funds",
+    "stock_industry_rank",
+    "stock_industry_pct_rank",
+    "stock_history_trend",
+    "stock_valuation_percentile",
+    "stock_pepb_percentile",
+    "finance_weights",
+    "topic_compare",
+    "topic_ids",
     "trading",
     "valuation",
 )

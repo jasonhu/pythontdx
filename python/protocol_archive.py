@@ -10,6 +10,9 @@ import csv
 import gzip
 import hashlib
 import json
+import os
+import threading
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -23,6 +26,55 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+_PROCESS_LOCKS: dict[str, threading.Lock] = {}
+_PROCESS_LOCKS_GUARD = threading.Lock()
+
+
+def _thread_lock(directory: Path) -> threading.Lock:
+    key = str(directory.resolve())
+    with _PROCESS_LOCKS_GUARD:
+        return _PROCESS_LOCKS.setdefault(key, threading.Lock())
+
+
+@contextmanager
+def _partition_lock(directory: Path):
+    """同一 trade_date 分区的跨线程/跨进程写锁（Windows/Unix 都支持）。"""
+    # 先拿进程内锁：Windows msvcrt 对同进程另一线程不会排队，直接 EDEADLOCK。
+    local = _thread_lock(directory)
+    local.acquire()
+    handle = None
+    try:
+        lock_path = directory / ".write.lock"
+        handle = lock_path.open("a+b")
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            if handle is not None:
+                try:
+                    if os.name == "nt":
+                        import msvcrt
+
+                        handle.seek(0)
+                        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        import fcntl
+
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                finally:
+                    handle.close()
+        finally:
+            local.release()
+
+
 def write_dataset_archive(
     root: Path,
     dataset: str,
@@ -33,7 +85,35 @@ def write_dataset_archive(
     fields: list[str] | None = None,
     generated_at: str | None = None,
 ) -> dict:
-    """写一个 trade_date 分区；已有同分区时保留第一份，不覆盖。"""
+    directory = Path(root) / f"trade_date={trade_date}"
+    directory.mkdir(parents=True, exist_ok=True)
+    with _partition_lock(directory):
+        return _write_dataset_archive(
+            root,
+            dataset,
+            rows,
+            source=source,
+            trade_date=trade_date,
+            fields=fields,
+            generated_at=generated_at,
+        )
+
+
+def _write_dataset_archive(
+    root: Path,
+    dataset: str,
+    rows: Iterable[dict[str, Any]],
+    *,
+    source: str,
+    trade_date: str,
+    fields: list[str] | None = None,
+    generated_at: str | None = None,
+) -> dict:
+    """写一个 trade_date 分区；已有同分区且校验通过时保留第一份。
+
+    不能只看 manifest 是否存在：文件缺失/SHA 不匹配属于「损坏副本」，
+    规则 12 允许重写；否则一次中断留下的 manifest 会让该分区永久无法修复。
+    """
     directory = Path(root) / f"trade_date={trade_date}"
     manifest_path = directory / "manifest.json"
     if manifest_path.is_file():
@@ -41,30 +121,52 @@ def write_dataset_archive(
             manifest = json.loads(manifest_path.read_text("utf-8"))
         except (OSError, ValueError):
             manifest = {}
-        return {
-            "dir": str(directory.resolve()),
-            "dataset": dataset,
-            "tradeDate": trade_date,
-            "rows": int(manifest.get("rows") or 0),
-            "sha256": str(manifest.get("sha256") or ""),
-            "generatedAt": str(manifest.get("generatedAt") or ""),
-            "skipped": True,
-        }
+        files = [directory / str(name) for name in manifest.get("files") or []]
+        jsonl = next((path for path in files if path.name.endswith(".jsonl.gz")), None)
+        valid = (
+            bool(files)
+            and all(path.is_file() for path in files)
+            and jsonl is not None
+            and _sha256(jsonl) == manifest.get("sha256")
+        )
+        if valid:
+            return {
+                "dir": str(directory.resolve()),
+                "dataset": dataset,
+                "tradeDate": trade_date,
+                "rows": int(manifest.get("rows") or 0),
+                "sha256": str(manifest.get("sha256") or ""),
+                "generatedAt": str(manifest.get("generatedAt") or ""),
+                "skipped": True,
+            }
 
     directory.mkdir(parents=True, exist_ok=True)
-    materialized = [dict(row) for row in rows]
+    materialized = [dict(row) for row in rows] if fields else None
     jsonl_path = directory / f"{dataset}.jsonl.gz"
-    with gzip.open(jsonl_path, "wt", encoding="utf-8") as handle:
-        for row in materialized:
-            handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+    temporary = jsonl_path.with_name(
+        f"{jsonl_path.name}.{os.getpid()}.{threading.get_ident()}.part"
+    )
+    count = 0
+    with gzip.open(temporary, "wt", encoding="utf-8") as handle:
+        source_rows = materialized if materialized is not None else rows
+        for row in source_rows:
+            handle.write(
+                json.dumps(dict(row), ensure_ascii=False, separators=(",", ":")) + chr(10)
+            )
+            count += 1
+    os.replace(temporary, jsonl_path)
     files = [jsonl_path.name]
-    if fields:
+    if fields and materialized is not None:
         csv_path = directory / f"{dataset}.csv"
-        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+        temporary_csv = csv_path.with_name(
+            f"{csv_path.name}.{os.getpid()}.{threading.get_ident()}.part"
+        )
+        with temporary_csv.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.writer(handle)
             writer.writerow(fields)
             for row in materialized:
                 writer.writerow([row.get(field, "") for field in fields])
+        os.replace(temporary_csv, csv_path)
         files.append(csv_path.name)
     digest = _sha256(jsonl_path)
     generated = generated_at or datetime.now().astimezone().isoformat(timespec="seconds")
@@ -73,18 +175,22 @@ def write_dataset_archive(
         "source": source,
         "tradeDate": trade_date,
         "generatedAt": generated,
-        "rows": len(materialized),
+        "rows": count,
         "sha256": digest,
         "files": files,
     }
-    manifest_path.write_text(
+    temporary_manifest = manifest_path.with_name(
+        f"{manifest_path.name}.{os.getpid()}.{threading.get_ident()}.part"
+    )
+    temporary_manifest.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    os.replace(temporary_manifest, manifest_path)
     return {
         "dir": str(directory.resolve()),
         "dataset": dataset,
         "tradeDate": trade_date,
-        "rows": len(materialized),
+        "rows": count,
         "sha256": digest,
         "generatedAt": generated,
         "skipped": False,
@@ -126,14 +232,17 @@ def read_dataset_archive(root: Path, dataset: str, trade_date: str) -> dict:
     manifest_path = directory / "manifest.json"
     if not manifest_path.is_file():
         raise FileNotFoundError(f"归档不存在：{name} {date}")
-    manifest = json.loads(manifest_path.read_text("utf-8"))
-    jsonl = directory / f"{name}.jsonl.gz"
-    if not jsonl.is_file():
-        raise FileNotFoundError(f"归档数据缺失：{jsonl.name}")
-    rows: list[dict] = []
-    with gzip.open(jsonl, "rt", encoding="utf-8") as handle:
-        for line in handle:
-            if line.strip():
-                rows.append(json.loads(line))
-    return {"manifest": manifest, "rows": rows, "count": len(rows)}
+    with _partition_lock(directory):
+        manifest = json.loads(manifest_path.read_text("utf-8"))
+        jsonl = directory / f"{name}.jsonl.gz"
+        if not jsonl.is_file():
+            raise FileNotFoundError(f"归档数据缺失：{jsonl.name}")
+        if manifest.get("sha256") and _sha256(jsonl) != manifest.get("sha256"):
+            raise ValueError(f"归档校验失败：{name} {date}")
+        rows: list[dict] = []
+        with gzip.open(jsonl, "rt", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    rows.append(json.loads(line))
+        return {"manifest": manifest, "rows": rows, "count": len(rows)}
 

@@ -6,8 +6,8 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `通达信 7709 / MAC / 7615`
 
-**版本：1.2.0** · **许可证：GPL-3.0-or-later** ·
-`npm run check`：359 个 TS 测试 + 175 个 Python 测试（Python 1 skipped）·
+**版本：1.3.0** · **许可证：GPL-3.0-or-later** ·
+`npm run check`：359 个 TS 测试 + 277 个 Python 测试（Python 1 skipped）·
 `npm run audit:data`：39/39。
 
 > 1.1.0 正式统一名称为 **pythontdx**；旧 StockLens 的 userData、Python 数据目录、
@@ -100,6 +100,11 @@ pythontdx 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 - 统计：9 类数据集文件数、大小、日期覆盖，六个目录合计；
 - 校验：逐份校验 manifest + SHA256，当前数据 **1 万余份 / 0 失败**；
 - 可导出 JSON 报告；备份恢复采用同名文件全量覆盖。
+- **并行离线同步**（2026-11-04）：多进程 × 多线程 × 多服务器，23 个数据集，
+  交易日 **08:45–15:45 自动保护**（窗口内启动返回 blocked、跑到一半暂停、
+  15:45 后可续跑）；任务级 results/manifest、失败清单、`skipExisting` 断点续跑；
+  桌面面板、HTTP `/api/offline_sync_*`、命令行 `python offline_sync.py` 三入口。
+  详见 [docs/18-离线数据并行同步.md](docs/18-离线数据并行同步.md)。
 
 ---
 
@@ -152,12 +157,20 @@ pythontdx 是 **Windows / macOS / Linux 三平台**项目，代码同一套，�
 
 ### 数据与工程
 
-- **数据湖**：K 线/逐笔/资金流/竞价/F10 PIT/服务器文件清单；
+- **数据湖**：K 线/逐笔/资金流/竞价/F10 PIT/服务器文件清单/九榜排行/主力监控；
 - **存储**：Parquet + ZSTD，DuckDB 读写；数据分析使用 pandas/pyarrow/numpy，不进入 sidecar；
 - **PIT**：F10/财务/公告查询自动快照，保存抓取时间、报告期、SHA256；
-- **归档**：逐笔、竞价、资金流按 `trade_date` 分区；
-- **下载**：日 K / 1 分钟 K / 逐笔，自选全量/市场全量，支持停止、失败清单、断点续跑；
-- **审计**：`data_coverage` 覆盖九类数据，`data_integrity` 逐份校验 manifest/SHA256；
+- **归档**：逐笔、竞价、资金流、主力监控按 `trade_date` 分区；分时/买卖力道/
+  小走势/九榜/板块元数据等按「代码或业务 key」分片，同一天多只不会互相覆盖；
+- **下载**：日 K / 1 分钟 K / 逐笔 / 分时 / 竞价 / F10 / 财务等 23 个数据集，
+  多进程多线程多服务器并行，支持停止、失败清单、断点续跑、08:45–15:45 窗口保护；
+- **协议扩展**：0x053f 九榜排行、0x0563 主力监控（19 类事件）、0x051a 成交分布
+  （解析已实现，免费主站暂不响应）；**MAC 15 条 A 股命令（0x120F/1215/1217/1218/122A/122B/122C/122D/122E/122F/1231/1237/123D/123E/124A）**；
+  **gpcw 历史专业财务**（5,572 只 × 658 字段）；**本地 GBBQ**（本机 202,313 条）；7615 84 个频道 + 20 个行业子页 + 涨跌停梯子；
+  帧长/解压上限、SSE/WS 订阅 Hub；
+- **数据源策略**：MAC 覆盖行情类，但不是 7709 超集（无代码表/F10/财务/股本变迁）；
+  离线同步 `auto` 对 K 线/当日分时 MAC 优先、失败回退 7709，其余走 7709/7615；
+- **审计**：`data_coverage` 覆盖新增数据集，`data_integrity` 逐份校验 manifest/SHA256；
 - **双前端**：桌面 Electron + Web，共用 `src/renderer` 和设计令牌；
 - **质量门禁**：`npm run check`（类型/Lint/TS 测试/Python 测试）。
 
@@ -513,6 +526,12 @@ docs/assets/       README 截图
 | [docs/13-技术分析算法.md](docs/13-技术分析算法.md)             | Python/TS 算法边界     |
 | [docs/14-eltdx数据能力调研.md](docs/14-eltdx数据能力调研.md)   | 协议/数据能力对比与增强 |
 | [docs/15-协议实现矩阵.md](docs/15-协议实现矩阵.md)           | 7709/MAC/7615 状态与落盘 |
+| [docs/16-gotdx能力与推送机制调研.md](docs/16-gotdx能力与推送机制调研.md) | gotdx 对照与推送事实 |
+| [docs/17-eltdx协议差距与补齐清单.md](docs/17-eltdx协议差距与补齐清单.md) | eltdx 差距与落地状态 |
+| [docs/18-离线数据并行同步.md](docs/18-离线数据并行同步.md)   | 多进程/线程/服务器同步 |
+| [docs/19-MAC协议与数据源策略.md](docs/19-MAC协议与数据源策略.md) | MAC 15 条与不可替代边界 |
+| [docs/20-数据功能补齐与代码审计.md](docs/20-数据功能补齐与代码审计.md) | 数据补齐/审计/剩余项 |
+| [docs/21-通达信协议总表.md](docs/21-通达信协议总表.md)       | 一页协议总表 |
 
 工程规则见 [AGENTS.md](AGENTS.md)、[PRINCIPLES.md](PRINCIPLES.md)、
 [PLAN.md](PLAN.md) 和 [CHANGELOG.md](CHANGELOG.md)。

@@ -28,7 +28,12 @@ import type {
   DataIntegrityResult,
   DataInventory,
   KLineCacheResult,
-  FullKLineCacheResult,
+  OfflineSyncCatalog,
+  OfflineSyncOptions,
+  OfflineSyncStatus,
+  TopBoardResult,
+  UnusualEvent,
+  VolumeProfileResult,
   LimitReviewResult,
   KLineExportResult,
   SnapshotArchiveItem,
@@ -212,10 +217,7 @@ function mergeSnapshotPrices(snapshots: Quote[], refreshed: Quote[]): Quote[] {
     const price = snapshot.price > 0 ? snapshot.price : base.price
     const change = prevClose > 0 ? price - prevClose : base.change
     const high = Math.max(snapshot.high > 0 ? snapshot.high : price, base.high)
-    const low = Math.min(
-      snapshot.low > 0 ? snapshot.low : price,
-      base.low > 0 ? base.low : price
-    )
+    const low = Math.min(snapshot.low > 0 ? snapshot.low : price, base.low > 0 ? base.low : price)
     const volume = Math.max(snapshot.volume, base.volume)
     const amount = Math.max(snapshot.amount, base.amount)
     byCode.set(snapshot.code, {
@@ -278,12 +280,7 @@ export async function fetchQuotes(codes: string[], signal?: AbortSignal): Promis
   let refreshed: Quote[] = []
   if (!openingWindow || snapshots.length < unique.length) {
     try {
-      refreshed = await bridge.send<Quote[]>(
-        'refresh',
-        { codes: unique },
-        REFRESH_TIMEOUT_MS,
-        true
-      )
+      refreshed = await bridge.send<Quote[]>('refresh', { codes: unique }, REFRESH_TIMEOUT_MS, true)
     } catch (error) {
       if (signal?.aborted) throw error
       // 保持已有快照，下面走 MAC 兜底
@@ -765,14 +762,40 @@ export async function cacheKlines(req: {
   return bridge.send<KLineCacheResult>('cache_klines', req, 60_000)
 }
 
-export async function cacheFullKlines(req: {
-  codes: string[]
-  period?: string
-  adjust?: string
-  skipExisting?: boolean
-}): Promise<FullKLineCacheResult> {
-  // 全历史需要多次 800 根分页；给足 10 分钟，逐只失败会返回在 failed 里。
-  return bridge.send<FullKLineCacheResult>('cache_full_klines', req, 600_000)
+export async function offlineSyncCatalog(): Promise<OfflineSyncCatalog> {
+  // 优先级：数据面板打开时 data_inventory 可能在扫几十 GB 目录，串行队列会把
+  // 这个纯本地读取压到最后；priority 插队，保证进度徽标立刻有状态。
+  return bridge.send<OfflineSyncCatalog>('offline_sync_catalog', {}, 30_000, true)
+}
+
+export async function offlineSyncStatus(): Promise<OfflineSyncStatus> {
+  return bridge.send<OfflineSyncStatus>('offline_sync_status', {}, 30_000, true)
+}
+
+export async function offlineSyncStart(options: OfflineSyncOptions): Promise<OfflineSyncStatus> {
+  // 规划阶段要探测服务器 + 拉代码表；给 2 分钟，任务本体在后台继续跑。
+  return bridge.send<OfflineSyncStatus>(
+    'offline_sync_start',
+    { ...options } as unknown as Record<string, unknown>,
+    120_000,
+    true
+  )
+}
+
+export async function offlineSyncCancel(): Promise<OfflineSyncStatus> {
+  return bridge.send<OfflineSyncStatus>('offline_sync_cancel', {}, 120_000, true)
+}
+
+export async function topBoard(category = 0, size = 20): Promise<TopBoardResult> {
+  return bridge.send<TopBoardResult>('top_board', { category, size }, 30_000)
+}
+
+export async function unusual(count = 600): Promise<UnusualEvent[]> {
+  return bridge.send<UnusualEvent[]>('unusual', { count }, 30_000)
+}
+
+export async function volumeProfile(code: string): Promise<VolumeProfileResult> {
+  return bridge.send<VolumeProfileResult>('volume_profile', { code }, 30_000)
 }
 
 export async function exportKlines(req: {
@@ -920,11 +943,7 @@ export async function fetchKlineLive(
    * tail 窗口 20 根；如果第一根都比本地最后一根新，说明已经超过 20 根没补，
    * 再合并就会出现一段空洞。直接重取全量。
    */
-  if (
-    tail.bars.length >= KLINE_TAIL_COUNT &&
-    lastCached &&
-    tail.bars[0].date > lastCached.date
-  ) {
+  if (tail.bars.length >= KLINE_TAIL_COUNT && lastCached && tail.bars[0].date > lastCached.date) {
     const series = await bridge.send<KLineSeries>('kline', {
       code,
       period,

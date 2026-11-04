@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -64,7 +65,9 @@ def write_kline_manifest(data_path: Path, metadata: dict | None = None) -> dict:
         **meta,
     }
     target = manifest_path(data_path)
-    temporary = target.with_name(f".{target.name}.part")
+    temporary = target.with_name(
+        f".{target.name}.{os.getpid()}.{threading.get_ident()}.part"
+    )
     temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(temporary, target)
     return payload

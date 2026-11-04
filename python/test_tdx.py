@@ -820,12 +820,35 @@ class TestF10(unittest.TestCase):
             self.assertEqual(result["count"], 0, code)
 
 
+class TestHandshake(unittest.TestCase):
+    def test_parse_handshake(self):
+        import struct
+
+        body = bytearray(189)
+        struct.pack_into("<H", body, 1, 2026)
+        body[3], body[4] = 4, 11
+        struct.pack_into("<8H", body, 9, 570, 690, 780, 900, 0, 0, 0, 0)
+        struct.pack_into("<8H", body, 25, 570, 690, 780, 900, 0, 0, 0, 0)
+        body[68:152] = "上海双线主站3".encode("gb18030").ljust(84, b"\x00")
+        body[160:189] = "通达信".encode("gb18030").ljust(29, b"\x00")
+        info = tdx.parse_handshake(bytes(body))
+        self.assertTrue(info["available"])
+        self.assertEqual(info["serverDate"], "2026-11-04")
+        self.assertEqual(info["sessions1"][:4], ["09:30", "11:30", "13:00", "15:00"])
+        self.assertIn("上海", info["serverName"])
+        self.assertEqual(info["productTag"], "通达信")
+
+
 class TestBars(unittest.TestCase):
     def test_day_bars(self):
         bars = tdx.parse_bars(fixture("bars-day5"), "stock")
         self.assertEqual(len(bars), 5)
         self.assertEqual(bars[0]["date"], "2026-10-23")
         self.assertAlmostEqual(bars[0]["close"], 1335.0, places=2)
+        self.assertIsInstance(bars[0]["closeMilli"], int)
+        self.assertEqual(bars[0]["closeMilli"], round(bars[0]["close"] * 1000))
+        self.assertGreaterEqual(bars[0]["volumeRaw"], 0)
+        self.assertGreaterEqual(bars[0]["amountRaw"], 0)
         self.assertAlmostEqual(bars[4]["open"], 1349.99, places=2)
         self.assertAlmostEqual(bars[4]["close"], 1354.0, places=2)
         self.assertAlmostEqual(bars[4]["volume"], 42992.0, delta=0.5)
@@ -902,6 +925,9 @@ class TestSecurityAndFinance(unittest.TestCase):
         self.assertEqual(items[0]["market"], "SH")
         self.assertEqual(items[0]["decimal"], 3)
         self.assertEqual(items[0]["kind"], "JJ")
+        self.assertIsInstance(items[0]["multiple"], int)
+        self.assertIsInstance(items[0]["prevClose"], float)
+        self.assertEqual(len(items[0]["tailHex"]), 8)
 
     def test_finance(self):
         items = tdx.parse_finance(fixture("finance2"))
@@ -916,6 +942,20 @@ class TestSecurityAndFinance(unittest.TestCase):
         self.assertEqual(maotai["updatedDate"], 20260815)
         self.assertEqual(maotai["ipoDate"], 20010827)
         self.assertAlmostEqual(maotai["totalAssetsYuan"], 309050784000, delta=1_000_000)
+        # 0x0010 info 的 6 个股本字段必须全部解析（此前只取了首尾两个）
+        for field in (
+            "stateShares",
+            "sponsorShares",
+            "legalPersonShares",
+            "bShares",
+            "hShares",
+        ):
+            self.assertIn(field, maotai)
+            self.assertIsInstance(maotai[field], float)
+        self.assertAlmostEqual(
+            maotai["floatSharesShares"], maotai["floatShares"] * 10000, delta=1
+        )
+        self.assertEqual(len(maotai["recordHex"]), 143 * 2)
 
 
 

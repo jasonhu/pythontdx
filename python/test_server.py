@@ -208,6 +208,9 @@ class FakeBridge:
             "quotes": [{"code": "sh600519"}],
         }
 
+    def select_server(self, host):
+        return {"preferred": host or "auto"}
+
     def blocks(self, kind):
         return {"kind": kind, "blockCount": 1, "blocks": [{"name": "测试板块"}]}
 
@@ -247,6 +250,30 @@ class TestHttpApi(unittest.TestCase):
         headers = dict(response.getheaders())
         connection.close()
         return response.status, payload, headers
+
+    def test_select_server_get_and_post(self):
+        status, payload, _ = self.request("GET", "/api/select_server?host=1.2.3.4")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["preferred"], "1.2.3.4")
+        status, payload, _ = self.request(
+            "POST", "/api/select_server", {"host": "5.6.7.8"}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["result"]["preferred"], "5.6.7.8")
+
+    def test_cross_origin_write_rejected(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        connection.request(
+            "POST",
+            "/api/local_write",
+            body=json.dumps({"path": "x.day", "bars": []}),
+            headers={"Content-Type": "application/json", "Origin": "https://evil.example"},
+        )
+        response = connection.getresponse()
+        payload = json.loads(response.read())
+        connection.close()
+        self.assertEqual(response.status, 403)
+        self.assertFalse(payload["ok"])
 
     def test_ping_and_cors(self):
         status, payload, headers = self.request("GET", "/api/ping")

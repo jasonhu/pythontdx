@@ -42,7 +42,12 @@ import type {
   DataIntegrityResult,
   DataInventory,
   KLineCacheResult,
-  FullKLineCacheResult,
+  OfflineSyncCatalog,
+  OfflineSyncOptions,
+  OfflineSyncStatus,
+  TopBoardResult,
+  UnusualEvent,
+  VolumeProfileResult,
   LimitReviewResult,
   KLineExportResult,
   SnapshotArchiveItem,
@@ -177,8 +182,20 @@ export const IPC = {
   exportKlines: 'data:export-klines',
   /** 预热自选 K 线本地缓存（invoke） */
   cacheKlines: 'data:cache-klines',
-  /** 自动探测并下载全部历史 K 线（invoke） */
-  cacheFullKlines: 'data:cache-full-klines',
+  /** 离线全量同步：数据集/预设/窗口目录（invoke） */
+  offlineSyncCatalog: 'data:offline-sync-catalog',
+  /** 离线全量同步：当前任务状态（invoke） */
+  offlineSyncStatus: 'data:offline-sync-status',
+  /** 离线全量同步：启动多进程+多线程任务（invoke） */
+  offlineSyncStart: 'data:offline-sync-start',
+  /** 离线全量同步：取消任务（invoke） */
+  offlineSyncCancel: 'data:offline-sync-cancel',
+  /** 0x053f 九榜排行（invoke） */
+  topBoard: 'data:top-board',
+  /** 0x0563 主力监控（invoke） */
+  unusual: 'data:unusual',
+  /** 0x051a 成交分布（invoke） */
+  volumeProfile: 'data:volume-profile',
   /** 离线数据目录清单（invoke） */
   dataInventory: 'data:inventory',
   /** 离线数据完整性校验（invoke） */
@@ -439,13 +456,20 @@ export interface PythonTdxApi {
       adjust?: string
       skipExisting?: boolean
     }): Promise<KLineCacheResult>
-    fullCacheKlines(req: {
-      codes: string[]
-      period?: string
-      adjust?: string
-      skipExisting?: boolean
-      workers?: number
-    }): Promise<FullKLineCacheResult>
+    /** 离线全量同步：数据集/预设/可下载窗口 */
+    offlineSyncCatalog(): Promise<OfflineSyncCatalog>
+    /** 离线全量同步：当前任务状态（含进度、失败、窗口） */
+    offlineSyncStatus(): Promise<OfflineSyncStatus>
+    /** 离线全量同步：启动多进程+多线程任务；窗口内返回 blocked */
+    offlineSyncStart(options: OfflineSyncOptions): Promise<OfflineSyncStatus>
+    /** 离线全量同步：取消任务（worker 子进程一并回收） */
+    offlineSyncCancel(): Promise<OfflineSyncStatus>
+    /** 0x053f 排行榜：一次请求拿 9 个榜单 */
+    topBoard(category?: number, size?: number): Promise<TopBoardResult>
+    /** 0x0563 主力监控（异动事件） */
+    unusual(count?: number): Promise<UnusualEvent[]>
+    /** 0x051a 成交分布（筹码分布） */
+    volumeProfile(code: string): Promise<VolumeProfileResult>
     limitReview(date: string): Promise<LimitReviewResult>
     patterns(req: ChartPatternsRequest): Promise<ChartPatternsResult>
     /** 离线数据备份成单个 zip；路径由对话框选，已存在则不覆盖 */

@@ -21,12 +21,12 @@ import type {
   DataCoverageResult,
   DataIntegrityResult,
   DataInventory,
-  FullKLineCacheResult,
+  OfflineSyncCatalog,
+  OfflineSyncStatus,
   KLineExportResult,
   SnapshotArchiveResult,
   SnapshotArchiveItem,
   LimitReviewResult,
-  BlockKind
 } from '@shared/types'
 import { fixed, signedPct, thousands } from '@shared/format'
 import { appState, updateSettings, watchCodes } from '../stores/app'
@@ -37,45 +37,6 @@ import { IconClose } from './Icons'
 
 interface DataPanelProps {
   onClose: () => void
-}
-
-type DownloadKey =
-  | 'kline'
-  | 'kline1m'
-  | 'ticks'
-  | 'indexKline'
-  | 'blocks'
-  | 'snapshot'
-  | 'stats'
-  | 'archive'
-  | 'datasets'
-
-const DOWNLOAD_TASKS: Array<{ key: DownloadKey; label: string; hint: string }> = [
-  { key: 'kline', label: '日 K 缓存', hint: '自选/全 A，全历史自动探测' },
-  { key: 'kline1m', label: '1 分钟 K 缓存', hint: '自选/全 A，全历史自动探测' },
-  { key: 'ticks', label: '历史逐笔', hint: '最近 20 个交易日，自选/全 A' },
-  { key: 'indexKline', label: '指数 K 缓存', hint: 'ZS 指数全历史' },
-  { key: 'blocks', label: '板块文件', hint: '概念/风格/指数/一般' },
-  { key: 'snapshot', label: '全市场快照', hint: 'MAC 报价导出 CSV' },
-  { key: 'stats', label: 'TDX 统计', hint: 'zhb.zip + 规范化 tdxstat' },
-  { key: 'archive', label: '数据湖归档', hint: '全市场快照按 trade_date 归档' },
-  {
-    key: 'datasets',
-    label: '板块/财务/龙虎榜归档',
-    hint: '板块全量 + 财务（含三大报表）+ 龙虎榜全量，写数据湖 datasets/'
-  }
-]
-
-const BLOCK_KINDS: BlockKind[] = ['gn', 'fg', 'zs', 'general']
-
-/** 默认归档上一个工作日；周末打开时不会落到休市日。 */
-function previousTradingDate(): string {
-  const value = new Date()
-  value.setDate(value.getDate() - 1)
-  while (value.getDay() === 0 || value.getDay() === 6) value.setDate(value.getDate() - 1)
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(
-    value.getDate()
-  ).padStart(2, '0')}`
 }
 
 function formatBytes(bytes: number): string {
@@ -177,9 +138,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [klineExport, setKlineExport] = createSignal<KLineExportResult | null>(null)
   const [klinePeriod, setKlinePeriod] = createSignal('day')
   const [klineCount, setKlineCount] = createSignal(240)
-  const [cacheLoading, setCacheLoading] = createSignal(false)
-  const [cacheResult, setCacheResult] = createSignal<FullKLineCacheResult | null>(null)
-  const [cacheError, setCacheError] = createSignal<string | null>(null)
   const [inventory, setInventory] = createSignal<DataInventory | null>(null)
   const [inventoryLoading, setInventoryLoading] = createSignal(true)
   const [inventoryError, setInventoryError] = createSignal<string | null>(null)
@@ -258,37 +216,112 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   const [restoreResult, setRestoreResult] = createSignal<DataBackupRestoreResult | null>(null)
   const [restoreError, setRestoreError] = createSignal<string | null>(null)
   const [restoreProgress, setRestoreProgress] = createSignal<DataBackupProgress | null>(null)
-  const [bulkRunning, setBulkRunning] = createSignal(false)
-  const [bulkScope, setBulkScope] = createSignal<'watchlist' | 'all'>('watchlist')
-  const [bulkDone, setBulkDone] = createSignal(0)
-  const [bulkTotal, setBulkTotal] = createSignal(0)
-  const [bulkSkipped, setBulkSkipped] = createSignal(0)
-  const [bulkCurrent, setBulkCurrent] = createSignal('')
-  const [bulkFailed, setBulkFailed] = createSignal(0)
-  const [bulkIncremental, setBulkIncremental] = createSignal(true)
-  const [bulkTask, setBulkTask] = createSignal<'day' | '1m' | 'ticks' | null>(null)
-  const [bulkTickDate, setBulkTickDate] = createSignal(previousTradingDate())
-  const [bulkTickAll, setBulkTickAll] = createSignal(true)
-  const [bulkError, setBulkError] = createSignal<string | null>(null)
-  const [bulkFailures, setBulkFailures] = createSignal<string[]>([])
-  const [downloadSelection, setDownloadSelection] = createSignal<Record<DownloadKey, boolean>>({
-    kline: true,
-    kline1m: true,
-    ticks: false,
-    indexKline: true,
-    blocks: true,
-    snapshot: true,
-    stats: true,
-    archive: true,
-    datasets: true
-  })
-  const [downloadRunning, setDownloadRunning] = createSignal(false)
-  const [downloadDone, setDownloadDone] = createSignal(0)
-  const [downloadTotal, setDownloadTotal] = createSignal(0)
-  const [downloadMessage, setDownloadMessage] = createSignal('')
-  const [downloadError, setDownloadError] = createSignal<string | null>(null)
-  let bulkCancel = false
-  let downloadCancel = false
+
+  /* ------------------------------------- 并行离线同步（多进程×多线程×多服务器） */
+  const [syncCatalog, setSyncCatalog] = createSignal<OfflineSyncCatalog | null>(null)
+  const [syncStatus, setSyncStatus] = createSignal<OfflineSyncStatus | null>(null)
+  const [syncSelection, setSyncSelection] = createSignal<string[]>([])
+  const [syncScope, setSyncScope] = createSignal<'watchlist' | 'all'>('watchlist')
+  const [syncSource, setSyncSource] = createSignal<'auto' | 'mac' | '7709'>('auto')
+  const [syncProcesses, setSyncProcesses] = createSignal(4)
+  const [syncThreads, setSyncThreads] = createSignal(8)
+  const [syncSkipExisting, setSyncSkipExisting] = createSignal(true)
+  const [syncBusy, setSyncBusy] = createSignal(false)
+  const [syncError, setSyncError] = createSignal<string | null>(null)
+  let syncTimer: number | undefined
+  let syncSelectionTouched = false
+
+  const syncRunning = (): boolean =>
+    ['probing', 'planning', 'running'].includes(syncStatus()?.state ?? '')
+
+  const syncWindowLabel = (): string => {
+    const window = syncStatus()?.window ?? syncCatalog()?.window
+    if (!window) return '窗口状态未知'
+    if (window.open) return `可下载 · 下一个保护点 ${window.pauseAt?.slice(11, 16) ?? '—'}`
+    return `保护中 · ${window.nextOpenAt?.slice(11, 16) ?? '15:45'} 后可下载`
+  }
+
+  const refreshSync = async (): Promise<void> => {
+    try {
+      const [catalog, status] = await Promise.all([
+        api.data.offlineSyncCatalog(),
+        api.data.offlineSyncStatus()
+      ])
+      setSyncCatalog(catalog)
+      setSyncStatus(status)
+      // 只在用户尚未手动改过选择时套用 daily 预设；否则清空选择会被轮询悄悄覆盖。
+      if (!syncSelectionTouched && syncSelection().length === 0 && catalog.datasets.length > 0) {
+        const preset = catalog.presets.daily
+        setSyncSelection(preset?.datasets ?? catalog.datasets.slice(0, 3).map((item) => item.key))
+      }
+    } catch (cause) {
+      setSyncError(errorMessage(cause))
+    }
+  }
+
+  const toggleSyncDataset = (key: string): void => {
+    syncSelectionTouched = true
+    setSyncSelection((current) =>
+      current.includes(key) ? current.filter((item) => item !== key) : [...current, key]
+    )
+  }
+
+  const applySyncPreset = (key: string): void => {
+    const preset = syncCatalog()?.presets[key]
+    if (!preset) return
+    syncSelectionTouched = true
+    setSyncSelection(preset.datasets)
+    if (preset.scope === 'all' || preset.scope === 'watchlist') {
+      setSyncScope(preset.scope)
+    }
+  }
+
+  const startSync = async (): Promise<void> => {
+    if (syncBusy() || syncRunning()) return
+    if (syncSelection().length === 0) {
+      setSyncError('至少选择一个数据集')
+      return
+    }
+    if (syncScope() === 'watchlist' && watchCodes().length === 0) {
+      setSyncError('自选股为空：请先添加自选，或改为全 A 股')
+      return
+    }
+    setSyncBusy(true)
+    setSyncError(null)
+    try {
+      const status = await api.data.offlineSyncStart({
+        datasets: syncSelection(),
+        scope: syncScope(),
+        codes: watchCodes(),
+        source: syncSource(),
+        processes: syncProcesses(),
+        threads: syncThreads(),
+        skipExisting: syncSkipExisting(),
+        f10Sections: 'core'
+      })
+      setSyncStatus(status)
+      if (status.state === 'blocked') {
+        setSyncError(status.reason ?? '当前处于交易时段保护窗口，15:45 后再试')
+      }
+    } catch (cause) {
+      setSyncError(errorMessage(cause))
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
+  const cancelSync = async (): Promise<void> => {
+    if (syncBusy()) return
+    setSyncBusy(true)
+    try {
+      setSyncStatus(await api.data.offlineSyncCancel())
+    } catch (cause) {
+      setSyncError(errorMessage(cause))
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
   const [klineExportError, setKlineExportError] = createSignal<string | null>(null)
   const [snapshotExporting, setSnapshotExporting] = createSignal(false)
   const [snapshotResult, setSnapshotResult] = createSignal<number | null>(null)
@@ -583,252 +616,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     }
   }
 
-  const allAShareCodes = async (): Promise<string[]> => {
-    const catalog = await api.quote.catalog()
-    return catalog
-      .filter(
-        (item) =>
-          item.kind === 'GP-A' &&
-          ((item.market === 'SH' && /^(600|601|603|605|688|689)/.test(item.symbol)) ||
-            (item.market === 'SZ' && /^(000|001|002|003|300|301|302)/.test(item.symbol)) ||
-            (item.market === 'BJ' && /^[489]/.test(item.symbol)))
-      )
-      .map((item) => item.code)
-  }
-
-  const runBulkCache = async (
-    period: 'day' | '1m' | 'ticks',
-    scope: 'watchlist' | 'all'
-  ): Promise<void> => {
-    if (bulkRunning()) return
-    bulkCancel = false
-    setBulkTask(period)
-    setBulkScope(scope)
-    setBulkRunning(true)
-    setBulkError(null)
-    setBulkDone(0)
-    setBulkSkipped(0)
-    setBulkFailed(0)
-    setBulkCurrent('')
-    setBulkTotal(0)
-    setBulkFailures([])
-    try {
-      const targetDate = bulkTickDate().trim()
-      if (period === 'ticks' && !bulkTickAll() && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-        throw new Error('逐笔归档日期格式应为 YYYY-MM-DD')
-      }
-      const codes = scope === 'watchlist' ? watchCodes() : await allAShareCodes()
-      setBulkTotal(codes.length)
-      if (period === 'ticks') {
-        for (const code of codes) {
-          if (bulkCancel) break
-          setBulkCurrent(code)
-          try {
-            const dates = bulkTickAll()
-              ? await api.data.tickArchiveDates(code, undefined, undefined, 20)
-              : [targetDate]
-            for (const date of dates) {
-              if (bulkCancel) break
-              setBulkCurrent(`${code} ${date}`)
-              try {
-                const result = await api.data.tickArchiveSave(code, date)
-                if (result.skipped) setBulkSkipped((value) => value + 1)
-              } catch (cause) {
-                setBulkFailed((value) => value + 1)
-                setBulkFailures((items) =>
-                  [...items, `${code} ${date}: ${errorMessage(cause)}`].slice(-100)
-                )
-              }
-            }
-            setBulkDone((value) => value + 1)
-          } catch (cause) {
-            setBulkFailed((value) => value + 1)
-            setBulkFailures((items) => [...items, `${code}: ${errorMessage(cause)}`].slice(-100))
-          }
-        }
-      } else {
-        for (let start = 0; start < codes.length; start += 20) {
-          if (bulkCancel) break
-          const batch = codes.slice(start, start + 20)
-          setBulkCurrent(batch[0] ?? '')
-          try {
-            const result = await api.data.fullCacheKlines({
-              codes: batch,
-              period,
-              adjust: 'none',
-              skipExisting: bulkIncremental(),
-              workers: 4
-            })
-            setBulkDone((value) => value + result.cached + result.skipped)
-            setBulkSkipped((value) => value + result.skipped)
-            setBulkFailed((value) => value + result.failed.length)
-            if (result.failed.length > 0) {
-              setBulkFailures((items) =>
-                [...items, ...result.failed.map((item) => `${item.code}: ${item.error}`)].slice(
-                  -100
-                )
-              )
-            }
-          } catch (cause) {
-            setBulkFailed((value) => value + batch.length)
-            setBulkFailures((items) =>
-              [...items, `${batch.join(',')}: ${errorMessage(cause)}`].slice(-100)
-            )
-          }
-        }
-      }
-    } catch (cause) {
-      setBulkError(errorMessage(cause))
-    } finally {
-      setBulkCurrent('')
-      setBulkTask(null)
-      setBulkRunning(false)
-    }
-  }
-
-  const runIndexCache = async (): Promise<void> => {
-    if (bulkRunning()) return
-    bulkCancel = false
-    setBulkRunning(true)
-    setBulkError(null)
-    setBulkDone(0)
-    setBulkSkipped(0)
-    setBulkFailed(0)
-    setBulkCurrent('')
-    setBulkTotal(0)
-    setBulkFailures([])
-    try {
-      const catalog = await api.quote.catalog()
-      const codes = catalog.filter((item) => item.kind === 'ZS').map((item) => item.code)
-      setBulkTotal(codes.length)
-      for (const code of codes) {
-        if (bulkCancel) break
-        setBulkCurrent(code)
-        try {
-          const result = await api.data.fullCacheKlines({
-            codes: [code],
-            period: 'day',
-            adjust: 'none',
-            skipExisting: bulkIncremental()
-          })
-          setBulkDone((value) => value + result.cached + result.skipped)
-          setBulkSkipped((value) => value + result.skipped)
-          setBulkFailed((value) => value + result.failed.length)
-        } catch {
-          setBulkFailed((value) => value + 1)
-        }
-      }
-    } catch (cause) {
-      setBulkError(errorMessage(cause))
-    } finally {
-      setBulkCurrent('')
-      setBulkRunning(false)
-    }
-  }
-
-  const toggleDownload = (key: DownloadKey): void => {
-    setDownloadSelection((current) => ({ ...current, [key]: !current[key] }))
-  }
-
-  const selectAllDownloads = (value: boolean): void => {
-    setDownloadSelection({
-      kline: value,
-      kline1m: value,
-      ticks: value,
-      indexKline: value,
-      blocks: value,
-      snapshot: value,
-      stats: value,
-      archive: value,
-      datasets: value
-    })
-  }
-
-  const runDownloads = async (): Promise<void> => {
-    if (downloadRunning()) return
-    const keys = DOWNLOAD_TASKS.filter((task) => downloadSelection()[task.key]).map(
-      (task) => task.key
-    )
-    if (keys.length === 0) {
-      setDownloadError('至少选择一项离线数据')
-      return
-    }
-
-    setDownloadRunning(true)
-    setDownloadError(null)
-    setDownloadDone(0)
-    setDownloadTotal(keys.length)
-    downloadCancel = false
-    let done = 0
-    let datasetSummary = ''
-    try {
-      for (const key of keys) {
-        if (downloadCancel) break
-        const task = DOWNLOAD_TASKS.find((item) => item.key === key)
-        setDownloadMessage(`正在下载：${task?.label ?? key}`)
-        if (key === 'kline') await runBulkCache('day', bulkScope())
-        else if (key === 'kline1m') await runBulkCache('1m', bulkScope())
-        else if (key === 'ticks') await runBulkCache('ticks', bulkScope())
-        else if (key === 'indexKline') await runIndexCache()
-        else if (key === 'blocks') {
-          for (const kind of BLOCK_KINDS) await api.block.list(kind)
-        } else if (key === 'snapshot') await runSnapshotExport()
-        else if (key === 'stats') await runExport()
-        else if (key === 'datasets') {
-          const scope = bulkScope()
-          const codes = scope === 'watchlist' ? watchCodes() : await allAShareCodes()
-          let sectorRows = 0
-          let lhbRows = 0
-          let financeCodes = 0
-          let statementRows = 0
-          let failed = 0
-          for (let start = 0; start < codes.length; start += 30) {
-            if (downloadCancel) break
-            const batch = codes.slice(start, start + 30)
-            setDownloadMessage(
-              `数据集归档：${start + 1}-${start + batch.length}/${codes.length}（板块 + 财务含三大报表 + 龙虎榜）`
-            )
-            const result = await api.data.archiveDatasets(batch)
-            sectorRows = Math.max(sectorRows, result.sectorRows)
-            lhbRows = Math.max(lhbRows, result.lhbRows)
-            financeCodes += result.financeCodes
-            statementRows += result.statementRows
-            failed += result.financeFailed.length
-          }
-          datasetSummary = `板块 ${sectorRows} 行 / 龙虎榜 ${lhbRows} 行 / 财务 ${financeCodes} 只 / 三大报表新增 ${statementRows} 行${failed > 0 ? `（失败 ${failed} 只）` : ''}`
-          setDownloadMessage(`数据集已落盘：${datasetSummary}`)
-        } else await runArchive()
-        done += 1
-        setDownloadDone(done)
-      }
-      setDownloadMessage(datasetSummary ? `全部任务已完成 · ${datasetSummary}` : '全部选中任务已完成')
-    } catch (cause) {
-      setDownloadError(errorMessage(cause))
-    } finally {
-      setDownloadRunning(false)
-    }
-  }
-
-  const runCacheKlines = async (): Promise<void> => {
-    if (cacheLoading()) return
-    setCacheLoading(true)
-    setCacheError(null)
-    try {
-      setCacheResult(
-        await api.data.fullCacheKlines({
-          codes: watchCodes(),
-          period: 'day',
-          adjust: 'none',
-          skipExisting: true
-        })
-      )
-    } catch (cause) {
-      setCacheError(errorMessage(cause))
-    } finally {
-      setCacheLoading(false)
-    }
-  }
-
   const loadSummary = async (): Promise<void> => {
     if (loading()) return
     setLoading(true)
@@ -993,8 +780,19 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
       else setRestoreProgress(progress)
     })
     onCleanup(stopProgress)
+    // 先拉同步状态（priority 请求），再扫本地目录；目录扫描在几十 GB 时很慢，
+    // 不能让它把进度徽标饿死。
+    void refreshSync()
     void loadInventory()
     void loadAuctionArchives()
+    // 并行同步是后台任务，面板打开期间每 2.5 秒拉一次进度；任务结束后继续拉
+    // 也没有副作用（status 只是一次本地 JSON 读取）。
+    syncTimer = window.setInterval(() => {
+      if (!syncBusy()) void refreshSync()
+    }, 2500)
+    onCleanup(() => {
+      if (syncTimer !== undefined) window.clearInterval(syncTimer)
+    })
   })
 
   return (
@@ -1026,43 +824,121 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             JSONL.gz、SQLite 查询层和 manifest。
           </div>
 
-          <section class="data__download">
+          <section class="data__download data__sync">
             <div class="data__inventory-head">
               <div>
-                <div class="data__label">离线数据下载</div>
-                <div class="data__sub">勾选数据集后一键执行，进度按任务汇总。</div>
+                <div class="data__label">并行离线同步 · 多进程 × 多线程 × 多服务器</div>
+                <div class="data__sub">
+                  任务切片后分发到全部可达主站；交易日 08:45–15:45 自动保护，暂停后可续跑。
+                </div>
               </div>
               <div class="data__download-select">
-                <button
-                  class="btn"
-                  disabled={downloadRunning()}
-                  onClick={() => selectAllDownloads(true)}
-                >
-                  全选
+                <button class="btn data__sync-refresh" onClick={() => void refreshSync()}>
+                  刷新状态
                 </button>
-                <button
-                  class="btn"
-                  disabled={downloadRunning()}
-                  onClick={() => selectAllDownloads(false)}
+                <span
+                  classList={{
+                    'data__sync-badge': true,
+                    'data__sync-badge--closed': !(syncStatus()?.window.open ?? true)
+                  }}
                 >
-                  清空
-                </button>
+                  {syncWindowLabel()}
+                </span>
               </div>
             </div>
 
-            <div class="data__download-list">
-              <For each={DOWNLOAD_TASKS}>
-                {(task) => (
+            <div class="data__sync-controls">
+              <label class="data__sync-field">
+                <span>预设</span>
+                <select
+                  disabled={syncRunning() || syncBusy()}
+                  onChange={(event) => {
+                    applySyncPreset(event.currentTarget.value)
+                    event.currentTarget.value = ''
+                  }}
+                >
+                  <option value="">选择预设…</option>
+                  <For each={Object.entries(syncCatalog()?.presets ?? {})}>
+                    {([key, preset]) => <option value={key}>{preset.label}</option>}
+                  </For>
+                </select>
+              </label>
+              <label class="data__sync-field">
+                <span>范围</span>
+                <select
+                  value={syncScope()}
+                  disabled={syncRunning()}
+                  onChange={(event) =>
+                    setSyncScope(event.currentTarget.value as 'watchlist' | 'all')
+                  }
+                >
+                  <option value="watchlist">仅自选（{watchCodes().length}）</option>
+                  <option value="all">全 A 股</option>
+                </select>
+              </label>
+              <label class="data__sync-field">
+                <span>数据源</span>
+                <select
+                  value={syncSource()}
+                  disabled={syncRunning()}
+                  onChange={(event) =>
+                    setSyncSource(event.currentTarget.value as 'auto' | 'mac' | '7709')
+                  }
+                >
+                  <option value="auto">自动（MAC 优先）</option>
+                  <option value="mac">仅 MAC</option>
+                  <option value="7709">仅 7709</option>
+                </select>
+              </label>
+              <label class="data__sync-field">
+                <span>进程</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={syncProcesses()}
+                  disabled={syncRunning()}
+                  onChange={(event) => setSyncProcesses(Number(event.currentTarget.value) || 1)}
+                />
+              </label>
+              <label class="data__sync-field">
+                <span>线程/进程</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={syncThreads()}
+                  disabled={syncRunning()}
+                  onChange={(event) => setSyncThreads(Number(event.currentTarget.value) || 1)}
+                />
+              </label>
+              <label class="data__incremental">
+                <input
+                  type="checkbox"
+                  checked={syncSkipExisting()}
+                  disabled={syncRunning()}
+                  onChange={() => setSyncSkipExisting((value) => !value)}
+                />
+                跳过已有
+              </label>
+            </div>
+
+            <div class="data__download-list data__sync-datasets">
+              <For each={syncCatalog()?.datasets ?? []}>
+                {(item) => (
                   <label class="data__download-item">
                     <input
                       type="checkbox"
-                      checked={downloadSelection()[task.key]}
-                      disabled={downloadRunning()}
-                      onChange={() => toggleDownload(task.key)}
+                      checked={syncSelection().includes(item.key)}
+                      disabled={syncRunning()}
+                      onChange={() => toggleSyncDataset(item.key)}
                     />
                     <span>
-                      <strong>{task.label}</strong>
-                      <small>{task.hint}</small>
+                      <strong>
+                        {item.label}
+                        <span class="data__sync-tag">{item.group}</span>
+                      </strong>
+                      <small>{item.description}</small>
                     </span>
                   </label>
                 )}
@@ -1070,61 +946,71 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             </div>
 
             <div class="data__download-actions">
-              <select
-                class="data__bulk-scope"
-                value={bulkScope()}
-                disabled={
-                  downloadRunning() || (!downloadSelection().kline && !downloadSelection().datasets)
-                }
-                onChange={(event) => setBulkScope(event.currentTarget.value as 'watchlist' | 'all')}
-              >
-                <option value="watchlist">仅自选</option>
-                <option value="all">全 A 股</option>
-              </select>
-              <label class="data__incremental">
-                <input
-                  type="checkbox"
-                  checked={bulkIncremental()}
-                  disabled={downloadRunning()}
-                  onChange={() => setBulkIncremental((value) => !value)}
-                />
-                增量：跳过已有
-              </label>
-              <Show when={downloadRunning()}>
-                <button
-                  class="btn data__bulk-cancel"
-                  onClick={() => {
-                    downloadCancel = true
-                    bulkCancel = true
-                    setDownloadMessage('正在终止…')
-                  }}
-                >
-                  终止下载
+              <Show when={syncRunning()}>
+                <button class="btn data__bulk-cancel" onClick={() => void cancelSync()}>
+                  终止同步
                 </button>
               </Show>
               <button
                 class="btn btn--primary data__download-run"
-                disabled={downloadRunning()}
-                onClick={() => void runDownloads()}
+                disabled={syncRunning() || syncBusy()}
+                onClick={() => void startSync()}
               >
-                {downloadRunning() ? '下载中…' : '开始下载'}
+                {syncRunning() ? '同步中…' : syncBusy() ? '处理中…' : '开始并行同步'}
               </button>
             </div>
 
-            <Show when={downloadTotal() > 0}>
+            <Show when={syncStatus()?.totals && (syncStatus()?.totals?.total ?? 0) > 0}>
               <div class="data__bulk-progress">
                 <span
                   style={{
-                    width: `${Math.min(100, (downloadDone() / downloadTotal()) * 100)}%`
+                    width: `${Math.min(
+                      100,
+                      (((syncStatus()?.totals?.done ?? 0) + (syncStatus()?.totals?.skipped ?? 0)) /
+                        Math.max(1, syncStatus()?.totals?.total ?? 1)) *
+                        100
+                    )}%`
                   }}
                 />
               </div>
               <div class="data__bulk-meta">
-                {downloadDone()} / {downloadTotal()} 项 · {downloadMessage()}
-                {bulkCurrent() ? ` · ${bulkCurrent().toUpperCase()}` : ''}
+                {syncStatus()?.state} · 完成 {syncStatus()?.totals?.done ?? 0} · 跳过{' '}
+                {syncStatus()?.totals?.skipped ?? 0} · 失败 {syncStatus()?.totals?.failed ?? 0} ·{' '}
+                {thousands(syncStatus()?.totals?.rows ?? 0)} 行 ·{' '}
+                {(syncStatus()?.throughputPerSecond ?? 0).toFixed(1)} 任务/秒
+                {syncStatus()?.etaSeconds != null
+                  ? ` · 预计 ${Math.ceil((syncStatus()?.etaSeconds ?? 0) / 60)} 分钟`
+                  : ''}
               </div>
             </Show>
-            <Show when={downloadError()}>
+
+            <Show when={(syncStatus()?.workers?.length ?? 0) > 0}>
+              <div class="data__sync-workers">
+                <For each={syncStatus()?.workers ?? []}>
+                  {(worker) => (
+                    <span>
+                      #{worker.index} · {worker.state} · {worker.done ?? 0}/{worker.total ?? 0}
+                      {worker.current ? ` · ${worker.current}` : ''}
+                    </span>
+                  )}
+                </For>
+              </div>
+            </Show>
+
+            <Show when={(syncStatus()?.failures?.length ?? 0) > 0}>
+              <div class="data__sync-failures">
+                <For each={(syncStatus()?.failures ?? []).slice(-6)}>
+                  {(failure) => (
+                    <div>
+                      {failure.task?.dataset} {failure.task?.code ?? failure.task?.codes?.join(',')}{' '}
+                      · {failure.error}
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+
+            <Show when={syncError()}>
               {(message) => <div class="data__query-error">{message()}</div>}
             </Show>
           </section>
@@ -1195,8 +1081,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                   <div class="data__label">本地离线数据校验</div>
                   <div class="data__sub">
                     逐份校验 K 线 / tick / 竞价 / F10 / 资金流 / 服务器文件的 manifest 与
-                    SHA256，发现缺失、损坏或行数非法会列出来；不修改行情数据，
-                    缺失的 K 线 manifest 会补索引。
+                    SHA256，发现缺失、损坏或行数非法会列出来；不修改行情数据， 缺失的 K 线 manifest
+                    会补索引。
                   </div>
                 </div>
                 <div class="data__integrity-actions">
@@ -1229,8 +1115,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                     />
                   </div>
                   <span>
-                    正在扫描目录并逐份校验 manifest / SHA256… 已等待{' '}
-                    {integrityElapsed().toFixed(1)}s
+                    正在扫描目录并逐份校验 manifest / SHA256… 已等待 {integrityElapsed().toFixed(1)}
+                    s
                   </span>
                 </div>
               </Show>
@@ -1247,9 +1133,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                       <span>
                         共校验 {report().checked} 份 · 失败 {report().failed} 份
                       </span>
-                      <span class="data__integrity-time">
-                        {new Date().toLocaleString('zh-CN')}
-                      </span>
+                      <span class="data__integrity-time">{new Date().toLocaleString('zh-CN')}</span>
                     </div>
                     <Show when={coverage()}>
                       {(data) => (
@@ -1261,7 +1145,8 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                               {(totals) => (
                                 <span>
                                   {' '}
-                                  · 六个目录合计 {totals().files} 文件 / {formatBytes(totals().bytes)}
+                                  · 六个目录合计 {totals().files} 文件 /{' '}
+                                  {formatBytes(totals().bytes)}
                                 </span>
                               )}
                             </Show>{' '}
@@ -1280,7 +1165,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
                                   </span>
                                   <span
                                     class="data__coverage-state"
-                                    classList={{ 'data__coverage-state--empty': item.status !== 'ok' }}
+                                    classList={{
+                                      'data__coverage-state--empty': item.status !== 'ok'
+                                    }}
                                   >
                                     {item.status === 'ok' ? '有数据' : '空'}
                                   </span>
@@ -1517,116 +1404,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
             </Show>
           </section>
 
-          <section class="data__bulk">
-            <div>
-              <div class="data__label">批量下载本地数据</div>
-              <div class="data__sub">
-                日 K / 1 分钟 / 历史逐笔共用同一批处理与断点续跑；全 A 约 5,615
-                只，耗时较长，可随时取消。 逐笔默认下载最近 20 个交易日（与 1 分钟 K
-                同一日期索引）； 取消勾选后只归档选定交易日。全市场 20
-                日逐笔数据量很大，可随时停止。
-              </div>
-            </div>
-            <div class="data__bulk-grid">
-              <For
-                each={[
-                  { key: 'day' as const, label: '日 K', hint: '全历史翻页' },
-                  { key: '1m' as const, label: '1 分钟 K', hint: '服务器保留期' },
-                  { key: 'ticks' as const, label: '历史逐笔', hint: '按选定交易日' }
-                ]}
-              >
-                {(item) => (
-                  <div class="data__bulk-row">
-                    <div class="data__bulk-label">
-                      <strong>{item.label}</strong>
-                      <small>{item.hint}</small>
-                    </div>
-                    <Show when={item.key === 'ticks'}>
-                      <label class="data__incremental">
-                        <input
-                          type="checkbox"
-                          checked={bulkTickAll()}
-                          disabled={bulkRunning()}
-                          onChange={() => setBulkTickAll((value) => !value)}
-                        />
-                        最近 20 个交易日
-                      </label>
-                      <input
-                        class="data__bulk-scope"
-                        type="date"
-                        value={bulkTickDate()}
-                        disabled={bulkRunning() || bulkTickAll()}
-                        aria-label="逐笔归档日期"
-                        onChange={(event) => setBulkTickDate(event.currentTarget.value)}
-                      />
-                    </Show>
-                    <div class="data__bulk-buttons">
-                      <button
-                        class="btn data__bulk-run"
-                        disabled={bulkRunning()}
-                        onClick={() => void runBulkCache(item.key, 'watchlist')}
-                      >
-                        自选股全量
-                      </button>
-                      <button
-                        class="btn data__bulk-run"
-                        disabled={bulkRunning()}
-                        onClick={() => void runBulkCache(item.key, 'all')}
-                      >
-                        市场全量
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </For>
-            </div>
-            <div class="data__bulk-actions">
-              <label class="data__incremental">
-                <input
-                  type="checkbox"
-                  checked={bulkIncremental()}
-                  disabled={bulkRunning()}
-                  onChange={() => setBulkIncremental((value) => !value)}
-                />
-                增量：跳过已有
-              </label>
-              <Show when={bulkRunning()}>
-                <button
-                  class="btn data__bulk-cancel"
-                  onClick={() => {
-                    bulkCancel = true
-                  }}
-                >
-                  停止
-                </button>
-              </Show>
-            </div>
-            <Show when={bulkTotal() > 0}>
-              <div class="data__bulk-progress">
-                <span
-                  style={{
-                    width: `${Math.min(100, ((bulkDone() + bulkFailed()) / bulkTotal()) * 100)}%`
-                  }}
-                />
-              </div>
-              <div class="data__bulk-meta">
-                {bulkTask() ? `${bulkTask()} · ` : ''}
-                {bulkDone()} / {bulkTotal()} 完成 · 跳过 {bulkSkipped()} · 失败 {bulkFailed()}
-                {bulkCurrent() ? ` · 当前 ${bulkCurrent().toUpperCase()}` : ''}
-                {bulkRunning() ? ' · 进行中' : ' · 已结束'}
-              </div>
-            </Show>
-            <Show when={bulkFailures().length > 0}>
-              <div class="data__bulk-failures">
-                <strong>失败清单（最近 {bulkFailures().length} 条）</strong>
-                <For each={bulkFailures().slice(-20)}>{(item) => <div>{item}</div>}</For>
-              </div>
-            </Show>
-            <Show when={bulkError()}>
-              {(message) => <div class="data__query-error">{message()}</div>}
-            </Show>
-          </section>
-
           <section class="data__kline">
             <div>
               <div class="data__label">自选 K 线导出</div>
@@ -1664,41 +1441,6 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
               </button>
             </div>
           </section>
-          <section class="data__cache">
-            <div>
-              <div class="data__label">离线 K 线缓存</div>
-              <div class="data__sub">
-                为自选股自动探测并写入全部可用日 K；行情失败时图表自动回退到 800 根缓存。
-              </div>
-            </div>
-            <button
-              class="btn data__cache-run"
-              disabled={cacheLoading() || watchCodes().length === 0}
-              onClick={() => void runCacheKlines()}
-            >
-              {cacheLoading() ? '缓存中…' : `缓存 ${watchCodes().length} 只`}
-            </button>
-          </section>
-          <Show when={cacheError()}>
-            {(message) => <div class="data__query-error">{message()}</div>}
-          </Show>
-          <Show when={cacheResult()}>
-            {(data) => (
-              <div class="data__summary data__summary--kline">
-                <div class="data__path">
-                  <span>缓存目录</span>
-                  <code>{data().dir}</code>
-                </div>
-                <div class="data__path">
-                  <span>结果</span>
-                  <code>
-                    {data().cached} 只 / 跳过 {data().skipped} / 失败 {data().failed.length} 只
-                  </code>
-                </div>
-              </div>
-            )}
-          </Show>
-
           <Show when={klineExportError()}>
             {(message) => <div class="data__query-error">{message()}</div>}
           </Show>

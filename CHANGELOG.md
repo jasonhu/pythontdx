@@ -10,9 +10,114 @@ pythontdx 的所有重要变更都记录在这里。
 
 ---
 
-## [未发布]
+## [1.3.0] - 2026-11-04
+
+### 新增
+
+- **离线数据并行同步**（`python/offline_sync.py`）：多进程 × 每进程多线程 ×
+  每条线程钉不同主站，23 个数据集（K 线/分时/买卖力道/小走势/竞价/逐笔/
+  历史分时/资金流/财务/股本变迁/F10/退市日线/分类行情/板块元数据/涨跌停表/
+  服务器文件），任务切片、按权重分片、任务级 results、bulk 合并、失败清单、
+  `skipExisting` 断点续跑。
+- **交易时段保护窗口**：交易日 08:45–15:45 禁止离线下载；窗口内启动返回
+  `blocked` 与 `nextOpenAt`，运行中进入窗口会暂停（paused），15:45 后续跑；
+  节假日表可选（`trading_holidays.json`），缺省只按周末判断。同一保护也覆盖
+  sidecar 的批量归档命令（cache/archive_* / tick/auction/minute 等），实时查询不限。
+- **收盘自动归档改到 15:46–16:30**：原 15:05–15:40 会被窗口保护挡住，且 15:40
+  截止会让 15:45 后永远不触发。
+- **桌面数据工具面板**：预设（daily/watchlist/full）、数据集勾选、范围
+  （自选/全 A）、进程/线程数、窗口徽标、进度条、worker 进度与失败列表；
+  HTTP `/api/offline_sync_catalog|status|start|cancel`；命令行
+  `python offline_sync.py --preset daily ...`。
+- **0x053f 九榜排行**：一次请求拿涨幅/跌幅/振幅/涨速/跌速/量比/正委比/
+  负委比/换手；`/api/top_board`、归档 `lake/top_board`。
+- **0x0563 主力监控**：19 类异动事件（7709 原生，不再依赖 MAC 0x1237）；
+  `/api/unusual`、归档 `lake/unusual`。
+- **0x051a 成交分布（筹码分布）**：解析 + 归档 + 单测；含三档盘口/内外盘/
+  32 位补码价位归一化。**免费主站实测全部超时**，只作为手动数据集，不进预设。
+- **SSE/WebSocket 订阅 Hub**（`python/subscription_hub.py`）：相同代码集合 +
+  相同间隔的多个连接合并成一次上游轮询，首帧基线、慢客户端丢最旧帧、
+  错误隔离、最后一个订阅退出自动收敛。
 
 ### 修复
+
+- **0x054c 单记录/子集快照错标**：`_split_quote_records` 回读记录头
+  `market+code` 并按记录切分；`parse_snapshots` 用记录头配对并标 `requested`，
+  不再把另一只证券的数据标成请求代码。
+- **keyed 归档同日覆盖**：新增 `code_archive` 按代码/业务 key 分片，覆盖
+  分时 5 类 + `block_meta/category_quotes/market_news/channel_news/f10_market/
+  f10_detail`；同一天不同 key 不再互相 `skipped`，列表接口兼容旧布局。
+- **全量翻页被短页截断**：`full_kline` / `delisted_history` 只在空页停止；
+  服务端重复返回同一页时停止并标 `complete=false`，不静默截断。
+- **本地 `.day` 系数与残尾**：按代码段区分 A 股/沪 B/指数/基金/债券的价格与量
+  系数（沪基金 0.001、指数量 1.0），残尾不足 32B 忽略；写回用同一系数。
+- **0x0ffc 资金流没有落盘**：`Bridge.money_flow` 成功后写 `lake/money_flow`
+  （payload 带 `source=7709 0x0ffc` 与 5 日 records），与 MAC 0x1218 区分。
+- **0x0010 财务缺 5 个股本字段**：补国家股/发起人法人股/法人股/B 股/H 股与
+  `recordHex`；`floatSharesShares/totalSharesShares` 明确单位，旧 `*Yuan`
+  字段保留一版兼容。
+- **数据面板同步状态被长任务饿死**：`offline_sync_*` 走 priority 队列，
+  不再排在 `data_inventory` 后面。
+
+### 工程
+
+- **帧长/解压上限**：响应声明长度上限 + `zlib.decompressobj(..., length)`
+  限制解压输出，畸形帧最多占 64KB。
+- **单请求 deadline + 重连清理**：连接/心跳/响应共用一个 `REQUEST_TIMEOUT` 预算；
+  `close()` 清空未配对推送帧，避免重连后把旧连接的 0x0547 帧合并进当前快照。
+- **新增单测 70 个**：离线窗口/预设/分片/worker/bulk 合并/损坏重写、
+  0x053f/0x0563/0x051a 解析、keyed 归档、快照记录头、翻页、本地系数、
+  订阅 Hub（Python 175 → 272）。
+- **文档**：新增 `docs/16-gotdx能力与推送机制调研.md`、
+  `docs/17-eltdx协议差距与补齐清单.md`、`docs/18-离线数据并行同步.md`；
+  更新 docs/03/08/11/12/14/15、PLAN、README。
+
+### 验证
+
+- 交易日 13:14 启动离线同步 → `blocked`，`nextOpenAt=15:45`；
+- 2 进程 × 2 线程、2 只日 K（force）→ `completed`，14,519 根，0 失败；
+- finance bulk 3 只 → 合并归档 3 行，SHA256 写 manifest；
+- 日常预设 2 只代码、2 进程 × 3 线程 → 23 个任务、0 失败、25,460 行（含九榜
+  540 行、主力监控 1,200 行）；
+- `data_integrity` 真实数据 148,427 份 manifest/SHA256，0 失败；
+- `npm run check` 全绿（359 TS + 277 Python，1 skipped）；
+- 面板截图 `screenshots/data-offline-sync.png`（23 个数据集、保护中徽标）。
+
+### 新增（2026-11-04 数据功能第二轮）
+
+- **MAC 扩展**：新增 0x120F 服务端信息、0x122A 股票摘要、0x122D 单只快照、
+  0x122E K 线、0x123D 竞价、0x123E 多日分时；`--source auto|mac|7709`，
+  K 线/当日分时 MAC 优先、失败回退 7709；结论：MAC 不是 7709 超集，不能全面替代。
+- **原始字段**：7709 K 线新增 openMilli/closeMilli/highMilli/lowMilli/
+  lastCloseMilli/volumeRaw/amountRaw（Parquet 向后兼容）；报价新增
+  timeRaw/currentHand/openAmount/status/recordHex 等原始值。
+- **本地 GBBQ**：`gbbq.py` 解密/解析 `T0002/hq_cache/gbbq`，本机实测 202,313 条；
+  自动扫描常见安装目录或 `PYTHONTDX_GBBQ_PATH`。
+- **7615 涨跌停梯子**：`CWServ.cfg_fx_lbtt`，实测当日 131 行。
+- **历史专业财务 gpcw**：计算服务器 0x06b9 下载 `tdxfin/gpcw*.zip`，解析
+  `20B 头 + 11B 索引 + float32`，写 `lake/finance_history`；实测 5,572 只 × 658 字段。
+- **7615 扩展**：三主机 failover；补 gpquery/rdtcgn/cwzd/ggzp/rdtc_gndb/
+  zfhpmx 7 个 Entry、HQServ 7 个页面、行业 20 个子页；资讯频道 22 → 84；
+  ColDes 回退与重复列 `__2`。
+- **离线同步**：默认并发 4 进程 × 8 线程（32 连接）；新增 `blocks`（板块与行业，
+  默认勾选）、`finance_history`（默认最新 1 期）；F10 从预设移除、默认不勾选；
+  删除旧的两套前台批量下载 UI，只保留并行同步一套。
+- **文档**：新增 `docs/19-MAC协议与数据源策略.md`、`docs/20-数据功能补齐与代码审计.md`；
+  更新 docs/03/08/09/11/12/15/16/17/18、PLAN、README、python/README。
+
+### 修复（2026-11-04 第二轮）
+
+- `TQLEX_URL` 被多主机改造忽略，测试/部署注入失效 → 候选首位保留 `TQLEX_URL`。
+- MAC 多日分时 `days` 未裁剪 → 参数传入 parser 并裁剪。
+- MAC K 线首根被当昨收基准丢弃 → `keep_first` + 跨页 `pre_close_hint`，全历史
+  6,035 根与 7709 一致。
+- gpcw 未来报告期空占位包解析失败 → 过滤未来日期与 <1KB 空包。
+- HQServ 结果集 ColName 为空 / ColDes 为 `{"Name":...}` 时列名丢失 → 回退解析。
+- 节假日「manager 允许启动、worker 立刻暂停」→ worker 窗口改用 `offline_window`。
+- worker 全部异常退出却报 completed → 按 returncode/worker 状态标 failed。
+- MAC 单只快照汇总段阈值 109 但实际读到 +120 → 修正为 120。
+
+### 修复（2026-11-03 实盘反馈）
 
 - **集合竞价主图不刷新**：分时实时轨迹原先要求行情时间 >= 09:30，竞价
   09:15–09:30 的报价全被丢弃。改为从 09:15 起接收，并用 09:30 昨收基准
@@ -76,6 +181,13 @@ pythontdx 的所有重要变更都记录在这里。
 - **7615 F10 补充分区**：新增最新提示 8 分区（含投资者互动）、全市场资讯首页、
   盈利预测/治理/排名明细/北向持仓；个股结果继续写 `lake/f10_pit`，
   资讯可写 `lake/market_news`。
+
+### 验证
+
+- `npm run check` 全绿：359 TS（357 通过/2 skipped）+ 277 Python（276 通过/1 skipped）；
+- MAC 日 K 6,035 根与 7709 一致；gpcw 5,572×658；GBBQ 202,313 条；
+- 离线同步 23 数据集；面板截图 `screenshots/data-offline-sync.png`；
+- 详细边界见 `docs/20-数据功能补齐与代码审计.md` §3。
 
 ## [1.2.0] - 2026-11-03
 

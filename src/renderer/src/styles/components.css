@@ -1321,8 +1321,8 @@
 
 /* 没解析成表格的空格对齐段落：等宽 + 不换行，保住原始终端列宽 */
 .f10__text--mono {
-  font-family: 'NSimSun', '新宋体', 'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'Cascadia Mono',
-    monospace;
+  font-family:
+    'NSimSun', '新宋体', 'Noto Sans Mono CJK SC', 'Sarasa Mono SC', 'Cascadia Mono', monospace;
   font-size: 12px;
   line-height: 1.55;
   white-space: pre;
@@ -6499,6 +6499,79 @@
   margin-left: auto;
 }
 
+/* ---------------------------------------- 并行离线同步（多进程×多线程） */
+
+.data__sync-badge {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--bg-base);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
+.data__sync-badge--closed {
+  border-color: color-mix(in srgb, var(--up) 45%, var(--border));
+  color: var(--up);
+}
+
+.data__sync-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.data__sync-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__sync-field select,
+.data__sync-field input {
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-base);
+  color: var(--text-1);
+  font-size: var(--fs-2xs);
+}
+
+.data__sync-field input {
+  width: 62px;
+}
+
+.data__sync-tag {
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: var(--r-sm);
+  background: var(--panel-hover);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+}
+
+.data__sync-workers,
+.data__sync-failures {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+
+.data__sync-failures {
+  max-height: 96px;
+  overflow: auto;
+  color: var(--up);
+}
+
 .data__bulk {
   display: flex;
   flex-direction: column;
@@ -6764,7 +6837,7 @@
 
 .data__bulk-failures strong {
   display: block;
-  color: var(--danger);
+  color: var(--up);
   margin-bottom: 3px;
 }
 
@@ -6773,7 +6846,7 @@
   padding: 4px 6px;
   border: 1px solid var(--danger);
   border-radius: var(--r-xs);
-  color: var(--danger);
+  color: var(--up);
   font-size: var(--fs-2xs);
 }
 
@@ -7294,7 +7367,6 @@
   opacity: 1;
 }
 
-
 /* --------------------------------------------------------------------------
  * 0.9.4：所有「看股票信息」的二级窗口按主窗口尺寸放大
  * 96vw × 92vh，不再各自写死 760~1180px；主窗口全屏时这些窗口也接近全屏。
@@ -7371,8 +7443,6 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-
-
 
 .ranking__table td:nth-child(3) {
   color: var(--text-1);
@@ -7576,7 +7646,6 @@
   font-family: var(--font-mono);
   font-size: 11.5px;
 }
-
 
 /* 52：F10 不再铺满整屏，固定阅读宽度，减少左右空白 */
 .f10 {

@@ -889,13 +889,221 @@ export interface KLineCacheResult {
   dir: string
 }
 
-export interface FullKLineCacheResult {
-  cached: number
+/* ------------------------------------------- 7709 原生扩展（gotdx 吸收） */
+
+/** 0x053f 排行榜：9 个榜单一次返回 */
+export interface TopBoardRow {
+  code: string
+  market: string
+  symbol: string
+  price: number
+  value: number
+  name: string
+}
+
+export interface TopBoardResult {
+  category: number
+  requestedSize: number
+  size: number
+  boards: Record<string, TopBoardRow[]>
+}
+
+/** 0x0563 主力监控（异动） */
+export interface UnusualEvent {
+  code: string
+  name: string
+  market: string
+  symbol: string
+  index: number
+  event: number
+  desc: string
+  value: string
+  time: string
+  raw: string
+}
+
+export interface VolumeProfileLevel {
+  price: number
+  volume: number
+}
+
+export interface VolumeProfilePoint {
+  price: number
+  volume: number
+  buy: number
+  sell: number
+}
+
+/** 0x051a 成交分布（筹码分布）；免费主站暂不响应，保留数据契约 */
+export interface VolumeProfileResult {
+  code: string
+  name: string
+  market: string
+  symbol: string
+  marketId: number
+  active: number
+  serverTimeRaw: number
+  time: string
+  close: number
+  preClose: number
+  open: number
+  high: number
+  low: number
+  negPrice: number
+  volume: number
+  currentVolume: number
+  amount: number
+  inVolume: number
+  outVolume: number
+  sellAmount: number
+  openAmount: number
+  bids: VolumeProfileLevel[]
+  asks: VolumeProfileLevel[]
+  count: number
+  profile: VolumeProfilePoint[]
+}
+
+/* ------------------------------------------- 离线全量同步（多进程多线程） */
+
+/**
+ * 离线数据的可下载窗口。交易日 08:45–15:45 官方集中发行情数据，窗口关闭；
+ * 关闭时启动会返回 `blocked`，运行中的任务会在 08:45 暂停、15:45 后续跑。
+ */
+export interface OfflineSyncWindow {
+  open: boolean
+  now: string
+  tradingDay: boolean
+  windowStart: string
+  windowEnd: string
+  reason: string
+  /** 窗口关闭时给出下次可下载时间 */
+  nextOpenAt: string | null
+  /** 运行中的任务应在该时间点暂停 */
+  pauseAt: string | null
+  holidaysLoaded: number
+}
+
+export interface OfflineSyncDatasetMeta {
+  key: string
+  label: string
+  group: string
+  /** per_code：每只代码一份文件；bulk：按交易日合并一份 */
+  mode: 'per_code' | 'bulk'
+  description: string
+  weight: number
+}
+
+export interface OfflineSyncPreset {
+  label: string
+  datasets: string[]
+  scope?: string
+  periods?: string[]
+  f10Sections?: string
+}
+
+export interface OfflineSyncCatalog {
+  datasets: OfflineSyncDatasetMeta[]
+  presets: Record<string, OfflineSyncPreset>
+  window: OfflineSyncWindow
+}
+
+export type OfflineSyncState =
+  | 'idle'
+  | 'blocked'
+  | 'probing'
+  | 'planning'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+
+export interface OfflineSyncOptions {
+  preset?: string
+  datasets?: string[] | string
+  scope?: 'all' | 'watchlist' | 'codes'
+  /** scope=watchlist/codes 时的代码 */
+  codes?: string[]
+  periods?: string[] | string
+  adjust?: string
+  /** auto=MAC 优先失败回退 7709；mac=只用 MAC；7709=只用主站 */
+  source?: 'auto' | 'mac' | '7709'
+  /** auction/ticks/history_minute 的交易日；空表示今天 */
+  dates?: string[] | string
+  f10Sections?: 'core' | 'full'
+  minuteAuxKinds?: string[] | string
+  processes?: number
+  threads?: number
+  retries?: number
+  enforceWindow?: boolean
+  /** 仅用于测试：允许在窗口内启动 */
+  allowInsideWindow?: boolean
+  skipExisting?: boolean
+  delistedCodes?: string[]
+  includeIndexes?: boolean
+  maxCodes?: number
+  jobId?: string
+}
+
+export interface OfflineSyncTotals {
+  total: number
+  done: number
   skipped: number
-  failed: Array<{ code: string; error: string }>
-  period: string
-  adjust: string
-  dir: string
+  failed: number
+  rows: number
+}
+
+export interface OfflineSyncDatasetProgress {
+  done: number
+  skipped: number
+  failed: number
+  rows: number
+}
+
+export interface OfflineSyncFailure {
+  task?: {
+    dataset?: string
+    code?: string
+    codes?: string[]
+    key?: string
+    period?: string
+    date?: string
+  }
+  status?: string
+  error?: string
+}
+
+export interface OfflineSyncWorker {
+  index: number | null
+  pid: number | null
+  state: string | null
+  total: number | null
+  done: number | null
+  failed: number | null
+  current: string | null
+  updatedAt: string | null
+}
+
+export interface OfflineSyncStatus {
+  state: OfflineSyncState
+  jobId?: string
+  dir?: string
+  reason?: string
+  error?: string
+  window: OfflineSyncWindow
+  options?: OfflineSyncOptions
+  startedAt?: string
+  finishedAt?: string
+  elapsedSeconds?: number
+  totals?: OfflineSyncTotals
+  datasets?: Record<string, OfflineSyncDatasetProgress>
+  workers?: OfflineSyncWorker[]
+  failures?: OfflineSyncFailure[]
+  throughputPerSecond?: number
+  etaSeconds?: number | null
+  summary?: Record<string, unknown> | null
+  catalog?: OfflineSyncDatasetMeta[]
+  presets?: Record<string, OfflineSyncPreset>
 }
 
 export interface LimitReviewRow {

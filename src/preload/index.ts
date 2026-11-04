@@ -99,7 +99,13 @@ const api: PythonTdxApi = {
     localMinWrite: (path, bars) => ipcRenderer.invoke(IPC.localMinWrite, path, bars),
     exportKlines: (req) => ipcRenderer.invoke(IPC.exportKlines, req),
     cacheKlines: (req) => ipcRenderer.invoke(IPC.cacheKlines, req),
-    fullCacheKlines: (req) => ipcRenderer.invoke(IPC.cacheFullKlines, req),
+    offlineSyncCatalog: () => ipcRenderer.invoke(IPC.offlineSyncCatalog),
+    offlineSyncStatus: () => ipcRenderer.invoke(IPC.offlineSyncStatus),
+    offlineSyncStart: (options) => ipcRenderer.invoke(IPC.offlineSyncStart, options),
+    offlineSyncCancel: () => ipcRenderer.invoke(IPC.offlineSyncCancel),
+    topBoard: (category, size) => ipcRenderer.invoke(IPC.topBoard, category, size),
+    unusual: (count) => ipcRenderer.invoke(IPC.unusual, count),
+    volumeProfile: (code) => ipcRenderer.invoke(IPC.volumeProfile, code),
     integrity: () => ipcRenderer.invoke(IPC.dataIntegrity),
     coverage: () => ipcRenderer.invoke(IPC.dataCoverage),
     inventory: () => ipcRenderer.invoke(IPC.dataInventory),
@@ -122,7 +128,7 @@ const api: PythonTdxApi = {
   },
   block: {
     list: (kind) => ipcRenderer.invoke(IPC.blockList, kind),
-    industries: () => ipcRenderer.invoke(IPC.blockIndustries),
+    industries: () => ipcRenderer.invoke(IPC.blockIndustries)
   },
   screen: {
     run: (request) => ipcRenderer.invoke(IPC.screenRun, request),

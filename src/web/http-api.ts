@@ -27,7 +27,11 @@ import type {
   DataIntegrityResult,
   DataInventory,
   KLineCacheResult,
-  FullKLineCacheResult,
+  OfflineSyncCatalog,
+  OfflineSyncStatus,
+  TopBoardResult,
+  UnusualEvent,
+  VolumeProfileResult,
   LimitReviewResult,
   KLineExportResult,
   SnapshotArchiveItem,
@@ -403,7 +407,7 @@ export function createHttpApi(): PythonTdxApi {
     },
     mac: {
       unusual: (count) => post<MacUnusualItem[]>('/api/mac_unusual', { count }),
-      boards: (boardType) => post<MacBoard[]>('/api/mac_boards', { boardType }),
+      boards: (boardType) => post<MacBoard[]>('/api/mac_boards', { boardType })
     },
     auction: {
       series: (code, date) => post<AuctionPoint[]>('/api/auctions', { code, date }),
@@ -462,7 +466,13 @@ export function createHttpApi(): PythonTdxApi {
         post<LocalDayWriteResult>('/api/local_write_min', { path, bars }),
       exportKlines: (req) => post<KLineExportResult>('/api/export_klines', req),
       cacheKlines: (req) => post<KLineCacheResult>('/api/cache_klines', req),
-      fullCacheKlines: (req) => post<FullKLineCacheResult>('/api/cache_full_klines', req),
+      offlineSyncCatalog: () => post<OfflineSyncCatalog>('/api/offline_sync_catalog', {}),
+      offlineSyncStatus: () => post<OfflineSyncStatus>('/api/offline_sync_status', {}),
+      offlineSyncStart: (options) => post<OfflineSyncStatus>('/api/offline_sync_start', options),
+      offlineSyncCancel: () => post<OfflineSyncStatus>('/api/offline_sync_cancel', {}),
+      topBoard: (category, size) => post<TopBoardResult>('/api/top_board', { category, size }),
+      unusual: (count) => post<UnusualEvent[]>('/api/unusual', { count }),
+      volumeProfile: (code) => post<VolumeProfileResult>('/api/volume_profile', { code }),
       integrity: () => post<DataIntegrityResult>('/api/data_integrity', {}),
       coverage: () => post<DataCoverageResult>('/api/data_coverage', {}),
       inventory: () => post<DataInventory>('/api/data_inventory', {}),
@@ -496,7 +506,7 @@ export function createHttpApi(): PythonTdxApi {
     },
     block: {
       list: (kind: BlockKind) => post<BlockList>('/api/blocks', { kind }),
-      industries: () => post<IndustryList>('/api/industries', {}),
+      industries: () => post<IndustryList>('/api/industries', {})
       // 客户端自定义板块要读本机 D:\tdx 目录，浏览器端没有这个能力
     },
     screen: {

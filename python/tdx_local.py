@@ -13,6 +13,57 @@ from pathlib import Path
 
 RECORD = struct.Struct("<IIIIIfII")
 
+# 证券类型 → (价格系数, 成交量系数)。通达信本地文件按代码段存不同量纲：
+# 沪 B / 基金 / 债券是千分之一元，指数成交量不除 100。
+# 参考 eltdx `offline/daily_bar.py` 的规则，在本项目内独立实现。
+SECURITY_COEFFICIENTS = {
+    "SH_A_STOCK": (0.01, 0.01),
+    "SH_B_STOCK": (0.001, 0.01),
+    "SH_INDEX": (0.01, 1.0),
+    "SH_FUND": (0.001, 1.0),
+    "SH_BOND": (0.001, 1.0),
+    "SZ_A_STOCK": (0.01, 0.01),
+    "SZ_B_STOCK": (0.01, 0.01),
+    "SZ_INDEX": (0.01, 1.0),
+    "SZ_FUND": (0.001, 0.01),
+    "SZ_BOND": (0.001, 0.01),
+}
+
+
+def detect_security_type(filename: str) -> str:
+    """按交易所代码段判断证券类型；无法识别返回 UNKNOWN（不猜成 A 股）。"""
+    base = Path(filename).name.lower()
+    exchange = base[:2]
+    head = base[2:4]
+    if exchange == "sz":
+        if head in ("00", "30"):
+            return "SZ_A_STOCK"
+        if head == "20":
+            return "SZ_B_STOCK"
+        if head == "39":
+            return "SZ_INDEX"
+        if head in ("15", "16", "17", "18"):
+            return "SZ_FUND"
+        if head in ("10", "11", "12", "13", "14"):
+            return "SZ_BOND"
+    elif exchange == "sh":
+        if head in ("60", "68"):
+            return "SH_A_STOCK"
+        if head == "90":
+            return "SH_B_STOCK"
+        if head in ("00", "88", "99"):
+            return "SH_INDEX"
+        if head in ("50", "51", "52", "53", "55", "56", "58"):
+            return "SH_FUND"
+        if head in ("01", "10", "11", "12", "13", "14", "20"):
+            return "SH_BOND"
+    return "UNKNOWN"
+
+
+def security_coefficients(filename: str) -> tuple[float, float]:
+    """返回 (价格系数, 成交量系数)；未知类型按 A 股 0.01/0.01。"""
+    return SECURITY_COEFFICIENTS.get(detect_security_type(filename), (0.01, 0.01))
+
 
 class LocalDayError(Exception):
     pass
@@ -25,32 +76,38 @@ def read_day_file(path: str, limit: int = 0) -> dict:
     if file.suffix.lower() != ".day":
         raise LocalDayError("只支持 .day 文件")
     size = file.stat().st_size
-    if size == 0 or size % RECORD.size != 0:
-        raise LocalDayError(f".day 文件长度不是 32 的倍数：{size}")
+    if size < RECORD.size:
+        raise LocalDayError(f".day 文件不足一条记录：{size} 字节")
+    # 残尾（不足 32 字节）容忍：通达信写盘/下载中断常留下截断文件，
+    # 能读多少读多少，不能因为尾巴缺几个字节让整份历史读不出来。
+    price_coeff, volume_coeff = security_coefficients(file.name)
 
     bars = []
+    invalid_dates = 0
     with file.open("rb") as handle:
         while True:
             chunk = handle.read(RECORD.size)
             if not chunk:
                 break
             if len(chunk) != RECORD.size:
-                raise LocalDayError("文件尾部记录不完整")
+                break
             date, open_, high, low, close, amount, volume, _ = RECORD.unpack(chunk)
             year, month, day = date // 10000, date % 10000 // 100, date % 100
             if not (1990 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31):
-                raise LocalDayError(f"非法日期：{date}")
+                # 单条脏日期不该让整份历史读不出来；计数后跳过。
+                invalid_dates += 1
+                continue
             if close <= 0 or open_ <= 0:
                 continue
             bars.append(
                 {
                     "date": f"{year:04d}-{month:02d}-{day:02d}",
-                    "open": open_ / 100,
-                    "high": high / 100,
-                    "low": low / 100,
-                    "close": close / 100,
+                    "open": round(open_ * price_coeff, 4),
+                    "high": round(high * price_coeff, 4),
+                    "low": round(low * price_coeff, 4),
+                    "close": round(close * price_coeff, 4),
                     "amount": round(float(amount), 2),
-                    "volume": volume / 100,
+                    "volume": round(volume * volume_coeff, 2),
                 }
             )
     if limit > 0:
@@ -62,6 +119,10 @@ def read_day_file(path: str, limit: int = 0) -> dict:
         "count": len(bars),
         "firstDate": bars[0]["date"],
         "lastDate": bars[-1]["date"],
+        "securityType": detect_security_type(file.name),
+        "priceCoefficient": price_coeff,
+        "volumeCoefficient": volume_coeff,
+        "invalidDates": invalid_dates,
         "bars": bars,
     }
 
@@ -126,12 +187,13 @@ def read_local_file(path: str, limit: int = 0) -> dict:
 
 
 def write_day_file(path: str, bars: list[dict]) -> dict:
-    """把 bar 列表写成通达信 .day（原子替换；价格分/量股）。"""
+    """把 bar 列表写成通达信 .day（原子替换；价格/量按证券类型反向换算）。"""
     file = Path(path).expanduser()
     if file.suffix.lower() != ".day":
         raise LocalDayError("输出文件必须使用 .day 扩展名")
     if not bars:
         raise LocalDayError("没有可写入的 K 线")
+    price_coeff, volume_coeff = security_coefficients(file.name)
     records = []
     for bar in bars:
         date = int(str(bar["date"])[:10].replace("-", ""))
@@ -140,12 +202,12 @@ def write_day_file(path: str, bars: list[dict]) -> dict:
         records.append(
             RECORD.pack(
                 date,
-                int(round(float(bar["open"]) * 100)),
-                int(round(float(bar["high"]) * 100)),
-                int(round(float(bar["low"]) * 100)),
-                int(round(float(bar["close"]) * 100)),
+                int(round(float(bar["open"]) / price_coeff)),
+                int(round(float(bar["high"]) / price_coeff)),
+                int(round(float(bar["low"]) / price_coeff)),
+                int(round(float(bar["close"]) / price_coeff)),
                 float(bar.get("amount", 0)),
-                int(round(float(bar.get("volume", 0)) * 100)),
+                int(round(float(bar.get("volume", 0)) / volume_coeff)),
                 0,
             )
         )
@@ -153,7 +215,13 @@ def write_day_file(path: str, bars: list[dict]) -> dict:
     temporary = file.with_suffix(".tmp")
     temporary.write_bytes(b"".join(records))
     temporary.replace(file)
-    return {"path": str(file.resolve()), "count": len(records)}
+    return {
+        "path": str(file.resolve()),
+        "count": len(records),
+        "securityType": detect_security_type(file.name),
+        "priceCoefficient": price_coeff,
+        "volumeCoefficient": volume_coeff,
+    }
 
 
 

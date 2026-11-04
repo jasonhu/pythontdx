@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { localDateKey, shouldAutoArchive } from './archive'
 
 describe('shouldAutoArchive', () => {
-  const tradingDay = new Date(2026, 9, 30, 15, 10)
+  const tradingDay = new Date(Date.UTC(2026, 9, 30, 7, 50))
 
   it('工作日收盘窗口且今日未归档时触发', () => {
     expect(shouldAutoArchive(tradingDay, true, undefined)).toBe(true)
@@ -15,8 +15,8 @@ describe('shouldAutoArchive', () => {
 
   it('关闭、周末、窗口外不触发', () => {
     expect(shouldAutoArchive(tradingDay, false, undefined)).toBe(false)
-    expect(shouldAutoArchive(new Date(2026, 9, 31, 15, 10), true, undefined)).toBe(false)
-    expect(shouldAutoArchive(new Date(2026, 9, 30, 14, 59), true, undefined)).toBe(false)
-    expect(shouldAutoArchive(new Date(2026, 9, 30, 15, 41), true, undefined)).toBe(false)
+    expect(shouldAutoArchive(new Date(Date.UTC(2026, 9, 31, 7, 50)), true, undefined)).toBe(false)
+    expect(shouldAutoArchive(new Date(Date.UTC(2026, 9, 30, 7, 45)), true, undefined)).toBe(false)
+    expect(shouldAutoArchive(new Date(Date.UTC(2026, 9, 30, 8, 31)), true, undefined)).toBe(false)
   })
 })

@@ -84,6 +84,11 @@ from patterns import build_smart_drawings, pattern_summary
 from kline_manifest import write_kline_manifest
 from server_catalog import list_server_catalogs, write_server_catalog
 from protocol_archive import read_dataset_archive, list_dataset_archives, write_dataset_archive
+from code_archive import (
+    list_code_archives,
+    read_code_archive,
+    write_code_archive,
+)
 from delisted_archive import list_delisted_archives, write_delisted_archive
 from adjust_factors import apply_factors, build_factors
 from tick_archive import (
@@ -329,6 +334,9 @@ MONEY_FLOW_HOSTS = [
 CONNECT_TIMEOUT = 5.0
 REQUEST_TIMEOUT = 8.0
 HEARTBEAT_INTERVAL = 30.0
+# 单帧声明长度与解压放大上限（对齐 gotdx client.go 的约束，避免畸形帧打爆内存）
+MAX_FRAME_BYTES = 65535
+MAX_FRAME_RATIO = 8
 QUOTE_BASELINE_INTERVAL = 60.0
 QUOTE_BATCH = 80
 FINANCE_BATCH = 80
@@ -362,6 +370,10 @@ CMD_FINANCE = 0x0010
 CMD_CAPITAL_CHANGES = 0x000F
 CMD_SPECIAL_LIMITS = 0x0452
 CMD_DELISTED_BARS = 0x052B
+# gotdx 源码里 7709 原生、我们此前只走 MAC 的三条查询（docs/16 L2/L3/M5）
+CMD_UNUSUAL = 0x0563
+CMD_TOP_BOARD = 0x053F
+CMD_VOLUME_PROFILE = 0x051A
 
 # 0x054c / 0x053e 共用的请求前缀；0x0547 是另一套「代码 + 游标」布局
 QUOTE_LIST_PREFIX = b"\x05\x00\x00\x00\x00\x00\x00\x00"
@@ -542,6 +554,30 @@ def classify_security(market: int, symbol: str) -> str:
 # ---------------------------------------------------------------- 连接
 
 
+def parse_handshake(body: bytes) -> dict:
+    """0x000d 握手回包（eltdx session.rs：189B）。"""
+    if len(body) < 189:
+        return {"available": False, "bytes": len(body)}
+    year = _u16(body, 1)
+    month, day = body[4], body[3]
+    minutes_1 = struct.unpack_from("<8H", body, 9)
+    minutes_2 = struct.unpack_from("<8H", body, 25)
+    date_1 = _u32(body, 42)
+    date_2 = _u32(body, 50)
+    return {
+        "available": True,
+        "bytes": len(body),
+        "serverDate": f"{year:04d}-{month:02d}-{day:02d}",
+        "sessions1": [f"{value // 60:02d}:{value % 60:02d}" for value in minutes_1],
+        "sessions2": [f"{value // 60:02d}:{value % 60:02d}" for value in minutes_2],
+        "date1": str(date_1),
+        "date2": str(date_2),
+        "serverName": body[68:152].decode("gb18030", "replace").strip("\u0000"),
+        "productTag": body[160:189].decode("gb18030", "replace").strip("\u0000"),
+        "rawHex": body.hex(),
+    }
+
+
 class TdxConnection:
     def __init__(self, endpoints: list[tuple[str, int]] | None = None):
         self.endpoints = list(endpoints or ENDPOINTS)
@@ -552,8 +588,12 @@ class TdxConnection:
         # 0x0547 的主站主动推送：不匹配当前请求 msg_id 的帧先入队，
         # 由 Bridge 在下一轮刷新时按代码合并。
         self.push_frames: deque[tuple[int, int, bytes]] = deque(maxlen=1024)
+        self.handshake: dict = {"available": False}
 
     def close(self) -> None:
+        # 断线后旧连接的未配对推送帧必须清掉：重连后它们属于上一代 socket，
+        # 再被 `_drain_quote_pushes` 当成新帧会把过期行情合并进当前快照。
+        self.push_frames.clear()
         if self.sock is not None:
             try:
                 self.sock.close()
@@ -561,20 +601,29 @@ class TdxConnection:
                 pass
             self.sock = None
 
-    def _connect(self) -> None:
+    def _connect(self, deadline: float | None = None) -> None:
         last_error: Exception | None = None
+
+        def remaining(budget: float) -> float:
+            if deadline is None:
+                return budget
+            return max(0.5, min(budget, deadline - time.monotonic()))
 
         for attempt in range(len(self.endpoints)):
             index = (self.cursor + attempt) % len(self.endpoints)
             host, port = self.endpoints[index]
             sock: socket.socket | None = None
             try:
-                sock = socket.create_connection((host, port), timeout=CONNECT_TIMEOUT)
-                sock.settimeout(REQUEST_TIMEOUT)
+                sock = socket.create_connection(
+                    (host, port), timeout=remaining(CONNECT_TIMEOUT)
+                )
+                sock.settimeout(remaining(REQUEST_TIMEOUT))
                 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self.sock = sock
-                # 只发 0x000d；不要 setup2/setup3
-                self._transact(CMD_HANDSHAKE, b"\x01")
+                # 只发 0x000d；不要 setup2/setup3；回包含服务器时间/时段/名称。
+                self.handshake = parse_handshake(
+                    self._transact(CMD_HANDSHAKE, b"\x01")
+                )
                 self.cursor = index
                 self.last_activity = time.monotonic()
                 return
@@ -613,12 +662,24 @@ class TdxConnection:
         msg_id = struct.unpack_from("<I", header, 5)[0]
         msg_type = struct.unpack_from("<H", header, 10)[0]
         zip_length, length = struct.unpack_from("<HH", header, 12)
+        # 对标 gotdx client.go 的帧长约束：声明长度必须有上限，压缩报文要限制
+        # 解压放大倍数，避免畸形/恶意帧把内存打爆。0x053f 最大 9 榜 × 255 条
+        # 也只有约 34 KB，64 KB 足够；文件分块另走 60 KB 上限。
+        if zip_length > MAX_FRAME_BYTES or length > MAX_FRAME_BYTES:
+            raise TdxError(f"行情报文长度异常：{zip_length}/{length}")
         raw = self._recv_exact(zip_length) if zip_length > 0 else b""
         if zip_length == length:
             return msg_id, msg_type, raw
 
+        if zip_length == 0 or length == 0:
+            return msg_id, msg_type, b""
         try:
-            return msg_id, msg_type, zlib.decompress(raw)
+            decompressor = zlib.decompressobj()
+            # max_length=length：解压输出不可能超过声明长度，畸形帧最多占 64KB。
+            data = decompressor.decompress(raw, length)
+            if len(data) != length or decompressor.unconsumed_tail:
+                raise TdxError("行情报文解压长度不符")
+            return msg_id, msg_type, data
         except zlib.error as error:
             raise TdxError("行情报文解压失败") from error
 
@@ -652,9 +713,12 @@ class TdxConnection:
         retry: bool = True,
         wire_prefix: int | None = None,
     ) -> bytes:
+        # 单请求 deadline：连接 + 心跳 + 响应共用一个预算，避免「连接 5s、
+        # 发送 8s、重试再 5s」把一次调用拖到几十秒（eltdx deadline 语义）。
+        deadline = time.monotonic() + REQUEST_TIMEOUT
         try:
             if self.sock is None:
-                self._connect()
+                self._connect(deadline)
             if time.monotonic() - self.last_activity >= HEARTBEAT_INTERVAL:
                 # 空闲长连接保活；不匹配的推送帧会在 _transact 里入队。
                 self._transact(CMD_HEARTBEAT, b"")
@@ -664,7 +728,7 @@ class TdxConnection:
             if not retry:
                 raise
             # 断线重连一次；行情请求都是只读的，重试不会产生副作用
-            self._connect()
+            self._connect(time.monotonic() + REQUEST_TIMEOUT)
             return self._transact(msg_type, data, wire_prefix)
 
 
@@ -909,6 +973,31 @@ def delisted_bars_data(
     )
 
 
+def unusual_data(market: int, start: int = 0, count: int = 600) -> bytes:
+    """0x0563：市场 u16 + start u32 + count u32（0 由调用方补 600）。"""
+    safe_count = max(1, min(int(count or 600), 600))
+    return struct.pack(
+        "<HII", market, max(0, min(int(start), 0xFFFFFFFF)), safe_count
+    )
+
+
+def top_board_data(category: int = 0, size: int = 20) -> bytes:
+    """0x053f：category u8 + mode u8(5) + 7 字节保留 + size u8。"""
+    safe_size = max(1, min(int(size or 20), 255))
+    return struct.pack(
+        "<BB7sB",
+        max(0, min(int(category), 0xFF)),
+        5,
+        b"\x00\x00\x00\x00\x01\x00\x00",
+        safe_size,
+    )
+
+
+def volume_profile_data(market: int, symbol: str) -> bytes:
+    """0x051a：市场 u16 + 6 位代码 + 2 字节保留（共 10 字节）。"""
+    return struct.pack("<H6s2s", market, code_bytes(symbol), b"")
+
+
 def minute_data(market: int, symbol: str) -> bytes:
     return struct.pack("<H6s4s", market, code_bytes(symbol), b"\x00\x00\x00\x93")
 
@@ -1132,25 +1221,40 @@ def parse_quotes(
     return quotes
 
 
-def _split_quote_records(data: bytes, items: list[tuple[int, str]]) -> list[bytes]:
-    """按「市场 + 6 位代码」标记切记录；记录长度可变，不能按固定长度切。"""
+def _split_quote_records(
+    data: bytes, items: list[tuple[int, str]]
+) -> list[tuple[int, str, bytes]]:
+    """按「市场 + 6 位代码」标记切记录，并回读记录头里的真实代码。
+
+    为什么不能按请求顺序 zip：服务器对不可用代码可能返回「另一只证券的合法
+    记录」，按顺序配对会把 A 的数据标成 B。这里以记录头为准返回
+    `(market, symbol, record)`；单条请求也要校验头部，避免同样的错标。
+    """
     if not items:
         return []
     if len(items) == 1:
-        return [data]
+        market, symbol = items[0]
+        if len(data) >= 7:
+            head_market = data[0]
+            head_symbol = data[1:7].decode("ascii", errors="replace").rstrip("\x00")
+            if head_symbol.isdigit() and len(head_symbol) == 6:
+                if head_market != market or head_symbol != symbol:
+                    return [(head_market, head_symbol, data)]
+        return [(market, symbol, data)]
 
-    starts: list[int] = []
-    search_from = 0
+    starts: list[tuple[int, int, str]] = []
     for market, symbol in items:
         marker = struct.pack("<B", market) + code_bytes(symbol)
-        position = data.find(marker, search_from)
+        position = data.find(marker)
         if position < 0:
             raise TdxError("行情记录缺少代码标记")
-        starts.append(position)
-        search_from = position + len(marker)
-
-    return [data[start : (starts[index + 1] if index + 1 < len(starts) else len(data))]
-            for index, start in enumerate(starts)]
+        starts.append((position, market, symbol))
+    starts.sort()
+    records: list[tuple[int, str, bytes]] = []
+    for index, (position, market, symbol) in enumerate(starts):
+        end = starts[index + 1][0] if index + 1 < len(starts) else len(data)
+        records.append((market, symbol, data[position:end]))
+    return records
 
 
 def _read_k_prices(record: bytes, pos: int) -> tuple[tuple[int, int, int, int, int], int]:
@@ -1248,16 +1352,16 @@ def _parse_snapshot_record(
     if len(record) < 9:
         raise TdxError("0x054c 记录不完整")
     prices, pos = _read_k_prices(record, 9)
-    _time_raw, pos = read_varint(record, pos)
-    _unknown_time, pos = read_varint(record, pos)
+    time_raw, pos = read_varint(record, pos)
+    unknown_time, pos = read_varint(record, pos)
     total_hand, pos = read_varint(record, pos)
-    _current_hand, pos = read_varint(record, pos)
+    current_hand, pos = read_varint(record, pos)
     amount_raw = _u32(record, pos)
     pos += 4
     inside, pos = read_varint(record, pos)
     outside, pos = read_varint(record, pos)
-    _unknown_outer, pos = read_varint(record, pos)
-    _open_amount, pos = read_varint(record, pos)
+    unknown_outer, pos = read_varint(record, pos)
+    open_amount, pos = read_varint(record, pos)
     bid_delta, pos = read_varint(record, pos)
     ask_delta, pos = read_varint(record, pos)
     bid_volume, pos = read_varint(record, pos)
@@ -1266,7 +1370,7 @@ def _parse_snapshot_record(
     current_milli = prices[0]
     bid_milli = current_milli + bid_delta * 10
     ask_milli = current_milli + ask_delta * 10
-    return _build_quote(
+    quote = _build_quote(
         market_id,
         symbol,
         received_at,
@@ -1277,6 +1381,17 @@ def _parse_snapshot_record(
         [(bid_milli, bid_volume)],
         [(ask_milli, ask_volume)],
     )
+    quote.update(
+        {
+            "timeRaw": time_raw,
+            "unknownTime": unknown_time,
+            "currentHand": current_hand,
+            "unknownOuter": unknown_outer,
+            "openAmount": open_amount,
+            "recordHex": record.hex(),
+        }
+    )
+    return quote
 
 
 def parse_snapshots(
@@ -1294,12 +1409,17 @@ def parse_snapshots(
     if count > len(items):
         raise TdxError("0x054c 返回数量超过请求数量")
 
+    requested = {full_code(market, symbol) for market, symbol in items}
     records = _split_quote_records(body[4:], items[:count])
     quotes: list[dict] = []
-    for (market, symbol), record in zip(items[:count], records):
-        quotes.append(
-            _parse_snapshot_record(record, market, symbol, received_at, securities)
+    for market, symbol, record in records:
+        quote = _parse_snapshot_record(
+            record, market, symbol, received_at, securities
         )
+        # 记录头可能是服务器返回的另一只证券：保留真实代码，并显式标出
+        # 「这条不是请求的那只」，调用方不能把它当成请求代码的数据。
+        quote["requested"] = quote["code"] in requested
+        quotes.append(quote)
     return quotes
 
 
@@ -1315,15 +1435,15 @@ def _parse_refresh_record(
     prices, pos = _read_k_prices(record, 9)
     _update_time = _u32(record, pos)
     pos += 4
-    _status, pos = read_varint(record, pos)
+    status, pos = read_varint(record, pos)
     total_hand, pos = read_varint(record, pos)
-    _current_hand, pos = read_varint(record, pos)
+    current_hand, pos = read_varint(record, pos)
     amount_raw = _u32(record, pos)
     pos += 4
     inside, pos = read_varint(record, pos)
     outside, pos = read_varint(record, pos)
-    _unknown_outer, pos = read_varint(record, pos)
-    _open_amount, pos = read_varint(record, pos)
+    unknown_outer, pos = read_varint(record, pos)
+    open_amount, pos = read_varint(record, pos)
 
     current_milli = prices[0]
     bid_levels: list[tuple[int, int]] = []
@@ -1350,6 +1470,15 @@ def _parse_refresh_record(
     quote["innerVolume"] = inside
     quote["outerVolume"] = outside
     quote["updateTime"] = _update_time
+    quote.update(
+        {
+            "status": status,
+            "currentHand": current_hand,
+            "unknownOuter": unknown_outer,
+            "openAmount": open_amount,
+            "recordHex": record.hex(),
+        }
+    )
     return quote
 
 
@@ -1528,10 +1657,12 @@ def parse_trades(
         raise TdxError("成交明细报文不完整")
     count = _u16(body, 0)
     pos = 2
+    price_base: float | None = None
     if trading_date is not None:
         if len(body) < 6:
             raise TdxError("历史成交明细缺少价格基数")
-        pos = 6  # 2 字节价格基数 f32，解析价格不需要它
+        price_base = round(_f32(body, 2), 6)
+        pos = 6  # 价格基数只做保留，价格仍按差分累计
     if count == 0:
         return []
     if count > (len(body) - pos) // 7:
@@ -1563,6 +1694,7 @@ def parse_trades(
         )
         tick: dict = {
             "index": start + index,
+            "priceBase": price_base,
             "timeMinutes": time_minutes,
             "time": f"{time_minutes // 60:02d}:{time_minutes % 60:02d}",
             "price": price,
@@ -2558,6 +2690,14 @@ def parse_bars(body: bytes, kind: str, period_raw: int = 4) -> list[dict]:
             "low": (open_raw + low_diff) / 1000,
             "volume": volume / 100,
             "amount": amount,
+            # 原始千分位/原始量额：不丢精度，便于复算与审计。
+            "openMilli": open_raw,
+            "closeMilli": close_raw,
+            "highMilli": open_raw + high_diff,
+            "lowMilli": open_raw + low_diff,
+            "lastCloseMilli": base,
+            "volumeRaw": volume_raw,
+            "amountRaw": amount_raw,
         }
         if kind == "index":
             bar["upCount"] = up_count
@@ -2757,6 +2897,275 @@ def parse_sparkline(body: bytes) -> dict:
     }
 
 
+def parse_unusual(body: bytes) -> list[dict]:
+    """0x0563 主力监控：2B 条数 + 每条 32B 定长事件。
+
+    字段布局见 gotdx `proto/get_unusual.go:103-133`：
+    市场(2) 代码(6) 未知(1) 类型(1) 未知(1) 序号(2) 未知(2) 负载(13) 小时(1) 分秒(2)。
+    事件文案按 19 个类型码映射；未知类型保留原始负载，不丢报文。
+    """
+    if len(body) < 2:
+        raise TdxError("主力监控报文不完整")
+    count = _u16(body, 0)
+    if len(body) < 2 + count * 32:
+        raise TdxError("主力监控记录长度不足")
+    rows: list[dict] = []
+    for index in range(count):
+        base = 2 + index * 32
+        market = _u16(body, base)
+        symbol = body[base + 2 : base + 8].decode("ascii", errors="replace").rstrip("\x00")
+        event_type = body[base + 9]
+        seq = _u16(body, base + 11)
+        payload = body[base + 15 : base + 28]
+        hour = body[base + 29]
+        minute_sec = _u16(body, base + 30)
+        second = minute_sec % 100
+        minute = minute_sec // 100
+        desc, value = _unusual_text(event_type, payload)
+        rows.append(
+            {
+                "code": full_code(market, symbol) if len(symbol) == 6 else symbol,
+                "market": MARKET_NAMES.get(market, str(market)),
+                "symbol": symbol,
+                "index": seq,
+                "event": event_type,
+                "desc": desc,
+                "value": value,
+                "time": f"{hour:02d}:{minute:02d}:{second:02d}",
+                "raw": payload.hex(),
+            }
+        )
+    return rows
+
+
+def _unusual_text(event_type: int, data: bytes) -> tuple[str, str]:
+    """19 类异动文案；照 gotdx 的判定顺序实现，不猜未公开类型。"""
+    if len(data) < 13:
+        return "", ""
+    v1 = data[0]
+    v2 = _f32(data, 1)
+    v3 = _f32(data, 5)
+    v4 = _f32(data, 9)
+    if event_type == 0x03:
+        return ("主力买入" if v1 == 0 else "主力卖出"), f"{v2:.2f}/{v3:.2f}"
+    if event_type == 0x04:
+        return "加速拉升", f"{v2 * 100:.2f}%"
+    if event_type == 0x05:
+        return "加速下跌", ""
+    if event_type == 0x06:
+        return "低位反弹", f"{v2 * 100:.2f}%"
+    if event_type == 0x07:
+        return "高位回落", f"{v2 * 100:.2f}%"
+    if event_type == 0x08:
+        return "撑杆跳高", f"{v2 * 100:.2f}%"
+    if event_type == 0x09:
+        return "平台跳水", f"{v2 * 100:.2f}%"
+    if event_type == 0x0A:
+        return ("单笔冲跌" if v2 < 0 else "单笔冲涨"), f"{v2 * 100:.2f}%"
+    if event_type == 0x0B:
+        if v3 == 0:
+            return "区间放量平", f"{v2:.1f}倍"
+        kind = "区间放量跌" if v3 < 0 else "区间放量涨"
+        return kind, f"{v2:.1f}倍{v3 * 100:.2f}%"
+    if event_type == 0x0C:
+        return "区间缩量", ""
+    if event_type == 0x10:
+        return "大单托盘", f"{v4:.2f}/{v3:.2f}"
+    if event_type == 0x11:
+        return "大单压盘", f"{v2:.2f}/{v3:.2f}"
+    if event_type == 0x12:
+        return "大单锁盘", ""
+    if event_type == 0x13:
+        return "竞价试买", f"{v2:.2f}/{v3:.2f}"
+    if event_type == 0x14:
+        if len(data) < 10:
+            return "", ""
+        sub_type = data[1]
+        uv2 = _f32(data, 2)
+        uv3 = _f32(data, 6)
+        direction = "跌" if v1 != 0 else "涨"
+        desc = {
+            0x01: f"逼近{direction}停",
+            0x02: f"封{direction}停板",
+            0x04: f"封{direction}大减",
+            0x05: f"打开{direction}停",
+        }.get(sub_type, "")
+        return desc, f"{uv2:.2f}/{uv3:.2f}"
+    if event_type == 0x15:
+        desc = {0x00: "尾盘异动", 0x01: "尾盘对倒", 0x02: "尾盘拉升"}.get(v1, "尾盘打压")
+        return desc, f"{v2 * 100:.2f}%/{v3:.2f}"
+    if event_type == 0x16:
+        return ("盘中弱势" if v2 < 0 else "盘中强势"), f"{v2 * 100:.2f}%"
+    if event_type == 0x1D:
+        return "急速拉升", f"{v2 * 100:.2f}%"
+    if event_type == 0x1E:
+        return "急速下跌", f"{v2 * 100:.2f}%"
+    return "", ""
+
+
+TOP_BOARD_NAMES = (
+    "increase",
+    "decrease",
+    "amplitude",
+    "riseSpeed",
+    "fallSpeed",
+    "volRatio",
+    "posCommissionRatio",
+    "negCommissionRatio",
+    "turnover",
+)
+
+
+def parse_top_board(body: bytes) -> dict:
+    """0x053f 排行榜：1B 每榜条数 + 9 个榜单 × size × 15B。"""
+    if not body:
+        raise TdxError("排行榜报文为空")
+    size = body[0]
+    if size <= 0:
+        return {"size": 0, "boards": {}}
+    need = 1 + 9 * size * 15
+    if len(body) < need:
+        raise TdxError("排行榜报文长度不足")
+    boards: dict[str, list[dict]] = {}
+    pos = 1
+    for name in TOP_BOARD_NAMES:
+        rows: list[dict] = []
+        for _ in range(size):
+            market = body[pos]
+            symbol = body[pos + 1 : pos + 7].decode("ascii", errors="replace").rstrip("\x00")
+            price = _f32(body, pos + 7)
+            value = _f32(body, pos + 11)
+            rows.append(
+                {
+                    "code": full_code(market, symbol) if len(symbol) == 6 else symbol,
+                    "market": MARKET_NAMES.get(market, str(market)),
+                    "symbol": symbol,
+                    "price": round(float(price), 4),
+                    "value": round(float(value), 4),
+                }
+            )
+            pos += 15
+        boards[name] = rows
+    return {"size": size, "boards": boards}
+
+
+def parse_volume_profile(body: bytes) -> dict:
+    """0x051a 成交分布（筹码分布）：11B 头 + 变长快照 + 三档盘口 + 价位分布。"""
+    if len(body) < 11:
+        raise TdxError("成交分布报文不完整")
+    count = _u16(body, 0)
+    market = body[2]
+    symbol = body[3:9].decode("ascii", errors="replace").rstrip("\x00")
+    active = _u16(body, 9)
+    pos = 11
+
+    def price() -> int:
+        nonlocal pos
+        value, pos = read_varint(body, pos)
+        return value
+
+    base = price()
+    pre_close_diff = price()
+    open_diff = price()
+    high_diff = price()
+    low_diff = price()
+    server_time_raw = price()
+    neg_price_raw = price()
+    volume = price()
+    current_volume = price()
+    amount = _f32(body, pos)
+    pos += 4
+    in_volume = price()
+    out_volume = price()
+    sell_amount = price()
+    open_amount = price()
+
+    bids: list[dict] = []
+    asks: list[dict] = []
+    for _ in range(3):
+        bid = price() + base
+        ask = price() + base
+        bid_volume = price()
+        ask_volume = price()
+        bids.append({"price": round(bid / 100, 2), "volume": bid_volume})
+        asks.append({"price": round(ask / 100, 2), "volume": ask_volume})
+
+    if pos + 2 <= len(body):
+        pos += 2  # 未知 u16
+
+    profile: list[dict] = []
+    current = 0
+    for _ in range(count):
+        delta = price()
+        if delta >= 1 << 31:
+            delta = delta - (1 << 32)
+        delta_volume = price()
+        buy = price()
+        sell = price()
+        current += delta
+        profile.append(
+            {
+                "price": round(current / 100, 2),
+                "volume": delta_volume,
+                "buy": buy,
+                "sell": sell,
+            }
+        )
+
+    return {
+        "marketId": market,
+        "symbol": symbol,
+        "active": active,
+        "serverTimeRaw": server_time_raw,
+        "time": _format_tick_time(server_time_raw),
+        "close": round(base / 100, 2),
+        "preClose": round((base + pre_close_diff) / 100, 2),
+        "open": round((base + open_diff) / 100, 2),
+        "high": round((base + high_diff) / 100, 2),
+        "low": round((base + low_diff) / 100, 2),
+        "negPrice": round(neg_price_raw / 100, 2),
+        "volume": volume,
+        "currentVolume": current_volume,
+        "amount": round(float(amount), 2),
+        "inVolume": in_volume,
+        "outVolume": out_volume,
+        "sellAmount": sell_amount,
+        "openAmount": open_amount,
+        "bids": bids,
+        "asks": asks,
+        "count": len(profile),
+        "profile": profile,
+    }
+
+
+def _format_tick_time(raw: int) -> str:
+    """0x051a 的 serverTime 是「时 + 分 + 秒的小数」压缩整数。
+
+    照 gotdx `formatServerTime` 还原：分钟位 (`raw/10000%100`) < 60 时按
+    `时=raw/1000000`、`秒=(raw%10000)*60/10000` 拆；否则按整段分钟重拆。
+    返回 HH:MM:SS.mmm；0/100 视为无效。
+    """
+    if raw <= 0 or raw == 100:
+        return ""
+    minutes_field = (raw // 10000) % 100
+    if minutes_field < 60:
+        hours = raw // 1_000_000
+        minutes = minutes_field
+        seconds_millis = (raw % 10000) * 60 / 10000.0
+    else:
+        total = (raw % 1_000_000) * 60 / 1_000_000.0
+        hours = raw // 1_000_000
+        minutes = int(total // 60)
+        seconds_millis = total - minutes * 60
+        hours += minutes // 60
+        minutes %= 60
+    seconds = int(seconds_millis)
+    millis = int(round((seconds_millis - seconds) * 1000))
+    if hours > 23 or millis >= 1000:
+        return ""
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{millis:03d}"
+
+
 def parse_recent_minute(
     body: bytes, code: str, name: str, date: str, decimal: int | None
 ) -> dict:
@@ -2873,6 +3282,10 @@ def parse_security_list(body: bytes, market: int) -> list[dict]:
                 "symbol": symbol,
                 "name": name or symbol,
                 "decimal": decimal,
+                "multiple": _u16(body, base + 6),
+                "volumeRatioBase": round(_f32(body, base + 24), 6),
+                "prevClose": round(_f32(body, base + 29), 4),
+                "tailHex": body[base + 33 : base + 37].hex(),
                 "kind": classify_security(market, symbol),
             }
         )
@@ -2977,6 +3390,12 @@ def parse_finance(body: bytes) -> list[dict]:
     offsets = {
         "floatShares": 0,
         "totalShares": 16,
+        # 16..40 的 6 个股本字段：总股本 + 国家股/发起人法人股/法人股/B 股/H 股
+        "stateShares": 20,
+        "sponsorShares": 24,
+        "legalPersonShares": 28,
+        "bShares": 32,
+        "hShares": 36,
         "eps": 40,
         "totalAssets": 44,
         "currentAssets": 48,
@@ -3026,17 +3445,87 @@ def parse_finance(body: bytes) -> list[dict]:
         )
         values["floatSharesRaw"] = values["floatShares"]
         values["totalSharesRaw"] = values["totalShares"]
-        values["floatSharesYuan"] = values["floatShares"] * 10000
-        values["totalSharesYuan"] = values["totalShares"] * 10000
+        values["floatSharesShares"] = values["floatShares"] * 10000
+        values["totalSharesShares"] = values["totalShares"] * 10000
+        # 旧字段名保留一版，避免已有 CSV/Parquet 消费者立刻断掉；语义是「股」。
+        values["floatSharesYuan"] = values["floatSharesShares"]
+        values["totalSharesYuan"] = values["totalSharesShares"]
         values["totalAssetsYuan"] = values["totalAssets"] * 1000
         values["revenueYuan"] = values["revenue"] * 1000
         values["netProfitYuan"] = values["netProfit"] * 1000
+        values["recordHex"] = body[base : base + 143].hex()
         items.append({"code": full_code(market_id, symbol), **values})
 
     return items
 
 
 # ---------------------------------------------------------------- 业务
+
+
+def _archive_key(text: str) -> str:
+    """把任意业务 key 压成 code_archive 允许的字符集（小写字母/数字/._-）。
+
+    额外压掉 `..` 与连续下划线：key 会直接变成文件名，不能留任何路径语义。
+    """
+    cleaned = re.sub(r"[^a-z0-9._-]+", "_", str(text or "").strip().lower())
+    cleaned = re.sub(r"\.{2,}", "_", cleaned)
+    cleaned = re.sub(r"_{2,}", "_", cleaned).strip("._-")
+    return (cleaned or "unknown")[:64]
+
+
+def _write_keyed_archive(
+    root: Path,
+    dataset: str,
+    key: str,
+    rows: list[dict],
+    *,
+    source: str,
+    trade_date: str,
+    fields: list[str] | None = None,
+) -> dict:
+    """按业务 key 分片写归档；空结果返回 skipped，不生成空文件。"""
+    materialized = [dict(row) for row in rows]
+    if not materialized:
+        return {
+            "dataset": dataset,
+            "key": _archive_key(key),
+            "tradeDate": trade_date,
+            "dir": str(Path(root).resolve()),
+            "rows": 0,
+            "sha256": "",
+            "generatedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "skipped": True,
+            "empty": True,
+        }
+    return write_code_archive(
+        root,
+        dataset,
+        _archive_key(key),
+        materialized,
+        source=source,
+        trade_date=trade_date,
+        fields=fields,
+    )
+
+
+def _merge_archive_lists(root: Path, limit: int) -> list[dict]:
+    """合并「整包一份」的旧归档与「每代码一份」的新归档，统一按日期倒序。
+
+    旧布局：trade_date=.../<dataset>.jsonl.gz + manifest.json
+    新布局：trade_date=.../<code>.jsonl.gz + <code>.manifest.json
+    两种都要能列出，否则升级前的历史归档在 UI 里会突然消失。
+    """
+    legacy = list_dataset_archives(root, limit)
+    partitioned = list_code_archives(root, limit)
+    merged = legacy + partitioned
+    merged.sort(
+        key=lambda item: (
+            str(item.get("tradeDate") or ""),
+            str(item.get("generatedAt") or ""),
+        ),
+        reverse=True,
+    )
+    return merged[: max(1, min(1000, int(limit)))]
 
 
 class CodeIndex:
@@ -3554,7 +4043,13 @@ def _write_kline_cache(
 
 
 def _write_full_kline_cache(
-    code: str, period: str, adjust: str, bars: list[dict], pages: int, complete: bool
+    code: str,
+    period: str,
+    adjust: str,
+    bars: list[dict],
+    pages: int,
+    complete: bool,
+    source: str = "network",
 ) -> Path:
     target = _full_kline_cache_path(code, period, adjust)
     write_bars(target, code, bars)
@@ -3565,7 +4060,7 @@ def _write_full_kline_cache(
             "period": period,
             "count": len(bars),
             "adjust": adjust,
-            "source": "network",
+            "source": source,
             "fetchedAt": int(time.time() * 1000),
             "pages": pages,
             "complete": complete,
@@ -3608,11 +4103,22 @@ def prefer_tick_archive(now: datetime, trade_date: str) -> bool:
 
 
 class Bridge:
-    def __init__(self) -> None:
-        self.preferred_host = _preferred_host()
+    def __init__(
+        self, host: str | None = None, index_items: list[dict] | None = None
+    ) -> None:
+        # host 用于离线同步的多线程分片：每条线程钉在不同主站，故障时
+        # TdxConnection 仍会按 endpoints 列表继续换站。
+        self.preferred_host = host or _preferred_host()
         self.conn = TdxConnection(_ordered_endpoints(self.preferred_host))
         self.money_conn: TdxConnection | None = None
         self.index = CodeIndex()
+        if index_items:
+            # 父进程已拉过代码表，worker 直接复用，避免每个线程重复 0x044d 分页。
+            self.index.all = [dict(item) for item in index_items]
+            self.index.by_code = {
+                str(item.get("code")): item for item in self.index.all if item.get("code")
+            }
+            self.index.loaded = True
         self.finance_cache: dict[str, tuple[float, dict]] = {}
         self.block_cache: dict[str, tuple[float, dict]] = {}
         self.industry_cache: tuple[float, dict] | None = None
@@ -3631,9 +4137,23 @@ class Bridge:
         self.quote_watch: set[str] = set()
         self.quote_day = ""
         self.quote_baseline_at = 0.0
+        # MAC 长连接按需建立；与 7709 连接分开，MAC 失败不影响主链路。
+        self._mac_session = None
 
     def close(self) -> None:
         self.conn.close()
+        if self._mac_session is not None:
+            try:
+                self._mac_session.close()
+            except Exception:
+                pass
+            self._mac_session = None
+        if getattr(self, "_finance_history_conn", None) is not None:
+            try:
+                self._finance_history_conn.close()
+            except Exception:
+                pass
+            self._finance_history_conn = None
         if self.money_conn is not None:
             self.money_conn.close()
 
@@ -3766,6 +4286,368 @@ class Bridge:
                 items.append(item)
         items.sort(key=lambda item: (item["time"], item["index"]), reverse=True)
         return items
+
+    # -- MAC 0x12xx 扩展（0x120F/0x122A/0x122D/0x122E/0x123D/0x123E）------
+
+    def _mac(self):
+        from tdx_mac_ext import open_session
+
+        if getattr(self, "_mac_session", None) is None:
+            self._mac_session = open_session()
+        return self._mac_session
+
+    def _mac_request(self, command: int, payload: bytes) -> bytes:
+        """MAC 请求带一次重连：长连接空闲被服务端断开后不至于永久失败。"""
+        last: Exception | None = None
+        for attempt in range(2):
+            try:
+                return self._mac().request(command, payload)
+            except (OSError, MacError) as error:
+                last = error
+                if self._mac_session is not None:
+                    try:
+                        self._mac_session.close()
+                    except Exception:
+                        pass
+                    self._mac_session = None
+                if attempt == 0:
+                    continue
+        raise MacError(f"MAC 请求失败：{last}") from last
+
+    def server_info(self) -> dict:
+        """7709 握手信息（服务器日期/两段交易时段/服务器名/产品标识）。"""
+        if self.conn.sock is None:
+            self.conn._connect()
+        return dict(getattr(self.conn, "handshake", {"available": False}))
+
+    def mac_server_info(self) -> dict:
+        from tdx_mac_ext import parse_server_info, DEFAULT_SERVER_INFO_PAYLOAD
+
+        body = self._mac_request(0x120F, bytes(DEFAULT_SERVER_INFO_PAYLOAD))
+        return parse_server_info(body)
+
+    def mac_symbol_info(self, code: str) -> dict:
+        from tdx_mac_ext import _symbol_info_request, parse_symbol_info
+
+        market, symbol = parse_code(code)
+        body = self._mac_request(0x122A, _symbol_info_request(market, symbol))
+        return parse_symbol_info(body)
+
+    def mac_quote_detail(self, code: str, date: int = 0) -> dict:
+        from tdx_mac_ext import _quote_detail_request, parse_quote_detail
+
+        market, symbol = parse_code(code)
+        body = self._mac_request(0x122D, _quote_detail_request(market, symbol, date))
+        return parse_quote_detail(body)
+
+    def mac_kline(
+        self,
+        code: str,
+        period: str = "day",
+        start: int = 0,
+        count: int = 800,
+        adjust: str = "none",
+        keep_first: bool = False,
+        pre_close_hint: float | None = None,
+    ) -> dict:
+        from tdx_mac_ext import MAC_PERIODS, _bars_request, parse_symbol_bars
+
+        if period not in MAC_PERIODS:
+            raise TdxError(f"MAC 不支持周期：{period}")
+        market, symbol = parse_code(code)
+        adjust_raw = {"none": 0, "qfq": 1, "hfq": 2}.get(adjust, 0)
+        body = self._mac_request(
+            0x122E,
+            _bars_request(market, symbol, MAC_PERIODS[period], start, count, adjust_raw, 1),
+        )
+        result = parse_symbol_bars(body, keep_first, pre_close_hint)
+        result["source"] = "mac"
+        return result
+
+    def mac_full_kline(
+        self, code: str, period: str = "day", adjust: str = "none"
+    ) -> dict:
+        """MAC 0x122E 分页拉全历史，写与 7709 相同的 `*_all_*.parquet`。"""
+        market, symbol = parse_code(code)
+        page_size = 800
+        # MAC 的 start 是 u32（7709 的 0x052d 才是 u16）；5 秒线全历史需要更大空间。
+        max_pages = 400
+        start = 0
+        pages = 0
+        by_date: dict[str, dict] = {}
+        complete = False
+        last_close: float | None = None
+        while start <= 0xFFFFFFFF and pages < max_pages:
+            page = self.mac_kline(
+                code,
+                period,
+                start,
+                page_size,
+                adjust,
+                keep_first=True,
+                pre_close_hint=last_close,
+            )["bars"]
+            if not page:
+                complete = True
+                break
+            pages += 1
+            fresh = 0
+            for bar in page:
+                if bar["date"] not in by_date:
+                    fresh += 1
+                by_date[bar["date"]] = bar
+            if fresh == 0:
+                break
+            if page:
+                last_close = float(page[-1].get("close") or 0.0)
+            start += len(page)
+        bars = sorted(by_date.values(), key=lambda bar: bar["date"])
+        if not bars:
+            cached = _read_kline_cache(code, period, 800, adjust)
+            if cached is not None:
+                return cached
+            raise TdxError("MAC 未返回 K 线数据")
+        target = _write_full_kline_cache(
+            code, period, adjust, bars, pages, complete, source="mac"
+        )
+        return {
+            "code": code,
+            "period": period,
+            "adjust": adjust,
+            "bars": bars,
+            "source": "mac",
+            "pages": pages,
+            "complete": complete,
+            "cachePath": str(target),
+            "fetchedAt": int(time.time() * 1000),
+        }
+
+    def mac_board_members(
+        self, board: str, start: int = 0, page_size: int = 80
+    ) -> dict:
+        from tdx_mac_ext import fetch_board_members
+
+        return fetch_board_members(self._mac(), board, start, page_size)
+
+    def mac_file_meta(self, filename: str) -> dict:
+        from tdx_mac_ext import fetch_file_meta
+
+        return fetch_file_meta(self._mac(), filename)
+
+    def mac_file_chunk(
+        self, filename: str, index: int = 1, offset: int = 0, size: int = 30000
+    ) -> dict:
+        from tdx_mac_ext import fetch_file_chunk
+
+        result = fetch_file_chunk(self._mac(), filename, index, offset, size)
+        result["dataHex"] = result.pop("data").hex()
+        return result
+
+    def mac_kline_offset(self, offset: int = 0, count: int = 128000) -> dict:
+        from tdx_mac_ext import fetch_kline_offset
+
+        return fetch_kline_offset(self._mac(), offset, count)
+
+    def mac_auctions(self, code: str, start: int = 0, count: int = 500) -> dict:
+        from tdx_mac_ext import _auction_request, parse_auctions
+
+        market, symbol = parse_code(code)
+        body = self._mac_request(0x123D, _auction_request(market, symbol, start, count))
+        return parse_auctions(body)
+
+    def mac_tick_charts(self, code: str, date: int = 0, days: int = 5) -> dict:
+        from tdx_mac_ext import _tick_charts_request, parse_tick_charts
+
+        market, symbol = parse_code(code)
+        body = self._mac_request(0x123E, _tick_charts_request(market, symbol, date, days))
+        return parse_tick_charts(body, days)
+
+    def mac_minute_archive_save(self, code: str) -> dict:
+        """MAC 0x123E 当日分时写与 0x0537 相同的按代码分片归档。"""
+        result = self.mac_tick_charts(code, 0, 1)
+        if not result.get("days"):
+            raise TdxError("MAC 未返回分时数据")
+        # 只用最新的一天，并确认它确实是今天；否则会把旧日分时写成 today_minute。
+        day = result["days"][-1]
+        today = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
+        if day.get("date") != today:
+            raise TdxError(f"MAC 分时最新日期 {day.get('date')} 不是今天 {today}")
+        rows = [
+            {
+                "code": result["code"],
+                "date": day["date"],
+                "time": point["time"],
+                "price": point["price"],
+                "avg": point["avg"],
+                "volume": point["volume"],
+            }
+            for point in day["points"]
+        ]
+        if not rows:
+            raise TdxError("MAC 分时数据为空")
+        return {
+            "code": result["code"],
+            "date": day["date"],
+            "rows": len(rows),
+            "archive": write_code_archive(
+                pythontdx_data_dir() / "lake" / "today_minute",
+                "today_minute",
+                result["code"],
+                rows,
+                source="TDX MAC 0x123e",
+                trade_date=day["date"],
+                fields=["code", "date", "time", "price", "avg", "volume"],
+            ),
+        }
+
+    # -- 0x0563 / 0x053f / 0x051a（docs/16 L2/L3/M5）----------------------
+
+    def unusual(self, count: int = 600, market: int | None = None) -> list[dict]:
+        """7709 0x0563 主力监控；默认沪深合并，按时间倒序。"""
+        try:
+            self.index.ensure(self.conn)
+        except Exception as error:  # noqa: BLE001 - 名称缺失不影响事件本身
+            print(f"[tdx] 主力监控代码表加载失败：{error}", file=sys.stderr)
+        markets = [market] if market in (0, 1, 2) else [0, 1]
+        search_start = 0
+        rows: list[dict] = []
+        for item in markets:
+            body = self.conn.request(
+                CMD_UNUSUAL, unusual_data(int(item), start=search_start, count=count)
+            )
+            for row in parse_unusual(body):
+                row["name"] = self._name(row["code"], row["symbol"])
+                rows.append(row)
+        rows.sort(key=lambda row: (row["time"], row["index"]), reverse=True)
+        return rows
+
+    def top_board(self, category: int = 0, size: int = 20) -> dict:
+        """0x053f 排行榜：一次请求拿 9 个榜单。"""
+        try:
+            self.index.ensure(self.conn)
+        except Exception as error:  # noqa: BLE001
+            print(f"[tdx] 排行榜代码表加载失败：{error}", file=sys.stderr)
+        body = self.conn.request(CMD_TOP_BOARD, top_board_data(category, size))
+        result = parse_top_board(body)
+        for rows in result["boards"].values():
+            for row in rows:
+                row["name"] = self._name(row["code"], row["symbol"]) if row.get("symbol") else row["code"]
+        return {"category": category, "requestedSize": size, **result}
+
+    def volume_profile(self, code: str) -> dict:
+        """0x051a 成交分布（筹码分布）+ 三档盘口 + 内外盘。"""
+        market, symbol = parse_code(code)
+        body = self.conn.request(
+            CMD_VOLUME_PROFILE, volume_profile_data(market, symbol)
+        )
+        result = parse_volume_profile(body)
+        result.update(
+            {
+                "code": full_code(market, symbol),
+                "market": MARKET_NAMES.get(market, ""),
+                "name": self._name(code, symbol),
+            }
+        )
+        return result
+
+    def unusual_archive_save(self, count: int = 600) -> dict:
+        rows = self.unusual(count)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            "rows": len(rows),
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "unusual",
+                "unusual",
+                rows,
+                source="TDX 7709 0x0563 主力监控",
+                trade_date=trade_date,
+                fields=[
+                    "code",
+                    "name",
+                    "market",
+                    "index",
+                    "event",
+                    "desc",
+                    "value",
+                    "time",
+                    "raw",
+                ],
+            ),
+        }
+
+    def unusual_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(pythontdx_data_dir() / "lake" / "unusual", limit)
+
+    def top_board_archive_save(self, category: int = 0, size: int = 20) -> dict:
+        result = self.top_board(category, size)
+        rows = [
+            {
+                "board": name,
+                "category": category,
+                "code": row.get("code"),
+                "name": row.get("name"),
+                "price": row.get("price"),
+                "value": row.get("value"),
+            }
+            for name, items in result["boards"].items()
+            for row in items
+        ]
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            "category": category,
+            "size": result["size"],
+            "rows": len(rows),
+            "archive": write_code_archive(
+                pythontdx_data_dir() / "lake" / "top_board",
+                "top_board",
+                f"c{category}_s{size}",
+                rows,
+                source=f"TDX 7709 0x053f category={category}",
+                trade_date=trade_date,
+                fields=["board", "category", "code", "name", "price", "value"],
+            ),
+        }
+
+    def top_board_archive_list(self, limit: int = 50) -> list[dict]:
+        return _merge_archive_lists(
+            pythontdx_data_dir() / "lake" / "top_board", limit
+        )
+
+    def volume_profile_archive_save(self, code: str) -> dict:
+        result = self.volume_profile(code)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        rows = [
+            {
+                "code": result["code"],
+                "name": result["name"],
+                "price": point["price"],
+                "volume": point["volume"],
+                "buy": point["buy"],
+                "sell": point["sell"],
+            }
+            for point in result["profile"]
+        ]
+        if not rows:
+            raise TdxError("成交分布为空，不能归档")
+        return {
+            "code": result["code"],
+            "count": result["count"],
+            "rows": len(rows),
+            "archive": write_code_archive(
+                pythontdx_data_dir() / "lake" / "volume_profile",
+                "volume_profile",
+                result["code"],
+                rows,
+                source="TDX 7709 0x051a 成交分布",
+                trade_date=trade_date,
+                fields=["code", "name", "price", "volume", "buy", "sell"],
+            ),
+        }
+
+    def volume_profile_archive_list(self, limit: int = 50) -> list[dict]:
+        return _merge_archive_lists(
+            pythontdx_data_dir() / "lake" / "volume_profile", limit
+        )
 
     def quotes(self, codes: list[str]) -> list[dict]:
         try:
@@ -3989,9 +4871,12 @@ class Bridge:
             "category": category,
             "sortType": sort_type,
             "rows": len(rows),
-            "archive": write_dataset_archive(
+            # 不同 category/sort 是不同快照，必须按 key 分片；旧布局同一天
+            # 只会留下第一个 category，其余直接 skipped。
+            "archive": _write_keyed_archive(
                 pythontdx_data_dir() / "lake" / "category_quotes",
                 "category_quotes",
+                f"c{int(category)}_s{int(sort_type)}",
                 rows,
                 source=f"TDX 7709 0x054b category={category} sort={sort_type}",
                 trade_date=trade_date,
@@ -3999,7 +4884,7 @@ class Bridge:
         }
 
     def category_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "category_quotes", limit
         )
 
@@ -4798,9 +5683,10 @@ class Bridge:
     def block_meta_archive_save(self, filename: str) -> dict:
         meta = self.block_meta(filename)
         trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
-        return write_dataset_archive(
+        return _write_keyed_archive(
             pythontdx_data_dir() / "lake" / "server_meta",
             "block_meta",
+            f"file_{meta['filename']}",
             [meta],
             source="TDX 7709 0x02c5",
             trade_date=trade_date,
@@ -4808,12 +5694,17 @@ class Bridge:
         )
 
     def block_meta_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "server_meta", limit
         )
 
     def money_flow(self, code: str) -> list[dict]:
-        """0x0ffc 资金流向日数据；必须走资金流专用节点。"""
+        """0x0ffc 资金流向日数据；必须走资金流专用节点。
+
+        成功后按交易日写 `lake/money_flow`（与 MAC 0x1218 共用目录但 payload
+        带 `source` 区分）。0x0ffc 是唯一带「5 日分档」的权威源，之前只解析
+        不落盘，文档却宣称已归档——这里补齐。
+        """
         market, symbol = parse_code(code)
         if self.money_conn is None:
             self.money_conn = TdxConnection(MONEY_FLOW_HOSTS)
@@ -4829,6 +5720,20 @@ class Bridge:
             for record in records
         ):
             raise TdxError("资金流节点返回空金额，请换资金流主站")
+        if records:
+            try:
+                write_flow_archive(
+                    pythontdx_data_dir() / "lake" / "money_flow",
+                    full_code(market, symbol),
+                    {
+                        "code": full_code(market, symbol),
+                        "source": "7709 0x0ffc",
+                        "records": records,
+                        "receivedAt": int(time.time() * 1000),
+                    },
+                )
+            except Exception as error:  # noqa: BLE001 - 归档失败不影响查询
+                print(f"[tdx] 0x0ffc 资金流归档失败：{error}", file=sys.stderr)
         return records
 
     def f10_catalog(self, code: str) -> list[dict]:
@@ -4899,6 +5804,109 @@ class Bridge:
         """7615 TQLEX 公司新闻列表。"""
         return fetch_news(code)
 
+    def f10_stock_info(self, code: str) -> dict:
+        from tdx_f10 import fetch_stock_info
+
+        return fetch_stock_info(code)
+
+    def f10_topic_ids(self, code: str) -> dict:
+        from tdx_f10 import fetch_topic_ids
+
+        return fetch_topic_ids(code)
+
+    def f10_finance_diagnosis(self, code: str, section: str = "zzyj") -> dict:
+        from tdx_f10 import fetch_finance_diagnosis
+
+        return fetch_finance_diagnosis(code, section)
+
+    def f10_stock_score(self, code: str, section: str = "pf", arg: str = "") -> dict:
+        from tdx_f10 import fetch_stock_score
+
+        return fetch_stock_score(code, section, arg)
+
+    def f10_topic_compare(
+        self, code: str, topic_id: str, section: str = "gndbzfsj", sort_by: str = "zdf"
+    ) -> dict:
+        from tdx_f10 import fetch_topic_compare
+
+        return fetch_topic_compare(code, topic_id, section, sort_by)
+
+    def f10_allotment_dates(self, code: str) -> dict:
+        from tdx_f10 import fetch_allotment_dates
+
+        return fetch_allotment_dates(code)
+
+    def f10_allotment_details(self, code: str, date: str) -> dict:
+        from tdx_f10 import fetch_allotment_details
+
+        return fetch_allotment_details(code, date)
+
+    def f10_hq_nlp(
+        self, code: str, req_id: str, days: int | None = None, page_size: int = 10
+    ) -> dict:
+        from tdx_f10 import fetch_hq_nlp
+
+        return fetch_hq_nlp(code, req_id, days=days, page_size=page_size)
+
+    def f10_industry_page(self, hy: str, section: str = "hqtj") -> dict:
+        from tdx_f10 import fetch_industry_page
+
+        return fetch_industry_page(hy, section)
+
+    def f10_board_member_quotes(
+        self, board_code: str, board_market: int = 1
+    ) -> dict:
+        from tdx_f10 import fetch_board_member_quotes
+
+        return fetch_board_member_quotes(board_code, board_market)
+
+    def f10_limit_board_ladder(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        include_summary: bool = False,
+    ) -> dict:
+        from tdx_f10 import fetch_limit_board_ladder
+
+        return fetch_limit_board_ladder(start_date, end_date, include_summary)
+
+    def f10_limit_board_archive_save(
+        self, start_date: str | None = None, end_date: str | None = None
+    ) -> dict:
+        """涨跌停梯子按结束日期归档；表多，行里带 table 序号。"""
+        from tdx_f10 import fetch_limit_board_ladder
+
+        result = fetch_limit_board_ladder(start_date, end_date, include_summary=True)
+        rows: list[dict] = []
+        for name in ("detail", "summary"):
+            block = result.get(name) or {}
+            for index, table in enumerate(block.get("tables") or []):
+                for row in table.get("rows") or []:
+                    rows.append(
+                        {
+                            "table": f"{name}-{index}",
+                            "columns": table.get("columns") or [],
+                            "row": row,
+                        }
+                    )
+        if not rows:
+            raise TdxError("涨跌停梯子为空")
+        raw = str(result["endDate"])
+        trade_date = f"{raw[:4]}-{raw[4:6]}-{raw[6:]}"
+        archive = write_dataset_archive(
+            pythontdx_data_dir() / "lake" / "limit_ladder",
+            "limit_ladder",
+            rows,
+            source="TDX 7615 CWServ.cfg_fx_lbtt",
+            trade_date=trade_date,
+        )
+        return {"tradeDate": trade_date, "rows": len(rows), "archive": archive}
+
+    def f10_finance_weights(self, code: str, section: str = "zcfzb") -> dict:
+        from tdx_f10 import fetch_finance_weights
+
+        return fetch_finance_weights(code, section)
+
     def f10_digest(self, code: str, section: str = "tips") -> dict:
         """7615 最新提示 8 分区。"""
         return fetch_digest(code, section)
@@ -4928,12 +5936,14 @@ class Bridge:
     ) -> dict:
         rows = self.f10_channel_news(channel, page, page_size, keyword)
         trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        keyword_key = f"_k{hashlib.sha1(keyword.encode()).hexdigest()[:8]}" if keyword else ""
         return {
             "channel": channel,
             "rows": len(rows),
-            "archive": write_dataset_archive(
+            "archive": _write_keyed_archive(
                 pythontdx_data_dir() / "lake" / "channel_news",
                 "channel_news",
+                f"ch{int(channel)}_p{int(page)}{keyword_key}",
                 rows,
                 source=f"TDX 7615 CWServ.tdxi_zxxwnews channel={channel}",
                 trade_date=trade_date,
@@ -4942,7 +5952,7 @@ class Bridge:
         }
 
     def f10_channel_news_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "channel_news", limit
         )
 
@@ -4953,9 +5963,10 @@ class Bridge:
         trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
         return {
             "rows": len(rows),
-            "archive": write_dataset_archive(
+            "archive": _write_keyed_archive(
                 pythontdx_data_dir() / "lake" / "market_news",
                 "market_news",
+                f"tab{int(tab)}_p{int(page)}",
                 rows,
                 source=f"TDX 7615 CWServ.tdxi_zxxwsy tab={tab}",
                 trade_date=trade_date,
@@ -4964,7 +5975,7 @@ class Bridge:
         }
 
     def f10_market_news_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "market_news", limit
         )
 
@@ -5001,11 +6012,13 @@ class Bridge:
                     }
                 )
         trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        arg_key = f"_a{hashlib.sha1(arg.encode()).hexdigest()[:8]}" if arg else ""
         return {
             **result,
-            "archive": write_dataset_archive(
+            "archive": _write_keyed_archive(
                 pythontdx_data_dir() / "lake" / "f10_market",
                 "f10_market",
+                f"{code or 'market'}_{section}_p{int(page)}{arg_key}",
                 rows,
                 source=f"TDX 7615 skef10 section={section}",
                 trade_date=trade_date,
@@ -5013,7 +6026,7 @@ class Bridge:
         }
 
     def f10_market_report_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "f10_market", limit
         )
 
@@ -5056,9 +6069,10 @@ class Bridge:
         trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
         return {
             **result,
-            "archive": write_dataset_archive(
+            "archive": _write_keyed_archive(
                 pythontdx_data_dir() / "lake" / "f10_detail",
                 "f10_detail",
+                f"{detail_type}_{record_id}",
                 rows,
                 source=f"TDX 7615 CWServ.tdxf10_gg_idreq type={detail_type}",
                 trade_date=trade_date,
@@ -5066,7 +6080,7 @@ class Bridge:
         }
 
     def f10_detail_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "f10_detail", limit
         )
 
@@ -5153,6 +6167,7 @@ class Bridge:
         path: str,
         chunk_size: int = FILE_CHUNK,
         max_bytes: int = MAX_FILE_BYTES,
+        conn: TdxConnection | None = None,
     ) -> tuple[bytes, int]:
         if chunk_size < 1 or chunk_size > MAX_FILE_CHUNK:
             raise TdxError("下载块大小必须在 1~60000 字节之间")
@@ -5164,7 +6179,7 @@ class Bridge:
         offset = 0
         chunks = 0
         while True:
-            body = self.conn.request(
+            body = (conn or self.conn).request(
                 CMD_FILE_CONTENT, file_content_data(normalized, offset, chunk_size)
             )
             chunk = parse_file_chunk(body, normalized, offset, chunk_size)
@@ -5177,6 +6192,124 @@ class Bridge:
                 break
             offset += size
         return bytes(data), chunks
+
+    # -- 历史专业财务 gpcw（计算服务器，0x06b9）-------------------------
+
+    FINANCE_HISTORY_HOSTS = (("120.76.152.87", 7709),)
+
+    def _finance_conn(self) -> TdxConnection:
+        if getattr(self, "_finance_history_conn", None) is None:
+            self._finance_history_conn = TdxConnection(
+                list(self.FINANCE_HISTORY_HOSTS)
+            )
+        return self._finance_history_conn
+
+    def gbbq_read(
+        self, path: str | None = None, limit: int = 5000, offset: int = 0
+    ) -> dict:
+        """读取本地 GBBQ；默认分页返回，避免一次把 20 万行塞进 JSON 管道。"""
+        from gbbq import find_gbbq_path, read_gbbq
+
+        target = Path(path).expanduser() if path else find_gbbq_path()
+        if target is None:
+            raise TdxError("未找到 gbbq 文件；请传 path 或设置 PYTHONTDX_GBBQ_PATH")
+        rows = read_gbbq(target, strict=False)
+        raw = target.read_bytes()
+        declared = struct.unpack_from("<I", raw, 0)[0] if len(raw) >= 4 else 0
+        expected_bytes = 4 + declared * 29
+        start = max(0, int(offset))
+        size = int(limit)
+        page = rows[start:] if size <= 0 else rows[start : start + size]
+        return {
+            "path": str(target),
+            "count": len(rows),
+            "declared": declared,
+            "truncated": len(raw) != expected_bytes,
+            "skipped": max(0, declared - len(rows)),
+            "offset": start,
+            "limit": size,
+            "rows": page,
+            "bytes": len(raw),
+        }
+
+    def gbbq_archive_save(self, path: str | None = None) -> dict:
+        """把完整 GBBQ 规范化为 lake/gbbq/trade_date=all 归档。"""
+        from gbbq import find_gbbq_path, read_gbbq
+
+        target = Path(path).expanduser() if path else find_gbbq_path()
+        if target is None:
+            raise TdxError("未找到 gbbq 文件；请传 path 或设置 PYTHONTDX_GBBQ_PATH")
+        rows = read_gbbq(target)
+        raw = target.read_bytes()
+        declared = struct.unpack_from("<I", raw, 0)[0] if len(raw) >= 4 else 0
+        archive = write_dataset_archive(
+            pythontdx_data_dir() / "lake" / "gbbq",
+            "gbbq",
+            rows,
+            source=f"local gbbq {target}",
+            trade_date="all",
+        )
+        return {
+            "path": str(target),
+            "rows": len(rows),
+            "declared": declared,
+            "truncated": len(raw) != 4 + declared * 29,
+            "archive": archive,
+        }
+
+    def finance_history_catalog(self) -> list[dict]:
+        """gpcw.txt 清单；计算服务器不提供时返回空数组而不是伪造条目。"""
+        from finance_history import parse_file_list
+
+        data, _chunks = self._download_bytes(
+            "tdxfin/gpcw.txt", max_bytes=8 * 1024 * 1024, conn=self._finance_conn()
+        )
+        if not data:
+            raise TdxError("计算服务器未返回 tdxfin/gpcw.txt（免费节点可能不开放）")
+        entries = parse_file_list(data)
+        save_raw_file("gpcw.txt", data)
+        return entries
+
+    def finance_history_archive_save(self, filename: str) -> dict:
+        """下载一个 gpcw zip → 解析 → 按报告期写 lake/finance_history。"""
+        from finance_history import parse_zip
+
+        normalized = str(filename or "").strip().replace("\\", "/")
+        if not normalized.startswith("tdxfin/"):
+            normalized = "tdxfin/" + normalized.lstrip("/")
+        if not normalized.lower().endswith(".zip"):
+            raise TdxError("历史财务文件必须是 gpcw*.zip")
+        data, chunks = self._download_bytes(
+            normalized, max_bytes=64 * 1024 * 1024, conn=self._finance_conn()
+        )
+        if not data:
+            raise TdxError(f"计算服务器未返回 {normalized}")
+        save_raw_file(Path(normalized).name, data)
+        rows = parse_zip(data)
+        if not rows:
+            raise TdxError(f"{normalized} 没有解析出财务记录")
+        report_date = rows[0]["reportDate"] or datetime.now().astimezone().strftime("%Y-%m-%d")
+        archive = write_dataset_archive(
+            pythontdx_data_dir() / "lake" / "finance_history",
+            "finance_history",
+            rows,
+            source=f"TDX 0x06b9 {normalized}",
+            trade_date=report_date,
+        )
+        return {
+            "filename": normalized,
+            "bytes": len(data),
+            "chunks": chunks,
+            "reportDate": report_date,
+            "rows": len(rows),
+            "fieldCount": rows[0]["fieldCount"],
+            "archive": archive,
+        }
+
+    def finance_history_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "finance_history", limit
+        )
 
     def _zhb_bytes(self) -> tuple[bytes, dict, int]:
         """zhb.zip 的短期缓存；板块/行业/统计都要读它。"""
@@ -5630,13 +6763,12 @@ class Bridge:
 
         names = dict(parse_incon_sections(incon).get("TDXNHY", []))
         rs_names = dict(parse_incon_sections(incon).get("TDXRSHY", []))
+        sector_rows = parse_sector_indices(tdxzs)
         sector_by_tdx = {
-            row["tdxCode"]: row["code"]
-            for row in parse_sector_indices(tdxzs)
-            if row["tdxCode"]
+            row["tdxCode"]: row["code"] for row in sector_rows if row["tdxCode"]
         }
         sector_by_name = {
-            row["name"]: row["code"] for row in parse_sector_indices(tdxzs) if row["name"]
+            row["name"]: row["code"] for row in sector_rows if row["name"]
         }
         self.index.ensure(self.conn)
         by_symbol: dict[str, list[dict]] = {}
@@ -5727,6 +6859,7 @@ class Bridge:
             "rsBlockCount": len(rs_blocks),
             "rsCodeCount": sum(len(group["codes"]) for group in rs_blocks),
             "rsBlocks": rs_blocks,
+            "sectorIndices": sector_rows,
         }
         self.industry_cache = (time.time() + 600, result)
         return result
@@ -5818,6 +6951,11 @@ class Bridge:
                 "code",
                 "floatShares",
                 "totalShares",
+                "stateShares",
+                "sponsorShares",
+                "legalPersonShares",
+                "bShares",
+                "hShares",
                 "eps",
                 "totalAssets",
                 "currentAssets",
@@ -6009,13 +7147,19 @@ class Bridge:
     def delisted_history(
         self, code: str, page_size: int = 800, max_pages: int = 200
     ) -> dict:
-        """自动翻页到空页/短页，按日期去重升序。"""
+        """自动翻页到空页为止，按日期去重升序。
+
+        短页不再当作结束：服务端一次少给几百根并不代表历史取完（eltdx 文档
+        明确「只有空页才停」）。如果服务端对同一 start 反复返回相同内容
+        （new == 0），停止但把 complete 标成 False，不谎报完整。
+        """
         market, symbol = self._delisted_code(code)
         page_size = max(1, min(int(page_size), 800))
         max_pages = max(1, min(int(max_pages), 500))
         start = 0
         pages = 0
         by_date: dict[str, dict] = {}
+        complete = False
         while pages < max_pages:
             body = self.conn.request(
                 CMD_DELISTED_BARS,
@@ -6023,20 +7167,26 @@ class Bridge:
             )
             page = parse_delisted_bars(body)
             if not page:
+                complete = True
                 break
             pages += 1
+            fresh = 0
             for bar in page:
+                if bar["date"] not in by_date:
+                    fresh += 1
                 by_date[bar["date"]] = bar
-            if len(page) < page_size:
+            if fresh == 0:
                 break
+            if page:
+                last_close = float(page[-1].get("close") or 0.0)
             start += len(page)
         bars = sorted(by_date.values(), key=lambda bar: bar["date"])
         return {
             "code": full_code(market, symbol),
             "bars": bars,
             "pages": pages,
-            "complete": pages < max_pages,
-            "source": "network",
+            "complete": complete or pages < max_pages,
+            "source": "7709",
         }
 
     def special_limits_archive_save(self, max_rows: int = 10000) -> dict:
@@ -6149,7 +7299,7 @@ class Bridge:
                 "code": code,
                 "period": period,
                 "bars": bars,
-                "source": "network",
+                "source": "7709",
                 "adjust": safe_adjust,
                 "anchorDate": anchor_date if fixed else None,
             }
@@ -6198,10 +7348,14 @@ class Bridge:
                 complete = True
                 break
             pages += 1
+            fresh = 0
             for bar in page:
+                if bar["date"] not in bars_by_date:
+                    fresh += 1
                 bars_by_date[bar["date"]] = bar
-            if len(page) < page_size:
-                complete = True
+            # 短页不再当作结束（服务端一次少给并不代表历史取完）；只有空页才停。
+            # 若服务端对同一 start 反复返回相同数据，停止但 complete=False。
+            if fresh == 0:
                 break
             start += len(page)
         bars = sorted(bars_by_date.values(), key=lambda bar: bar["date"])
@@ -6218,70 +7372,11 @@ class Bridge:
             "period": period,
             "adjust": safe_adjust,
             "bars": bars,
-            "source": "network",
+            "source": "7709",
             "pages": pages,
             "complete": complete,
             "cachePath": str(target),
             "fetchedAt": int(time.time() * 1000),
-        }
-
-    def cache_full_klines(
-        self,
-        codes: list[str],
-        period: str = "day",
-        adjust: str = "none",
-        skip_existing: bool = False,
-        workers: int = 1,
-    ) -> dict:
-        """批量全历史下载；workers>1 时每个线程独立 TCP 连接。"""
-        safe_workers = max(1, min(16, int(workers)))
-        cached = 0
-        skipped = 0
-        failed: list[dict] = []
-        thread_state = threading.local()
-        bridges: list[Bridge] = []
-        bridges_lock = threading.Lock()
-
-        def one(code: str) -> None:
-            nonlocal cached, skipped
-            try:
-                if skip_existing and _full_kline_cache_path(code, period, adjust).exists():
-                    with bridges_lock:
-                        skipped += 1
-                    return
-                if safe_workers == 1:
-                    self.full_kline(code, period, adjust)
-                else:
-                    if not hasattr(thread_state, "bridge"):
-                        thread_state.bridge = Bridge()
-                        with bridges_lock:
-                            bridges.append(thread_state.bridge)
-                    thread_state.bridge.full_kline(code, period, adjust)
-                with bridges_lock:
-                    cached += 1
-            except Exception as error:  # noqa: BLE001 - 逐只返回失败原因
-                with bridges_lock:
-                    failed.append({"code": code, "error": str(error)})
-
-        if safe_workers == 1 or len(codes) < 2:
-            for code in codes:
-                one(code)
-        else:
-            with ThreadPoolExecutor(max_workers=safe_workers) as pool:
-                list(pool.map(one, codes))
-            for bridge in bridges:
-                try:
-                    bridge.close()
-                except Exception:
-                    pass
-        return {
-            "cached": cached,
-            "skipped": skipped,
-            "failed": failed,
-            "period": period,
-            "adjust": adjust,
-            "workers": safe_workers,
-            "dir": str(kline_cache_dir()),
         }
 
     def chart_patterns(
@@ -6445,7 +7540,15 @@ class Bridge:
         )
 
     def minute_archive_save(self, code: str) -> dict:
+        market, symbol = parse_code(code)
+        # 0x0537 响应没有日期；用日线最后一根确认真实交易日，周末/节假日
+        # 不能把上一交易日的分时写成今天。
+        daily = self._raw_daily(code, 2, market, symbol)
+        if not daily:
+            raise TdxError("无法确认分时对应的交易日")
+        trade_date = str(daily[-1]["date"])
         result = self.minute(code)
+        result["date"] = trade_date
         rows = [
             {
                 "code": code,
@@ -6461,9 +7564,12 @@ class Bridge:
             "code": code,
             "date": result["date"],
             "rows": len(rows),
-            "archive": write_dataset_archive(
+            # 分时是「每只一份」的当日快照，必须按代码分片；
+            # 早期版本写同一个 dataset 文件，第二只起会被 skipped 丢掉。
+            "archive": write_code_archive(
                 pythontdx_data_dir() / "lake" / "today_minute",
                 "today_minute",
+                code,
                 rows,
                 source="TDX 7709 0x0537",
                 trade_date=result["date"],
@@ -6472,9 +7578,8 @@ class Bridge:
         }
 
     def minute_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
-            pythontdx_data_dir() / "lake" / "today_minute", limit
-        )
+        root = pythontdx_data_dir() / "lake" / "today_minute"
+        return _merge_archive_lists(root, limit)
 
     def minute_aux(self, code: str, kind: str = "buy_sell_strength") -> dict:
         market, symbol = parse_code(code)
@@ -6491,9 +7596,10 @@ class Bridge:
         trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
         return {
             **result,
-            "archive": write_dataset_archive(
+            "archive": write_code_archive(
                 pythontdx_data_dir() / "lake" / "minute_aux",
                 "minute_aux",
+                f"{code}_{result['kind']}",
                 [{"code": code, "kind": result["kind"], "time": point["time"], **point} for point in result["points"]],
                 source=f"TDX 7709 0x051b selector={result['selector']}",
                 trade_date=trade_date,
@@ -6513,9 +7619,10 @@ class Bridge:
         trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
         return {
             **result,
-            "archive": write_dataset_archive(
+            "archive": write_code_archive(
                 pythontdx_data_dir() / "lake" / "sparkline",
                 "sparkline",
+                f"{code}_s{selector}",
                 [{"code": code, "selector": selector, "index": index, "price": price} for index, price in enumerate(result["prices"])],
                 source=f"TDX 7709 0x0fd1 selector={selector}",
                 trade_date=trade_date,
@@ -6524,12 +7631,14 @@ class Bridge:
         }
 
     def minute_aux_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "minute_aux", limit
         )
 
     def sparkline_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(pythontdx_data_dir() / "lake" / "sparkline", limit)
+        return _merge_archive_lists(
+            pythontdx_data_dir() / "lake" / "sparkline", limit
+        )
 
     def recent_minute(self, code: str, date: str | None = None) -> dict:
         market, symbol = parse_code(code)
@@ -6543,9 +7652,10 @@ class Bridge:
         result = self.recent_minute(code, date)
         return {
             **result,
-            "archive": write_dataset_archive(
+            "archive": write_code_archive(
                 pythontdx_data_dir() / "lake" / "recent_minute",
                 "recent_minute",
+                code,
                 [
                     {"code": code, "date": result["date"], **point}
                     for point in result["points"]
@@ -6557,7 +7667,7 @@ class Bridge:
         }
 
     def recent_minute_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "recent_minute", limit
         )
 
@@ -6584,9 +7694,10 @@ class Bridge:
         result = self.history_minute(code, date)
         return {
             **result,
-            "archive": write_dataset_archive(
+            "archive": write_code_archive(
                 pythontdx_data_dir() / "lake" / "history_minute",
                 "history_minute",
+                code,
                 [
                     {"code": code, "date": result["date"], **point}
                     for point in result["points"]
@@ -6598,7 +7709,7 @@ class Bridge:
         }
 
     def history_minute_archive_list(self, limit: int = 50) -> list[dict]:
-        return list_dataset_archives(
+        return _merge_archive_lists(
             pythontdx_data_dir() / "lake" / "history_minute", limit
         )
 
@@ -6631,7 +7742,49 @@ class Bridge:
 # ---------------------------------------------------------------- JSON Lines
 
 
+OFFLINE_BULK_COMMANDS = {
+    "cache_klines",
+    "export_klines",
+    "archive_datasets",
+    "archive_snapshot",
+    "tick_archive_save",
+    "tick_archive_batch",
+    "auction_archive_save",
+    "auction_archive_batch",
+    "minute_archive_save",
+    "minute_aux_archive_save",
+    "sparkline_archive_save",
+    "recent_minute_archive_save",
+    "history_minute_archive_save",
+    "special_limits_archive_save",
+    "delisted_archive_save",
+    "category_archive_save",
+    "finance_archive_save",
+    "capital_archive_save",
+    "block_meta_archive_save",
+    "top_board_archive_save",
+    "volume_profile_archive_save",
+    "unusual_archive_save",
+    "finance_history_archive_save",
+    "f10_channel_news_archive_save",
+    "f10_market_news_archive_save",
+    "f10_market_report_archive_save",
+    "f10_detail_archive_save",
+    "gbbq_archive_save",
+    "f10_limit_board_archive_save",
+}
+
+
 def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
+    if cmd in OFFLINE_BULK_COMMANDS:
+        from offline_sync import offline_window
+
+        window = offline_window(root=pythontdx_data_dir())
+        if not window["open"]:
+            raise TdxError(
+                f"{window['reason']}；{window['nextOpenAt']} 后再下载"
+                "（或使用数据工具的「并行离线同步」，它自带窗口保护与断点续跑）"
+            )
     if cmd == "ping":
         return "pong"
     if cmd == "server_speed_test":
@@ -6656,6 +7809,100 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "mac_unusual":
         return bridge.mac_unusual(int(payload.get("count", 600)))
+    if cmd == "gbbq_read":
+        return bridge.gbbq_read(
+            payload.get("path"),
+            int(payload.get("limit", 5000)),
+            int(payload.get("offset") or 0),
+        )
+    if cmd == "gbbq_archive_save":
+        return bridge.gbbq_archive_save(payload.get("path"))
+    if cmd == "finance_history_catalog":
+        return bridge.finance_history_catalog()
+    if cmd == "finance_history_archive_save":
+        return bridge.finance_history_archive_save(str(payload.get("filename") or ""))
+    if cmd == "finance_history_archive_list":
+        return bridge.finance_history_archive_list(int(payload.get("limit", 50)))
+    if cmd == "server_info":
+        return bridge.server_info()
+    if cmd == "mac_server_info":
+        return bridge.mac_server_info()
+    if cmd == "mac_symbol_info":
+        return bridge.mac_symbol_info(str(payload.get("code") or ""))
+    if cmd == "mac_quote_detail":
+        return bridge.mac_quote_detail(
+            str(payload.get("code") or ""), int(payload.get("date") or 0)
+        )
+    if cmd == "mac_kline":
+        return bridge.mac_kline(
+            str(payload.get("code") or ""),
+            str(payload.get("period") or "day"),
+            int(payload.get("start") or 0),
+            int(payload.get("count") or 800),
+            str(payload.get("adjust") or "none"),
+        )
+    if cmd == "mac_full_kline":
+        return bridge.mac_full_kline(
+            str(payload.get("code") or ""),
+            str(payload.get("period") or "day"),
+            str(payload.get("adjust") or "none"),
+        )
+    if cmd == "mac_board_members":
+        return bridge.mac_board_members(
+            str(payload.get("board") or ""),
+            int(payload.get("start") or 0),
+            int(payload.get("pageSize") or 80),
+        )
+    if cmd == "mac_file_meta":
+        return bridge.mac_file_meta(str(payload.get("filename") or ""))
+    if cmd == "mac_file_chunk":
+        return bridge.mac_file_chunk(
+            str(payload.get("filename") or ""),
+            int(payload.get("index") or 1),
+            int(payload.get("offset") or 0),
+            int(payload.get("size") or 30000),
+        )
+    if cmd == "mac_kline_offset":
+        return bridge.mac_kline_offset(
+            int(payload.get("offset") or 0), int(payload.get("count") or 128000)
+        )
+    if cmd == "mac_auctions":
+        return bridge.mac_auctions(
+            str(payload.get("code") or ""),
+            int(payload.get("start") or 0),
+            int(payload.get("count") or 500),
+        )
+    if cmd == "mac_tick_charts":
+        return bridge.mac_tick_charts(
+            str(payload.get("code") or ""),
+            int(payload.get("date") or 0),
+            int(payload.get("days") or 5),
+        )
+    if cmd == "unusual":
+        return bridge.unusual(
+            int(payload.get("count", 600)),
+            payload.get("market") if payload.get("market") is not None else None,
+        )
+    if cmd == "unusual_archive_save":
+        return bridge.unusual_archive_save(int(payload.get("count", 600)))
+    if cmd == "unusual_archive_list":
+        return bridge.unusual_archive_list(int(payload.get("limit", 50)))
+    if cmd == "top_board":
+        return bridge.top_board(
+            int(payload.get("category", 0)), int(payload.get("size", 20))
+        )
+    if cmd == "top_board_archive_save":
+        return bridge.top_board_archive_save(
+            int(payload.get("category", 0)), int(payload.get("size", 20))
+        )
+    if cmd == "top_board_archive_list":
+        return bridge.top_board_archive_list(int(payload.get("limit", 50)))
+    if cmd == "volume_profile":
+        return bridge.volume_profile(str(payload.get("code") or ""))
+    if cmd == "volume_profile_archive_save":
+        return bridge.volume_profile_archive_save(str(payload.get("code") or ""))
+    if cmd == "volume_profile_archive_list":
+        return bridge.volume_profile_archive_list(int(payload.get("limit", 50)))
     if cmd == "mac_boards":
         return bridge.mac_boards(int(payload.get("boardType", 255)))
     if cmd == "refresh":
@@ -6794,6 +8041,33 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.dataset_archive_read(
             str(payload.get("dataset") or ""), str(payload.get("date") or "")
         )
+    if cmd == "code_archive_read":
+        from code_archive import read_code_archive
+
+        dataset = str(payload.get("dataset") or "").strip()
+        roots = {
+            "today_minute": "today_minute",
+            "minute_aux": "minute_aux",
+            "sparkline": "sparkline",
+            "recent_minute": "recent_minute",
+            "history_minute": "history_minute",
+            "volume_profile": "volume_profile",
+            "top_board": "top_board",
+            "block_meta": "server_meta",
+            "category_quotes": "category_quotes",
+            "market_news": "market_news",
+            "channel_news": "channel_news",
+            "f10_market": "f10_market",
+            "f10_detail": "f10_detail",
+        }
+        if dataset not in roots:
+            raise TdxError(f"不支持的分片归档 dataset：{dataset}")
+        return read_code_archive(
+            pythontdx_data_dir() / "lake" / roots[dataset],
+            str(payload.get("key") or ""),
+            str(payload.get("date") or ""),
+            dataset=dataset,
+        )
     if cmd == "export_klines":
         return bridge.export_klines(
             payload.get("codes") or [],
@@ -6887,6 +8161,67 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.f10_reports(payload.get("code", ""))
     if cmd == "f10_news":
         return bridge.f10_news(payload.get("code", ""))
+    if cmd == "news_channels":
+        from tdx_f10 import NEWS_CHANNEL_GROUPS, NEWS_CHANNELS
+
+        return {"channels": NEWS_CHANNELS, "groups": NEWS_CHANNEL_GROUPS}
+    if cmd == "f10_stock_info":
+        return bridge.f10_stock_info(payload.get("code", ""))
+    if cmd == "f10_topic_ids":
+        return bridge.f10_topic_ids(payload.get("code", ""))
+    if cmd == "f10_finance_diagnosis":
+        return bridge.f10_finance_diagnosis(
+            payload.get("code", ""), str(payload.get("section") or "zzyj")
+        )
+    if cmd == "f10_stock_score":
+        return bridge.f10_stock_score(
+            payload.get("code", ""),
+            str(payload.get("section") or "pf"),
+            str(payload.get("arg") or ""),
+        )
+    if cmd == "f10_topic_compare":
+        return bridge.f10_topic_compare(
+            payload.get("code", ""),
+            str(payload.get("topicId") or ""),
+            str(payload.get("section") or "gndbzfsj"),
+            str(payload.get("sortBy") or "zdf"),
+        )
+    if cmd == "f10_allotment_dates":
+        return bridge.f10_allotment_dates(payload.get("code", ""))
+    if cmd == "f10_allotment_details":
+        return bridge.f10_allotment_details(
+            payload.get("code", ""), str(payload.get("date") or "")
+        )
+    if cmd == "f10_hq_nlp":
+        raw_days = payload.get("days")
+        return bridge.f10_hq_nlp(
+            str(payload.get("code") or ""),
+            str(payload.get("reqId") or ""),
+            int(raw_days) if raw_days not in (None, "") else None,
+            int(payload.get("pageSize") or 10),
+        )
+    if cmd == "f10_industry_page":
+        return bridge.f10_industry_page(
+            str(payload.get("hy") or ""), str(payload.get("section") or "hqtj")
+        )
+    if cmd == "f10_board_member_quotes":
+        return bridge.f10_board_member_quotes(
+            str(payload.get("boardCode") or ""), int(payload.get("boardMarket") or 1)
+        )
+    if cmd == "f10_limit_board_archive_save":
+        return bridge.f10_limit_board_archive_save(
+            payload.get("startDate"), payload.get("endDate")
+        )
+    if cmd == "f10_limit_board_ladder":
+        return bridge.f10_limit_board_ladder(
+            payload.get("startDate"),
+            payload.get("endDate"),
+            bool(payload.get("includeSummary")),
+        )
+    if cmd == "f10_finance_weights":
+        return bridge.f10_finance_weights(
+            str(payload.get("code") or ""), str(payload.get("section") or "zcfzb")
+        )
     if cmd == "f10_digest":
         return bridge.f10_digest(
             str(payload.get("code") or ""), str(payload.get("section") or "tips")
@@ -7077,6 +8412,30 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "data_integrity":
         return verify_data_integrity(pythontdx_data_dir())
+    if cmd == "offline_sync_window":
+        from offline_sync import offline_window
+
+        return offline_window(root=pythontdx_data_dir())
+    if cmd == "offline_sync_catalog":
+        from offline_sync import PRESETS, dataset_catalog, offline_window
+
+        return {
+            "datasets": dataset_catalog(),
+            "presets": PRESETS,
+            "window": offline_window(root=pythontdx_data_dir()),
+        }
+    if cmd == "offline_sync_start":
+        from offline_sync import manager as offline_manager
+
+        return offline_manager().start(payload)
+    if cmd == "offline_sync_status":
+        from offline_sync import manager as offline_manager
+
+        return offline_manager().status()
+    if cmd == "offline_sync_cancel":
+        from offline_sync import manager as offline_manager
+
+        return offline_manager().cancel()
     if cmd == "data_coverage":
         return collect_data_coverage(pythontdx_data_dir())
     if cmd == "data_inventory":
@@ -7094,14 +8453,6 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             int(payload.get("count", 800)),
             str(payload.get("adjust", "qfq")),
             bool(payload.get("skipExisting")),
-        )
-    if cmd == "cache_full_klines":
-        return bridge.cache_full_klines(
-            list(payload.get("codes") or []),
-            str(payload.get("period", "day")),
-            str(payload.get("adjust", "none")),
-            bool(payload.get("skipExisting")),
-            int(payload.get("workers", 1)),
         )
     if cmd == "chart_patterns":
         return bridge.chart_patterns(
@@ -7168,6 +8519,17 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
 
 
 def main() -> None:
+    # 打包后的 sidecar 也是离线同步 worker 的宿主：Nuitka onefile 下不能再靠
+    # `python offline_sync.py`，父进程会用同一个可执行文件带 --offline-worker 起子进程。
+    if "--offline-worker" in sys.argv:
+        from offline_sync import run_worker
+
+        index = sys.argv.index("--offline-worker")
+        if index + 1 >= len(sys.argv):
+            raise SystemExit("--offline-worker 缺少分片路径")
+        run_worker(sys.argv[index + 1])
+        return
+
     if hasattr(sys.stdin, "reconfigure"):
         sys.stdin.reconfigure(encoding="utf-8")
     if hasattr(sys.stdout, "reconfigure"):
@@ -7198,6 +8560,13 @@ def main() -> None:
 
         print(json.dumps(response, ensure_ascii=False, separators=(",", ":")), flush=True)
 
+    # 退出前先收掉离线同步的 worker 子进程，避免孤儿进程继续占用主站连接。
+    try:
+        from offline_sync import manager as offline_manager
+
+        offline_manager().cancel()
+    except Exception as error:  # noqa: BLE001 - 关闭阶段不因清理失败而崩溃
+        print(f"[tdx] 离线同步清理失败：{error}", file=sys.stderr)
     bridge.close()
 
 

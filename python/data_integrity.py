@@ -33,12 +33,20 @@ def _verify(root: Path, name: str, pattern: str, limit: int = 100_000) -> dict:
     return {"name": name, "checked": checked, "failed": failed, "details": details[:10]}
 
 
-def _verify_generic(root: Path, name: str, pattern: str) -> dict:
-    """校验 protocol_archive 的 files[] + JSONL SHA256 格式。"""
+def _verify_generic(root: Path, name: str, pattern: str | tuple[str, ...]) -> dict:
+    """校验 protocol_archive 的 files[] + JSONL SHA256 格式。
+
+    `pattern` 允许传多个：按代码分片的归档（`<key>.manifest.json`）与早期的
+    整包归档（`manifest.json`）布局不同，两种都要校验。
+    """
+    patterns = (pattern,) if isinstance(pattern, str) else pattern
+    manifests: list[Path] = []
+    for item in patterns:
+        manifests.extend(Path(root).glob(item))
     checked = 0
     failed = 0
     details: list[dict] = []
-    for manifest_path in sorted(Path(root).glob(pattern))[:100_000]:
+    for manifest_path in sorted(set(manifests))[:100_000]:
         checked += 1
         try:
             manifest = json.loads(manifest_path.read_text("utf-8"))
@@ -89,19 +97,26 @@ def verify_data_integrity(root: Path) -> dict:
         _verify(root, "server_files", "lake/server_files/**/manifest.json"),
         _verify(root, "delisted", "lake/delisted/*.manifest.json"),
         _verify_generic(root, "finance", "lake/finance/**/manifest.json"),
+        _verify_generic(root, "finance_history", "lake/finance_history/**/manifest.json"),
+        _verify_generic(root, "gbbq", "lake/gbbq/**/manifest.json"),
+        _verify_generic(root, "blocks", "lake/blocks/**/manifest.json"),
+        _verify_generic(root, "limit_ladder", "lake/limit_ladder/**/manifest.json"),
         _verify_generic(root, "corporate", "lake/corporate/**/manifest.json"),
         _verify_generic(root, "special_limits", "lake/special_limits/**/manifest.json"),
-        _verify_generic(root, "server_meta", "lake/server_meta/**/manifest.json"),
-        _verify_generic(root, "minute_aux", "lake/minute_aux/**/manifest.json"),
-        _verify_generic(root, "sparkline", "lake/sparkline/**/manifest.json"),
-        _verify_generic(root, "recent_minute", "lake/recent_minute/**/manifest.json"),
-        _verify_generic(root, "history_minute", "lake/history_minute/**/manifest.json"),
-        _verify_generic(root, "today_minute", "lake/today_minute/**/manifest.json"),
-        _verify_generic(root, "category_quotes", "lake/category_quotes/**/manifest.json"),
-        _verify_generic(root, "market_news", "lake/market_news/**/manifest.json"),
-        _verify_generic(root, "channel_news", "lake/channel_news/**/manifest.json"),
-        _verify_generic(root, "f10_detail", "lake/f10_detail/**/manifest.json"),
-        _verify_generic(root, "f10_market", "lake/f10_market/**/manifest.json"),
+        _verify_generic(root, "server_meta", ("lake/server_meta/**/manifest.json", "lake/server_meta/**/*.manifest.json")),
+        _verify_generic(root, "minute_aux", ("lake/minute_aux/**/manifest.json", "lake/minute_aux/**/*.manifest.json")),
+        _verify_generic(root, "sparkline", ("lake/sparkline/**/manifest.json", "lake/sparkline/**/*.manifest.json")),
+        _verify_generic(root, "recent_minute", ("lake/recent_minute/**/manifest.json", "lake/recent_minute/**/*.manifest.json")),
+        _verify_generic(root, "history_minute", ("lake/history_minute/**/manifest.json", "lake/history_minute/**/*.manifest.json")),
+        _verify_generic(root, "today_minute", ("lake/today_minute/**/manifest.json", "lake/today_minute/**/*.manifest.json")),
+        _verify_generic(root, "volume_profile", "lake/volume_profile/**/*.manifest.json"),
+        _verify_generic(root, "top_board", "lake/top_board/**/*.manifest.json"),
+        _verify_generic(root, "unusual", "lake/unusual/**/manifest.json"),
+        _verify_generic(root, "category_quotes", ("lake/category_quotes/**/manifest.json", "lake/category_quotes/**/*.manifest.json")),
+        _verify_generic(root, "market_news", ("lake/market_news/**/manifest.json", "lake/market_news/**/*.manifest.json")),
+        _verify_generic(root, "channel_news", ("lake/channel_news/**/manifest.json", "lake/channel_news/**/*.manifest.json")),
+        _verify_generic(root, "f10_detail", ("lake/f10_detail/**/manifest.json", "lake/f10_detail/**/*.manifest.json")),
+        _verify_generic(root, "f10_market", ("lake/f10_market/**/manifest.json", "lake/f10_market/**/*.manifest.json")),
     ]
     return {
         "ok": all(item["failed"] == 0 for item in checks),

@@ -52,10 +52,40 @@ PYTHONTDX_TDX_BRIDGE=/path/to/tdx-bridge npm run dev
 | `kline` | `{ code, period, count }` | `KLineSeries` |
 | `minute` | `{ code }` | `MinuteTrend` |
 | `five_day` | `{ code }` | `MultiDayTrend` |
+| `top_board` | `{ category?, size? }` | 9 个榜单（`0x053f`） |
+| `unusual` | `{ count? }` | 主力监控 19 类事件（`0x0563`） |
+| `volume_profile` | `{ code }` | 成交分布（`0x051a`；免费主站暂不响应） |
+| `mac_server_info` | — | MAC 0x120F 交易日/交易时段 |
+| `mac_symbol_info` | `{ code }` | MAC 0x122A 股票摘要 |
+| `mac_quote_detail` | `{ code, date? }` | MAC 0x122D 单只快照 + 分时 |
+| `mac_kline` | `{ code, period, start?, count?, adjust? }` | MAC 0x122E K 线 |
+| `mac_auctions` | `{ code, start?, count? }` | MAC 0x123D 竞价 |
+| `mac_tick_charts` | `{ code, date?, days? }` | MAC 0x123E 多日分时 |
+| `finance_history_catalog` | — | gpcw.txt 清单（计算服务器） |
+| `finance_history_archive_save` | `{ filename }` | 下载 gpcw zip → `lake/finance_history` |
+| `f10_stock_info` / `f10_topic_ids` / `f10_stock_score` / `f10_finance_diagnosis` | `{ code }` | 7615 补齐 Entry |
+| `f10_industry_page` | `{ hy, section }` | 7615 行业 20 子页 |
+| `offline_sync_catalog` | — | 数据集/预设/窗口状态 |
+| `offline_sync_status` | — | 当前任务进度（priority 请求） |
+| `offline_sync_start` | 见 `offline_sync.normalize_options` | 启动多进程并行同步 |
+| `offline_sync_cancel` | — | 取消并回收 worker |
 | `shutdown` | — | `"bye"` 后退出 |
 
 成功：`{"id":1,"ok":true,"result":...}`
 失败：`{"id":1,"ok":false,"error":"中文原因"}`
+
+## 模块
+
+| 文件 | 职责 |
+| --- | --- |
+| `tdx_bridge.py` | 7709 协议、解析、归档、dispatch |
+| `tdx_mac.py` / `tdx_f10.py` | MAC 0x12xx / 7615 在线资料 |
+| `offline_sync.py` | 离线并行同步：多进程 × 多线程 × 多服务器、08:45–15:45 窗口 |
+| `code_archive.py` | 按代码/业务 key 分片的 JSONL.gz + manifest + SHA256 |
+| `subscription_hub.py` | SSE/WS 订阅合并轮询（首帧基线、错误隔离、慢客户端丢帧） |
+| `protocol_archive.py` | 按 `trade_date` 的整包 dataset 归档 |
+| `tick_archive.py` / `auction_archive.py` / `flow_archive.py` | 逐笔/竞价/资金流按日归档 |
+| `data_coverage.py` / `data_integrity.py` | 覆盖统计与 manifest/SHA256 校验 |
 
 ## 测试
 

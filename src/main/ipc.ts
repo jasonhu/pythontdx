@@ -54,10 +54,16 @@ import {
   fetchLocalQuery,
   exportKlines,
   cacheKlines,
-  cacheFullKlines,
   dataCoverage,
   dataIntegrity,
   dataInventory,
+  offlineSyncCatalog,
+  offlineSyncStatus,
+  offlineSyncStart,
+  offlineSyncCancel,
+  topBoard,
+  unusual,
+  volumeProfile,
   backupOfflineData,
   inspectOfflineBackup,
   restoreOfflineData,
@@ -142,7 +148,6 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IPC.macBoards, (_event, boardType?: number) => fetchMacBoards(boardType))
   ipcMain.handle(IPC.macUnusual, (_event, count?: number) => fetchMacUnusual(count))
-
 
   ipcMain.handle(IPC.auctionSeries, (_event, code: string, date?: string) =>
     fetchAuctions(code, date)
@@ -262,13 +267,22 @@ export function registerIpcHandlers(context: IpcContext): void {
     cacheKlines(req)
   )
 
-  ipcMain.handle(IPC.cacheFullKlines, (_event, req: Parameters<typeof cacheFullKlines>[0]) =>
-    cacheFullKlines(req)
-  )
-
   ipcMain.handle(IPC.dataInventory, () => dataInventory())
   ipcMain.handle(IPC.dataIntegrity, () => dataIntegrity())
   ipcMain.handle(IPC.dataCoverage, () => dataCoverage())
+
+  ipcMain.handle(IPC.offlineSyncCatalog, () => offlineSyncCatalog())
+  ipcMain.handle(IPC.offlineSyncStatus, () => offlineSyncStatus())
+  ipcMain.handle(IPC.offlineSyncStart, (_event, options: Parameters<typeof offlineSyncStart>[0]) =>
+    offlineSyncStart(options)
+  )
+  ipcMain.handle(IPC.offlineSyncCancel, () => offlineSyncCancel())
+
+  ipcMain.handle(IPC.topBoard, (_event, category?: number, size?: number) =>
+    topBoard(category, size)
+  )
+  ipcMain.handle(IPC.unusual, (_event, count?: number) => unusual(count))
+  ipcMain.handle(IPC.volumeProfile, (_event, code: string) => volumeProfile(code))
 
   /* ------------------------------------------------ 离线数据备份 / 恢复 */
   // 备份/恢复是磁盘密集型操作，真正的进度在主进程日志里；这里只负责调用与

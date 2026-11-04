@@ -85,6 +85,7 @@ export class TdxBridge {
    * 用于右下角逐笔这类必须尽快上屏的交互请求，避免排在自选迷你图后面。
    */
   private queue: Array<() => Promise<void>> = []
+  private priorityQueue: Array<() => Promise<void>> = []
   private pumping = false
 
   /** 订阅 sidecar 的结构化进度（当前用于离线备份/恢复）；返回取消订阅函数 */
@@ -110,7 +111,7 @@ export class TdxBridge {
           reject(error)
         }
       }
-      if (priority) this.queue.unshift(run)
+      if (priority) this.priorityQueue.push(run)
       else this.queue.push(run)
       this.pump()
     })
@@ -118,7 +119,9 @@ export class TdxBridge {
 
   private pump(): void {
     if (this.pumping) return
-    const run = this.queue.shift()
+    // priority 队列单独 FIFO：用 unshift 会让多个插队请求变成 LIFO，
+    // 轮询状态请求反而把刚发出的交互请求挤到后面。
+    const run = this.priorityQueue.shift() ?? this.queue.shift()
     if (!run) return
     this.pumping = true
     void run().finally(() => {

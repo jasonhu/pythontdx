@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +41,13 @@ BAR_COLUMNS = (
     "amount",
     "upCount",
     "downCount",
+    "openMilli",
+    "closeMilli",
+    "highMilli",
+    "lowMilli",
+    "lastCloseMilli",
+    "volumeRaw",
+    "amountRaw",
 )
 TICK_COLUMNS = (
     "index",
@@ -52,6 +61,7 @@ TICK_COLUMNS = (
     "side",
     "eventKind",
     "tradeAmount",
+    "priceBase",
 )
 
 _BAR_TYPES = (
@@ -65,6 +75,13 @@ _BAR_TYPES = (
     ("amount", "DOUBLE"),
     ("upCount", "BIGINT"),
     ("downCount", "BIGINT"),
+    ("openMilli", "BIGINT"),
+    ("closeMilli", "BIGINT"),
+    ("highMilli", "BIGINT"),
+    ("lowMilli", "BIGINT"),
+    ("lastCloseMilli", "BIGINT"),
+    ("volumeRaw", "BIGINT"),
+    ("amountRaw", "BIGINT"),
 )
 _TICK_TYPES = (
     ("code", "VARCHAR"),
@@ -79,6 +96,7 @@ _TICK_TYPES = (
     ("side", "VARCHAR"),
     ("eventKind", "VARCHAR"),
     ("tradeAmount", "DOUBLE"),
+    ("priceBase", "DOUBLE"),
 )
 
 
@@ -90,7 +108,9 @@ def _write(target: Path, rows: list[dict[str, Any]], types: tuple) -> Path:
     """原子写 Parquet；.part 文件名不会被 DuckDB 的 *.parquet 匹配。"""
     duckdb = _duckdb()
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(f".{target.name}.part")
+    temporary = target.with_name(
+        f".{target.name}.{os.getpid()}.{threading.get_ident()}.part"
+    )
     columns = ", ".join(f"{name} {kind}" for name, kind in types)
     placeholders = ", ".join("?" for _ in types)
     row_placeholder = f"({placeholders})"

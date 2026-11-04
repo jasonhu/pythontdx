@@ -65,6 +65,54 @@ class TestLocalDay(unittest.TestCase):
             with self.assertRaises(LocalDayError):
                 read_day_file(str(path))
 
+    def test_etf_coefficients(self):
+        """沪 ETF 是千分之一元；之前一律 /100 会把 3.500 读成 35.00。"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sh510300.day"
+            with path.open("wb") as handle:
+                handle.write(
+                    struct.pack("<IIIIIfII", 20261030, 3500, 3550, 3480, 3520, 1000.0, 12345, 0)
+                )
+            result = read_day_file(str(path))
+            self.assertEqual(result["securityType"], "SH_FUND")
+            self.assertAlmostEqual(result["bars"][0]["close"], 3.52, places=4)
+            self.assertEqual(result["bars"][0]["volume"], 12345)
+
+    def test_index_volume_not_divided(self):
+        """指数量纲是「手」本身，不能再除 100。"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sh000001.day"
+            with path.open("wb") as handle:
+                handle.write(
+                    struct.pack("<IIIIIfII", 20261030, 320000, 321000, 319000, 320500, 1.0, 12345, 0)
+                )
+            result = read_day_file(str(path))
+            self.assertEqual(result["securityType"], "SH_INDEX")
+            self.assertAlmostEqual(result["bars"][0]["close"], 3205.0, places=4)
+            self.assertEqual(result["bars"][0]["volume"], 12345)
+
+    def test_trailing_byte_tolerated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sh600000.day"
+            with path.open("wb") as handle:
+                handle.write(
+                    struct.pack("<IIIIIfII", 20261030, 1000, 1050, 990, 1020, 1.0, 100, 0)
+                )
+                handle.write(b"\x00")  # 截断残尾
+            result = read_day_file(str(path))
+            self.assertEqual(result["count"], 1)
+
+    def test_etf_write_roundtrip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sh510300.day"
+            bars = [
+                {"date": "2026-10-30", "open": 3.5, "high": 3.55, "low": 3.48, "close": 3.52, "amount": 1000.0, "volume": 12345},
+            ]
+            write_day_file(str(path), bars)
+            loaded = read_day_file(str(path))
+            self.assertAlmostEqual(loaded["bars"][0]["close"], 3.52, places=4)
+            self.assertEqual(loaded["bars"][0]["volume"], 12345)
+
 
 if __name__ == "__main__":
     unittest.main()

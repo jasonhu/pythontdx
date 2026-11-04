@@ -28,6 +28,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from tdx_bridge import Bridge, TdxError
+from subscription_hub import SubscriptionHub
 
 MAX_BODY_BYTES = 1024 * 1024
 
@@ -46,6 +47,19 @@ class TdxApiServer(ThreadingHTTPServer):
         self.bridge = bridge
         self.lock = threading.Lock()
         self.web_dir = Path(web_dir).resolve() if web_dir else None
+        # SSE/WebSocket 共享一个订阅 Hub：同一组代码只轮询一次，结果扇出。
+        self.hub = SubscriptionHub(self._fetch_quotes)
+
+    def _fetch_quotes(self, codes: list[str]) -> list[dict]:
+        with self.lock:
+            return self.bridge.quotes(codes)
+
+    def server_close(self) -> None:
+        try:
+            self.hub.close()
+        except Exception:  # noqa: BLE001 - 关闭阶段不因清理失败而中断
+            pass
+        super().server_close()
 
 
 class ApiHandler(BaseHTTPRequestHandler):
@@ -53,6 +67,37 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
         print(f"[api] {self.address_string()} {format % args}", file=sys.stderr)
+
+    _WRITE_SUFFIXES = ("_archive_save", "_archive_batch")
+    _WRITE_PATHS = {
+        "/api/local_write",
+        "/api/local_write_min",
+        "/api/cache_klines",
+        "/api/export_klines",
+        "/api/archive_snapshot",
+        "/api/archive_datasets",
+        "/api/offline_sync_start",
+        "/api/offline_sync_cancel",
+        "/api/backup_create",
+        "/api/backup_restore",
+        "/api/server_catalog",
+        "/api/local_import",
+        "/api/stats_summary",
+        "/api/stats_export",
+        "/api/stats_csv",
+        "/api/stats_parquet",
+    }
+
+    def _is_write_path(self, path: str) -> bool:
+        return path in self._WRITE_PATHS or path.endswith(self._WRITE_SUFFIXES)
+
+    def _origin_allowed(self) -> bool:
+        """写接口只允许本机页面/无 Origin（curl、桌面 IPC）；防跨站覆盖本地数据。"""
+        origin = self.headers.get("Origin")
+        if not origin:
+            return True
+        host = (urlparse(origin).hostname or "").lower()
+        return host in {"127.0.0.1", "localhost", "::1"}
 
     def _cors(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -118,36 +163,28 @@ class ApiHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.close_connection = True
         self.connection.settimeout(0.2)
-        codes: list[str] = []
-        interval = 3.0
-        next_poll = 0.0
+        subscription = None
         try:
             while True:
-                now = time.time()
-                if codes and now >= next_poll:
-                    try:
-                        with self.server.lock:
-                            quotes = self.server.bridge.quotes(codes)
+                if subscription is not None:
+                    # 非阻塞把 Hub 里已就绪的帧转发出去；轮询由 Hub 统一调度。
+                    while True:
+                        payload = subscription.get(0)
+                        if payload is None:
+                            break
+                        if payload.get("closed"):
+                            return
+                        if payload.get("ok"):
+                            message = {
+                                "type": "quote",
+                                "quotes": payload["result"]["quotes"],
+                                "at": payload["result"]["at"],
+                            }
+                        else:
+                            message = {"type": "error", "error": payload.get("error")}
                         self._ws_send(
-                            1,
-                            json.dumps(
-                                {
-                                    "type": "quote",
-                                    "quotes": quotes,
-                                    "at": int(time.time() * 1000),
-                                },
-                                ensure_ascii=False,
-                            ).encode(),
+                            1, json.dumps(message, ensure_ascii=False).encode()
                         )
-                    except Exception as error:  # noqa: BLE001
-                        self._ws_send(
-                            1,
-                            json.dumps(
-                                {"type": "error", "error": str(error)},
-                                ensure_ascii=False,
-                            ).encode(),
-                        )
-                    next_poll = time.time() + interval
                 try:
                     opcode, payload = self._ws_read()
                 except socket.timeout:
@@ -173,16 +210,24 @@ class ApiHandler(BaseHTTPRequestHandler):
                     self._ws_send(1, b'{"type":"error","error":"codes must be an array"}')
                     continue
                 codes = [str(code).strip().lower() for code in raw_codes if str(code).strip()][:500]
+                if not codes:
+                    self._ws_send(1, b'{"type":"error","error":"codes is empty"}')
+                    continue
                 try:
-                    interval = max(1.0, min(60.0, float(message.get("intervalMs", 3000)) / 1000))
+                    interval_ms = int(message.get("intervalMs", 3000))
                 except (TypeError, ValueError):
-                    interval = 3.0
-                next_poll = 0.0
+                    interval_ms = 3000
+                interval_ms = max(1000, min(60_000, interval_ms))
+                if subscription is not None:
+                    self.server.hub.unsubscribe(subscription)
+                subscription = self.server.hub.subscribe(codes, interval_ms)
                 self._ws_send(
                     1,
                     json.dumps({"type": "subscribed", "codes": len(codes)}).encode(),
                 )
         finally:
+            if subscription is not None:
+                self.server.hub.unsubscribe(subscription)
             self.close_connection = True
 
     def _json(self, status: int, payload: dict[str, Any]) -> None:
@@ -223,35 +268,34 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
         self.close_connection = True
+        subscription = self.server.hub.subscribe(codes, interval)
         try:
             while True:
-                try:
-                    with self.server.lock:
-                        quotes = self.server.bridge.quotes(codes)
-                    payload = {
-                        "ok": True,
-                        "result": {"quotes": quotes, "at": int(time.time() * 1000)},
-                    }
-                    self.wfile.write(
-                        f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode(
-                            "utf-8"
-                        )
-                    )
+                payload = subscription.get(timeout=15)
+                if payload is None:
+                    # 15 秒没有新帧（休市/上游慢）：写一个 SSE 注释保活，不当作错误。
+                    self.wfile.write(b": ping\n\n")
                     self.wfile.flush()
-                except (BrokenPipeError, ConnectionResetError):
+                    continue
+                if payload.get("closed"):
                     return
-                except Exception as error:  # noqa: BLE001
+                if not payload.get("ok"):
                     message = json.dumps(
-                        {"ok": False, "error": str(error)}, ensure_ascii=False
+                        {"ok": False, "error": payload.get("error")}, ensure_ascii=False
                     )
-                    try:
-                        self.wfile.write(f"event: error\ndata: {message}\n\n".encode())
-                        self.wfile.flush()
-                    except OSError:
-                        pass
+                    self.wfile.write(f"event: error\ndata: {message}\n\n".encode())
+                    self.wfile.flush()
                     return
-                time.sleep(interval)
+                self.wfile.write(
+                    f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode(
+                        "utf-8"
+                    )
+                )
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return
         finally:
+            self.server.hub.unsubscribe(subscription)
             self.close_connection = True
 
     def _error(self, status: int, message: str) -> None:
@@ -338,7 +382,11 @@ class ApiHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path == "/api/select_server":
                 with self.server.lock:
-                    self._ok(self.server.bridge.select_server(str(payload.get("host") or "")))
+                    self._ok(
+                        self.server.bridge.select_server(
+                            str(query.get("host") or "")
+                        )
+                    )
                 return
             if parsed.path == "/api/code_list":
                 with self.server.lock:
@@ -579,10 +627,21 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if self._is_write_path(parsed.path) and not self._origin_allowed():
+            self._error(HTTPStatus.FORBIDDEN, "写接口只允许本机页面调用")
+            return
         try:
             payload = self._body()
             if parsed.path == "/api/ping":
                 self._ok("pong")
+                return
+            if parsed.path == "/api/select_server":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.select_server(
+                            str(payload.get("host") or "")
+                        )
+                    )
                 return
             if parsed.path == "/api/quotes":
                 codes = payload.get("codes") or []
@@ -803,6 +862,146 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.f10_news(payload.get("code", "")))
                 return
+            if parsed.path == "/api/gbbq_read":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.gbbq_read(
+                            payload.get("path"),
+                            int(payload.get("limit", 5000)),
+                            int(payload.get("offset") or 0),
+                        )
+                    )
+                return
+            if parsed.path == "/api/gbbq_archive_save":
+                with self.server.lock:
+                    self._ok(self.server.bridge.gbbq_archive_save(payload.get("path")))
+                return
+            if parsed.path == "/api/f10_limit_board_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_limit_board_archive_save(
+                            payload.get("startDate"), payload.get("endDate")
+                        )
+                    )
+                return
+            if parsed.path == "/api/finance_history_catalog":
+                with self.server.lock:
+                    self._ok(self.server.bridge.finance_history_catalog())
+                return
+            if parsed.path == "/api/finance_history_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.finance_history_archive_save(
+                            str(payload.get("filename") or "")
+                        )
+                    )
+                return
+            if parsed.path == "/api/news_channels":
+                from tdx_f10 import NEWS_CHANNEL_GROUPS, NEWS_CHANNELS
+
+                self._ok({"channels": NEWS_CHANNELS, "groups": NEWS_CHANNEL_GROUPS})
+                return
+            if parsed.path == "/api/f10_stock_info":
+                with self.server.lock:
+                    self._ok(self.server.bridge.f10_stock_info(str(payload.get("code") or "")))
+                return
+            if parsed.path == "/api/f10_topic_ids":
+                with self.server.lock:
+                    self._ok(self.server.bridge.f10_topic_ids(str(payload.get("code") or "")))
+                return
+            if parsed.path == "/api/f10_finance_diagnosis":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_finance_diagnosis(
+                            str(payload.get("code") or ""),
+                            str(payload.get("section") or "zzyj"),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_stock_score":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_stock_score(
+                            str(payload.get("code") or ""),
+                            str(payload.get("section") or "pf"),
+                            str(payload.get("arg") or ""),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_topic_compare":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_topic_compare(
+                            str(payload.get("code") or ""),
+                            str(payload.get("topicId") or ""),
+                            str(payload.get("section") or "gndbzfsj"),
+                            str(payload.get("sortBy") or "zdf"),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_allotment_dates":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_allotment_dates(str(payload.get("code") or ""))
+                    )
+                return
+            if parsed.path == "/api/f10_allotment_details":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_allotment_details(
+                            str(payload.get("code") or ""), str(payload.get("date") or "")
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_hq_nlp":
+                with self.server.lock:
+                    raw_days = payload.get("days")
+                    self._ok(
+                        self.server.bridge.f10_hq_nlp(
+                            str(payload.get("code") or ""),
+                            str(payload.get("reqId") or ""),
+                            int(raw_days) if raw_days not in (None, "") else None,
+                            int(payload.get("pageSize") or 10),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_board_member_quotes":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_board_member_quotes(
+                            str(payload.get("boardCode") or ""),
+                            int(payload.get("boardMarket") or 1),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_limit_board_ladder":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_limit_board_ladder(
+                            payload.get("startDate"),
+                            payload.get("endDate"),
+                            bool(payload.get("includeSummary")),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_finance_weights":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_finance_weights(
+                            str(payload.get("code") or ""),
+                            str(payload.get("section") or "zcfzb"),
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_industry_page":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_industry_page(
+                            str(payload.get("hy") or ""),
+                            str(payload.get("section") or "hqtj"),
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_digest":
                 with self.server.lock:
                     self._ok(
@@ -999,6 +1198,168 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_unusual(int(payload.get("count", 600))))
                 return
+            if parsed.path == "/api/server_info":
+                with self.server.lock:
+                    self._ok(self.server.bridge.server_info())
+                return
+            if parsed.path == "/api/mac_server_info":
+                with self.server.lock:
+                    self._ok(self.server.bridge.mac_server_info())
+                return
+            if parsed.path == "/api/mac_symbol_info":
+                with self.server.lock:
+                    self._ok(self.server.bridge.mac_symbol_info(str(payload.get("code") or "")))
+                return
+            if parsed.path == "/api/mac_quote_detail":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_quote_detail(
+                            str(payload.get("code") or ""), int(payload.get("date") or 0)
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_kline":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_kline(
+                            str(payload.get("code") or ""),
+                            str(payload.get("period") or "day"),
+                            int(payload.get("start") or 0),
+                            int(payload.get("count") or 800),
+                            str(payload.get("adjust") or "none"),
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_full_kline":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_full_kline(
+                            str(payload.get("code") or ""),
+                            str(payload.get("period") or "day"),
+                            str(payload.get("adjust") or "none"),
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_board_members":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_board_members(
+                            str(payload.get("board") or ""),
+                            int(payload.get("start") or 0),
+                            int(payload.get("pageSize") or 80),
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_file_meta":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_file_meta(
+                            str(payload.get("filename") or "")
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_file_chunk":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_file_chunk(
+                            str(payload.get("filename") or ""),
+                            int(payload.get("index") or 1),
+                            int(payload.get("offset") or 0),
+                            int(payload.get("size") or 30000),
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_kline_offset":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_kline_offset(
+                            int(payload.get("offset") or 0),
+                            int(payload.get("count") or 128000),
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_auctions":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_auctions(
+                            str(payload.get("code") or ""),
+                            int(payload.get("start") or 0),
+                            int(payload.get("count") or 500),
+                        )
+                    )
+                return
+            if parsed.path == "/api/mac_tick_charts":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.mac_tick_charts(
+                            str(payload.get("code") or ""),
+                            int(payload.get("date") or 0),
+                            int(payload.get("days") or 5),
+                        )
+                    )
+                return
+            if parsed.path == "/api/unusual":
+                with self.server.lock:
+                    self._ok(self.server.bridge.unusual(int(payload.get("count", 600))))
+                return
+            if parsed.path == "/api/top_board":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.top_board(
+                            int(payload.get("category", 0)), int(payload.get("size", 20))
+                        )
+                    )
+                return
+            if parsed.path == "/api/volume_profile":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.volume_profile(str(payload.get("code") or ""))
+                    )
+                return
+            if parsed.path == "/api/volume_profile_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.volume_profile_archive_save(
+                            str(payload.get("code") or "")
+                        )
+                    )
+                return
+            if parsed.path == "/api/volume_profile_archive_list":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.volume_profile_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
+            if parsed.path == "/api/top_board_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.top_board_archive_save(
+                            int(payload.get("category", 0)), int(payload.get("size", 20))
+                        )
+                    )
+                return
+            if parsed.path == "/api/top_board_archive_list":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.top_board_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
+            if parsed.path == "/api/unusual_archive_save":
+                with self.server.lock:
+                    self._ok(self.server.bridge.unusual_archive_save(int(payload.get("count", 600))))
+                return
+            if parsed.path == "/api/unusual_archive_list":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.unusual_archive_list(
+                            int(payload.get("limit", 50))
+                        )
+                    )
+                return
             if parsed.path == "/api/mac_money_flow":
                 with self.server.lock:
                     self._ok(self.server.bridge.mac_money_flow(str(payload.get("code") or "")))
@@ -1033,6 +1394,38 @@ class ApiHandler(BaseHTTPRequestHandler):
                             str(payload.get("date") or ""),
                         )
                     )
+                return
+            if parsed.path == "/api/code_archive_read":
+                from code_archive import read_code_archive
+                from tdx_bridge import pythontdx_data_dir
+
+                roots = {
+                    "today_minute": "today_minute",
+                    "minute_aux": "minute_aux",
+                    "sparkline": "sparkline",
+                    "recent_minute": "recent_minute",
+                    "history_minute": "history_minute",
+                    "volume_profile": "volume_profile",
+                    "top_board": "top_board",
+                    "block_meta": "server_meta",
+                    "category_quotes": "category_quotes",
+                    "market_news": "market_news",
+                    "channel_news": "channel_news",
+                    "f10_market": "f10_market",
+                    "f10_detail": "f10_detail",
+                }
+                dataset = str(payload.get("dataset") or "").strip()
+                if dataset not in roots:
+                    self._error(400, "不支持的分片归档 dataset")
+                    return
+                self._ok(
+                    read_code_archive(
+                        pythontdx_data_dir() / "lake" / roots[dataset],
+                        str(payload.get("key") or ""),
+                        str(payload.get("date") or ""),
+                        dataset=dataset,
+                    )
+                )
                 return
             if parsed.path == "/api/finance_archive_save":
                 with self.server.lock:
@@ -1148,6 +1541,44 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.data_inventory())
                 return
+            if parsed.path == "/api/offline_sync_status":
+                from offline_sync import manager as offline_manager
+
+                self._ok(offline_manager().status())
+                return
+            if parsed.path == "/api/offline_sync_window":
+                from offline_sync import offline_window
+                from tdx_bridge import pythontdx_data_dir
+
+                self._ok(offline_window(root=pythontdx_data_dir()))
+                return
+            if parsed.path == "/api/offline_sync_catalog":
+                from offline_sync import PRESETS, dataset_catalog, offline_window
+                from tdx_bridge import pythontdx_data_dir
+
+                self._ok(
+                    {
+                        "datasets": dataset_catalog(),
+                        "presets": PRESETS,
+                        "window": offline_window(root=pythontdx_data_dir()),
+                    }
+                )
+                return
+            if parsed.path == "/api/offline_sync_start":
+                from offline_sync import manager as offline_manager
+
+                # HTTP 入口不允许绕过交易时段保护；仅 CLI 可显式 allow-inside-window。
+                safe_payload = dict(payload)
+                safe_payload.pop("allowInsideWindow", None)
+                safe_payload.pop("allow_inside_window", None)
+                safe_payload["enforceWindow"] = True
+                self._ok(offline_manager().start(safe_payload))
+                return
+            if parsed.path == "/api/offline_sync_cancel":
+                from offline_sync import manager as offline_manager
+
+                self._ok(offline_manager().cancel())
+                return
             if parsed.path == "/api/flow_archive_list":
                 with self.server.lock:
                     from flow_archive import list_flow_archives
@@ -1191,18 +1622,6 @@ class ApiHandler(BaseHTTPRequestHandler):
                             str(payload.get("period") or "day"),
                             int(payload.get("count") or 800),
                             str(payload.get("adjust") or "qfq"),
-                        )
-                    )
-                return
-
-            if parsed.path == "/api/cache_full_klines":
-                with self.server.lock:
-                    self._ok(
-                        self.server.bridge.cache_full_klines(
-                            list(payload.get("codes") or []),
-                            str(payload.get("period") or "day"),
-                            str(payload.get("adjust") or "none"),
-                            bool(payload.get("skipExisting")),
                         )
                     )
                 return

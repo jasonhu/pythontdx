@@ -69,7 +69,7 @@ DATASETS: dict[str, dict[str, Any]] = {
         "group": "行情",
         "mode": "per_code",
         "weight": 6,
-        "description": "0x052d 800 根分页拉全历史，写 cache/klines/*.parquet（含 amount/指数家数）",
+        "description": "日K优先 0x06b9 官方 .day 文件（全历史），失败回退 0x052d 分页；写 cache/klines/*.parquet",
     },
     "kline_1m": {
         "label": "1 分钟 K（最近 100 交易日）",
@@ -823,6 +823,11 @@ def _already_archived(task: dict[str, Any], root: Path) -> bool:
                 return False
         except (OSError, ValueError):
             return False
+        # 日线缓存要跟到最近交易日；否则每日同步会因旧缓存整批 skipped。
+        if task.get("period") == "day" and task.get("adjust") == "none":
+            latest = recent_trading_days(1, root)[0]
+            if str(payload.get("lastDate") or "")[:10] < latest:
+                return False
         return target.stat().st_size > 32
     if dataset == "kline_1m":
         from kline_manifest import manifest_path

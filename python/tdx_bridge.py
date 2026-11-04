@@ -341,6 +341,8 @@ CMD_BLOCK_META = 0x02C5
 CMD_BARS = 0x052D
 CMD_MINUTE = 0x0537
 CMD_HISTORY_MINUTE = 0x0FB4
+CMD_MINUTE_AUX = 0x051B
+CMD_SPARKLINE = 0x0FD1
 CMD_SECURITY_COUNT = 0x044E
 CMD_SECURITY_LIST = 0x044D
 CMD_FINANCE = 0x0010
@@ -900,6 +902,35 @@ def minute_data(market: int, symbol: str) -> bytes:
 
 def history_minute_data(market: int, symbol: str, date: int) -> bytes:
     return struct.pack("<IB6s", date, market, code_bytes(symbol))
+
+
+def minute_aux_data(market: int, symbol: str, selector: int = 0) -> bytes:
+    """0x051b：市场 u16 + 代码 + 19 零 + selector。"""
+    return struct.pack(
+        "<H6s19sB",
+        market,
+        code_bytes(symbol),
+        b"",
+        max(0, min(int(selector), 0xFF)),
+    )
+
+
+def sparkline_data(
+    market: int, symbol: str, selector: int = 1, window: int = 20
+) -> bytes:
+    """0x0fd1：市场 u8 + 保留 u8 + 代码 + 16 零 + selector/保留 + window + fixed + 5 零。"""
+    return struct.pack(
+        "<BB6s16sBBHI5s",
+        market,
+        0,
+        code_bytes(symbol),
+        b"",
+        max(0, min(int(selector), 0xFF)),
+        0,
+        max(1, min(int(window), 0xFFFF)),
+        0x01000000,
+        b"",
+    )
 
 
 def count_data(market: int, client_date: int) -> bytes:
@@ -2632,6 +2663,72 @@ def parse_today_minute(
         "date": date,
         "prevClose": prev_close,
         "points": points,
+    }
+
+
+def parse_minute_aux(body: bytes, selector: int = 0) -> dict:
+    """0x051b 分时副图：selector 0 买卖力道（varint 对），0x0b 成交对比（f32 对）。"""
+    count = _u16(body, 0)
+    pos = 2
+    points: list[dict] = []
+    if selector == 0x0B:
+        expected = 2 + count * 8
+        if len(body) != expected:
+            raise TdxError("分时副图成交对比报文长度异常")
+        for index in range(count):
+            previous = _f32(body, pos)
+            current = _f32(body, pos + 4)
+            pos += 8
+            points.append(
+                {
+                    "index": index,
+                    "time": minute_label(index),
+                    "previousDayCumulativeVolume": previous,
+                    "currentDayCumulativeVolume": current,
+                }
+            )
+    else:
+        for index in range(count):
+            series_a, pos = read_varint(body, pos)
+            series_b, pos = read_varint(body, pos)
+            points.append(
+                {
+                    "index": index,
+                    "time": minute_label(index),
+                    "seriesA": series_a,
+                    "seriesB": series_b,
+                    "buyCommission": series_a,
+                    "sellCommission": series_b,
+                }
+            )
+        if pos != len(body):
+            raise TdxError("分时副图买卖力道报文尾部有多余字节")
+    return {"selector": selector, "count": len(points), "points": points}
+
+
+def parse_sparkline(body: bytes) -> dict:
+    """0x0fd1 小走势：42B 头 + f32 价格序列。"""
+    if len(body) < 42:
+        raise TdxError("小走势报文不完整")
+    market_id = body[0]
+    code = body[2:8].decode("ascii", errors="replace")
+    selector = body[24]
+    reserved = _u32(body, 26)
+    max_count = _u16(body, 34)
+    base = _f32(body, 36)
+    count = _u16(body, 40)
+    if len(body) != 42 + count * 4:
+        raise TdxError("小走势价格序列长度异常")
+    prices = [_f32(body, 42 + index * 4) for index in range(count)]
+    return {
+        "marketId": market_id,
+        "code": code,
+        "selectorEcho": selector,
+        "reservedParam": reserved,
+        "maxCount": max_count,
+        "basePrice": base,
+        "count": count,
+        "prices": prices,
     }
 
 
@@ -6000,6 +6097,61 @@ class Bridge:
             decimal=self._decimal(code),
         )
 
+    def minute_aux(self, code: str, kind: str = "buy_sell_strength") -> dict:
+        market, symbol = parse_code(code)
+        key = str(kind or "").strip().lower()
+        selector = 0x0B if key in {"volume_comparison", "volume_compare", "0x0b", "11"} else 0
+        body = self.conn.request(
+            CMD_MINUTE_AUX, minute_aux_data(market, symbol, selector)
+        )
+        result = parse_minute_aux(body, selector)
+        return {"code": code, "kind": "volume_comparison" if selector == 0x0B else "buy_sell_strength", **result}
+
+    def minute_aux_archive_save(self, code: str, kind: str = "buy_sell_strength") -> dict:
+        result = self.minute_aux(code, kind)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            **result,
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "minute_aux",
+                "minute_aux",
+                [{"code": code, "kind": result["kind"], "time": point["time"], **point} for point in result["points"]],
+                source=f"TDX 7709 0x051b selector={result['selector']}",
+                trade_date=trade_date,
+                fields=["code", "kind", "time", "seriesA", "seriesB", "buyCommission", "sellCommission", "previousDayCumulativeVolume", "currentDayCumulativeVolume"],
+            ),
+        }
+
+    def sparkline(self, code: str, selector: int = 1, window: int = 20) -> dict:
+        market, symbol = parse_code(code)
+        body = self.conn.request(
+            CMD_SPARKLINE, sparkline_data(market, symbol, selector, window)
+        )
+        return {"code": code, "selector": selector, **parse_sparkline(body)}
+
+    def sparkline_archive_save(self, code: str, selector: int = 1, window: int = 20) -> dict:
+        result = self.sparkline(code, selector, window)
+        trade_date = datetime.now().astimezone().strftime("%Y-%m-%d")
+        return {
+            **result,
+            "archive": write_dataset_archive(
+                pythontdx_data_dir() / "lake" / "sparkline",
+                "sparkline",
+                [{"code": code, "selector": selector, "index": index, "price": price} for index, price in enumerate(result["prices"])],
+                source=f"TDX 7709 0x0fd1 selector={selector}",
+                trade_date=trade_date,
+                fields=["code", "selector", "index", "price"],
+            ),
+        }
+
+    def minute_aux_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(
+            pythontdx_data_dir() / "lake" / "minute_aux", limit
+        )
+
+    def sparkline_archive_list(self, limit: int = 50) -> list[dict]:
+        return list_dataset_archives(pythontdx_data_dir() / "lake" / "sparkline", limit)
+
     def five_day(self, code: str) -> dict:
         market, symbol = parse_code(code)
         daily = self._raw_daily(code, 6, market, symbol)
@@ -6389,6 +6541,30 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         return bridge.limit_review(str(payload.get("date") or ""))
     if cmd == "minute":
         return bridge.minute(payload.get("code", ""))
+    if cmd == "minute_aux":
+        return bridge.minute_aux(
+            str(payload.get("code") or ""), str(payload.get("kind") or "buy_sell_strength")
+        )
+    if cmd == "minute_aux_archive_save":
+        return bridge.minute_aux_archive_save(
+            str(payload.get("code") or ""), str(payload.get("kind") or "buy_sell_strength")
+        )
+    if cmd == "minute_aux_archive_list":
+        return bridge.minute_aux_archive_list(int(payload.get("limit", 50)))
+    if cmd == "sparkline":
+        return bridge.sparkline(
+            str(payload.get("code") or ""),
+            int(payload.get("selector", 1)),
+            int(payload.get("window", 20)),
+        )
+    if cmd == "sparkline_archive_save":
+        return bridge.sparkline_archive_save(
+            str(payload.get("code") or ""),
+            int(payload.get("selector", 1)),
+            int(payload.get("window", 20)),
+        )
+    if cmd == "sparkline_archive_list":
+        return bridge.sparkline_archive_list(int(payload.get("limit", 50)))
     if cmd == "five_day":
         return bridge.five_day(payload.get("code", ""))
     raise TdxError(f"未知命令：{cmd}")

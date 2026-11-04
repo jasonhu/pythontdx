@@ -154,5 +154,33 @@ class TestBlockMeta(unittest.TestCase):
         self.assertEqual(meta["md5"], md5)
 
 
+class TestMinuteAuxAndSparkline(unittest.TestCase):
+    def test_buy_sell_strength(self):
+        body = struct.pack("<H", 1) + b"\x00\x00"
+        result = tdx_bridge.parse_minute_aux(body, 0)
+        self.assertEqual(result["count"], 1)
+        self.assertEqual(result["points"][0]["time"], "09:31")
+
+    def test_volume_comparison(self):
+        body = struct.pack("<H2f", 1, 100.0, 200.0)
+        result = tdx_bridge.parse_minute_aux(body, 0x0B)
+        self.assertEqual(result["points"][0]["previousDayCumulativeVolume"], 100.0)
+        self.assertEqual(result["points"][0]["currentDayCumulativeVolume"], 200.0)
+
+    def test_sparkline(self):
+        payload = bytearray(42)
+        payload[0] = 0
+        payload[2:8] = b"000001"
+        payload[24] = 1
+        payload[34:36] = struct.pack("<H", 61)
+        payload[36:40] = struct.pack("<f", 11.11)
+        payload[40:42] = struct.pack("<H", 2)
+        body = bytes(payload) + struct.pack("<2f", 11.2, 11.1)
+        result = tdx_bridge.parse_sparkline(body)
+        self.assertEqual(result["code"], "000001")
+        self.assertEqual(result["count"], 2)
+        self.assertAlmostEqual(result["prices"][0], 11.2, places=2)
+
+
 if __name__ == "__main__":
     unittest.main()

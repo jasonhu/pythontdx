@@ -461,6 +461,41 @@ class ApiHandler(BaseHTTPRequestHandler):
                 with self.server.lock:
                     self._ok(self.server.bridge.minute(query.get("code", "")))
                 return
+            if parsed.path == "/api/minute_aux":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.minute_aux(
+                            query.get("code", ""),
+                            query.get("kind", "buy_sell_strength"),
+                        )
+                    )
+                return
+            if parsed.path == "/api/minute_aux_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.minute_aux_archive_list(
+                            int(query.get("limit", "50"))
+                        )
+                    )
+                return
+            if parsed.path == "/api/sparkline":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.sparkline(
+                            query.get("code", ""),
+                            int(query.get("selector", "1")),
+                            int(query.get("window", "20")),
+                        )
+                    )
+                return
+            if parsed.path == "/api/sparkline_archives":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.sparkline_archive_list(
+                            int(query.get("limit", "50"))
+                        )
+                    )
+                return
             if parsed.path == "/api/five_day":
                 with self.server.lock:
                     self._ok(self.server.bridge.five_day(query.get("code", "")))
@@ -743,6 +778,25 @@ class ApiHandler(BaseHTTPRequestHandler):
                     self._ok(
                         self.server.bridge.block_meta_archive_save(
                             str(payload.get("filename") or "")
+                        )
+                    )
+                return
+            if parsed.path == "/api/minute_aux_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.minute_aux_archive_save(
+                            str(payload.get("code") or ""),
+                            str(payload.get("kind") or "buy_sell_strength"),
+                        )
+                    )
+                return
+            if parsed.path == "/api/sparkline_archive_save":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.sparkline_archive_save(
+                            str(payload.get("code") or ""),
+                            int(payload.get("selector", 1)),
+                            int(payload.get("window", 20)),
                         )
                     )
                 return

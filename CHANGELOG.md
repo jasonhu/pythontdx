@@ -32,8 +32,9 @@ pythontdx 的所有重要变更都记录在这里。
   （上涨/下跌家数）。K 线浮层显示成交额；旧 Parquet 没有这些列时兼容读取为
   `null`，下次网络请求自动回写完整列。
 - **协议能力第一批**：独立实现 `0x000f` 股本变迁/GBBQ、`0x0010` 财务 136B
-  全字段、`0x0452` 特殊品种涨跌停表、`0x052b` 退市日线（仅日线不复权），
-  新增 `/api/capital_*`、`/api/finance_*`、`/api/special_limits*`、
+  全字段、`0x0452` 特殊品种涨跌停表、`0x052b` 退市日线（仅日线不复权）、
+  `0x052d` 定点复权（`fixed_qfq`/`fixed_hfq` + anchor），新增
+  `/api/capital_*`、`/api/finance_*`、`/api/special_limits*`、
   `/api/delisted_*`；分别写 `lake/corporate`、`lake/finance`、
   `lake/special_limits`、`lake/delisted`，均带 manifest/SHA 并纳入 data coverage。
 

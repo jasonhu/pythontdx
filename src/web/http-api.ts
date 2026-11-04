@@ -515,6 +515,7 @@ export function createHttpApi(): PythonTdxApi {
           period: req.period,
           count: String(req.count ?? 200),
           adjust: req.adjust ?? 'qfq',
+          ...(req.anchorDate ? { anchorDate: req.anchorDate } : {}),
           ...(req.cacheOnly ? { cacheOnly: '1' } : {})
         })
         return request<KLineSeries>(`/api/kline?${params.toString()}`)

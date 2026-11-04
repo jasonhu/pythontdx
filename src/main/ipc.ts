@@ -387,7 +387,9 @@ export function registerIpcHandlers(context: IpcContext): void {
       request.count ?? 200,
       request.adjust ?? 'qfq',
       undefined,
-      request.cacheOnly === true
+      request.cacheOnly === true,
+      false,
+      request.anchorDate
     )
   )
 

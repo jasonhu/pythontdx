@@ -840,6 +840,7 @@ def bars_data(
     adjust: int,
     start: int = 0,
     period_param: int = 1,
+    anchor_date: int = 0,
 ) -> bytes:
     if count < 1 or count > 800:
         raise TdxError("单次 K 线请求必须在 1~800 根之间")
@@ -853,7 +854,7 @@ def bars_data(
         start,
         count,
         adjust,
-        0,
+        anchor_date,
         b"",
     )
 
@@ -5586,20 +5587,37 @@ class Bridge:
     # -- K 线 / 分时 -----------------------------------------------------
 
     def kline(
-        self, code: str, period: str, count: int, adjust: str = 'qfq', cache_only: bool = False
+        self,
+        code: str,
+        period: str,
+        count: int,
+        adjust: str = 'qfq',
+        cache_only: bool = False,
+        anchor_date: str | None = None,
     ) -> dict:
         market, symbol = parse_code(code)
         if period not in PERIOD_RAW:
             raise TdxError("K 线周期只支持 day / week / month")
 
         safe_count = max(1, min(800, int(count)))
-        safe_adjust = str(adjust) if str(adjust) in {"none", "qfq", "hfq"} else "qfq"
+        requested_adjust = str(adjust or "qfq")
+        fixed = requested_adjust in {"fixed_qfq", "fixed_hfq"}
+        if fixed and not anchor_date:
+            raise TdxError("定点复权必须提供 anchorDate")
+        anchor_raw = 0
+        if fixed:
+            text = str(anchor_date).replace("-", "")
+            if len(text) != 8 or not text.isdigit():
+                raise TdxError("anchorDate 必须是 YYYY-MM-DD 或 YYYYMMDD")
+            anchor_raw = int(text)
+        safe_adjust = requested_adjust if requested_adjust in {"none", "qfq", "hfq", "fixed_qfq", "fixed_hfq"} else "qfq"
+        cache_adjust = f"{safe_adjust}@{anchor_raw}" if fixed else safe_adjust
         kind = "index" if is_index_code(market, symbol) else "stock"
         if cache_only:
-            cached = _read_kline_cache(code, period, safe_count, safe_adjust)
+            cached = _read_kline_cache(code, period, safe_count, cache_adjust)
             if cached is not None:
                 return cached
-            full_path = _full_kline_cache_path(code, period, safe_adjust)
+            full_path = _full_kline_cache_path(code, period, cache_adjust)
             if full_path.is_file():
                 try:
                     full = read_bars(full_path)
@@ -5629,16 +5647,24 @@ class Bridge:
                     symbol,
                     PERIOD_RAW[period],
                     safe_count,
-                    {'none': 0, 'qfq': 1, 'hfq': 2}.get(safe_adjust, 1),
+                    {'none': 0, 'qfq': 1, 'hfq': 2, 'fixed_qfq': 3, 'fixed_hfq': 4}.get(safe_adjust, 1),
                     0,
                     {'5s': 5, '15s': 15, '2m': 2, '3m': 3, '4m': 4, '6m': 6, '8m': 8, '10m': 10, '12m': 12, '18m': 18, '20m': 20, '24m': 24, '36m': 36, '48m': 48, '2d': 2, '3d': 3, '4d': 4, '6d': 6, '9d': 9, '12d': 12, '18d': 18, '24d': 24, '45d': 45}.get(period, 1),
+                    anchor_raw,
                 ),
             )
             bars = parse_bars(body, kind, PERIOD_RAW[period])
-            _write_kline_cache(code, period, safe_count, safe_adjust, bars, "network")
-            return {"code": code, "period": period, "bars": bars, "source": "network"}
+            _write_kline_cache(code, period, safe_count, cache_adjust, bars, "network")
+            return {
+                "code": code,
+                "period": period,
+                "bars": bars,
+                "source": "network",
+                "adjust": safe_adjust,
+                "anchorDate": anchor_date if fixed else None,
+            }
         except Exception:
-            cached = _read_kline_cache(code, period, safe_count, safe_adjust)
+            cached = _read_kline_cache(code, period, safe_count, cache_adjust)
             if cached is not None:
                 return cached
             raise
@@ -6270,6 +6296,7 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
             payload.get("count", 200),
             str(payload.get("adjust", "qfq")),
             bool(payload.get("cacheOnly")),
+            payload.get("anchorDate") or None,
         )
     if cmd == "data_integrity":
         return verify_data_integrity(pythontdx_data_dir())

@@ -475,7 +475,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
       const result = await api.data.patterns({
         code: props.code,
         period: tab(),
-        adjust: adjust(),
+        adjust: adjust() as 'none' | 'qfq' | 'hfq',
         lookback: 160
       })
       setSmartPlans(result.plans)
@@ -1134,7 +1134,7 @@ export function ChartPanel(props: ChartPanelProps): JSX.Element {
                 {(series) => (
                   <KLineChart
                     series={series()}
-                    adjust={adjust()}
+                    adjust={adjust() as 'none' | 'qfq' | 'hfq'}
                     boll={showBoll()}
                     showAverages={showAverages()}
                     bollPeriod={appState.settings.indicatorParams?.bollPeriod ?? 20}

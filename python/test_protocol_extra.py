@@ -123,5 +123,24 @@ class TestCapitalChanges(unittest.TestCase):
         self.assertEqual(shares["c4"], 48_500_000)
 
 
+class TestFixedAdjustmentRequest(unittest.TestCase):
+    def test_anchor_and_adjust_mode_are_encoded(self):
+        body = tdx_bridge.bars_data(
+            market=0,
+            symbol="000001",
+            period=4,
+            count=3,
+            adjust=3,
+            start=0,
+            period_param=1,
+            anchor_date=20240603,
+        )
+        # <H market><6s code><H period><H param><H start><H count><H adjust><I anchor>
+        offset = 2 + 6 + 2 + 2 + 2 + 2
+        adjust, anchor = struct.unpack_from("<HI", body, offset)
+        self.assertEqual(adjust, 3)
+        self.assertEqual(anchor, 20240603)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -834,17 +834,25 @@ export async function fetchKline(
   adjust: KLineAdjust = 'qfq',
   signal?: AbortSignal,
   cacheOnly = false,
-  fresh = false
+  fresh = false,
+  anchorDate?: string
 ): Promise<KLineSeries> {
   assertSupported(code)
   if (signal?.aborted) throw new TdxError('请求已取消')
 
   const safeCount = Math.min(800, Math.max(1, Math.trunc(count)))
+  const request = {
+    code,
+    period,
+    count: safeCount,
+    adjust,
+    ...(anchorDate ? { anchorDate } : {})
+  }
   if (cacheOnly) {
     // 首屏本地缓存：插到队首，别排在行情/迷你图后面。
     return bridge.send<KLineSeries>(
       'kline',
-      { code, period, count: safeCount, adjust, cacheOnly: true },
+      { ...request, cacheOnly: true },
       QUOTES_TIMEOUT_MS,
       true
     )
@@ -854,13 +862,11 @@ export async function fetchKline(
    * 不能把 60 秒 TTL 的旧 K 线当成实时推送。用户手动点刷新仍走缓存合并。
    */
   if (fresh) {
-    return bridge.send<KLineSeries>('kline', { code, period, count: safeCount, adjust })
+    return bridge.send<KLineSeries>('kline', request)
   }
-  const key = `${code}:${period}:${safeCount}:${adjust}`
+  const key = `${code}:${period}:${safeCount}:${adjust}:${anchorDate ?? ''}`
 
-  return klineCache.resolve(key, () =>
-    bridge.send<KLineSeries>('kline', { code, period, count: safeCount, adjust })
-  )
+  return klineCache.resolve(key, () => bridge.send<KLineSeries>('kline', request))
 }
 
 /** 按 `date` 合并 K 线；tail 只有最近 20 根，不能覆盖掉本地 800 根历史。 */

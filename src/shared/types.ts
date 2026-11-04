@@ -701,7 +701,7 @@ export type KLinePeriod =
   | '45d'
   | 'quarter'
   | 'year'
-export type KLineAdjust = 'none' | 'qfq' | 'hfq'
+export type KLineAdjust = 'none' | 'qfq' | 'hfq' | 'fixed_qfq' | 'fixed_hfq'
 
 export interface KLineBar {
   /** YYYY-MM-DD，分钟 K 为 YYYY-MM-DD HH:MM */

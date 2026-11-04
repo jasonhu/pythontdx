@@ -294,6 +294,8 @@ export interface KLineRequest {
   count?: number
   /** 复权口径；默认前复权 */
   adjust?: KLineAdjust
+  /** 定点复权锚点日期 YYYY-MM-DD；仅 fixed_qfq/fixed_hfq 使用 */
+  anchorDate?: string
   /** 只读本地缓存；启动首屏用，不访问行情服务器 */
   cacheOnly?: boolean
 }

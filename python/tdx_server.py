@@ -353,6 +353,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                             int(query.get("count", "200")),
                             query.get("adjust", "qfq"),
                             query.get("cacheOnly") in {"1", "true", "yes"},
+                            query.get("anchorDate") or None,
                         )
                     )
                 return

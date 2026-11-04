@@ -878,6 +878,23 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/f10_hot_topics":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_hot_topics(
+                            payload.get("code", ""), payload.get("section", "zttzbkz")
+                        )
+                    )
+                return
+            if parsed.path == "/api/f10_detail":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_detail(
+                            str(payload.get("detailType") or ""),
+                            str(payload.get("recordId") or ""),
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_ranking_detail":
                 with self.server.lock:
                     self._ok(

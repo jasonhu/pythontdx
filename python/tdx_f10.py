@@ -1332,6 +1332,26 @@ def fetch_northbound_holding(
     return {"section": section, **_parse_result_table(payload)}
 
 
+def fetch_hot_topics(code: str, section: str = "zttzbkz") -> dict:
+    """7615 个股热点题材。"""
+    _market, symbol = _market_of(code)
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_rdtc", {"Params": [symbol, section]}
+    )
+    return {"section": section, **_parse_result_table(payload)}
+
+
+def fetch_detail(detail_type: str, record_id: str | int) -> dict:
+    """7615 按记录 ID 读取公告/新闻/研报正文。"""
+    kind = str(detail_type or "").strip()
+    if not kind:
+        raise F10Error("详情类型不能为空")
+    payload = _post_tqlex(
+        "CWServ.tdxf10_gg_idreq", {"Params": [kind, str(record_id)]}
+    )
+    return {"detailType": kind, "recordId": str(record_id), **_parse_result_table(payload)}
+
+
 # ---------------------------------------------------------------- 板块 / 指数 / 大盘
 
 MARKET_REPORT_SECTIONS = {
@@ -1442,6 +1462,7 @@ _F10_PIT_TABLES = (
     "dividend",
     "finance",
     "governance",
+    "hot_topics",
     "industry",
     "institutions",
     "news",

@@ -438,6 +438,20 @@ class TestF10DigestAndNews(unittest.TestCase):
         self.assertTrue(entry.endswith("tdxi_zxxwnews"))
         self.assertEqual(body["Params"], ["1", "201", "2", "20", ""])
 
+    def test_hot_topics_and_detail(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [{"ColName": ["id", "ztmc"], "Content": [[2945, "存储芯片"]]}],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload) as post:
+            topics = tdx_f10.fetch_hot_topics("sz000034")
+        self.assertEqual(topics["rows"][0][1], "存储芯片")
+        self.assertEqual(post.call_args.args[1]["Params"], ["000034", "zttzbkz"])
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload) as post:
+            detail = tdx_f10.fetch_detail("gg", 123)
+        self.assertEqual(detail["recordId"], "123")
+        self.assertEqual(post.call_args.args[1]["Params"], ["gg", "123"])
+
 
 if __name__ == "__main__":
     unittest.main()

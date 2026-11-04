@@ -100,8 +100,10 @@ from tdx_f10 import (
     fetch_business,
     fetch_channel_news,
     fetch_digest,
+    fetch_detail,
     fetch_finance,
     fetch_governance,
+    fetch_hot_topics,
     fetch_market_news,
     fetch_market_report,
     fetch_news,
@@ -4947,6 +4949,12 @@ class Bridge:
     def f10_governance(self, code: str, section: str = "gljy") -> dict:
         return fetch_governance(code, section)
 
+    def f10_hot_topics(self, code: str, section: str = "zttzbkz") -> dict:
+        return fetch_hot_topics(code, section)
+
+    def f10_detail(self, detail_type: str, record_id: str) -> dict:
+        return fetch_detail(detail_type, record_id)
+
     def f10_ranking_detail(self, code: str, section: str = "scpmdela") -> dict:
         return fetch_ranking_detail(code, section)
 
@@ -6800,6 +6808,14 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
     if cmd == "f10_governance":
         return bridge.f10_governance(
             str(payload.get("code") or ""), str(payload.get("section") or "gljy")
+        )
+    if cmd == "f10_hot_topics":
+        return bridge.f10_hot_topics(
+            str(payload.get("code") or ""), str(payload.get("section") or "zttzbkz")
+        )
+    if cmd == "f10_detail":
+        return bridge.f10_detail(
+            str(payload.get("detailType") or ""), str(payload.get("recordId") or "")
         )
     if cmd == "f10_ranking_detail":
         return bridge.f10_ranking_detail(

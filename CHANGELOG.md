@@ -10,6 +10,15 @@ pythontdx 的所有重要变更都记录在这里。
 
 ---
 
+## [1.3.5] - 2026-11-04
+
+### 修复
+
+- **点击「开始并行同步」报 `An object could not be cloned`**：上次配置里的
+  `datasets` 是 Solid store 的 Proxy，初始化到 `syncSelection` 后直接塞进
+  IPC payload。现在初始化、预设、启动前都复制成普通数组；`codes` 同样复制。
+  打包版实测可正常建任务。
+
 ## [1.3.4] - 2026-11-04
 
 ### 变更

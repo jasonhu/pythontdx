@@ -269,9 +269,12 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
 
   /* ------------------------------------- 并行离线同步（多进程×多线程×多服务器） */
   const savedSync = appState.settings.offlineSync
+  // Solid store 里的数组是 Proxy，直接塞进 IPC payload 会 "could not be cloned"。
+  // 初始化时就复制成普通数组；后续 toggle 也返回新数组。
+  const savedDatasets = savedSync?.datasets ? [...savedSync.datasets] : []
   const [syncCatalog, setSyncCatalog] = createSignal<OfflineSyncCatalog | null>(null)
   const [syncStatus, setSyncStatus] = createSignal<OfflineSyncStatus | null>(null)
-  const [syncSelection, setSyncSelection] = createSignal<string[]>(savedSync?.datasets ?? [])
+  const [syncSelection, setSyncSelection] = createSignal<string[]>(savedDatasets)
   const [syncScope, setSyncScope] = createSignal<'watchlist' | 'all'>(
     savedSync?.scope ?? 'watchlist'
   )
@@ -294,7 +297,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
   createEffect(() => {
     updateSettings({
       offlineSync: {
-        datasets: syncSelection(),
+        datasets: [...syncSelection()],
         scope: syncScope(),
         source: syncSource(),
         processes: syncProcesses(),
@@ -350,7 +353,7 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     const preset = syncCatalog()?.presets[key]
     if (!preset) return
     syncSelectionTouched = true
-    setSyncSelection(preset.datasets)
+    setSyncSelection([...preset.datasets])
     if (preset.scope === 'all' || preset.scope === 'watchlist') {
       setSyncScope(preset.scope)
     }
@@ -370,9 +373,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setSyncError(null)
     try {
       const status = await api.data.offlineSyncStart({
-        datasets: syncSelection(),
+        datasets: [...syncSelection()],
         scope: syncScope(),
-        codes: watchCodes(),
+        codes: [...watchCodes()],
         source: syncSource(),
         processes: syncProcesses(),
         threads: syncThreads(),

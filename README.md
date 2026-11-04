@@ -5,9 +5,9 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `7709 / MAC / 7615`
 
-**v1.3.5** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
+**v1.4.0-rc13** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
 
-`npm run check` **359 TS（357 通过 / 2 skipped）+ 280 Python（279 通过 / 1 skipped）**
+`npm run check` **359 TS（357 通过 / 2 skipped）+ 281 Python（280 通过 / 1 skipped）**
 
 [GitHub Releases](https://github.com/riverzhou/pythontdx/releases) ·
 [数据并行同步](docs/18-离线数据并行同步.md) ·
@@ -26,9 +26,10 @@
 - **本地数据湖**：Parquet/ZSTD + DuckDB、JSONL.gz、`trade_date=` 分区、manifest + SHA256；
 - **桌面 + Web**：同一套渲染层，桌面走 IPC，Web 走 HTTP/SSE/WebSocket。
 
-> 1.3.1 修复了指数量单位（大盘量图被最后一根 100× 压扁）和尾盘集合竞价
-> （`0x056a selector=1`）两个问题。发布说明见
-> [RELEASE_NOTES-1.3.1.md](RELEASE_NOTES-1.3.1.md)。
+> **1.4.0 重点**：离线 K 线下载重做。日 K 改用官方 `0x06b9` `.day` 文件，
+> 1 分钟 K 改为 100 日窗口 + 本地缓存复用；Parquet 写入从约 4 秒/文件降到
+> 0.19 秒/文件，1m 批量速度提升约 20 倍；数据工具增加任务摘要、失败/中断续跑
+> 和自动续跑。官方 1 分钟**没有 HTTP 文件 URL**，是行情协议抓取后写 `vipdoc/*.lc1`。
 
 ---
 
@@ -77,8 +78,11 @@
 ![数据工具](docs/assets/pythontdx-1.3-data.png)
 
 - 并行离线同步：8 进程 × 4 线程默认（可调 1–48 × 1–4），24 个数据集；
-- 日 K（全历史）与 1 分钟 K（最近 100 交易日，服务端实际约 92 日/22,080 根）是两个独立选项；
-- 数据集勾选、范围、数据源、进程/线程数、跳过已有会作为「上次配置」持久化；
+- 日 K（全历史，官方 `0x06b9` `.day` 文件）与 1 分钟 K（最近 100 交易日，服务端实际约 92 日/22,080 根）是两个独立选项；
+- 数据集勾选、范围、数据源、进程/线程数、跳过已有、自动续跑会持久化；
+- 最近任务摘要保留 `completed / failed / incomplete / cancelled`，中断任务可一键续跑，默认自动续跑一次；
+- 1m 任务先用本地 1m 缓存补最近几页，再写 `lake/kline_1m`；全市场 100 只实测 8.2 秒（48×4）；
+- Parquet 写入使用临时 CSV staging，最终仍是 Parquet+ZSTD+manifest，CSV 不保留；
 - 每个耗时操作都有进度条：同步（探测/计划/完成数/吞吐/ETA）、下载 zhb.zip、
   扫描/校验、备份/恢复字节进度、K 线导出、全市场快照、数据湖归档、本地导入/写回；
 - 08:45–15:45 自动保护：窗口内启动返回 `blocked`，跑到一半暂停，15:45 后续跑。
@@ -238,7 +242,7 @@ python -m pytest python -q
 npm run audit:data
 ```
 
-当前基线：**359 TS（357 通过 / 2 skipped）+ 280 Python（279 通过 / 1 skipped）**。
+当前基线：**359 TS（357 通过 / 2 skipped）+ 281 Python（280 通过 / 1 skipped）**。
 协议测试使用 `python/fixtures/` 真实报文；MAC/GBBQ/gpcw/离线同步均有独立单测。
 
 ---

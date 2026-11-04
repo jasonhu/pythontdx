@@ -417,9 +417,9 @@ export function DataPanel(props: DataPanelProps): JSX.Element {
     setSyncBusy(true)
     setSyncError(null)
     try {
-      const { jobId: _oldJobId, ...rest } = last.options
       const options = {
-        ...rest,
+        ...last.options,
+        jobId: undefined,
         // 中断任务续跑：已有有效归档跳过，只补失败/未完成的。
         skipExisting: true
       } as OfflineSyncOptions

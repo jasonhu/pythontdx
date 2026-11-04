@@ -10,6 +10,46 @@ pythontdx 的所有重要变更都记录在这里。
 
 ---
 
+## [1.4.0] - 2026-11-04
+
+### 新增
+
+- **官方日 K 文件通道**：`0x06b9` 直接下载 `vipdoc/{sh,sz,bj}/lday/<code>.day`，
+  6,035 根全历史约 7 个 30KB 块；失败才回退 0x052d 分页。实测 100 只 16×4
+  仅 6.2 秒。
+- **1 分钟 K 100 日窗口**：独立 `kline_1m` 数据集；优先复用本地 1m 全历史缓存，
+  只补最新页，写 `lake/kline_1m/trade_date=<末日>/<code>.parquet`。
+- **Parquet 写入加速**：从 DuckDB 逐行 INSERT 改为临时 CSV staging + `COPY`；
+  2.2 万行从约 4 秒降到约 0.19 秒/文件；最终仍是 Parquet+ZSTD。
+- **任务摘要与续跑**：最近任务摘要保留 `completed/failed/incomplete/cancelled`、
+  计划/完成/失败/行数、数据集和目录；失败/中断可一键续跑；新增「自动续跑」
+  开关，桥接重启后自动续跑一次。
+- **日 K 缓存按最近交易日刷新**：skipExisting 不再把上一交易日的日 K 永久跳过。
+
+### 修复
+
+- **Windows worker 看门狗**：`os.kill(pid, 0)` 在 Windows 会发 `CTRL_C_EVENT`，
+  把父 sidecar 和所有 worker 一起打断；改用 `OpenProcess + WaitForSingleObject`。
+- **任务中断清理**：父进程退出后 worker 自动退出，不再留下 48 个孤儿进程吃 CPU。
+- **数据面板自动扫描**：打开面板不再自动扫 40 万文件，避免 20s 超时杀桥接；
+  扫描超时 120s，同步与扫描互斥。
+- **同步启动 IPC 克隆**：datasets/codes 复制为普通数组，修复
+  `An object could not be cloned`。
+
+### 调查结论
+
+- 官方离线数据本地是 `vipdoc/*.day`、`*/minline/*.lc1`、`*/fzline/*.lc5` 文件；
+- 日 K 可从 7719 文件服务/0x06b9 取到；
+- 1 分钟**没有 HTTP 文件 URL**：7719 对 `.lc1` 返回 size=0；官方用行情协议抓取后
+  写本地 `.lc1`。因此本项目 1m 继续走 0x052d，不伪造文件通道。
+
+### 验证
+
+- `npm run check`：359 TS（357/2 skipped）+ 281 Python（280/1 skipped）；
+- 1m 100 只：48×4 **8.2 秒**，8×4 **12.3 秒**；
+- 日 K 100 只：16×4 **6.2 秒**，48×4 **12.2 秒**；
+- 全量覆盖审计仍不完整；任务摘要会明确标 `incomplete`，可续跑。
+
 ## [1.3.5] - 2026-11-04
 
 ### 修复

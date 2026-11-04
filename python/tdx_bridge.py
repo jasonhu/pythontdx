@@ -102,6 +102,7 @@ from tdx_f10 import (
     fetch_finance,
     fetch_governance,
     fetch_market_news,
+    fetch_market_report,
     fetch_news,
     fetch_northbound_holding,
     fetch_profile,
@@ -4919,6 +4920,16 @@ class Bridge:
             pythontdx_data_dir() / "lake" / "market_news", limit
         )
 
+    def f10_market_report(
+        self,
+        code: str = "",
+        section: str = "board_info",
+        arg: str = "",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict:
+        return fetch_market_report(code, section, arg, page, page_size)
+
     def f10_profit_forecast(self, code: str, section: str = "ylyctj") -> dict:
         return fetch_profit_forecast(code, section)
 
@@ -6756,6 +6767,14 @@ def dispatch(bridge: Bridge, cmd: str, payload: dict) -> object:
         )
     if cmd == "f10_market_news_archive_list":
         return bridge.f10_market_news_archive_list(int(payload.get("limit", 50)))
+    if cmd == "f10_market_report":
+        return bridge.f10_market_report(
+            str(payload.get("code") or ""),
+            str(payload.get("section") or "board_info"),
+            str(payload.get("arg") or ""),
+            int(payload.get("page", 1)),
+            int(payload.get("pageSize", 20)),
+        )
     if cmd == "f10_profit_forecast":
         return bridge.f10_profit_forecast(
             str(payload.get("code") or ""), str(payload.get("section") or "ylyctj")

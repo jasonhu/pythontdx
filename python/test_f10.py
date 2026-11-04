@@ -411,6 +411,18 @@ class TestF10DigestAndNews(unittest.TestCase):
         self.assertEqual(len(result["tables"]), 2)
         self.assertEqual(result["tables"][1]["rows"][0], [1.1, 100.0])
 
+    def test_market_report_request(self):
+        payload = {
+            "ErrorCode": 0,
+            "ResultSets": [{"ColName": ["N001"], "Content": [["上证指数"]]}],
+        }
+        with patch.object(tdx_f10, "_post_tqlex", return_value=payload) as post:
+            result = tdx_f10.fetch_market_report("sh000001", "market_basic")
+        self.assertEqual(result["section"], "market_basic")
+        entry, body = post.call_args.args
+        self.assertTrue(entry.endswith("skef10_dpzx_jbxx"))
+        self.assertEqual(body["Params"], ["002", "000001"])
+
 
 if __name__ == "__main__":
     unittest.main()

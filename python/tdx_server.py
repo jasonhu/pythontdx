@@ -839,6 +839,18 @@ class ApiHandler(BaseHTTPRequestHandler):
                         )
                     )
                 return
+            if parsed.path == "/api/f10_market_report":
+                with self.server.lock:
+                    self._ok(
+                        self.server.bridge.f10_market_report(
+                            str(payload.get("code") or ""),
+                            str(payload.get("section") or "board_info"),
+                            str(payload.get("arg") or ""),
+                            int(payload.get("page", 1)),
+                            int(payload.get("pageSize", 20)),
+                        )
+                    )
+                return
             if parsed.path == "/api/f10_profit_forecast":
                 with self.server.lock:
                     self._ok(

@@ -1283,6 +1283,99 @@ def fetch_northbound_holding(
     return {"section": section, **_parse_result_table(payload)}
 
 
+# ---------------------------------------------------------------- 板块 / 指数 / 大盘
+
+MARKET_REPORT_SECTIONS = {
+    "board_info": ("CWServ.skef10_bk_getinfo", False),
+    "board_basics": ("CWServ.skef10_bk_cpbd_jczl", False),
+    "board_description": ("CWServ.skef10_bk_cpbd_jczl", False),
+    "board_trading": ("CWServ.skef10_bk_cpbd_jczl", False),
+    "board_flow": ("CWServ.skef10_bk_zjlx", False),
+    "board_members": ("CWServ.skef10_bk_scgl", False),
+    "board_analysis": ("CWServ.skef10_bk_sdfx", False),
+    "board_finance_compare": ("CWServ.skef10_bk_ggdb_cwdb", False),
+    "board_candidates": ("CWServ.skef10_bk_cfgsj", False),
+    "board_trend": ("CWServ.skef10_bk_ydfx", False),
+    "index_info": ("CWServ.skef10_zs_getinfo", False),
+    "index_profile": ("CWServ.skef10_zs_jbxx_zsgk", False),
+    "index_valuation": ("CWServ.skef10_zs_jbxx_gzxx", False),
+    "index_tracking": ("CWServ.skef10_zs_jbxx_gzbd", False),
+    "index_flow": ("CWServ.skef10_zs_zjdx", False),
+    "index_flow_members": ("CWServ.skef10_zs_cfgsj_cfgjcsj", False),
+    "index_notices": ("CWServ.skef10_zs_jrts", False),
+    "market_basic": ("CWServ.skef10_dpzx_jbxx", False),
+    "market_margin": ("CWServ.skef10_dpzx_rzrq", False),
+    "market_margin_summary": ("CWServ.skef10_dpzx_rzrq", False),
+    "market_margin_investors": ("CWServ.skef10_dpzx_rzrq", True),
+    "market_new_shares": ("CWServ.skef10_dpzx_xgfx", True),
+    "market_capital": ("CWServ.skef10_dpzx_scgl", True),
+}
+
+
+def _code6(code: str) -> str:
+    text = str(code or "").strip().lower()
+    if len(text) == 8 and text[:2] in {"sh", "sz", "bj"}:
+        text = text[2:]
+    if len(text) != 6 or not text.isdigit():
+        raise F10Error(f"代码格式不合法：{code}")
+    return text
+
+
+def fetch_market_report(
+    code: str = "",
+    section: str = "board_info",
+    arg: str = "",
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """7615 板块/指数/大盘 F10：23 个常用 section。"""
+    if section not in MARKET_REPORT_SECTIONS:
+        raise F10Error(f"不支持的市场资料分区：{section}")
+    entry, code_less = MARKET_REPORT_SECTIONS[section]
+    symbol = "" if code_less else _code6(code)
+    page_text, size_text = str(max(1, page)), str(max(1, min(page_size, 100)))
+    if section == "board_info":
+        params = [symbol]
+    elif section in {"board_basics", "board_description", "board_trading"}:
+        params = [{"board_basics": "001", "board_description": "002", "board_trading": "004"}[section], symbol, ""]
+    elif section == "board_flow":
+        params = [arg or "001_1", symbol, ""]
+    elif section == "board_members":
+        params = [arg or "001", symbol, page_text, size_text]
+    elif section == "board_analysis":
+        params = ["001", symbol, ""]
+    elif section in {"board_finance_compare", "board_trend"}:
+        params = [symbol]
+    elif section == "board_candidates":
+        params = [arg or "001", symbol]
+    elif section == "index_info":
+        params = [symbol]
+    elif section in {"index_profile", "index_valuation"}:
+        params = [symbol] if section == "index_profile" else ["001", symbol, "", ""]
+    elif section == "index_tracking":
+        params = [symbol, page_text, size_text]
+    elif section == "index_flow":
+        params = [arg or "004_1", symbol, "", "", page_text, size_text]
+    elif section == "index_flow_members":
+        params = [arg or "001", symbol, page_text, size_text]
+    elif section == "index_notices":
+        params = [arg or "001", symbol, page_text, size_text]
+    elif section == "market_basic":
+        params = ["002", symbol]
+    elif section == "market_margin":
+        params = ["001", symbol]
+    elif section == "market_margin_summary":
+        params = ["002", symbol]
+    elif section == "market_margin_investors":
+        params = ["003", arg or "1m"]
+    elif section == "market_new_shares":
+        params = ["002"]
+    else:
+        params = [arg or "004"]
+    payload = _post_tqlex(entry, {"Params": params})
+    return {"section": section, "tables": _parse_all_tables(payload, 200)}
+
+
 # ---------------------------------------------------------------- PIT 自动快照
 #
 # 所有公开 F10 fetch 统一包一层：成功返回后按 snapshot_date + code + table 写

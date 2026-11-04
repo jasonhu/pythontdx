@@ -455,6 +455,29 @@ def summarize_job_dir(job_dir: Path) -> dict[str, Any] | None:
             except (TypeError, ValueError):
                 normalized_datasets[str(name)] = 0
 
+    # 旧 manifest 的 datasets.done 可能因历史 worker 映射 bug 全是 0；
+    # 有 progress 文件时用真实 done 回填，避免摘要显示一排 0/—。
+    if normalized_datasets and not any(normalized_datasets.values()):
+        recovered: dict[str, int] = {}
+        for path in (job_dir / "progress").glob("worker-[0-9][0-9][0-9].json"):
+            try:
+                payload = json.loads(path.read_text("utf-8"))
+            except (OSError, ValueError):
+                continue
+            for name, bucket in (payload.get("datasets") or {}).items():
+                if isinstance(bucket, dict):
+                    recovered[str(name)] = recovered.get(str(name), 0) + int(
+                        bucket.get("done") or 0
+                    )
+        if recovered and any(recovered.values()):
+            normalized_datasets = recovered
+        elif isinstance(plan.get("datasets"), dict):
+            normalized_datasets = {
+                str(name): int(value or 0)
+                for name, value in plan["datasets"].items()
+                if not isinstance(value, dict)
+            }
+
     started = manifest.get("startedAt") or plan.get("plannedAt")
     finished = manifest.get("finishedAt")
     if not finished:

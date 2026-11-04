@@ -5,7 +5,7 @@
 
 `Electron` · `Vite` · `SolidJS` · `TypeScript` · `Python` · `7709 / MAC / 7615`
 
-**v1.4.0-rc14** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
+**v1.4.0-rc15** · GPL-3.0-or-later · Windows x64 / macOS arm64 / Linux x64
 
 `npm run check` **359 TS（357 通过 / 2 skipped）+ 281 Python（280 通过 / 1 skipped）**
 

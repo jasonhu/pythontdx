@@ -37,7 +37,11 @@ export default tseslint.config(
       'build/**',
       'resources/**',
       'scripts/**/*.cjs',
-      'package-lock.json'
+      'package-lock.json',
+      // 本地虚拟环境与工具产物：CI 里不存在，本地不应进入 lint
+      '.venv/**',
+      '.playwright-mcp/**',
+      '.spec-workflow/**'
     ]
   },
 

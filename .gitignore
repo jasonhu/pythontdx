@@ -33,10 +33,15 @@ npm-debug.log*
 !.env.example
 
 # Python 行情桥接进程
+.venv/
 python/build/
 python/dist/
 __pycache__/
 *.pyc
+
+# 本地工具目录（Playwright / spec-workflow 的运行时产物）
+.playwright-mcp/
+.spec-workflow/
 
 # 下载的原始行情文件（默认在 ~/.local/share/pythontdx/data）
 data/
